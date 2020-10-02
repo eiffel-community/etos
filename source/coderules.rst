@@ -4,7 +4,7 @@
 Code Rules
 ##########
 
-| `Tox <https://tox.readthedocs.io>`__ is executed on each pull request to execute all tests, linters and code rules.
+| `Tox <https://tox.readthedocs.io>`_ is executed on each pull request to execute all tests, linters and code rules.
 | This can also be run locally by `installing tox <https://tox.readthedocs.io/en/latest/install.html>`_ and running the command.
 
 - `black <https://github.com/psf/black>`_ for general code formatting.
