@@ -1,3 +1,6 @@
+.. _index:
+
+
 Welcome to ETOS's documentation!
 ================================
 
