@@ -11,6 +11,7 @@ Welcome to ETOS's documentation!
    :caption: Contents:
 
    getting_started/index
+   concepts/index
    Versioning <versioning>
    Code rules <coderules>
    Roles <roles/index>

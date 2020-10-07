@@ -20,8 +20,8 @@ But it is also easy to miss a few steps that are required for it to work.
 For this reason we have created a checklist in order to keep track of what needs to be done so that no steps are forgotten.
 
 * |checkbox| Set up a `Kubernetes <https://kubernetes.io/>`_ cluster (ETOS runs in Kubernetes)
-* |checkbox| Set up an execution space (Execute test runner containers)
-* |checkbox| Set up a log area (Storing logs after execution)
+* |checkbox| Set up an :ref:`execution_space` (Execute test runner containers)
+* |checkbox| Set up a :ref:`log_area` (Storing logs after execution)
 * |checkbox| Deploy `MongoDB <https://www.mongodb.com/>`_ (Event storage DB)
 * |checkbox| Deploy `Redis Sentinel <https://redis.io/topics/sentinel>`_ (ETOS internal communications)
 * |checkbox| Deploy `RabbitMQ <https://www.rabbitmq.com/>`_ (must be accessible outside of kubernetes as well)
@@ -38,9 +38,9 @@ For this reason we have created a checklist in order to keep track of what needs
 
    * |checkbox| :ref:`services/etos_environment_provider:Log Area Provider`
 
-* |checkbox| Create a :ref:`tercc`
+* |checkbox| Create an :ref:`tercc`
 
-   * |checkbox| Upload TERCC to an area with no required authorization.
+   * |checkbox| Upload the :ref:`tercc` to an area with no required authorization.
 
 * |checkbox| Generate an `ArtC <https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelArtifactCreatedEvent.md>`_
 * |checkbox| Generate an `ArtP <https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelArtifactPublishedEvent.md>`_

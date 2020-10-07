@@ -29,7 +29,7 @@ There are a few built-in datastructures in the environment provider as well in o
 
 For the :ref:`Execution Space Provider <services/etos_environment_provider:Execution Space Provider>` there is another data structure.
 
-- execution_space_instructions: Used to override the instructions or add more instructions for the execution space.
+- execution_space_instructions: Used to override the instructions or add more instructions for the :ref:`execution_space`.
 
 
 General Structure
@@ -68,7 +68,7 @@ An optional parameter in the provider structure. It's a command which will 'chec
 IUT Provider
 ============
 
-An IUT provider returns a list of JSON data describing an IUT (Item Under Test).
+An IUT provider returns a list of JSON data describing an :ref:`iut` (Item Under Test).
 
 The IUT provider follows the :ref:`general structure <services/etos_environment_provider:General Structure>` of 'list', 'checkout' and 'checkin' but also adds another part which is the 'prepare' part.
 
@@ -81,7 +81,7 @@ Prepare is still under development.
 Example
 -------
 
-A single static IUT
+A single static :ref:`iut`
 
 .. code-block:: json
 
@@ -182,10 +182,10 @@ Log Area Provider
 
 A log area provider makes sure that the ETOS system knows where and how to store logs and test artifacts during and after execution.
 
-A log area has several parts that must exist within the resulting log area definition (after listing and checking out)
+A :ref:`log area <log_area>` has several parts that must exist within the resulting :ref:`log area <log_area>` definition (after listing and checking out)
 
 - livelogs (required): A path to where live logs from the system can be viewed. Used in the test suite events.
-- upload (required): How to upload logs to the log area system. Follows the same syntax as JSONTas `requests <https://jsontas.readthedocs.io/en/latest/api/jsontas.data_structures.html#jsontas.data_structures.request.Request>`_ (without the '$' signs)
+- upload (required): How to upload logs to the :ref:`log area <log_area>` system. Follows the same syntax as JSONTas `requests <https://jsontas.readthedocs.io/en/latest/api/jsontas.data_structures.html#jsontas.data_structures.request.Request>`_ (without the '$' signs)
 - logs (optional): Extra formatting on logs.
    - prepend: an extra value to prepend to log files.
    - join_character: With which character to join the prepended data. Default: '_'
@@ -193,7 +193,7 @@ A log area has several parts that must exist within the resulting log area defin
 
 Example using JFrog Artifactory.
 Checkout any number of artifactory instances, storing logs in a folder based on the Eiffel context.
-Also prepend IP Address if the IUT has an 'ip_address' property.
+Also prepend IP Address if the :ref:`iut` has an 'ip_address' property.
 
 .. code-block:: json
 
@@ -256,7 +256,7 @@ Execution Space Provider
 ========================
 
 An execution space provider makes sure that the ETOS system knows where it can start the :ref:`etos-test-runner`.
-The execution space must have one required key, which is the 'request' key. This key is the description of how the :ref:`etos-suite-runner` can start the :ref:`etos-test-runner` instance.
+The :ref:`execution space <execution_space>` must have one required key, which is the 'request' key. This key is the description of how the :ref:`etos-suite-runner` can start the :ref:`etos-test-runner` instance.
 
 There is also a field called 'execution_space_instructions' that is dynamically created every time and can be overriden if more information needs to be added. These instructions are the instructions for how to execute the :ref:`etos-test-runner` docker container.
 
@@ -403,7 +403,7 @@ Note that the dataset can be added to any part of the JSON files. See :ref:`here
 Splitter
 ========
 
-The test suite spliter algorithms describe the strategy in which to split up the test suites when there are more than 1 IUT & Execution space.
+The test suite spliter algorithms describe the strategy in which to split up the test suites when there are more than 1 :ref:`iut` & :ref:`execution_space`.
 
 The feature of configuring this is not yet implemented. The idea is to either describe it with JSONTas or as extensions to ETOS.
 
