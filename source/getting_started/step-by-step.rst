@@ -19,13 +19,13 @@ But it is also easy to miss a few steps that are required for it to work.
 
 For this reason we have created a checklist in order to keep track of what needs to be done so that no steps are forgotten.
 
-* |checkbox| Set up a Kubernetes cluster (ETOS runs here)
+* |checkbox| Set up a `Kubernetes <https://kubernetes.io/>`_ cluster (ETOS runs in Kubernetes)
 * |checkbox| Set up an execution space (Execute test runner containers)
 * |checkbox| Set up a log area (Storing logs after execution)
-* |checkbox| Deploy MongoDB (Event storage DB)
-* |checkbox| Deploy Redis Sentinel (ETOS internal communications)
-* |checkbox| Deploy RabbitMQ (must be accessible outside of kubernetes as well)
-* |checkbox| Deploy `Eiffel GraphQL API <https://eiffel-graphql-api.readthedocs.io/en/latest/examples.html#start-api-docker>`_
+* |checkbox| Deploy `MongoDB <https://www.mongodb.com/>`_ (Event storage DB)
+* |checkbox| Deploy `Redis Sentinel <https://redis.io/topics/sentinel>`_ (ETOS internal communications)
+* |checkbox| Deploy `RabbitMQ <https://www.rabbitmq.com/>`_ (must be accessible outside of kubernetes as well)
+* |checkbox| Deploy `Eiffel GraphQL API <https://eiffel-graphql-api.readthedocs.io/en/latest/readme.html#>`_
 
   * |checkbox| Deploy an Eiffel event storage tool. `Example <https://eiffel-graphql-api.readthedocs.io/en/latest/examples.html#start-storage-docker>`_
 
@@ -40,11 +40,11 @@ For this reason we have created a checklist in order to keep track of what needs
 
 * |checkbox| Create a :ref:`tercc`
 
-   * |checkbox| Upload TERCC to an area with anonymous access.
+   * |checkbox| Upload TERCC to an area with no required authorization.
 
 * |checkbox| Generate an `ArtC <https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelArtifactCreatedEvent.md>`_
 * |checkbox| Generate an `ArtP <https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelArtifactPublishedEvent.md>`_
-* |checkbox| Verify that these exist in the Eiffel GraphQL API.
+* |checkbox| Verify that the ArtC and ArtP events exist in the Eiffel GraphQL API.
 * |checkbox| Install :ref:`getting_started/step-by-step:Installing ETOS Client on a workstation`
 * |checkbox| Set :ref:`services/etos_client:Environment variables` for ETOS Client
 * |checkbox| Test ETOS deployment using :ref:`ETOS Client <services/etos_client:General Syntax>`
