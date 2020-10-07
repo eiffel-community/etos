@@ -46,12 +46,7 @@ For this reason we have created a checklist in order to keep track of what needs
 * |checkbox| Generate an `ArtP <https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelArtifactPublishedEvent.md>`_
 * |checkbox| Verify that these exist in the Eiffel GraphQL API.
 * |checkbox| Install :ref:`getting_started/step-by-step:Installing ETOS Client on a workstation`
-* |checkbox| Set Environment variables for ETOS Client
-
-   * |checkbox| export ETOS_GRAPHQL_API=http://youreiffelgraphqlhost/graphql
-
-   * |checkbox| export ETOS_API=http://youretosapihost
-
+* |checkbox| Set :ref:`services/etos_client:Environment variables` for ETOS Client
 * |checkbox| Test ETOS deployment using :ref:`ETOS Client <services/etos_client:General Syntax>`
 
 
