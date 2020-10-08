@@ -56,7 +56,69 @@ Features
 Installation
 ============
 
-TBD (Helm)
+Requirements
+------------
+
+In order to install ETOS you need to meet the following requirements.
+
+- An up and running kubernets cluster (`<https://kubernetes.io/>`_)
+- Helm version 3.x installed (`<https://helm.sh/>`_)
+
+
+Installation Steps
+------------------
+
+1. First we need to add helm repository where the etos helm charts are stored
+
+::
+
+    helm repo add eiffel registry.nordix.org/eiffel
+
+2. Then simply install ETOS using helm
+
+::
+
+    helm install <name of the etos deployments> eiffel/etos --namespace <your kubernets namespace>
+
+Deploymennt Configuration
+-------------------------
+
+Following the installation step will give you a default configured etos deployment. Chances are that the default deployment configuration of ETOS will not work for your Infrastructure.
+To tailor the deployment to your specific infrastructure you need to create a configuration file and tell helm to use that file when installing ETOS.
+
+Here is an example of a standard etos configuration file that should get most configurations up and running.
+
+.. code-block:: yaml
+
+    global:
+      # This is the url to the eiffel graphql api
+      graphqlServerUrl: http://eiffel-graphql-api.my.cluster-url.com
+      # This is the url where the deployed ETOS Environment Provider will be available
+      environmentProviderUrl: http://environment-provider.my.cluster-url.com
+      # This is the url where the deployed ETOS API will be available
+      etosApiUrl: http://etos-api.my.cluster-url.com
+
+    suite-starter:
+      rabbitMQ:
+        # this is the messege queue where suite starter listens for eiffel
+        queue_name: suite_starter.queue
+
+    # This is the configuration that should match your rabbitMQ deployment
+    # ETOS needs a rabbitMQ service to be able to subscribe and publish eiffel events
+    rabbitmqHost: dev-rabbitmq.myhost.com
+    rabbitmqExchange: my.eiffel.exchange
+    rabbitmqPort: "5671"
+    rabbitmqVhost: myvhost
+    rabbitMQ:
+      username: rabbit_user
+      password: rabbit_password
+
+    # This is the configuration that should match your redis deployment
+    # ETOS uses redis for internal communication and data storage
+    databaseHost: redis.redis.svc.cluster.local
+    databasePort: "26379"
+    redis:
+      password: my_redis_password
 
 
 Contribute

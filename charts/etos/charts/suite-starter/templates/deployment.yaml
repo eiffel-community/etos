@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "suite-starter.name" . }}-deployment
+  
+  labels:
+    app: {{ include "suite-starter.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "suite-starter.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "suite-starter.name" . }}
+        db: redis
+    spec:
+      serviceAccount: {{ .Values.global.serviceAccount.name }}
+      containers:
+        - name: {{ include "suite-starter.name" . }}
+          {{- include "etos.containerImage" . | indent 10 }}
+          env:
+            - name: RABBITMQ_QUEUE
+              value: {{ .Values.rabbitMQ.queue_name }}
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: password
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: username
+          envFrom:
+          - configMapRef:
+              name: etos

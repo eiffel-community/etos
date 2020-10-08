@@ -1,0 +1,1 @@
+Put some notes here on how to verify an ETOS deployment
