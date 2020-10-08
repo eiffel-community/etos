@@ -141,7 +141,7 @@ If you specify an option by using a parameter on the CLI command line, it overri
    * - Name
      - Required
      - Meaning
-   * - GRAPHQL_API
+   * - ETOS_GRAPHQL_API
      - Yes
      - Specifies URL to Eiffel GraphQL API instance to use.
    * - ETOS_API

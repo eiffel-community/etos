@@ -1,8 +1,8 @@
 .. _tercc:
 
-=====
-TERCC
-=====
+====================
+ETOS Test Collection
+====================
 
 This page describes the ETOS test collection.
 
