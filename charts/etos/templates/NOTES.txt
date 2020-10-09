@@ -1,1 +1,27 @@
-Put some notes here on how to verify an ETOS deployment
+Thank you for installing {{ .Chart.Name }}.
+Your release is named: {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+To verify the individual ETOS services, try:
+
+ETOS API
+========
+$ curl --head {{ .Values.global.etosApiUrl }}
+
+This should return 200 OK.
+
+ETOS Environment Provider
+=========================
+$ curl {{ .Values.global.environmentProviderUrl }}
+
+This should return 400 Bad request
+
+ETOS Suite-Starter
+==================
+$ kubectl logs $(kubectl get po --namespace={{ .Release.Namespace }}) | grep suite-starter | awk '{print $1}) --namespace={{ .Release.Namespace }}
+
+This should return logs without any apparent error messages.
