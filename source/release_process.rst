@@ -25,6 +25,9 @@ In other words:
 
 * New minor or major release on wednesday, uneven weeks.
 * Milestones communicate new releases ahead of time with issues.
+
+  * `Example milestone <https://github.com/eiffel-community/etos/milestone/1>`_
+  
 * Impact of issues decide whether milestone is major or minor.
 * Milestones are created and updated every friday.
 * There will always be at least two milestones active for two and four weeks in the future, respectively.
