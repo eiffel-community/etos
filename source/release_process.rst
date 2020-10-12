@@ -18,7 +18,7 @@ These miletones are updated and created every friday and there will always be at
 
 If backwards compatibility is broken then the feature will be deprecated, the new one activated and an issue for removing it will be added to a major milestone in the future so that users know ahead of time whene a breaking change is coming.
 
-This means that, at worst, users get a 4 week heads up for breaking changes.
+This means that, at worst, users get a 4 week heads up for breaking changes. And by breaking changes, we mean that a developer may have to change something in their code or :ref:`tercc` before they can upgrade.
 
 
 In other words:
