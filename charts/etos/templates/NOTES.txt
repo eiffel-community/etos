@@ -22,6 +22,6 @@ This should return 400 Bad request
 
 ETOS Suite-Starter
 ==================
-$ kubectl logs $(kubectl get po --namespace={{ .Release.Namespace }}) | grep suite-starter | awk '{print $1}) --namespace={{ .Release.Namespace }}
+$ kubectl logs -f -l app=suite-starter -n {{ .Release.Namespace }}
 
 This should return logs without any apparent error messages.
