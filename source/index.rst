@@ -13,6 +13,7 @@ Welcome to ETOS's documentation!
    getting_started/index
    concepts/index
    Versioning <versioning>
+   Release process <release_process>
    Code rules <coderules>
    Roles <roles/index>
    Services <services/index>
