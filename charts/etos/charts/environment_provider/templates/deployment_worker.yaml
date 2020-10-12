@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "environment-provider.name" . }}-workers
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "environment-provider.name" . }}-workers
+  template:
+    metadata:
+      labels:
+        app: {{ include "environment-provider.name" . }}-workers
+        db: redis
+    spec:
+      serviceAccountName: {{ .Values.global.serviceAccount.name }}
+      containers:
+        - name: {{ include "environment-provider.name" . }}
+          {{ include "etos.containerImage" . | indent 10 }}
+          command:
+            - "./worker.sh"
+          env:
+            - name: ETOS_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis
+                  key: password
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: password
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: username
+          envFrom:
+          - configMapRef:
+              name: etos          
+          ports:
+              - containerPort: 80
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: "app"
+                      operator: In
+                      values:
+                      - {{ include "environment-provider.name" . }}-workers
+                topologyKey: "kubernetes.io/hostname"  

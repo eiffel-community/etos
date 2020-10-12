@@ -1,0 +1,15 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  labels:
+    app: {{ include "environment-provider.name" .}}
+  name: {{ include "environment-provider.name" .}}
+spec:
+  rules:
+  - host: {{- include "environment-provider.host" . | indent 1 }}
+    http:
+      paths:
+      - backend:
+          serviceName: {{ include "environment-provider.name" . }}
+          servicePort: http
+        path: /

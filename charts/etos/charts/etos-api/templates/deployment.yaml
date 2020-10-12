@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "etos-api.name" . }}-deployment
+  
+  labels:
+    app: {{ include "etos-api.name" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "etos-api.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "etos-api.name" . }}
+        db: redis
+    spec:
+      containers:
+      - name: {{ include "etos-api.name" . }}
+        {{- include "etos.containerImage" . | indent 8 }}
+        envFrom:
+        - configMapRef:
+            name: etos
+        env:
+          - name: RABBITMQ_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: rabbitmq
+                key: password
+          - name: RABBITMQ_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: rabbitmq
+                key: username
+        ports:
+        - containerPort: 80
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: "app"
+                      operator: In
+                      values:
+                      - etos-api
+                topologyKey: "kubernetes.io/hostname"

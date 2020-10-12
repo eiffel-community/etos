@@ -1,0 +1,65 @@
+global:
+  serviceAccount:
+    name: etos-sa
+  development: false
+  graphqlServerUrl: http://eiffel-graphql.mycluster.myhost.com/graphql
+  environmentProviderUrl: http://environment-provider.mycluster.myhost.com
+  etosApiUrl: http://etos-api.mycluster.myhost.com
+
+suite-starter:
+  rabbitMQ:
+    queue_name: suite_starter
+
+suiteRunnerContainerImage: registry.nordix.org/eiffel-playground/etos-suite-runner
+suiteRunnerContainerImageTag: latest 
+
+httpProxy: ""
+httpsProxy: ""
+
+secretPath: /etc/
+defaultHttpTimeout: "3600"
+defaultWaitTimeout: "60"
+defaultTestResultTimeout: "86400"
+publishedEventHistorySize: "100"
+receivedEventHistorySize: "100"
+
+databaseHost: redis.redis.svc.cluster.local
+databasePort: "26379"
+
+rabbitmqHost: rabbitmq.myhost.com
+rabbitmqExchange: eiffel.exchange
+rabbitmqPort: "5671"
+rabbitmqVhost: /
+rabbitmqSSL: false
+environmentProviderGraphqlQueryTimeout: "60"
+environmentProviderEventDataTimeout: "60"
+environmentProviderTestSuiteTimeout: "10"
+
+# Environment provider checks for device every 5s. This means that we should always
+# wait for a longer time than that. Recommended is to add 10s, just to be safe.
+esrWaitForEnvironmentTimeout: "3610"
+
+rabbitMQ:
+  username: guest
+  password: guest
+
+redis:
+  password: lapass
+
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "etos-sa"
+
+service:
+  type: ClusterIP
+  port: 80
