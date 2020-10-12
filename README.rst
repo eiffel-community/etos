@@ -2,6 +2,8 @@
 ETOS
 ====
 
+.. image:: https://img.shields.io/badge/Stage-Sandbox-yellow.svg
+  :target: https://github.com/eiffel-community/community/blob/master/PROJECT_LIFECYCLE.md#stage-sandbox
 
 ETOS (Eiffel Test Orchestration System) is a new test orchestration system which takes away control of how to run and what to run from the system itself and places it into the hands of the relevant engineers.
 
