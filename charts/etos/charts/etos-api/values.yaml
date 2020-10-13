@@ -8,7 +8,7 @@ image:
   dev:
     repository: registry.nordix.org/eiffel-playground/etos-api
   prod:
-    repository: registry.nordix.org/eiffel-playground/etos-api
+    repository: registry.nordix.org/eiffel/etos-api
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 

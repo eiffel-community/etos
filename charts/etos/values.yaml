@@ -10,8 +10,12 @@ suite-starter:
   rabbitMQ:
     queue_name: suite_starter
 
-suiteRunnerContainerImage: registry.nordix.org/eiffel-playground/etos-suite-runner
-suiteRunnerContainerImageTag: latest 
+suiteRunner:
+  dev:
+    containerImage: "registry.nordix.org/eiffel-playground/etos-suite-runner"
+  prod:
+    containerImage: "registry.nordix.org/eiffel/etos-suite-runner"
+    tag: ""
 
 httpProxy: ""
 httpsProxy: ""

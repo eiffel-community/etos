@@ -6,9 +6,9 @@ replicaCount: 1
 
 image:
   dev:
-    repository: registry.nordix.org/eiffel-playground/etos-environment-provider 
-  prod:
     repository: registry.nordix.org/eiffel-playground/etos-environment-provider
+  prod:
+    repository: registry.nordix.org/eiffel/etos-environment-provider
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
