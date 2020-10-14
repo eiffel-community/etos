@@ -69,3 +69,13 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+
+{{- define "environment-provider.workerImage" -}}
+{{- if .Values.global.development }}
+image: {{ .Values.image.worker.dev.repository }}:dev
+imagePullPolicy: Always
+{{- else }}
+image: {{ .Values.image.worker.prod.repository }}:{{ .Values.image.worker.tag | default .Chart.AppVersion }}
+{{- end }}
+{{- end }}
