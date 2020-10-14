@@ -87,10 +87,10 @@ password: {{ printf "%s" .Values.redis.password | b64enc }}
 {{- end }}
 
 {{- define "etos.suiteRunnerContainerImage" -}}
-{{ if .Values.global.development }}
-SUITE_RUNNER: {{ .Values.suiteRunnerContainerImage }}:dev
+{{- if .Values.global.development }}
+SUITE_RUNNER: {{ .Values.suiteRunner.dev.containerImage }}:dev
 {{- else }}
-SUITE_RUNNER: {{ printf "%s:%s" .Values.suiteRunnerContainerImage .Values.suiteRunnerContainerImageTag }}
+SUITE_RUNNER: {{ .Values.suiteRunner.prod.containerImage }}:{{ .Values.suiteRunner.prod.tag | default .Chart.AppVersion }}
 {{- end }}
 {{- end }}
 
