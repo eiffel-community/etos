@@ -2,6 +2,12 @@
 Changelog
 =========
 
+Version 1.1.1
+-------------
+
+- 7cdb9d1 Remove commands from environment provider and use another docker (#55)
+- 7a2f1c1 Fixed docker repositories and tags (#53)
+
 Version 1.1.0
 -------------
 
