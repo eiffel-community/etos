@@ -17,8 +17,6 @@ spec:
       containers:
         - name: {{ include "environment-provider.name" . }}
           {{ include "etos.containerImage" . | indent 10 }}
-          command:
-            - "./entry.sh"
           env:
             - name: ETOS_DATABASE_PASSWORD
               valueFrom:
@@ -51,4 +49,4 @@ spec:
                       operator: In
                       values:
                       - {{ include "environment-provider.name" . }}
-                topologyKey: "kubernetes.io/hostname"  
+                topologyKey: "kubernetes.io/hostname"

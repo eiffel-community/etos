@@ -15,10 +15,8 @@ spec:
     spec:
       serviceAccountName: {{ .Values.global.serviceAccount.name }}
       containers:
-        - name: {{ include "environment-provider.name" . }}
-          {{ include "etos.containerImage" . | indent 10 }}
-          command:
-            - "./worker.sh"
+        - name: {{ include "environment-provider.name" . }}-workers
+          {{ include "environment-provider.workerImage" . | indent 10 }}
           env:
             - name: ETOS_DATABASE_PASSWORD
               valueFrom:
@@ -38,8 +36,6 @@ spec:
           envFrom:
           - configMapRef:
               name: etos          
-          ports:
-              - containerPort: 80
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -51,4 +47,4 @@ spec:
                       operator: In
                       values:
                       - {{ include "environment-provider.name" . }}-workers
-                topologyKey: "kubernetes.io/hostname"  
+                topologyKey: "kubernetes.io/hostname"

@@ -11,6 +11,13 @@ image:
     repository: registry.nordix.org/eiffel/etos-environment-provider
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
+  worker:
+    dev:
+      repository: registry.nordix.org/eiffel-playground/etos-environment-provider-worker:dev
+    prod:
+      repository: registry.nordix.org/eiffel/etos-environment-provider-worker
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
 
 imagePullSecrets: []
 nameOverride: ""
