@@ -75,7 +75,42 @@ The IUT provider follows the :ref:`general structure <services/etos_environment_
 Prepare
 -------
 
-Prepare is still under development.
+The prepare part of the IUT Provider is defined with stages and steps. A stage is 'where shall this preparation run' and the step is 'what should we run to prepare the IUT'.
+
+There is currently only a single 'stage' and that stage is 'environment_provider' which is run just after the 'checkout' step in the provider.
+
+Each step is a key, value pair where the key is the name of the step and the value is a :ref:`services/etos_environment_provider:JSONTas` structure.
+
+A sample preparation step which will execute three steps. One where the return value is a dictionary, one where the return value is a part of the previous step and the third requests a webpage.
+
+Note that this example does not do anything with the IUT. It is virtually impossible for us to describe the steps required for your technology domain as it all depends on how your systems are set up.
+This preparation step can request APIs that you've set up internally for various scenarios.
+
+.. code-block:: json
+
+   {
+      "prepare": {
+         "stages": {
+            "environment_provider": {
+               "steps": {
+                  "step1": {
+                     "something": "text",
+                     "another": "text2"
+                  },
+                  "step2": {
+                     "previous_something": "$steps.step1.something"
+                  },
+                  "step3": {
+                     "$request": {
+                        "url": "https://jsonplaceholder.typicode.com/users/1",
+                        "method": "GET"
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
 
 
 Example
@@ -100,7 +135,7 @@ A single static :ref:`iut`
                      }
                   ],
                  "available": "$this.possible"
-            },
+            }
        }
    }
 
@@ -172,7 +207,51 @@ Using a management system
                        ]
                    }
                }
-           },
+           }
+       }
+   }
+
+With a preparation step
+
+.. code-block:: json
+
+   {
+       "iut": {
+            "id": "default",
+            "list": {
+                 "possible": [
+                     {
+                          "type": "$identity.type",
+                          "namespace": "$identity.namespace",
+                          "name": "$identity.name",
+                          "version": "$identity.version",
+                          "qualifiers": "$identity.qualifiers",
+                          "subpath": "$identity.subpath"
+                     }
+                  ],
+                 "available": "$this.possible"
+            },
+            "prepare": {
+               "stages": {
+                  "environment_provider": {
+                     "steps": {
+                        "step1": {
+                           "something": "text",
+                           "another": "text2"
+                        },
+                        "step2": {
+                           "previous_something": "$steps.step1.something"
+                        },
+                        "step3": {
+                           "$request": {
+                              "url": "https://jsonplaceholder.typicode.com/users/1",
+                              "method": "GET"
+                           }
+                        }
+                     }
+                  }
+               }
+            }
        }
    }
 
