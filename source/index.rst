@@ -1,9 +1,5 @@
 .. _index:
 
-
-Welcome to ETOS's documentation!
-================================
-
 .. include:: ../README.rst
 
 .. toctree::
