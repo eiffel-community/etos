@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 1.2.0
+-------------
+
+- c8b97fc Add documentation for the IUT provider preparation step (#58)
+
 Version 1.1.1
 -------------
 
