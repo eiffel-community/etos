@@ -11,11 +11,8 @@ suite-starter:
     queue_name: suite_starter
 
 suiteRunner:
-  dev:
-    containerImage: "registry.nordix.org/eiffel-playground/etos-suite-runner"
-  prod:
-    containerImage: "registry.nordix.org/eiffel/etos-suite-runner"
-    tag: ""
+  containerImage: "registry.nordix.org/eiffel/etos-suite-runner"
+  tag: ""
 
 httpProxy: ""
 httpsProxy: ""

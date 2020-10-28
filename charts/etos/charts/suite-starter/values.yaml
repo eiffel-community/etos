@@ -5,11 +5,8 @@
 replicaCount: 1
 
 image:
-  dev:
-    repository: registry.nordix.org/eiffel-playground/etos-suite-starter 
-  prod:
-    repository: registry.nordix.org/eiffel/etos-suite-starter
-  # Overrides the image tag whose default is the chart appVersion.
+  repository: registry.nordix.org/eiffel/etos-suite-starter
+  # Overrides the image tag whose default is the chart appVersion for prod and "dev" for dev.
   tag: ""
 
 imagePullSecrets: []

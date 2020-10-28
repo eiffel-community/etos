@@ -88,17 +88,17 @@ password: {{ printf "%s" .Values.redis.password | b64enc }}
 
 {{- define "etos.suiteRunnerContainerImage" -}}
 {{- if .Values.global.development }}
-SUITE_RUNNER: {{ .Values.suiteRunner.dev.containerImage }}:dev
+SUITE_RUNNER: {{ .Values.suiteRunner.containerImage }}:{{ .Values.suiteRunner.tag | default "dev" }}
 {{- else }}
-SUITE_RUNNER: {{ .Values.suiteRunner.prod.containerImage }}:{{ .Values.suiteRunner.prod.tag | default .Chart.AppVersion }}
+SUITE_RUNNER: {{ .Values.suiteRunner.containerImage }}:{{ .Values.suiteRunner.tag | default .Chart.AppVersion }}
 {{- end }}
 {{- end }}
 
 {{- define "etos.containerImage" -}}
 {{- if .Values.global.development }}
-image: {{ .Values.image.dev.repository }}:dev
+image: {{ .Values.image.repository }}:{{ .Values.image.tag | default "dev" }}
 imagePullPolicy: Always
 {{- else }}
-image: {{ .Values.image.prod.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
 {{- end }}
 {{- end }}
