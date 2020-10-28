@@ -131,7 +131,7 @@ Constraints
                   {
                      "key": "CHECKOUT",
                      "value": [
-                        "git checkout https://github.com/eiffel-community/etos-client"
+                        "git clone https://github.com/eiffel-community/etos-client"
                      ]
                   }
                ]
