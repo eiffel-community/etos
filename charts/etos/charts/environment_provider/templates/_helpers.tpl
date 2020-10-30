@@ -73,9 +73,9 @@ Create the name of the service account to use
 
 {{- define "environment-provider.workerImage" -}}
 {{- if .Values.global.development }}
-image: {{ .Values.image.worker.dev.repository }}:dev
+image: {{ .Values.image.worker.repository }}:{{ .Values.image.worker.tag | default "dev" }}
 imagePullPolicy: Always
 {{- else }}
-image: {{ .Values.image.worker.prod.repository }}:{{ .Values.image.worker.tag | default .Chart.AppVersion }}
+image: {{ .Values.image.worker.repository }}:{{ .Values.image.worker.tag | default .Chart.AppVersion }}
 {{- end }}
 {{- end }}
