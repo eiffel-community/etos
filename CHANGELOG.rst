@@ -2,6 +2,12 @@
 Changelog
 =========
 
+Version 1.3.0
+-------------
+
+- 36cfea0 Allow overrides on tags even on dev (#63)
+- 3db7acd Fixed a typo (#61)
+
 Version 1.2.0
 -------------
 
