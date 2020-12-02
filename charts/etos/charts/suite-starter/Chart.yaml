@@ -1,8 +1,8 @@
 apiVersion: v2
-appVersion: 1.4.0
+appVersion: 1.5.0
 description: The ETOS Suite Starter exist solely to make sure that the ETOS system
   can be upgrade without any downtime. It listens to EiffelTestExecutionRecipeCollectionCreatedEvent
   and launches an instance of ETOS Suite runner in Kubernetes as a Job.
 name: suite-starter
 type: application
-version: 1.4.0
+version: 1.5.0
