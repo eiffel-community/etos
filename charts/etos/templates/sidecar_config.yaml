@@ -1,0 +1,12 @@
+{{- if .Values.global.filebeatSidecar.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-config
+data:
+{{- range $path, $config := .Values.filebeatConfig }}
+  {{ $path }}: |
+{{ tpl $config $ | indent 4 -}}
+{{- end -}}
+{{- end -}}
