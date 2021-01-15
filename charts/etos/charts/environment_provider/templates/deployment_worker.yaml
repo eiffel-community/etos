@@ -13,6 +13,14 @@ spec:
         app: {{ include "environment-provider.name" . }}-workers
         db: redis
     spec:
+      {{- if .Values.global.filebeatSidecar.enabled }}
+      volumes:
+      - name: shared-logs
+        emptyDir: {}
+      - name: filebeat-config
+        configMap:
+          name: sidecar-config
+      {{- end }}
       serviceAccountName: {{ .Values.global.serviceAccount.name }}
       containers:
         - name: {{ include "environment-provider.name" . }}-workers
@@ -36,6 +44,20 @@ spec:
           envFrom:
           - configMapRef:
               name: etos          
+        {{- if .Values.global.filebeatSidecar.enabled }}
+          volumeMounts:
+          - name: shared-logs
+            mountPath: /home/etos/logs
+        - name: sidecar
+          image: {{ .Values.global.filebeatSidecar.image }}
+          volumeMounts:
+          - name: shared-logs
+            mountPath: /usr/share/filebeat/logs
+          - name: filebeat-config
+            mountPath: /usr/share/filebeat/filebeat.yml
+            readOnly: true
+            subPath: filebeat.yml
+        {{- end }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

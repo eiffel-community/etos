@@ -16,25 +16,47 @@ spec:
         app: {{ include "etos-api.name" . }}
         db: redis
     spec:
+      {{- if .Values.global.filebeatSidecar.enabled }}
+      volumes:
+      - name: shared-logs
+        emptyDir: {}
+      - name: filebeat-config
+        configMap:
+          name: sidecar-config
+      {{- end }}
       containers:
-      - name: {{ include "etos-api.name" . }}
-        {{- include "etos.containerImage" . | indent 8 }}
-        envFrom:
-        - configMapRef:
-            name: etos
-        env:
-          - name: RABBITMQ_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: rabbitmq
-                key: password
-          - name: RABBITMQ_USERNAME
-            valueFrom:
-              secretKeyRef:
-                name: rabbitmq
-                key: username
-        ports:
-        - containerPort: 80
+        - name: {{ include "etos-api.name" . }}
+          {{- include "etos.containerImage" . | indent 10 }}
+          envFrom:
+          - configMapRef:
+              name: etos
+          env:
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: password
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: username
+          ports:
+          - containerPort: 80
+        {{- if .Values.global.filebeatSidecar.enabled }}
+          volumeMounts:
+          - name: shared-logs
+            mountPath: /home/etos/logs
+        - name: sidecar
+          image: {{ .Values.global.filebeatSidecar.image }}
+          volumeMounts:
+          - name: shared-logs
+            mountPath: /usr/share/filebeat/logs
+          - name: filebeat-config
+            mountPath: /usr/share/filebeat/filebeat.yml
+            readOnly: true
+            subPath: filebeat.yml
+        {{- end }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

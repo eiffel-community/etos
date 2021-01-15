@@ -5,6 +5,9 @@ global:
   graphqlServerUrl: http://eiffel-graphql.mycluster.myhost.com/graphql
   environmentProviderUrl: http://environment-provider.mycluster.myhost.com
   etosApiUrl: http://etos-api.mycluster.myhost.com
+  filebeatSidecar:
+    enabled: false
+    image: "docker.elastic.co/beats/filebeat:7.10.1"
 
 suite-starter:
   rabbitMQ:
@@ -13,6 +16,17 @@ suite-starter:
 suiteRunner:
   containerImage: "registry.nordix.org/eiffel/etos-suite-runner"
   tag: ""
+
+filebeatConfig:
+  filebeat.yml: |-
+    filebeat.inputs:
+    - type: log
+      paths:
+        /usr/share/filebeat/logs/*
+    processors:
+      - add_host_metadata:
+    output.logstash:
+      hosts: ["logstash-logstash.elasticsearch.svc.cluster.local:5044"]
 
 httpProxy: ""
 httpsProxy: ""
