@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 1.9.0
+-------------
+
+- 1fb2347 Add filebeat sidecars that can be enabled (#72)
+
 Version 1.8.0
 -------------
 
