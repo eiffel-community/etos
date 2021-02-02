@@ -28,7 +28,7 @@ With ETOS we define how to run tests using recipes and we define what to run wit
      - How to run?
      - Where to run?
 
-This means that only people who knows how and what to run decide these factors. ETOS will only receive the collection of recipes and executing it accordingly.
+This means that only people who knows how and what to run decide these factors. ETOS will only receive the collection of recipes and execute it accordingly.
 You can also mix test suites. For instance, let's say you want to run a "go" unittest and a "python" function test in the same suite, that's easy to do; just add them to your collection.
 
 This is the strength of ETOS. Relying on the humans to decide what to run, how to run and where to run.
