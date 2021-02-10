@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 1.10.0
+--------------
+
+- a24536f Minor grammar fix in README (#75)
+
 Version 1.9.0
 -------------
 
