@@ -1,7 +1,7 @@
 apiVersion: v2
-appVersion: 1.16.2
+appVersion: 1.17.0
 description: Handling of environments making it possible to checkout and check in
   environments for use in testing with ETOS.
 name: environment-provider
 type: application
-version: 1.16.2
+version: 1.17.0
