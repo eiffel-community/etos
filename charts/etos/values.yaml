@@ -12,6 +12,7 @@ global:
 suite-starter:
   rabbitMQ:
     queue_name: suite_starter
+    routing_key: "#"
 
 suiteRunner:
   containerImage: "registry.nordix.org/eiffel/etos-suite-runner"

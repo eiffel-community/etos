@@ -31,6 +31,8 @@ spec:
           env:
             - name: RABBITMQ_QUEUE
               value: {{ .Values.rabbitMQ.queue_name }}
+            - name: RABBITMQ_ROUTING_KEY
+              value: {{ .Values.rabbitMQ.routing_key }}
             - name: RABBITMQ_PASSWORD
               valueFrom:
                 secretKeyRef:
