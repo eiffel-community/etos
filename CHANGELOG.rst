@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 1.23.0
+--------------
+
+- 9c7b027 Add RABBITMQ_ROUTING_KEY to suite starter deployment (#86)
+
 Version 1.22.0
 --------------
 
