@@ -45,6 +45,10 @@ data:
   ENVIRONMENT_PROVIDER_EVENT_DATA_TIMEOUT: {{ .Values.environmentProviderEventDataTimeout | quote }}
   ENVIRONMENT_PROVIDER_TEST_SUITE_TIMEOUT: {{ .Values.environmentProviderTestSuiteTimeout | quote }}
 
+  ETOS_WAIT_FOR_LOG_AREA_TIMEOUT: {{ .Values.logAreaTimeout | quote }}
+  ETOS_WAIT_FOR_IUT_TIMEOUT: {{ .Values.iutTimeout | quote }}
+  ETOS_WAIT_FOR_EXECUTION_SPACE_TIMEOUT: {{ .Values.executionSpaceTimeout | quote }}
+
   # Environment provider checks for device every 5s. This means that we should always
   # wait for a longer time than that. Recommended is to add 10s, just to be safe.
   ESR_WAIT_FOR_ENVIRONMENT_TIMEOUT: {{ .Values.esrWaitForEnvironmentTimeout | quote }}
