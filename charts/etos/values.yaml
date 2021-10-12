@@ -38,6 +38,9 @@ defaultWaitTimeout: "60"
 defaultTestResultTimeout: "86400"
 publishedEventHistorySize: "100"
 receivedEventHistorySize: "100"
+logAreaTimeout: "10"
+iutTimeout: "10"
+executionSpaceTimeout: "10"
 
 databaseHost: redis.redis.svc.cluster.local
 databasePort: "26379"
