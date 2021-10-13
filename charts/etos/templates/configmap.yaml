@@ -52,4 +52,5 @@ data:
   # Environment provider checks for device every 5s. This means that we should always
   # wait for a longer time than that. Recommended is to add 10s, just to be safe.
   ESR_WAIT_FOR_ENVIRONMENT_TIMEOUT: {{ .Values.esrWaitForEnvironmentTimeout | quote }}
-  
+
+  ETOS_FEATURE_DISABLE_CLM: {{ .Values.featureFlags.disableCLM | quote }}
