@@ -6,28 +6,16 @@ Release Process
 
 The ETOS release process is as follows.
 
-ETOS will do a full release every other wednesday (uneven weeks).
-This release will be done at any time that day and it will include updating all docker containers, updating the helm chart, creating a tag and release on every repository on github.
+All ETOS components will have their own release process using continuous integration.
+This means that all components will have different releases at all times.
 
-The ETOS workflow is to work with milestones.
+Every other wednesday (uneven weeks) the ETOS project will get a new tag and a new release and all helm charts will be updated with the new component versions.
 
-Each milestone is considered a new release with a version number (:ref:`either minor or major <versioning>`) and the issues that are solved in milestones will be added to that release.
-(Note that we might hold back issues for a release if they are not deemed stable enough, but we will communicate this by removing the issue from the milestone).
-
-These miletones are updated and created every friday and there will always be at least two future milestones in the works so that users have a heads-up what will be coming in the future.
-
-If backwards compatibility is broken then the feature will be deprecated, the new one activated and an issue for removing it will be added to a major milestone in the future so that users know ahead of time whene a breaking change is coming.
+When there are breaking changes in ETOS upcoming, there will be milestones with deadlines for each stage of a breaking change.
+For backwards compatibility we will first deprecate the feature with a feature flag to disable it.
+We will create issues for changing the default behavior to disabled two weeks from the deprecation release.
+We will also create issues for removing the feature completely two weeks from the disable release.
 
 This means that, at worst, users get a 4 week heads up for breaking changes. And by breaking changes, we mean that a developer may have to change something in their code or :ref:`tercc` before they can upgrade.
 
-
-In other words:
-
-* New minor or major release on wednesday, uneven weeks.
-* Milestones communicate new releases ahead of time with issues.
-
-  * `Example milestone <https://github.com/eiffel-community/etos/milestone/1>`_
-  
-* Impact of issues decide whether milestone is major or minor.
-* Milestones are created and updated every friday.
-* There will always be at least two milestones active for two and four weeks in the future, respectively.
+Each milestone is considered a new release with a version number (:ref:`either minor or major <versioning>`) 
