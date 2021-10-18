@@ -79,6 +79,9 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name: "etos-sa"
 
+featureFlags:
+  CLM: true
+
 service:
   type: ClusterIP
   port: 80
