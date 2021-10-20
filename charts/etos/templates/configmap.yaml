@@ -10,6 +10,8 @@ data:
   ETOS_SIDECAR_ENABLED: {{ .Values.global.filebeatSidecar.enabled | quote }}
   ETOS_SIDECAR_IMAGE: {{ .Values.global.filebeatSidecar.image }}
 
+  ETR_VERSION: {{ .Values.testRunner.version | quote }}
+
   HTTP_PROXY_OVERRIDE: {{ if eq .Values.httpProxy ""}}""{{ else }}{{ .Values.httpProxy }}{{ end }}
   HTTPS_PROXY_OVERRIDE: {{ if eq .Values.httpsProxy ""}}""{{ else }}{{ .Values.httpsProxy }}{{ end }}
   SOURCE_HOST: {{ include "etos.name" . | upper }}
