@@ -16,7 +16,7 @@ suite-starter:
 
 suiteRunner:
   containerImage: "registry.nordix.org/eiffel/etos-suite-runner"
-  tag: ""
+  tag: "1.25.0"
 testRunner:
   version: "1.24.0"
 
