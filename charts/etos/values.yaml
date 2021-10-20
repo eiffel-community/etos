@@ -82,7 +82,7 @@ serviceAccount:
   name: "etos-sa"
 
 featureFlags:
-  CLM: true
+  CLM: false
 
 service:
   type: ClusterIP
