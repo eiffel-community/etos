@@ -34,6 +34,7 @@ filebeatConfig:
 httpProxy: ""
 httpsProxy: ""
 
+routingKeyTag: _
 secretPath: /etc/
 defaultHttpTimeout: "3600"
 defaultWaitTimeout: "60"

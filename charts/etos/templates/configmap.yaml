@@ -23,6 +23,7 @@ data:
   ETOS_ENVIRONMENT_PROVIDER: {{ .Values.global.environmentProviderUrl }}
   ETOS_API: {{ .Values.global.etosApiUrl }}
 
+  ETOS_ROUTING_KEY_TAG: {{ .Values.routingKeyTag }}
   ETOS_SECRET_PATH: {{ .Values.secretPath }}
   ETOS_DEFAULT_HTTP_TIMEOUT: {{ .Values.defaultHttpTimeout | quote }}
   ETOS_DEFAULT_WAIT_TIMEOUT: {{ .Values.defaultWaitTimeout | quote }}
