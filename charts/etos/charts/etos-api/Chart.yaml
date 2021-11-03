@@ -1,7 +1,7 @@
 apiVersion: v2
-appVersion: 1.23.0
+appVersion: 1.24.0
 description: API for starting ETOS executions and for getting extra information about
   the system.
 name: etos-api
 type: application
-version: 1.23.0
+version: 1.24.0
