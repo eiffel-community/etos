@@ -37,7 +37,7 @@ Top-level properties
      - Description
    * - name
      - String
-     - Test suite name. Will be referenced in the confidence level.
+     - Test suite name. Will be referenced in the main test suite started.
    * - priority
      - Integer
      - The execution priority. Unused at present and should be set to 1.

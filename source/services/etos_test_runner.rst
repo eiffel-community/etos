@@ -23,11 +23,10 @@ When ETR executes tests it communicates the following events to the Eiffel messa
 - `Test Case Started <https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelTestCaseStartedEvent.md>`_
 - `Test Case Finished <https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelTestCaseFinishedEvent.md>`_
 - `Test Suite Finished <https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelTestSuiteFinishedEvent.md>`_
-- `Confidence Level Modified <https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelConfidenceLevelModifiedEvent.md>`_
 
 ETR always executes one test suite and several test cases within that suite, thus sending only one test suite started/finished pair but several collections of test case triggered/started/finished
 
-When the test suite has finished executing ETR send a Confidence Level Modified event signaling the Confidence level for the test suite it just executed. The confidence level event is typically in larger aggregations of eiffel events to give basis for CI pipeline driving activities.
+When the test suite has finished executing ETR sends a Test Suite Finished event signaling the test results for the test suite it just executed.
 
 Test artifacts
 ==============
