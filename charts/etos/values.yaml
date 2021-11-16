@@ -16,9 +16,9 @@ suite-starter:
 
 suiteRunner:
   containerImage: "registry.nordix.org/eiffel/etos-suite-runner"
-  tag: "1.26.0"
+  tag: "2.0.0"
 testRunner:
-  version: "1.26.0"
+  version: "2.0.0"
 
 filebeatConfig:
   filebeat.yml: |-
