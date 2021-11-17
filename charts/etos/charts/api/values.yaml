@@ -1,11 +1,11 @@
-# Default values for suite-starter.
+# Default values for api.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
 
 image:
-  repository: registry.nordix.org/eiffel/etos-suite-starter
+  repository: registry.nordix.org/eiffel/etos-api
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -22,14 +22,7 @@ serviceAccount:
   annotations: {}
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  # This serviceaccount name must be the same as in the ETOS chart.
   name: "etos-sa"
-
-# RabbitMQ configuration. The rest of the configuration is created in the
-# etos chart and added in the `configMap`. At the moment.
-rabbitmq:
-  queue_name: suite_starter
-  routing_key: "#"
 
 # This must be the same as the etos chart, as suite starter does not generate
 # its own configmap in this chart. Yet.
@@ -49,7 +42,7 @@ filebeat:
       processors:
         - add_host_metadata:
       output.logstash:
-        hosts: ["logstash-logstash.elasticsearch.svc.cluster.local:5044"]
+        hosts: ["logstash-logstash.elasticsearch.svc.cluster.local:5044"]configMap: "etos"
 
 podAnnotations: {}
 
@@ -63,6 +56,11 @@ securityContext: {}
   # readOnlyRootFilesystem: true
   # runAsNonRoot: true
   # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  name: api
+  port: 80
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious

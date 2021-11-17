@@ -10,15 +10,15 @@ To verify the individual ETOS services, try:
 
 ETOS API
 ========
-$ curl --head {{ .Values.global.etosApiUrl }}
+$ curl {{ .Values.hosts.API }}/selftest/ping
 
 This should return 200 OK.
 
 ETOS Environment Provider
 =========================
-$ curl {{ .Values.global.environmentProviderUrl }}
+$ curl {{ .Values.hosts.environmentProvider }}?id=healthcheck
 
-This should return 400 Bad request
+This should return 200 OK with error message
 
 ETOS Suite-Starter
 ==================
