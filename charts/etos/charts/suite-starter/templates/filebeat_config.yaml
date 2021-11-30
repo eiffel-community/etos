@@ -1,0 +1,14 @@
+{{- if .Values.filebeat.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: suite-starter-filebeat-config
+  labels:
+    {{- include "suite-starter.labels" . | nindent 4 }}
+data:
+{{- range $path, $config := .Values.filebeat.config }}
+  {{ $path }}: |
+{{ tpl $config $ | indent 4 -}}
+{{- end -}}
+{{- end -}}

@@ -1,12 +1,9 @@
+{{/* vim: set filetype=mustache: */}}
 {{/*
 Expand the name of the chart.
 */}}
 {{- define "etos.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{- define "etos.appUrl" -}}
-{{- printf "%s.%s" (include "etos.name" . | replace "_" "-") (.Values.global.baseClusterUrl) }}
 {{- end }}
 
 {{/*
@@ -62,43 +59,5 @@ Create the name of the service account to use
 {{- default (include "etos.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
-{{- end }}
-{{- end }}
-
-{{- define "etos.namespace.value" -}}
-{{- printf "%s" (include "etos.namespace" . | replace "\nnamespace: " "") }}
-{{- end }}
-
-//{{- define "etos.namespace" -}}
-//{{- if eq .Values.global.namespace ""}}
-//namespace: {{ include "etos.name" . }}
-//{{- else }}
-//namespace: {{ .Values.global.namespace }}
-//{{- end }}
-//{{- end }}
-
-{{- define "etos.rabbitMQSecrets" -}}
-password: {{ printf "%s" .Values.rabbitMQ.password | b64enc }}
-username: {{ printf "%s" .Values.rabbitMQ.username | b64enc }}
-{{- end }}
-
-{{- define "etos.redisSecret" -}}
-password: {{ printf "%s" .Values.redis.password | b64enc }}
-{{- end }}
-
-{{- define "etos.suiteRunnerContainerImage" -}}
-{{- if .Values.global.development }}
-SUITE_RUNNER: {{ .Values.suiteRunner.containerImage }}:{{ .Values.suiteRunner.tag | default "dev" }}
-{{- else }}
-SUITE_RUNNER: {{ .Values.suiteRunner.containerImage }}:{{ .Values.suiteRunner.tag | default .Chart.AppVersion }}
-{{- end }}
-{{- end }}
-
-{{- define "etos.containerImage" -}}
-{{- if .Values.global.development }}
-image: {{ .Values.image.repository }}:{{ .Values.image.tag | default "dev" }}
-imagePullPolicy: Always
-{{- else }}
-image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
 {{- end }}
 {{- end }}

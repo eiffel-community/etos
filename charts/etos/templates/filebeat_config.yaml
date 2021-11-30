@@ -1,0 +1,16 @@
+{{- if .Values.suiteRunner.filebeat.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  # This name is bad. This is basically hard-coded in the SuiteStarter ESR YAML and
+  # should be fixed in the future.
+  name: sidecar-config
+  labels:
+    {{- include "etos.labels" . | nindent 4 }}
+data:
+{{- range $path, $config := .Values.suiteRunner.filebeat.config }}
+  {{ $path }}: |
+{{ tpl $config $ | indent 4 -}}
+{{- end -}}
+{{- end -}}

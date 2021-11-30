@@ -1,57 +1,42 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "etos.name" . }}
-  
+  name: {{ .Values.configMap }}
+  labels:
+    {{- include "etos.labels" . | nindent 4 }}
 data:
   DEV: {{ .Values.global.development | quote }}
 
-  {{- include "etos.suiteRunnerContainerImage" . | indent 2 }}
-  ETOS_SIDECAR_ENABLED: {{ .Values.global.filebeatSidecar.enabled | quote }}
-  ETOS_SIDECAR_IMAGE: {{ .Values.global.filebeatSidecar.image }}
-
+  SUITE_RUNNER: {{ .Values.suiteRunner.image.repository }}:{{ .Values.suiteRunner.image.tag }}
   ETR_VERSION: {{ .Values.testRunner.version | quote }}
 
-  HTTP_PROXY_OVERRIDE: {{ if eq .Values.httpProxy ""}}""{{ else }}{{ .Values.httpProxy }}{{ end }}
-  HTTPS_PROXY_OVERRIDE: {{ if eq .Values.httpsProxy ""}}""{{ else }}{{ .Values.httpsProxy }}{{ end }}
+  ETOS_GRAPHQL_SERVER: {{ required "ETOS requires an Eiffel GraphQL API instance`" .Values.graphql.host }}
+  ETOS_ENVIRONMENT_PROVIDER: {{ required "ETOS requires the environment provider host to be set" .Values.hosts.environmentProvider }}
+  ETOS_API: {{ required "ETOS requires the API host to be set" .Values.hosts.API }}
+
+  {{- if .Values.suiteRunner.filebeat.enabled }}
+  # Quoted sidecar enabled is required for suite-starter to pass this over to suite-runner.
+  ETOS_SIDECAR_ENABLED: {{ .Values.suiteRunner.filebeat.enabled | quote}}
+  ETOS_SIDECAR_IMAGE: {{ .Values.suiteRunner.filebeat.image }}
+  {{- end }}
+
   SOURCE_HOST: {{ include "etos.name" . | upper }}
 
   ETOS_NAMESPACE: {{ .Release.Namespace}}
-  ETOS_CONFIGMAP: {{ include "etos.name" . }}
+  ETOS_CONFIGMAP: {{ .Values.configMap }}
+  ETOS_ROUTING_KEY_TAG: {{ .Values.routingKey.tag }}
 
-  ETOS_GRAPHQL_SERVER: {{ .Values.global.graphqlServerUrl }}
-  ETOS_ENVIRONMENT_PROVIDER: {{ .Values.global.environmentProviderUrl }}
-  ETOS_API: {{ .Values.global.etosApiUrl }}
+  RABBITMQ_HOST: {{ required "Please set `rabbitmq.host`" .Values.rabbitmq.host }}
+  RABBITMQ_EXCHANGE: {{ required "Please set `rabbitmq.exchange`" .Values.rabbitmq.exchange }}
+  RABBITMQ_PORT: {{ required "Please set `rabbitmq.port`" .Values.rabbitmq.port | quote }}
+  RABBITMQ_VHOST: {{ required "Please set `rabbitmq.vhost`" .Values.rabbitmq.vhost }}
+  RABBITMQ_SSL: {{ required "Please set `rabbitmq.ssl`" .Values.rabbitmq.ssl | quote }}
 
-  ETOS_ROUTING_KEY_TAG: {{ .Values.routingKeyTag }}
-  ETOS_SECRET_PATH: {{ .Values.secretPath }}
-  ETOS_DEFAULT_HTTP_TIMEOUT: {{ .Values.defaultHttpTimeout | quote }}
-  ETOS_DEFAULT_WAIT_TIMEOUT: {{ .Values.defaultWaitTimeout | quote }}
-  ETOS_DEFAULT_TEST_RESULT_TIMEOUT: {{ .Values.defaultTestResultTimeout | quote }}
-  ETOS_PUBLISHED_EVENT_HISTORY_SIZE: {{ .Values.publishedEventHistorySize | quote }}
-  ETOS_RECEIVED_EVENT_HISTORY_SIZE: {{ .Values.receivedEventHistorySize | quote }}
+  ETOS_DATABASE_HOST: {{ required "Please set `database.host`" .Values.database.host }}
+  ETOS_DATABASE_PORT: {{ required "Please set `database.port`" .Values.database.port | quote }}
 
-  # ETOS_DISABLE_SENDING_EVENTS: "1"
-  # ETOS_DISABLE_RECEIVING_EVENTS: "1"
-  # ETOS_DISABLE_MONITOR_ANNOUNCE: "1"
-
-  ETOS_DATABASE_HOST: {{ .Values.databaseHost }}
-  ETOS_DATABASE_PORT: {{ .Values.databasePort | quote }}
-
-  RABBITMQ_HOST: {{ .Values.rabbitmqHost }}
-  RABBITMQ_EXCHANGE: {{ .Values.rabbitmqExchange }}
-  RABBITMQ_PORT: {{ .Values.rabbitmqPort | quote }}
-  RABBITMQ_VHOST: {{ .Values.rabbitmqVhost }}
-  RABBITMQ_SSL: {{ .Values.rabbitmqSSL | quote }}
-
-  ENVIRONMENT_PROVIDER_GRAPHQL_QUERY_TIMEOUT: {{ .Values.environmentProviderGraphqlQueryTimeout | quote }}
-  ENVIRONMENT_PROVIDER_EVENT_DATA_TIMEOUT: {{ .Values.environmentProviderEventDataTimeout | quote }}
-  ENVIRONMENT_PROVIDER_TEST_SUITE_TIMEOUT: {{ .Values.environmentProviderTestSuiteTimeout | quote }}
-
-  ETOS_WAIT_FOR_LOG_AREA_TIMEOUT: {{ .Values.logAreaTimeout | quote }}
-  ETOS_WAIT_FOR_IUT_TIMEOUT: {{ .Values.iutTimeout | quote }}
-  ETOS_WAIT_FOR_EXECUTION_SPACE_TIMEOUT: {{ .Values.executionSpaceTimeout | quote }}
-
-  # Environment provider checks for device every 5s. This means that we should always
-  # wait for a longer time than that. Recommended is to add 10s, just to be safe.
-  ESR_WAIT_FOR_ENVIRONMENT_TIMEOUT: {{ .Values.esrWaitForEnvironmentTimeout | quote }}
+  {{- if .Values.config }}
+  {{- range $key, $value := .Values.config }}
+  {{ $key | upper }}: {{ $value | quote }}
+  {{- end -}}
+  {{- end }}
