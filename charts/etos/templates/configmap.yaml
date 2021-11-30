@@ -8,6 +8,7 @@ data:
   DEV: {{ .Values.global.development | quote }}
 
   SUITE_RUNNER: {{ .Values.suiteRunner.image.repository }}:{{ .Values.suiteRunner.image.tag }}
+  ETR_VERSION: {{ .Values.testRunner.version | quote }}
 
   ETOS_GRAPHQL_SERVER: {{ required "ETOS requires an Eiffel GraphQL API instance`" .Values.graphql.host }}
   ETOS_ENVIRONMENT_PROVIDER: {{ required "ETOS requires the environment provider host to be set" .Values.hosts.environmentProvider }}
