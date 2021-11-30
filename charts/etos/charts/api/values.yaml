@@ -42,7 +42,7 @@ filebeat:
       processors:
         - add_host_metadata:
       output.logstash:
-        hosts: ["logstash-logstash.elasticsearch.svc.cluster.local:5044"]configMap: "etos"
+        hosts: ["logstash-logstash.elasticsearch.svc.cluster.local:5044"]
 
 podAnnotations: {}
 

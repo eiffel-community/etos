@@ -30,8 +30,9 @@ api:
 # Suite runner configuration. Suite runner is not a subchart to this repository
 # but tried to make it look like it is.
 suiteRunner:
-  image: "registry.nordix.org/eiffel/etos-suite-runner"
-  tag: "2.0.0"
+  image:
+    repository: "registry.nordix.org/eiffel/etos-suite-runner"
+    tag: "2.0.0"
   # Filebeat is for sending logs to an elastic cluster. It is used to debug
   # messages and to follow a test suite throughout an ETOS execution.
   filebeat:
