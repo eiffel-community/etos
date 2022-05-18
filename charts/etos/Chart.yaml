@@ -4,8 +4,8 @@ description: ETOS (Eiffel Test Orchestration System) is a new test orchestration
   which takes away control of how to run and what to run from the system itself and
   places it into the hands of the relevant engineers.
 type: application
-version: 4.1.0
-appVersion: 4.1.0
+version: 4.2.0
+appVersion: "4.1.0"
 
 keywords:
   - Test automation

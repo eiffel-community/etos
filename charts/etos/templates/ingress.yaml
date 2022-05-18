@@ -4,7 +4,14 @@
 {{- $environmentProviderPort := index .Values "environment-provider" "service" "port" -}}
 {{- $apiName := index .Values "api" "service" "name" -}}
 {{- $apiPort := index .Values "api" "service" "port" -}}
-{{- if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1beta1
 {{- else -}}
 apiVersion: extensions/v1beta1
@@ -19,6 +26,9 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
+  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
     {{- range .Values.ingress.tls }}
@@ -34,13 +44,35 @@ spec:
     - host: {{ .host | quote }}
       http:
         paths:
-          - path: /(environment-provider)/?(.*)
+          {{- range .paths }}
+          - path: {{ trimSuffix "/" .path }}/(environment-provider)/?(.*)
+            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ .pathType }}
+            {{- end }}
             backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $environmentProviderName }}
+                port:
+                  number: {{ $environmentProviderPort }}
+              {{- else }}
               serviceName: {{ $environmentProviderName }}
               servicePort: {{ $environmentProviderPort }}
-          - path: /(api)/?(.*)
+              {{- end }}
+          - path: {{ trimSuffix "/" .path }}/(api)/?(.*)
+            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ .pathType }}
+            {{- end }}
             backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $apiName }}
+                port:
+                  number: {{ $apiPort }}
+              {{- else }}
               serviceName: {{ $apiName }}
               servicePort: {{ $apiPort }}
+              {{- end }}
+          {{- end }}
     {{- end }}
-  {{- end }}
+{{- end }}
