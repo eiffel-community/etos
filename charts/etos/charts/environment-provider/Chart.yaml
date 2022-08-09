@@ -4,7 +4,7 @@ description: Handling of environments making it possible to checkout and check i
   environments for use in testing with ETOS.
 type: application
 version: 2.1.0
-appVersion: 1.30.0
+appVersion: 1.32.0
 
 keywords:
   - Test automation
