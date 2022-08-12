@@ -4,7 +4,7 @@ description: These are the workers for handling environments making it possible 
   environments for use in testing with ETOS.
 type: application
 version: 2.1.0
-appVersion: 1.32.0
+appVersion: 1.32.1
 
 keywords:
   - Test automation
