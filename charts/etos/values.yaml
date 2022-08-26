@@ -32,7 +32,7 @@ api:
 suiteRunner:
   image:
     repository: "registry.nordix.org/eiffel/etos-suite-runner"
-    tag: "2.1.0"
+    tag: "2.2.0"
   # Filebeat is for sending logs to an elastic cluster. It is used to debug
   # messages and to follow a test suite throughout an ETOS execution.
   filebeat:
@@ -54,7 +54,7 @@ suiteRunner:
 # if the `global.development` flag is set then the test runner will install from git
 # and use the `main` branch from git.
 testRunner:
-  version: "2.1.0"
+  version: "2.4.0"
 
 # Must be set in order for the ETOS system to communicate with eachother.
 # This can be different from the ingresses, but these hosts must be reachable
