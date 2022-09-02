@@ -3,8 +3,8 @@ name: environment-provider-workers
 description: These are the workers for handling environments making it possible to checkout and check in
   environments for use in testing with ETOS.
 type: application
-version: 2.1.2
-appVersion: 1.33.0
+version: 2.1.3
+appVersion: 1.34.0
 
 keywords:
   - Test automation
