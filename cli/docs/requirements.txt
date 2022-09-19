@@ -1,0 +1,4 @@
+sphinx<2
+pyscaffold==3.2.3
+m2r==0.2.1
+sphinx-rtd-theme<0.5
