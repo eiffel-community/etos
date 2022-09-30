@@ -177,7 +177,7 @@ class ETOSTestResultHandler:
                 continue
             finished = self.finished(event_id)
             if finished is not None:
-                self.test_suite_started[event_id]["finished"] = finished is not None
+                self.test_suite_started[event_id]["finished"] = True
                 yield finished
 
     def get_events(self):
@@ -194,9 +194,8 @@ class ETOSTestResultHandler:
 
             self.has_started = True
             main_suite_finished = self.finished(main_suite_id)
-            if main_suite_finished in self.main_suites_finished:
-                continue
-            finished = False
+            if main_suite_finished not in self.main_suites_finished:
+                finished = False
 
             for sub_suite_finished in self.collect_sub_suites(main_suite_id):
                 self.test_suites_finished.append(sub_suite_finished)
