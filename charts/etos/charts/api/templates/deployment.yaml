@@ -41,20 +41,11 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env:
-            - name: RABBITMQ_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: rabbitmq
-                  key: password
-            - name: RABBITMQ_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: rabbitmq
-                  key: username
           envFrom:
           - configMapRef:
               name: {{ .Values.configMap }}
+          - secretKeyRef:
+              name: {{ .Values.global.existingRabbitmqSecret | default .Values.rabbitmqSecret }}
           ports:
             - name: http
               containerPort: 8080

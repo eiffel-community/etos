@@ -24,16 +24,8 @@ data:
 
   ETOS_NAMESPACE: {{ .Release.Namespace}}
   ETOS_CONFIGMAP: {{ .Values.configMap }}
+  ETOS_RABBITMQ_SECRET: {{ .Values.global.existingRabbitmqSecret | default .Values.rabbitmqSecret }}
   ETOS_ROUTING_KEY_TAG: {{ .Values.routingKey.tag }}
-
-  RABBITMQ_HOST: {{ required "Please set `rabbitmq.host`" .Values.rabbitmq.host }}
-  RABBITMQ_EXCHANGE: {{ required "Please set `rabbitmq.exchange`" .Values.rabbitmq.exchange }}
-  RABBITMQ_PORT: {{ required "Please set `rabbitmq.port`" .Values.rabbitmq.port | quote }}
-  RABBITMQ_VHOST: {{ required "Please set `rabbitmq.vhost`" .Values.rabbitmq.vhost }}
-  RABBITMQ_SSL: {{ required "Please set `rabbitmq.ssl`" .Values.rabbitmq.ssl | quote }}
-
-  ETOS_DATABASE_HOST: {{ required "Please set `database.host`" .Values.database.host }}
-  ETOS_DATABASE_PORT: {{ required "Please set `database.port`" .Values.database.port | quote }}
 
   {{- if .Values.config }}
   {{- range $key, $value := .Values.config }}

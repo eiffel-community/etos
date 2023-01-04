@@ -3,6 +3,8 @@
 # Declare variables to be passed into your templates.
 global:
   development: true
+  existingRabbitmqSecret: ""
+  existingDatabaseSecret: ""
 
 imagePullSecrets: []
 nameOverride: ""
@@ -85,6 +87,7 @@ database: {}
   # host:
   # port:
   # password:
+databaseSecret: "database"
 
 # RabbitMQ is used to send and receive Eiffel events.
 rabbitmq: {}
@@ -95,6 +98,7 @@ rabbitmq: {}
   # ssl:
   # username:
   # password:
+rabbitmqSecret: "rabbitmq"
 
 featureFlags: {}
 

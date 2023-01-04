@@ -46,19 +46,11 @@ spec:
               value: {{ .Values.rabbitmq.queue_name }}
             - name: RABBITMQ_ROUTING_KEY
               value: {{ .Values.rabbitmq.routing_key }}
-            - name: RABBITMQ_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: rabbitmq
-                  key: username
-            - name: RABBITMQ_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: rabbitmq
-                  key: password
           envFrom:
           - configMapRef:
               name: {{ .Values.configMap }}
+          - secretKeyRef:
+              name: {{ .Values.global.existingRabbitmqSecret | default .Values.rabbitmqSecret }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
         {{- if .Values.filebeat.enabled }}

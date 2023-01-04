@@ -24,9 +24,11 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name: "etos-sa"
 
-# This must be the same as the etos chart, as suite starter does not generate
-# its own configmap in this chart. Yet.
+# These must be the same as the etos chart, as environment provider does not generate
+# its own configmap and secret in this chart. Yet.
 configMap: "etos"
+rabbitmqSecret: "rabbitmq"
+databaseSecret: "database"
 
 # Filebeat is for sending logs to an elastic cluster. It is used to debug
 # messages and to follow a test suite throughout an ETOS execution.
