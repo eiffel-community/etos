@@ -49,7 +49,7 @@ spec:
           envFrom:
           - configMapRef:
               name: {{ .Values.configMap }}
-          - secretKeyRef:
+          - secretRef:
               name: {{ .Values.global.existingRabbitmqSecret | default .Values.rabbitmqSecret }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

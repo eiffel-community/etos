@@ -44,9 +44,9 @@ spec:
           envFrom:
           - configMapRef:
               name: {{ .Values.configMap }}
-          - secretKeyRef:
+          - secretRef:
               name: {{ .Values.global.existingRabbitmqSecret | default .Values.rabbitmqSecret }}
-          - secretKeyRef:
+          - secretRef:
               name: {{ .Values.global.existingDatabaseSecret | default .Values.databaseSecret }}
           ports:
             - name: http
