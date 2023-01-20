@@ -1,0 +1,6 @@
+site_name: system-etos-ops
+site_description: System ETOS operations
+nav:
+  - Introduction: index.md
+plugins:
+  - techdocs-core

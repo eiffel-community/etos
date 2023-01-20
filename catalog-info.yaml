@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: system-etos-ops
+  title: System ETOS Operations
+  description: Operations files for deployment of ETOS
+  annotations:
+    backstage.io/techdocs-ref: dir:./backstage
+  links:
+    - url: https://confluence.se.axis.com/display/NEM/Nemesis
+      title: NEMESIS
+  tags:
+      - yaml
+spec:
+  type: library
+  lifecycle: experimental
+  owner: group:ldap/APPL-NEMESIS-CICD
