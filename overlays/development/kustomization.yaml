@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./namespace.yaml
+  - ./etos-api.yaml
+  - ./etos-environment-provider.yaml
+  - ./etos-suite-starter.yaml
+  - ./firmware-flasher.yaml
+  - ./cleaning-crew.yaml

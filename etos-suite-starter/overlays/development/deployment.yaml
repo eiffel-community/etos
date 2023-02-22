@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etos-suite-starter
+spec:
+  template:
+    spec:
+      containers:
+        - name: etos-suite-starter
+          envFrom:
+          - configMapRef:
+              name: etos-suite-starter-sealed-secret
+          - configMapRef:
+              name: etos-suite-starter
+          - secretRef:
+              name: etos-suite-starter-rabbitmq

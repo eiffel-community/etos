@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etos-firmware-flasher
+  labels:
+    app.kubernetes.io/name: etos-firmware-flasher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: etos-firmware-flasher
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: etos-firmware-flasher
+    spec:
+      serviceAccountName: etos-firmware-flasher
+      containers:
+        - name: etos-firmware-flasher
+          image: "docker-prod.se.axis.com/nemesis/firmware_api:1.2.0"
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: etos-firmware-flasher
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http

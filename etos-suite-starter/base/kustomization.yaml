@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - role.yaml
+  - service-account.yaml
+  - rolebinding.yaml
+  - deployment.yaml
+  - suite-runner-service-account.yaml
+
+
+# By generating the configmap it will get a unique name on each apply
+# this name is also set on the deployment. This means that the pods
+# will restart with the new configmap when changes are made. Making
+# it so we do not have to do rollout restart every time.
+configMapGenerator:
+  - name: etos-suite-starter
+    literals:
+      - SUITE_RUNNER=registry.nordix.org/eiffel/etos-suite-runner:2.4.2

@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etos-environment-provider-worker
+  labels:
+    app.kubernetes.io/name: etos-environment-provider-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: etos-environment-provider-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: etos-environment-provider-worker
+    spec:
+      serviceAccountName: etos-environment-provider-worker
+      containers:
+        - name: etos-environment-provider-worker
+          image: "registry.nordix.org/eiffel/etos-environment-provider-worker:1.36.0"
+          imagePullPolicy: IfNotPresent
+          envFrom:
+          - configMapRef:
+              name: etos-environment-provider-worker
+      # This grace period ensures that the environment provider will wait
+      # for the environment checkouts to complete before shutting down.
+      terminationGracePeriodSeconds: 4250

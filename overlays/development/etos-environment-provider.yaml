@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: etos-environment-provider-development
+  namespace: argocd
+spec:
+  destination:
+    namespace: etos-development
+    server: https://kubernetes.default.svc
+  project: etos
+  source:
+    path: etos-environment-provider/overlays/development
+    repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
+    targetRevision: HEAD
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: etos-development-redis
+  namespace: argocd
+spec:
+  destination:
+    namespace: etos-development
+    server: https://kubernetes.default.svc
+  project: etos
+  source:
+    chart: redis
+    targetRevision: 16.8.9
+    repoURL: https://charts.bitnami.com/bitnami
+    helm:
+      values: |
+        auth:
+          existingSecret: etos-environment-provider-database
+          existingSecretPasswordKey: ETOS_DATABASE_PASSWORD
+        sentinel:
+          enabled: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

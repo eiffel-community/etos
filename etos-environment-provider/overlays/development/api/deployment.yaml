@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etos-environment-provider
+spec:
+  template:
+    spec:
+      containers:
+        - name: etos-environment-provider
+          envFrom:
+          - configMapRef:
+              name: etos-environment-provider-sealed-secret-database
+          - configMapRef:
+              name: etos-environment-provider
+          - secretRef:
+              name: etos-environment-provider-database

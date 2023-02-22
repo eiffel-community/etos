@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etos-suite-runner
+  labels:
+    app.kubernetes.io/name: etos-suite-starter
+data:
+  DEV: "true"
+  ETOS_GRAPHQL_SERVER: https://eiffel-er-prod.se.axis.com/graphql
+  ETOS_ENVIRONMENT_PROVIDER: http://etos.etos-dev.k8s.axis.com/environment-provider
+  ETOS_API: http://etos.etos-dev.k8s.axis.com/api
+  SOURCE_HOST: ETOS
+  ETOS_ROUTING_KEY_TAG: etos-dev
+  ESR_WAIT_FOR_ENVIRONMENT_TIMEOUT: "3610"
+  SUITE_RUNNER: none

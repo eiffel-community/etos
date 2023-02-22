@@ -1,0 +1,71 @@
+apiVersion: v1
+stringData:
+  name: ETOS Bitnami
+  project: etos
+  type: helm
+  url: https://charts.bitnami.com/bitnami
+kind: Secret
+metadata:
+  labels:
+    argocd.argoproj.io/secret-type: repository
+  name: etos-bitnami
+  namespace: argocd
+type: Opaque
+---
+apiVersion: v1
+stringData:
+  name: ETOS
+  project: etos
+  url: https://gittools.se.axis.com/gerrit/a/system/etos/ops
+kind: Secret
+metadata:
+  labels:
+    argocd.argoproj.io/secret-type: repository
+  name: etos
+  namespace: argocd
+type: Opaque
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: etos
+  namespace: argocd
+spec:
+  clusterResourceWhitelist:
+  - group: '*'
+    kind: '*'
+  description: ETOS
+  destinations:
+  - name: in-cluster
+    namespace: etos-production
+    server: https://kubernetes.default.svc
+  - name: in-cluster
+    namespace: etos-staging
+    server: https://kubernetes.default.svc
+  - name: in-cluster
+    namespace: etos-development
+    server: https://kubernetes.default.svc
+  - name: in-cluster
+    namespace: argocd
+    server: https://kubernetes.default.svc
+  sourceRepos:
+  - https://gittools.se.axis.com/gerrit/a/system/etos/ops
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: etos-development
+  namespace: argocd
+spec:
+  destination:
+    namespace: etos-development
+    server: https://kubernetes.default.svc
+  project: etos
+  source:
+    path: overlays/development
+    repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
+    targetRevision: master
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

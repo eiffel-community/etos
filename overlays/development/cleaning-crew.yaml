@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: etos-cleaning-crew-development
+  namespace: argocd
+spec:
+  destination:
+    namespace: etos-development
+    server: https://kubernetes.default.svc
+  project: etos
+  source:
+    path: cleaning-crew/overlays/development
+    repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
+    targetRevision: HEAD
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

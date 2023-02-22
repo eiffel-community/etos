@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - ./ingress.yaml
+
+patchesStrategicMerge:
+  - ./configmap.yaml
+
+commonLabels:
+    app.kubernetes.io/instance: etos-firmware-flasher-development
+
+images:
+- name: docker-prod.se.axis.com/nemesis/firmware_api
+  newTag: "dev"

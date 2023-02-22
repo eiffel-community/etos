@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etos-api
+spec:
+  template:
+    spec:
+      containers:
+        - name: etos-api
+          envFrom:
+          - configMapRef:
+              name: etos-api-sealed-secret
+          - configMapRef:
+              name: etos-api
+          - secretRef:
+              name: etos-api-rabbitmq

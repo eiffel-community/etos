@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etos-environment-provider-worker
+spec:
+  template:
+    spec:
+      containers:
+        - name: etos-environment-provider-worker
+          envFrom:
+          - configMapRef:
+              name: etos-environment-provider-sealed-secret-rabbitmq
+          - configMapRef:
+              name: etos-environment-provider-sealed-secret-database
+          - configMapRef:
+              name: etos-environment-provider-worker
+          - secretRef:
+              name: etos-environment-provider-worker-rabbitmq
+          - secretRef:
+              name: etos-environment-provider-database
