@@ -8,7 +8,7 @@ patchesStrategicMerge:
   - ./configmap.yaml
 
 commonLabels:
-    app.kubernetes.io/instance: etos-firmware-flasher-development
+    app.kubernetes.io/instance: etos-development
 
 images:
 - name: docker-prod.se.axis.com/nemesis/firmware_api
