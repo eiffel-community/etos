@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etos-environment-provider
+spec:
+  template:
+    spec:
+      volumes:
+      - name: shared-logs
+        emptyDir: {}
+      - name: filebeat-config
+        configMap:
+          name: etos-environment-provider-filebeat-config
+      containers:
+        - name: etos-environment-provider
+          envFrom:
+          - configMapRef:
+              name: etos-environment-provider-sealed-secret-database
+          - configMapRef:
+              name: etos-environment-provider
+          - secretRef:
+              name: etos-environment-provider-database
+          volumeMounts:
+          - name: shared-logs
+            mountPath: /home/etos/logs
+        - name: sidecar
+          image: docker.elastic.co/beats/filebeat:7.10.1
+          volumeMounts:
+          - name: shared-logs
+            mountPath: /usr/share/filebeat/logs
+          - name: filebeat-config
+            mountPath: /usr/share/filebeat/filebeat.yml
+            readOnly: true
+            subPath: filebeat.yml

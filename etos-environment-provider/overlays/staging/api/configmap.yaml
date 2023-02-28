@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etos-environment-provider
+  labels:
+    app.kubernetes.io/name: etos-environment-provider
+data:
+  DEV: "false"
+  ETOS_GRAPHQL_SERVER: https://eiffel-er-prod.se.axis.com/graphql
+  ETOS_ENVIRONMENT_PROVIDER: http://etos.etos-staging.k8s.axis.com/environment-provider
+  ETOS_API: http://etos.etos-staging.k8s.axis.com/api
+  SOURCE_HOST: ETOS
