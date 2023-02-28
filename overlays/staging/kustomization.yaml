@@ -4,6 +4,6 @@ resources:
   - ./namespace.yaml
   - ./etos-api.yaml
   # - ./etos-environment-provider.yaml
-  # - ./etos-suite-starter.yaml
+  - ./etos-suite-starter.yaml
   # - ./firmware-flasher.yaml
   - ./cleaning-crew.yaml
