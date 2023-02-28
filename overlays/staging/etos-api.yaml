@@ -11,7 +11,7 @@ spec:
   source:
     path: etos-api/overlays/staging
     repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
-    targetRevision: HEAD
+    targetRevision: user/tobiaspn/test
   syncPolicy:
     automated:
       prune: true

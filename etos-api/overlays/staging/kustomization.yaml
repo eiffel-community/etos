@@ -4,6 +4,7 @@ resources:
   - ../../base
   - ./rabbitmq-secret.yaml
   - ./ingress.yaml
+  - ./autoscaler.yaml
 
 patchesStrategicMerge:
   - ./configmap.yaml
