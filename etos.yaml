@@ -83,7 +83,7 @@ spec:
   source:
     path: overlays/staging
     repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
-    targetRevision: user/tobiaspn/test
+    targetRevision: HEAD
   syncPolicy:
     automated:
       prune: true
