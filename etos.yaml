@@ -69,3 +69,22 @@ spec:
     automated:
       prune: true
       selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: etos-staging
+  namespace: argocd
+spec:
+  destination:
+    namespace: etos-staging
+    server: https://kubernetes.default.svc
+  project: etos
+  source:
+    path: overlays/staging
+    repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
+    targetRevision: user/tobiaspn/test
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    field.cattle.io/creatorId: u-ezvvmz5rvu
+    field.cattle.io/projectId: c-8pq9b:p-tppjz
+    lifecycle.cattle.io/create.namespace-auth: "true"
+    argocd.argoproj.io/sync-wave: "-1"  # Highest priority when syncing
+  finalizers:
+  - controller.cattle.io/namespace-auth
+  labels:
+    field.cattle.io/projectId: p-tppjz
+  name: etos-staging
+spec:
+  finalizers:
+  - kubernetes
