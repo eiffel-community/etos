@@ -27,6 +27,13 @@ spec:
           volumeMounts:
           - name: shared-logs
             mountPath: /home/etos/logs
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1024Mi
+            requests:
+              cpu: 250m
+              memory: 512Mi
         - name: sidecar
           image: docker.elastic.co/beats/filebeat:7.10.1
           volumeMounts:
@@ -36,3 +43,10 @@ spec:
             mountPath: /usr/share/filebeat/filebeat.yml
             readOnly: true
             subPath: filebeat.yml
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi

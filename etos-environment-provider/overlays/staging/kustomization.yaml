@@ -6,6 +6,8 @@ resources:
   - ./redis-secret.yaml
   - ./ssh-key.yaml
   - ./provider-json.yaml
+  - ./api/autoscaler.yaml
+  - ./worker/autoscaler.yaml
 
 patchesStrategicMerge:
   - ./api/configmap.yaml

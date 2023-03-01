@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: etos-environment-provider-worker
 spec:
+  replicas: 1
   template:
     spec:
       containers:
