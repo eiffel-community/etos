@@ -1,0 +1,65 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - ./worker/rabbitmq-secret.yaml
+  - ./redis-secret.yaml
+  - ./ssh-key.yaml
+  - ./provider-json.yaml
+  - ./api/autoscaler.yaml
+  - ./worker/autoscaler.yaml
+
+patchesStrategicMerge:
+  - ./api/configmap.yaml
+  - ./api/deployment.yaml
+  - ./worker/configmap.yaml
+  - ./worker/deployment.yaml
+
+commonLabels:
+    app.kubernetes.io/instance: etos-production
+
+images:
+- name: registry.nordix.org/eiffel/etos-environment-provider
+  newName: docker-prod.se.axis.com/nemesis/etos/environment-provider
+  newTag: "1.36.0"
+- name: registry.nordix.org/eiffel/etos-environment-provider-worker
+  newName: docker-prod.se.axis.com/nemesis/etos/environment-provider-worker
+  newTag: "1.36.0"
+
+# Might seem unnecessary to patch a file that is already in the overlay,
+# this patch is done so that our CI jobs only have to know the format of
+# the kustomization.yaml file and not any others. The CI job should
+# only have to update the image below in order to deploy the correct
+# version.
+patches:
+- patch: |-
+    - op: replace
+      path: "/data/ETR_VERSION"
+      value: "2.4.0"
+  target:
+    kind: ConfigMap
+    name: etos-environment-provider-worker
+
+# Having the sealed secrets here is a workaround for secrets
+# not generating a reload of pods.
+# By loading the sealed secret into a generated
+# configmap, the configmap will get a new name any time the
+# sealed secret is changed resulting in a reload of the
+# deployment.
+# In order to have this behavior it was either this workaround
+# or creating a plugin to kustomize. I chose this since this
+# will work natively in ArgoCD.
+configMapGenerator:
+  - name: etos-environment-provider-sealed-secret-rabbitmq
+    files:
+    - worker/rabbitmq-secret.yaml
+  - name: etos-environment-provider-sealed-secret-database
+    files:
+    - redis-secret.yaml
+  - name: etos-environment-provider-filebeat-config
+    files:
+    - filebeat.yml
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: etos-environment-provider
+    app.kubernetes.io/instance: etos-production
