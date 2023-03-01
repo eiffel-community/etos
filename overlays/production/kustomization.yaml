@@ -4,4 +4,5 @@ resources:
   - ./namespace.yaml
   - ./etos-api.yaml
   - ./etos-environment-provider.yaml
+  - ./etos-suite-starter.yaml
   - ./cleaning-crew.yaml
