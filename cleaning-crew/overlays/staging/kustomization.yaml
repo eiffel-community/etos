@@ -11,4 +11,4 @@ commonLabels:
 
 images:
 - name: docker-prod.se.axis.com/nemesis/cleaning_crew
-  newTag: "1.2.0"
+  newTag: "6c71135"
