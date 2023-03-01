@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: etos-firmware-flasher-production
+  namespace: argocd
+spec:
+  destination:
+    namespace: etos-production
+    server: https://kubernetes.default.svc
+  project: etos
+  source:
+    path: firmware-flasher/overlays/production
+    repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
+    targetRevision: HEAD
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
