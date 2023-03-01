@@ -3,8 +3,10 @@ kind: Kustomization
 resources:
   - ../../base
   - ./ingress.yaml
+  - ./autoscaler.yaml
 
 patchesStrategicMerge:
+  - ./deployment.yaml
   - ./configmap.yaml
 
 commonLabels:
