@@ -5,7 +5,6 @@ metadata:
   labels:
     app.kubernetes.io/name: etos-suite-starter
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: etos-suite-starter

@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - ../../base
   - ./rabbitmq-secret.yaml
+  - ./autoscaler.yaml
   - ./suite-runner-filebeat.yaml
   - ./suite-runner-configmap.yaml
 
