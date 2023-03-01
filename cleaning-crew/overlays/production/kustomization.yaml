@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+
+patchesStrategicMerge:
+  - ./cronjob.yaml
+
+commonLabels:
+    app.kubernetes.io/instance: etos-production
+
+images:
+- name: docker-prod.se.axis.com/nemesis/cleaning_crew
+  newTag: "1.2.0"

@@ -3,16 +3,13 @@ kind: CronJob
 metadata:
   name: cleaning-crew
 spec:
-  schedule: "0 * * * * "
   jobTemplate:
     spec:
       template:
         spec:
-          serviceAccountName: cleaning-crew
           containers:
           - name: cleaning-crew
-            image: docker-prod.se.axis.com/nemesis/cleaning_crew:latest
             args:
             - python
             - /usr/src/app/clean.py
-          restartPolicy: Never
+            - etos-production
