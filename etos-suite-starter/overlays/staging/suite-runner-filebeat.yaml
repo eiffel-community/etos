@@ -8,7 +8,7 @@ data:
     processors:
       - add_host_metadata:
     output.logstash:
-      hosts: ["etos-logstash.etos-staging.svc.cluster.local:5044"]
+      hosts: ["etos-staging-logstash-logstash.etos-staging.svc.cluster.local:5044"]
 kind: ConfigMap
 metadata:
   labels:
