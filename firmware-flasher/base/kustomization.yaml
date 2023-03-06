@@ -16,4 +16,4 @@ configMapGenerator:
   - name: etos-firmware-flasher
     literals:
       - FIRMWARE_FLASH_DEADLINE="600"
-      - FIRWMARE_FLASH_DOCKER=docker-prod.se.axis.com/nemesis/suite_runner/firmware_flasher:1.14.0
+      - FIRMWARE_FLASH_DOCKER=docker-prod.se.axis.com/nemesis/suite_runner/firmware_flasher:1.14.0
