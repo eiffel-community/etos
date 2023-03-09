@@ -14,24 +14,6 @@ patchesStrategicMerge:
 commonLabels:
     app.kubernetes.io/instance: etos-production
 
-images:
-- name: registry.nordix.org/eiffel/etos-suite-starter
-  newTag: "1.29.0"
-
-# Might seem unnecessary to patch a file that is already in the overlay,
-# this patch is done so that our CI jobs only have to know the format of
-# the kustomization.yaml file and not any others. The CI job should
-# only have to update the image below in order to deploy the correct
-# version.
-patches:
-- patch: |-
-    - op: replace
-      path: "/data/SUITE_RUNNER"
-      value: registry.nordix.org/eiffel/etos-suite-runner:2.4.2
-  target:
-    kind: ConfigMap
-    labelSelector: app.kubernetes.io/name=etos-suite-starter
-
 # Having the sealed secret here is a workaround for secrets
 # not generating a reload of pods.
 # By loading the sealed secret into a generated
