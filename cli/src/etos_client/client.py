@@ -14,9 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Client module."""
+import time
 import logging
+import traceback
+from json import JSONDecodeError
 from uuid import UUID
 from packageurl import PackageURL
+from urllib3.exceptions import MaxRetryError, NewConnectionError
+from requests.exceptions import HTTPError
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,20 +112,37 @@ class ETOSClient:
         :rtype: bool
         """
         spinner.info(str(self.data))
-        generator = self.etos.http.retry(
-            "POST", f"{self.cluster}/etos", timeout=30, json=self.data
-        )
-        response = None
-        try:
-            for response in generator:
+
+        end_time = time.time() + 30
+        while time.time() < end_time:
+            try:
+                response = self.etos.http.request(
+                    "POST", f"{self.cluster}/etos", json=self.data
+                )
                 self.test_execution = response
                 self.test_suite_id = response.get("tercc")
                 self.artifact_id = response.get("artifact_id")
                 self.artifact_identity = response.get("artifact_identity")
                 self.event_repository = response.get("event_repository")
                 break
-        except ConnectionError as exception:
-            spinner.warn(str(exception))
+            except HTTPError as http_error:
+                response = http_error.response
+                if 400 <= response.status_code < 500:
+                    try:
+                        response_json = response.json()
+                    except JSONDecodeError:
+                        response_json = {"detail": "Unknown client error from ETOS"}
+                    spinner.fail(response_json.get("detail"))
+                    return False
+            except (
+                ConnectionError,
+                NewConnectionError,
+                MaxRetryError,
+                TimeoutError,
+            ):
+                traceback.print_exc()
+                time.sleep(2)
+        else:
             spinner.fail("Failed to trigger ETOS.")
             return False
         spinner.succeed("ETOS triggered.")
