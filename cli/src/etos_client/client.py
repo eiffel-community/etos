@@ -131,6 +131,7 @@ class ETOSClient:
                     try:
                         response_json = response.json()
                     except JSONDecodeError:
+                        spinner.info(f"Raw response from ETOS: {response.text!r}")
                         response_json = {"detail": "Unknown client error from ETOS"}
                     spinner.fail(response_json.get("detail"))
                     return False
