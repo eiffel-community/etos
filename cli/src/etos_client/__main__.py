@@ -174,7 +174,7 @@ def check_etos_connectivity(url):
         response = requests.get(url, timeout=5)
         response.raise_for_status()
     except Exception as exception:  # pylint:disable=broad-except
-        raise Exception(
+        raise Exception(  # pylint:disable=broad-exception-raised
             "Unable to connect to ETOS. Please check your network connection."
         ) from exception
 
