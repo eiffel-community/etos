@@ -15,7 +15,7 @@ commonLabels:
 
 images:
 - name: registry.nordix.org/eiffel/etos-api
-  newTag: "1.28.0"
+  newTag: "1.29.0"
 
 
 # Having the sealed secret here is a workaround for secrets
