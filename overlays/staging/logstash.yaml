@@ -20,11 +20,12 @@ spec:
         - secretRef:
             name: etos-elasticsearch-password
         service:
-          type: ClusterIP
+          type: LoadBalancer
+          loadBalancerIP: 172.27.100.72
           ports:
             - name: beats
-              port: 5044
               protocol: TCP
+              port: 5044
               targetPort: 5044
         logstashConfig:
           logstash.yml: |-

@@ -78,7 +78,7 @@ spec:
   source:
     path: overlays/development
     repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
-    targetRevision: master
+    targetRevision: HEAD
   syncPolicy:
     automated:
       prune: true
