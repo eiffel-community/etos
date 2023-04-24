@@ -15,5 +15,5 @@ resources:
 configMapGenerator:
   - name: etos-environment-provider-worker
     literals:
-      - ETR_VERSION="2.4.0"
+      - ETR_VERSION="3.0.0"
   - name: etos-environment-provider
