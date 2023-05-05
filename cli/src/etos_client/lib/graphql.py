@@ -44,7 +44,7 @@ class Search(dict):
             if key == "search":
                 strings.append(f'search: "{self["search"]}"')
             else:
-                strings.append(f'{key}: {value}')
+                strings.append(f"{key}: {value}")
         return ", ".join(strings)
 
 
@@ -60,7 +60,9 @@ def request(etos, query, search):
     :return: Generator
     :rtype: generator
     """
-    wait_generator = etos.utils.wait(etos.graphql.execute, query=query % search, timeout=60)
+    wait_generator = etos.utils.wait(
+        etos.graphql.execute, query=query % search, timeout=60
+    )
     yield from wait_generator
 
 
@@ -80,9 +82,7 @@ def search_for(etos, query, search, node):
     """
     for response in request(etos, query, search):
         if response:
-            for _, event in etos.graphql.search_for_nodes(
-                response, node
-            ):
+            for _, event in etos.graphql.search_for_nodes(response, node):
                 yield event
             return None  # StopIteration
     return None  # StopIteration
@@ -102,16 +102,19 @@ def request_all(etos, query, search, node):
     :return: Generator
     :rtype: generator
     """
-    # TODO:
-    search["last"] = 1
+    search["last"] = 100
     while True:
         last_event = None
         for event in search_for(etos, query, search, node):
+            if event.get("meta", {}).get("time") is None:
+                raise AssertionError(
+                    "Meta time must be added to graphql query in order"
+                    " to use this function"
+                )
             last_event = event
             yield event
         if last_event is None:
             return None  # StopIteration
-        # TODO: This assumes that the query has meta.time
         search["search"]["meta.time"] = {"$lt": last_event["meta"]["time"]}
 
 
@@ -132,9 +135,7 @@ def get_one(etos, query, search, node):
     for response in request(etos, query, search):
         if response:
             try:
-                _, event = next(
-                    etos.graphql.search_for_nodes(response, node)
-                )
+                _, event = next(etos.graphql.search_for_nodes(response, node))
             except StopIteration:
                 return None
             return event
@@ -151,9 +152,12 @@ def request_suite(etos, suite_id):
     :return: Response from graphql or None
     :rtype: dict or None
     """
-    return get_one(etos, TEST_SUITE, Search(
-        search={"meta.id": suite_id}
-    ), "testExecutionRecipeCollectionCreated")
+    return get_one(
+        etos,
+        TEST_SUITE,
+        Search(search={"meta.id": suite_id}),
+        "testExecutionRecipeCollectionCreated",
+    )
 
 
 def request_activity(etos, suite_id):
@@ -166,9 +170,12 @@ def request_activity(etos, suite_id):
     :return: Response from graphql or None
     :rtype: dict or None
     """
-    return get_one(etos, ACTIVITY_TRIGGERED, Search(
-        search={"links.type": "CAUSE", "links.target": suite_id}
-    ), "activityTriggered")
+    return get_one(
+        etos,
+        ACTIVITY_TRIGGERED,
+        Search(search={"links.type": "CAUSE", "links.target": suite_id}),
+        "activityTriggered",
+    )
 
 
 def request_activity_canceled(etos, activity_id):
@@ -181,9 +188,14 @@ def request_activity_canceled(etos, activity_id):
     :return: Response from graphql or None
     :rtype: dict or None
     """
-    return get_one(etos, ACTIVITY_CANCELED, Search(
-        search={"links.type": "ACTIVITY_EXECUTION", "links.target": activity_id}
-    ), "activityCanceled")
+    return get_one(
+        etos,
+        ACTIVITY_CANCELED,
+        Search(
+            search={"links.type": "ACTIVITY_EXECUTION", "links.target": activity_id}
+        ),
+        "activityCanceled",
+    )
 
 
 def request_test_suite_started(etos, activity_id):
@@ -196,9 +208,12 @@ def request_test_suite_started(etos, activity_id):
     :return: Iterator of test suite started graphql responses.
     :rtype: iterator
     """
-    yield from search_for(etos, TEST_SUITE_STARTED, Search(
-        search={"links.type": "CAUSE", "links.target": activity_id}
-    ), "testSuiteStarted")
+    yield from search_for(
+        etos,
+        TEST_SUITE_STARTED,
+        Search(search={"links.type": "CAUSE", "links.target": activity_id}),
+        "testSuiteStarted",
+    )
 
 
 def request_main_test_suites_started(etos, activity_id):
@@ -211,13 +226,18 @@ def request_main_test_suites_started(etos, activity_id):
     :return: Iterator of test suite started graphql responses.
     :rtype: iterator
     """
-    yield from search_for(etos, MAIN_TEST_SUITES_STARTED, Search(
-        search={
-            "links.type": "CONTEXT",
-            "links.target": activity_id,
-            "data.categories": {"$ne": "Sub suite"}
-        }
-    ), "testSuiteStarted")
+    yield from search_for(
+        etos,
+        MAIN_TEST_SUITES_STARTED,
+        Search(
+            search={
+                "links.type": "CONTEXT",
+                "links.target": activity_id,
+                "data.categories": {"$ne": "Sub suite"},
+            }
+        ),
+        "testSuiteStarted",
+    )
 
 
 def request_test_suite_finished(etos, test_suite_id):
@@ -230,10 +250,18 @@ def request_test_suite_finished(etos, test_suite_id):
     :return: Test suite finished graphql response.
     :rtype: dict
     """
-    return get_one(etos, TEST_SUITE_FINISHED, Search(
-        search={"links.type": "TEST_SUITE_EXECUTION", "links.target": test_suite_id},
-        last=1
-    ), "testSuiteFinished")
+    return get_one(
+        etos,
+        TEST_SUITE_FINISHED,
+        Search(
+            search={
+                "links.type": "TEST_SUITE_EXECUTION",
+                "links.target": test_suite_id,
+            },
+            last=1,
+        ),
+        "testSuiteFinished",
+    )
 
 
 def request_announcements(etos, ids):
@@ -246,9 +274,12 @@ def request_announcements(etos, ids):
     :return: Iterator of announcement published graphql responses.
     :rtype: iterator
     """
-    yield from search_for(etos, ANNOUNCEMENTS, Search(
-        search={"$or": [{"links.target": _id} for _id in ids]}
-    ), "announcementPublished")
+    yield from search_for(
+        etos,
+        ANNOUNCEMENTS,
+        Search(search={"$or": [{"links.target": _id} for _id in ids]}),
+        "announcementPublished",
+    )
 
 
 def request_environment(etos, ids):
@@ -261,9 +292,12 @@ def request_environment(etos, ids):
     :return: Iterator of environnent defined graphql responses.
     :rtype: iterator
     """
-    yield from request_all(etos, ENVIRONMENTS, Search(
-        search={"$or": [{"links.target": _id} for _id in ids]}
-    ), "environmentDefined")
+    yield from request_all(
+        etos,
+        ENVIRONMENTS,
+        Search(search={"$or": [{"links.target": _id} for _id in ids]}),
+        "environmentDefined",
+    )
 
 
 def request_artifacts(etos, context):
@@ -274,6 +308,9 @@ def request_artifacts(etos, context):
     :param context: ID of the activity used in CONTEXT.
     :type context: str
     """
-    yield from search_for(etos, ARTIFACTS, Search(
-        search={"links.type": "CONTEXT", "links.target": context}
-    ), "artifactCreated")
+    yield from search_for(
+        etos,
+        ARTIFACTS,
+        Search(search={"links.type": "CONTEXT", "links.target": context}),
+        "artifactCreated",
+    )
