@@ -102,9 +102,11 @@ def request_all(etos, query, search, node):
     :return: Generator
     :rtype: generator
     """
-    search["last"] = 100
+    limit = 100
+    search["last"] = limit
     while True:
         last_event = None
+        count = 0
         for event in search_for(etos, query, search, node):
             if event.get("meta", {}).get("time") is None:
                 raise AssertionError(
@@ -112,8 +114,11 @@ def request_all(etos, query, search, node):
                     " to use this function"
                 )
             last_event = event
+            count += 1
             yield event
         if last_event is None:
+            return None  # StopIteration
+        if count < limit:
             return None  # StopIteration
         search["search"]["meta.time"] = {"$lt": last_event["meta"]["time"]}
 
