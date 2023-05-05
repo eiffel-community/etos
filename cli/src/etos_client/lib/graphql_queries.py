@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright 2020-2023 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -17,7 +17,7 @@
 
 TEST_SUITE = """
 {
-  testExecutionRecipeCollectionCreated(search: "{'meta.id': '%s'}") {
+  testExecutionRecipeCollectionCreated(%s) {
     edges {
       node {
         data {
@@ -32,7 +32,7 @@ TEST_SUITE = """
 
 ACTIVITY_TRIGGERED = """
 {
-  activityTriggered(search: "{'links.type': 'CAUSE', 'links.target': '%s'}") {
+  activityTriggered(%s) {
     edges {
       node {
         meta {
@@ -46,7 +46,7 @@ ACTIVITY_TRIGGERED = """
 
 ACTIVITY_CANCELED = """
 {
-  activityCanceled(search: "{'links.type': 'ACTIVITY_EXECUTION', 'links.target': '%s'}") {
+  activityCanceled(%s) {
     edges {
       node {
         data {
@@ -61,7 +61,7 @@ ACTIVITY_CANCELED = """
 
 TEST_SUITE_STARTED = """
 {
-  testSuiteStarted(search:"{'links.type': 'CAUSE', 'links.target': '%s'}") {
+  testSuiteStarted(%s) {
     edges {
       node {
         meta {
@@ -76,7 +76,7 @@ TEST_SUITE_STARTED = """
 
 MAIN_TEST_SUITES_STARTED = """
 {
-  testSuiteStarted(search:"{'links.type': 'CONTEXT', 'links.target': '%s', 'data.categories': {'$ne': 'Sub suite'}}") {
+  testSuiteStarted(%s) {
     edges {
       node {
         meta {
@@ -91,7 +91,7 @@ MAIN_TEST_SUITES_STARTED = """
 
 TEST_SUITE_FINISHED = """
 {
-  testSuiteFinished(search: "{'links.type': 'TEST_SUITE_EXECUTION', 'links.target': '%s'}" last: 1) {
+  testSuiteFinished(%s) {
     edges {
       node {
         data {
@@ -112,7 +112,7 @@ TEST_SUITE_FINISHED = """
 
 ANNOUNCEMENTS = """
 {
-  announcementPublished(search: "%s") {
+  announcementPublished(%s) {
     edges {
       node {
         data {
@@ -128,12 +128,15 @@ ANNOUNCEMENTS = """
 
 ENVIRONMENTS = """
 {
-  environmentDefined(search: "%s") {
+  environmentDefined(%s) {
     edges {
       node {
         data {
           name
           uri
+        }
+        meta {
+          time
         }
       }
     }
@@ -144,7 +147,7 @@ ENVIRONMENTS = """
 
 ARTIFACTS = """
 {
-  artifactCreated(search: "{'links.type': 'CONTEXT', 'links.target': '%s'}") {
+  artifactCreated(%s) {
     edges {
       node {
         data {

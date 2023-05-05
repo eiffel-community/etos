@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright 2020-2023 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -27,18 +27,118 @@ from .graphql_queries import (
 )
 
 
-def request(etos, query):
+class Search(dict):
+    """A search dictionary for eiffel graphql API.
+
+    This makes it easier to create search strings that are more
+    coherent. Just create them as you would do a dictionary.
+    When this object is then converted to a string in the graphql
+    query it will convert the dictionary into a query string that
+    works with the eiffel graphql API.
+    """
+
+    def __str__(self):
+        """Convert dictionary to an eiffel graphql API compatible string."""
+        strings = []
+        for key, value in self.items():
+            if key == "search":
+                strings.append(f'search: "{self["search"]}"')
+            else:
+                strings.append(f'{key}: {value}')
+        return ", ".join(strings)
+
+
+def request(etos, query, search):
     """Request graphql in a generator.
 
     :param etos: Etos Library instance for communicating with ETOS.
     :type etos: :obj:`etos_lib.etos.ETOS`
     :param query: Query to send to graphql.
     :type query: str
+    :param search: Search string for graphql query.
+    :type search: :obj:`Search`
     :return: Generator
     :rtype: generator
     """
-    wait_generator = etos.utils.wait(etos.graphql.execute, query=query, timeout=60)
+    wait_generator = etos.utils.wait(etos.graphql.execute, query=query % search, timeout=60)
     yield from wait_generator
+
+
+def search_for(etos, query, search, node):
+    """Request graphql and search for node in response.
+
+    :param etos: Etos Library instance for communicating with ETOS.
+    :type etos: :obj:`etos_lib.etos.ETOS`
+    :param query: Query to send to graphql.
+    :type query: str
+    :param search: Search string for graphql query.
+    :type search: :obj:`Search`
+    :param node: Node to search for.
+    :type node: str
+    :return: Generator
+    :rtype: generator
+    """
+    for response in request(etos, query, search):
+        if response:
+            for _, event in etos.graphql.search_for_nodes(
+                response, node
+            ):
+                yield event
+            return None  # StopIteration
+    return None  # StopIteration
+
+
+def request_all(etos, query, search, node):
+    """Request all events for a given query.
+
+    :param etos: Etos Library instance for communicating with ETOS.
+    :type etos: :obj:`etos_lib.etos.ETOS`
+    :param query: Query to send to graphql.
+    :type query: str
+    :param search: Search string for graphql query.
+    :type search: :obj:`Search`
+    :param node: Node to search for.
+    :type node: str
+    :return: Generator
+    :rtype: generator
+    """
+    # TODO:
+    search["last"] = 1
+    while True:
+        last_event = None
+        for event in search_for(etos, query, search, node):
+            last_event = event
+            yield event
+        if last_event is None:
+            return None  # StopIteration
+        # TODO: This assumes that the query has meta.time
+        search["search"]["meta.time"] = {"$lt": last_event["meta"]["time"]}
+
+
+def get_one(etos, query, search, node):
+    """Request graphql and get a single node from response.
+
+    :param etos: Etos Library instance for communicating with ETOS.
+    :type etos: :obj:`etos_lib.etos.ETOS`
+    :param query: Query to send to graphql.
+    :type query: str
+    :param search: Search string for graphql query.
+    :type search: :obj:`Search`
+    :param node: Node to search for.
+    :type node: str
+    :return: Event
+    :rtype: :obj:`eiffellib.lib.events.EiffelBaseEvent`
+    """
+    for response in request(etos, query, search):
+        if response:
+            try:
+                _, event = next(
+                    etos.graphql.search_for_nodes(response, node)
+                )
+            except StopIteration:
+                return None
+            return event
+    return None
 
 
 def request_suite(etos, suite_id):
@@ -51,17 +151,9 @@ def request_suite(etos, suite_id):
     :return: Response from graphql or None
     :rtype: dict or None
     """
-    for response in request(etos, TEST_SUITE % suite_id):
-        try:
-            _, tercc = next(
-                etos.graphql.search_for_nodes(
-                    response, "testExecutionRecipeCollectionCreated"
-                )
-            )
-        except StopIteration:
-            return None
-        return tercc
-    return None
+    return get_one(etos, TEST_SUITE, Search(
+        search={"meta.id": suite_id}
+    ), "testExecutionRecipeCollectionCreated")
 
 
 def request_activity(etos, suite_id):
@@ -74,16 +166,9 @@ def request_activity(etos, suite_id):
     :return: Response from graphql or None
     :rtype: dict or None
     """
-    for response in request(etos, ACTIVITY_TRIGGERED % suite_id):
-        if response:
-            try:
-                _, activity = next(
-                    etos.graphql.search_for_nodes(response, "activityTriggered")
-                )
-            except StopIteration:
-                return None
-            return activity
-    return None
+    return get_one(etos, ACTIVITY_TRIGGERED, Search(
+        search={"links.type": "CAUSE", "links.target": suite_id}
+    ), "activityTriggered")
 
 
 def request_activity_canceled(etos, activity_id):
@@ -96,16 +181,9 @@ def request_activity_canceled(etos, activity_id):
     :return: Response from graphql or None
     :rtype: dict or None
     """
-    for response in request(etos, ACTIVITY_CANCELED % activity_id):
-        if response:
-            try:
-                _, activity_canceled = next(
-                    etos.graphql.search_for_nodes(response, "activityCanceled")
-                )
-            except StopIteration:
-                return None
-            return activity_canceled
-    return None
+    return get_one(etos, ACTIVITY_CANCELED, Search(
+        search={"links.type": "ACTIVITY_EXECUTION", "links.target": activity_id}
+    ), "activityCanceled")
 
 
 def request_test_suite_started(etos, activity_id):
@@ -118,14 +196,9 @@ def request_test_suite_started(etos, activity_id):
     :return: Iterator of test suite started graphql responses.
     :rtype: iterator
     """
-    for response in request(etos, TEST_SUITE_STARTED % activity_id):
-        if response:
-            for _, test_suite_started in etos.graphql.search_for_nodes(
-                response, "testSuiteStarted"
-            ):
-                yield test_suite_started
-            return None  # StopIteration
-    return None  # StopIteration
+    yield from search_for(etos, TEST_SUITE_STARTED, Search(
+        search={"links.type": "CAUSE", "links.target": activity_id}
+    ), "testSuiteStarted")
 
 
 def request_main_test_suites_started(etos, activity_id):
@@ -138,14 +211,13 @@ def request_main_test_suites_started(etos, activity_id):
     :return: Iterator of test suite started graphql responses.
     :rtype: iterator
     """
-    for response in request(etos, MAIN_TEST_SUITES_STARTED % activity_id):
-        if response:
-            for _, test_suite_started in etos.graphql.search_for_nodes(
-                response, "testSuiteStarted"
-            ):
-                yield test_suite_started
-            return None  # StopIteration
-    return None  # StopIteration
+    yield from search_for(etos, MAIN_TEST_SUITES_STARTED, Search(
+        search={
+            "links.type": "CONTEXT",
+            "links.target": activity_id,
+            "data.categories": {"$ne": "Sub suite"}
+        }
+    ), "testSuiteStarted")
 
 
 def request_test_suite_finished(etos, test_suite_id):
@@ -158,16 +230,10 @@ def request_test_suite_finished(etos, test_suite_id):
     :return: Test suite finished graphql response.
     :rtype: dict
     """
-    for response in request(etos, TEST_SUITE_FINISHED % test_suite_id):
-        if response:
-            try:
-                _, test_suite_finished = next(
-                    etos.graphql.search_for_nodes(response, "testSuiteFinished")
-                )
-            except StopIteration:
-                return None
-            return test_suite_finished
-    return None
+    return get_one(etos, TEST_SUITE_FINISHED, Search(
+        search={"links.type": "TEST_SUITE_EXECUTION", "links.target": test_suite_id},
+        last=1
+    ), "testSuiteFinished")
 
 
 def request_announcements(etos, ids):
@@ -180,17 +246,9 @@ def request_announcements(etos, ids):
     :return: Iterator of announcement published graphql responses.
     :rtype: iterator
     """
-    or_query = "{'$or': ["
-    or_query += ", ".join([f"{{'links.target': '{_id}'}}" for _id in ids])
-    or_query += "]}"
-    for response in request(etos, ANNOUNCEMENTS % or_query):
-        if response:
-            for _, announcement in etos.graphql.search_for_nodes(
-                response, "announcementPublished"
-            ):
-                yield announcement
-            return None  # StopIteration
-    return None  # StopIteration
+    yield from search_for(etos, ANNOUNCEMENTS, Search(
+        search={"$or": [{"links.target": _id} for _id in ids]}
+    ), "announcementPublished")
 
 
 def request_environment(etos, ids):
@@ -203,17 +261,9 @@ def request_environment(etos, ids):
     :return: Iterator of environnent defined graphql responses.
     :rtype: iterator
     """
-    or_query = "{'$or': ["
-    or_query += ", ".join([f"{{'links.target': '{_id}'}}" for _id in ids])
-    or_query += "]}"
-    for response in request(etos, ENVIRONMENTS % or_query):
-        if response:
-            for _, environment in etos.graphql.search_for_nodes(
-                response, "environmentDefined"
-            ):
-                yield environment
-            return None  # StopIteration
-    return None  # StopIteration
+    yield from request_all(etos, ENVIRONMENTS, Search(
+        search={"$or": [{"links.target": _id} for _id in ids]}
+    ), "environmentDefined")
 
 
 def request_artifacts(etos, context):
@@ -224,11 +274,6 @@ def request_artifacts(etos, context):
     :param context: ID of the activity used in CONTEXT.
     :type context: str
     """
-    for response in request(etos, ARTIFACTS % context):
-        if response:
-            for _, artifact in etos.graphql.search_for_nodes(
-                response, "artifactCreated"
-            ):
-                yield artifact
-            return None  # StopIteration
-    return None  # StopIteration
+    yield from search_for(etos, ARTIFACTS, Search(
+        search={"links.type": "CONTEXT", "links.target": context}
+    ), "artifactCreated")

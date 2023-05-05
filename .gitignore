@@ -13,6 +13,7 @@ __pycache__/*
 .*.swp
 */.ipynb_checkpoints/*
 .DS_Store
+.tags
 
 # Project files
 .ropeproject
@@ -49,3 +50,4 @@ MANIFEST
 
 # Per-project virtualenvs
 .venv*/
+.python-version
