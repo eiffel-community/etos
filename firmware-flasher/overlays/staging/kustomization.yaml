@@ -14,4 +14,4 @@ commonLabels:
 
 images:
 - name: docker-prod.se.axis.com/nemesis/firmware_api
-  newTag: "5f5c863"
+  newTag: "1.2.0"
