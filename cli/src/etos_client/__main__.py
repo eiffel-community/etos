@@ -15,13 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Main executable module."""
-
 import argparse
 import sys
 import os
 import logging
 import time
 import json
+import warnings
 
 import requests
 from halo import Halo
@@ -103,7 +103,7 @@ def parse_args(args):
         "-d",
         "--download-reports",
         default=None,
-        help="Should we download reports. Can be 'yes', 'y', 'no', 'n'.",
+        help="This parameter is no longer in use.",
     )
 
     parser.add_argument(
@@ -278,6 +278,10 @@ def main(args):  # pylint:disable=too-many-statements
       args ([str]): command line parameter list
     """
     args = parse_args(args)
+    if args.download_reports:
+        warnings.warn(
+            "The '-d'/--download-reports' parameter is deprecated", DeprecationWarning
+        )
     etos = ETOS("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
 
     setup_logging(args.loglevel)
@@ -313,22 +317,11 @@ def main(args):  # pylint:disable=too-many-statements
         else:
             spinner.succeed(test.result())
 
-        # Download reports
-        if args.download_reports is None:
-            answer = input(
-                "Do you want to download all logs for this test execution? (y/n): "
-            )
-            while answer.lower() not in ("y", "yes", "no", "n"):
-                print("Please answer 'yes' or 'no'")
-                answer = input()
-        else:
-            answer = args.download_reports
-        if answer.lower() in ("y", "yes"):
-            log_handler = ETOSLogHandler(etos, test.events())
-            spinner.start("Downloading test logs.")
-            logs_downloaded_successfully = log_handler.download_logs(spinner)
-            if not logs_downloaded_successfully:
-                sys.exit("ETOS logs did not download successfully.")
+        log_handler = ETOSLogHandler(etos, test.events())
+        spinner.start("Downloading test logs.")
+        logs_downloaded_successfully = log_handler.download_logs(spinner)
+        if not logs_downloaded_successfully:
+            sys.exit("ETOS logs did not download successfully.")
 
 
 def run():
