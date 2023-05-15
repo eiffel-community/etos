@@ -16,7 +16,7 @@
 """ETOS Client test result handler."""
 import time
 import logging
-from .graphql import (
+from etos_client.event_repository import (
     request_activity,
     request_activity_canceled,
     request_main_test_suites_started,

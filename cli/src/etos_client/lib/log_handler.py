@@ -19,7 +19,7 @@ import logging
 import json
 import shutil
 from requests.exceptions import HTTPError
-from etos_client.lib.graphql import request_artifacts
+from etos_client.event_repository import request_artifacts
 
 _LOGGER = logging.getLogger(__name__)
 
