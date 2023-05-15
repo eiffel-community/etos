@@ -144,8 +144,11 @@ class ETOSTestResultHandler:
         :param spinner: Spinner text item.
         :type spinner: :obj:`Spinner`
         """
+        ids = [self.etos.config.get("suite_id")]
+        if self.activity_id is not None:
+            ids.append(self.activity_id)
         for announcement in request_announcements(
-            self.etos, [self.etos.config.get("suite_id"), self.activity_id]
+            self.etos, ids
         ):
             if announcement not in self.announcements:
                 self.announcements.append(announcement)
