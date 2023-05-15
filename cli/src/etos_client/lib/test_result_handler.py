@@ -45,7 +45,6 @@ class ETOSTestResultHandler:
         :type etos: :obj:`etos_lib.etos.ETOS`
         """
         self.etos = etos
-        self.suite_id = self.etos.config.get("suite_id")
 
         self.test_suite_started = {}
         self.test_suites_finished = []
@@ -59,7 +58,8 @@ class ETOSTestResultHandler:
     def activity_id(self):
         """Get the activity ID from event repository."""
         if self.__activity_id is None:
-            activity = request_activity(self.etos, self.suite_id)
+            suite_id = self.etos.config.get("suite_id")
+            activity = request_activity(self.etos, suite_id)
             if activity is not None:
                 self.__activity_id = activity["meta"]["id"]
         return self.__activity_id

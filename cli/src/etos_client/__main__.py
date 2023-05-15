@@ -28,8 +28,8 @@ from halo import Halo
 from etos_lib.etos import ETOS
 
 from etos_client import __version__
-from etos_client.client import ETOSClient
-from etos_client.lib import ETOSTestResultHandler, ETOSLogHandler
+from etos_client.test_run import TestRun, State
+from etos_client.lib import ETOSLogHandler
 
 _logger = logging.getLogger(__name__)
 
@@ -303,34 +303,15 @@ def main(args):  # pylint:disable=too-many-statements
         spinner.succeed("Ready to launch ETOS.")
 
         # Start execution
-        etos_client = ETOSClient(etos, args.cluster)
-        spinner.start("Triggering ETOS.")
-        success = etos_client.start(spinner)
-        if not success:
-            # Unix  : 0 == Success, 1 == Fail
-            # Python: 1 == True   , 0 == False
-            sys.exit(not success)
+        test = TestRun(etos, spinner)
+        testrun_state = test.run(args.cluster)
 
-        spinner.info(f"Suite ID: {etos_client.test_suite_id}")
-        spinner.info(f"Artifact ID: {etos_client.artifact_id}")
-        spinner.info(f"Purl: {etos_client.artifact_identity}")
-
-        etos.config.set("suite_id", etos_client.test_suite_id)
-        os.environ["ETOS_GRAPHQL_SERVER"] = etos_client.event_repository
-        spinner.info(f"Event repository: {etos.debug.graphql_server!r}")
-
-        # Wait for test results
-        test_result_handler = ETOSTestResultHandler(etos)
-        spinner.start("Waiting for ETOS.")
-        success, results, canceled = test_result_handler.wait_for_test_suite_finished(
-            spinner
-        )
-        if not success:
-            spinner.fail(results)
-            if canceled:
-                sys.exit(canceled)
+        if testrun_state == State.FAILURE:
+            spinner.fail(test.result())
+        elif testrun_state == State.CANCELED:
+            sys.exit(test.result())
         else:
-            spinner.succeed(results)
+            spinner.succeed(test.result())
 
         # Download reports
         if args.download_reports is None:
@@ -343,7 +324,7 @@ def main(args):  # pylint:disable=too-many-statements
         else:
             answer = args.download_reports
         if answer.lower() in ("y", "yes"):
-            log_handler = ETOSLogHandler(etos, test_result_handler.events)
+            log_handler = ETOSLogHandler(etos, test.events())
             spinner.start("Downloading test logs.")
             logs_downloaded_successfully = log_handler.download_logs(spinner)
             if not logs_downloaded_successfully:
