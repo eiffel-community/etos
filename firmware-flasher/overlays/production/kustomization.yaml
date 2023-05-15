@@ -4,6 +4,7 @@ resources:
   - ../../base
   - ./ingress.yaml
   - ./autoscaler.yaml
+  - ./jenkins-secrets.yaml
 
 patchesStrategicMerge:
   - ./deployment.yaml
@@ -15,3 +16,21 @@ commonLabels:
 images:
 - name: docker-prod.se.axis.com/nemesis/firmware_api
   newTag: "1.2.0"
+
+# Having the sealed secret here is a workaround for secrets
+# not generating a reload of pods.
+# By loading the sealed secret into a generated
+# configmap, the configmap will get a new name any time the
+# sealed secret is changed resulting in a reload of the
+# deployment.
+# In order to have this behavior it was either this workaround
+# or creating a plugin to kustomize. I chose this since this
+# will work natively in ArgoCD.
+configMapGenerator:
+  - name: etos-firmware-flasher-sealed-secret
+    files:
+    - jenkins-secrets.yaml
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: etos-firmware-flasher
+    app.kubernetes.io/instance: etos-production

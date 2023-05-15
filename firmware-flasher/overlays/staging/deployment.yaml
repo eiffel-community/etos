@@ -14,3 +14,10 @@ spec:
             requests:
               cpu: 250m
               memory: 512Mi
+          envFrom:
+            - configMapRef:
+                name: etos-firmware-flasher
+            - configMapRef:
+                name: etos-firmware-flasher-sealed-secret
+            - secretRef:
+                name: etos-firmware-flasher-jenkins

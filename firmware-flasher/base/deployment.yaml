@@ -18,9 +18,6 @@ spec:
         - name: etos-firmware-flasher
           image: "docker-prod.se.axis.com/nemesis/firmware_api:1.2.0"
           imagePullPolicy: IfNotPresent
-          envFrom:
-            - configMapRef:
-                name: etos-firmware-flasher
           ports:
             - name: http
               containerPort: 8080
