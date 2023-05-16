@@ -15,8 +15,17 @@
 # limitations under the License.
 """ETOS client testrun module."""
 import os
+import time
+import traceback
+
+from json import JSONDecodeError
+from urllib3.exceptions import MaxRetryError, NewConnectionError
+import requests
+from requests.exceptions import HTTPError
+from etos_lib import ETOS as ETOSLibrary
+
 from etos_client.lib.test_result_handler import ETOSTestResultHandler
-from etos_client.client import ETOSClient
+from etos_client.etos.schema import ResponseSchema
 
 
 class State:  # pylint:disable=too-few-public-methods
@@ -34,28 +43,48 @@ class TestRun:
 
     state = State.NOT_STARTED
 
-    def __init__(self, etos: "etos_lib.etos.ETOS", spinner: "etos_client.Printer"):
+    def __init__(self, cluster: str, spinner: "etos_client.Printer"):
         """Initialize the test run handler."""
-        self.__test_result_handler = ETOSTestResultHandler(etos)
+        self.etos_library = ETOSLibrary(
+            "ETOS Client", os.getenv("HOSTNAME"), "ETOS Client"
+        )
+        self.cluster = cluster
+        self.__test_result_handler = None
         self.__results = None
-        self.etos = etos
         self.logger = spinner
 
-    def run(self, cluster: str) -> int:
+    def run(self, request_data: "etos_client.etos.schema.RequestSchema") -> int:
         """Run ETOS and wait for it to finish."""
+        if not self.check_connection():
+            self.state = State.CANCELED
+            self.__results = "Unable to connect to ETOS. Please check your connection."
+            return self.state
+        self.logger.succeed("Connection successful.")
+        self.logger.succeed("Ready to launch ETOS.")
+
         self.logger.start("Triggering ETOS.")
-        if not self.__start(cluster):
+        if not self.__start(request_data):
             self.state = State.CANCELED
             self.__results = "Failed to start ETOS"
             return self.state
         self.logger.start("Waiting for ETOS.")
         return self.__wait()
 
+    def check_connection(self):
+        """Check connection to ETOS."""
+        try:
+            response = requests.get(f"{self.cluster}/selftest/ping", timeout=5)
+            response.raise_for_status()
+            return True
+        except Exception:  # pylint:disable=broad-exception-caught
+            return False
+
     def __wait(self) -> int:
         """Wait for test run to finish.
 
         Test result handling shall be moved from this method.
         """
+        self.__test_result_handler = ETOSTestResultHandler(self.etos_library)
         (
             success,
             results,
@@ -73,26 +102,68 @@ class TestRun:
             self.__results = results
         return self.state
 
-    def __start(self, cluster: str) -> bool:
+    def __start(self, request_data: "etos_client.etos.schema.RequestSchema") -> bool:
         """Start an ETOS testrun.
 
         Initializing an ETOSClient here feels weird. Should be passed into
         this test run handler instead.
         """
-        client = ETOSClient(self.etos, cluster)
-        success = client.start(self.logger)
-        if not success:
+        response = self.__retry_trigger_etos(request_data)
+        if not response:
             self.state = State.FAILURE
             return False
         self.state = State.STARTED
-        self.logger.info(f"Suite ID: {client.test_suite_id}")
-        self.logger.info(f"Artifact ID: {client.artifact_id}")
-        self.logger.info(f"Purl: {client.artifact_identity}")
+        self.logger.info(f"Suite ID: {response.tercc}")
+        self.logger.info(f"Artifact ID: {response.artifact_id}")
+        self.logger.info(f"Purl: {response.artifact_identity}")
 
-        self.etos.config.set("suite_id", client.test_suite_id)
-        os.environ["ETOS_GRAPHQL_SERVER"] = client.event_repository
-        self.logger.info(f"Event repository: {self.etos.debug.graphql_server!r}")
+        # TODO: Let's not access etos-library here
+        self.etos_library.config.set("suite_id", str(response.tercc))
+        os.environ["ETOS_GRAPHQL_SERVER"] = response.event_repository
+        self.logger.info(f"Event repository: {response.event_repository!r}")
         return True
+
+    def __retry_trigger_etos(
+        self, request_data: "etos_client.etos.schema.RequestSchema"
+    ) -> ResponseSchema:
+        """Trigger ETOS, retrying on non-client errors until successful."""
+        end_time = time.time() + 30
+        response = None
+        while time.time() < end_time:
+            try:
+                response = self.etos_library.http.request(
+                    "POST", f"{self.cluster}/etos", json=request_data.dict()
+                )
+                break
+            except HTTPError as http_error:
+                response = http_error.response
+                if 400 <= response.status_code < 500:
+                    try:
+                        response_json = response.json()
+                    except JSONDecodeError:
+                        self.logger.info(f"Raw response from ETOS: {response.text!r}")
+                        response_json = {"detail": "Unknown client error from ETOS"}
+                    # TODO:!
+                    self.logger.fail(response_json.get("detail"))
+                    return None
+                traceback.print_exc()
+                time.sleep(2)
+            except (
+                ConnectionError,
+                NewConnectionError,
+                MaxRetryError,
+                TimeoutError,
+            ):
+                traceback.print_exc()
+                time.sleep(2)
+        else:
+            self.logger.fail("Failed to trigger ETOS.")
+            return None
+        if response is not None:
+            self.logger.succeed("ETOS triggered.")
+            return ResponseSchema.from_response(response)
+        self.logger.fail("Failed to trigger ETOS.")
+        return None
 
     def events(self):
         """Events that were sent in this testrun.

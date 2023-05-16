@@ -27,31 +27,16 @@ _LOGGER = logging.getLogger(__name__)
 class ETOSLogHandler:
     """ETOS client log handler. Download all logs sent via EiffelTestSuiteFinishedEvent."""
 
-    def __init__(self, etos, events):
+    def __init__(self, etos: "etos_lib.ETOS", workspace: str, events: list):
         """Initialize log handler.
 
         :param etos: ETOS Library instance.
-        :type etos: :obj:`etos_lib.etos.ETOS`
+        :param workspace: Directory where ETOS client shall store logs.
         :param events: All events collected from the test execution.
-        :type events: list
         """
         self.etos = etos
+        self.workspace = workspace
         self.events = events
-
-        self.report_dir = os.path.join(
-            self.etos.config.get("workspace"), self.etos.config.get("report_dir")
-        )
-        self.artifact_dir = os.path.join(
-            self.etos.config.get("workspace"), self.etos.config.get("artifact_dir")
-        )
-        self.prepare()
-
-    def prepare(self):
-        """Prepare the workspace for logs."""
-        if not os.path.exists(self.report_dir):
-            os.makedirs(self.report_dir)
-        if not os.path.exists(self.artifact_dir):
-            os.makedirs(self.artifact_dir)
 
     @staticmethod
     def _logs(test_suite_finished):
@@ -145,20 +130,28 @@ class ETOSLogHandler:
             spinner.warn(str(error))
             return False
 
-    def download_logs(self, spinner):
+    def download_logs(
+        self, report_dir: str, artifact_dir: str, spinner: "etos_client.Printer"
+    ):
         """Download all logs to report and artifact directories."""
         nbr_of_logs_downloaded = 0
         incomplete = False
 
+        report_dir = os.path.join(self.workspace, report_dir)
+        if not os.path.exists(report_dir):
+            os.makedirs(report_dir)
         for name, uri in self.all_logs:
-            result = self._download(name, uri, self.report_dir, spinner)
+            result = self._download(name, uri, report_dir, spinner)
             if result:
                 nbr_of_logs_downloaded += 1
             else:
                 incomplete = True
 
+        artifact_dir = os.path.join(self.workspace, artifact_dir)
+        if not os.path.exists(artifact_dir):
+            os.makedirs(artifact_dir)
         for name, uri in self.all_artifacts:
-            result = self._download(name, uri, self.artifact_dir, spinner)
+            result = self._download(name, uri, artifact_dir, spinner)
             if result:
                 nbr_of_logs_downloaded += 1
             else:
@@ -171,7 +164,7 @@ class ETOSLogHandler:
             try:
                 filename = f"IUT_{index}.json"
                 with open(
-                    os.path.join(self.artifact_dir, filename), "w+", encoding="utf-8"
+                    os.path.join(artifact_dir, filename), "w+", encoding="utf-8"
                 ) as report:
                     json.dump(iut, report)
             except Exception as error:  # pylint:disable=broad-except
@@ -180,12 +173,10 @@ class ETOSLogHandler:
                 incomplete = True
             nbr_of_logs_downloaded += 1
 
-        shutil.make_archive(
-            os.path.join(self.artifact_dir, "reports"), "zip", self.report_dir
-        )
+        shutil.make_archive(os.path.join(artifact_dir, "reports"), "zip", report_dir)
         spinner.info(f"Downloaded {nbr_of_logs_downloaded} logs")
-        spinner.info(f"Reports: {self.report_dir}")
-        spinner.info(f"Artifacs: {self.artifact_dir}")
+        spinner.info(f"Reports: {report_dir}")
+        spinner.info(f"Artifacs: {artifact_dir}")
         if incomplete:
             spinner.fail("Logs failed downloading.")
             return False

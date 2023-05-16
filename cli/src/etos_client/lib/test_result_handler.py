@@ -147,9 +147,7 @@ class ETOSTestResultHandler:
         ids = [self.etos.config.get("suite_id")]
         if self.activity_id is not None:
             ids.append(self.activity_id)
-        for announcement in request_announcements(
-            self.etos, ids
-        ):
+        for announcement in request_announcements(self.etos, ids):
             if announcement not in self.announcements:
                 self.announcements.append(announcement)
                 data = self.announcements[-1].get("data")

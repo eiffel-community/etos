@@ -1,0 +1,103 @@
+# Copyright Axis Communications AB.
+#
+# For a full list of individual contributors, please see the commit history.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""ETOS request data."""
+import json
+from uuid import UUID
+from typing import Optional, Union
+
+from pydantic import BaseModel, validator
+from packageurl import PackageURL
+
+# Pydantic requires validators first argument to be cls and the methods cannot be classmethods
+# pylint:disable=no-self-argument
+
+
+class RequestSchema(BaseModel):
+    """Request model for the ETOS start API."""
+
+    artifact_id: Optional[str]
+    artifact_identity: Optional[UUID]
+    test_suite_url: str
+    dataset: Optional[Union[dict, list]] = {}
+    execution_space_provider: Optional[str] = "default"
+    iut_provider: Optional[str] = "default"
+    log_area_provider: Optional[str] = "default"
+
+    @classmethod
+    def from_args(cls, args: list[str]) -> "RequestSchema":
+        """Create a RequestSchema from an argument list from argparse."""
+        return RequestSchema(
+            artifact_id=args.identity,
+            artifact_identity=args.identity,
+            test_suite_url=args.test_suite,
+            dataset=args.dataset,
+            execution_space_provider=args.execution_space_provider,
+            iut_provider=args.iut_provider,
+            log_area_provider=args.log_area_provider,
+        )
+
+    @validator("artifact_id", always=True)
+    def validate_id_or_identity(cls, artifact_id: Optional[str], values: dict) -> str:
+        """Validate that at least one and only one of id and identity are set."""
+        if values.get("artifact_identity") is None and not artifact_id:
+            raise ValueError("Identity is not a valid PackageURL or UUID.")
+        return artifact_id
+
+    @validator("artifact_id", pre=True)
+    def is_uuid(cls, artifact_id: Optional[str]) -> str:
+        """Test if string is a valid UUID v4."""
+        try:
+            UUID(artifact_id, version=4)
+        except ValueError:
+            return None
+        return artifact_id
+
+    @validator("artifact_identity", pre=True)
+    def is_packageurl(cls, artifact_identity: Optional[str]) -> str:
+        """Test if string is a valid PackageURL."""
+        try:
+            PackageURL.from_string(artifact_identity)
+        except ValueError:
+            return None
+        return artifact_identity
+
+    @validator("dataset", always=True)
+    def dataset_list_trimming(cls, dataset: Optional[Union[dict, list]]):
+        """Trim away list completely should the dataset only contain a single index."""
+        if dataset is None:
+            return {}
+        if len(dataset) == 1:
+            return json.loads(dataset[0])
+        return [json.loads(data) for data in dataset]
+
+
+class ResponseSchema(BaseModel):
+    """Response model for the ETOS start API."""
+
+    event_repository: str
+    tercc: UUID
+    artifact_id: UUID
+    artifact_identity: str
+
+    @classmethod
+    def from_response(cls, response: dict) -> "ResponseSchema":
+        """Create a ResponseSchema from a dictionary. Typically used for ETOS API http response."""
+        return ResponseSchema(
+            event_repository=response.get("event_repository"),
+            tercc=response.get("tercc"),
+            artifact_id=response.get("artifact_id"),
+            artifact_identity=response.get("artifact_identity"),
+        )

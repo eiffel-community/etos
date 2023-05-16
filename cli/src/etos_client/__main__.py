@@ -20,14 +20,12 @@ import sys
 import os
 import logging
 import time
-import json
 import warnings
 
-import requests
 from halo import Halo
-from etos_lib.etos import ETOS
 
 from etos_client import __version__
+from etos_client.etos.schema import RequestSchema
 from etos_client.test_run import TestRun, State
 from etos_client.lib import ETOSLogHandler
 
@@ -164,21 +162,6 @@ def setup_logging(loglevel):
     )
 
 
-def check_etos_connectivity(url):
-    """Check the connection to ETOS.
-
-    :param url: URL to test connection to.
-    :type url: str
-    """
-    try:
-        response = requests.get(url, timeout=5)
-        response.raise_for_status()
-    except Exception as exception:  # pylint:disable=broad-except
-        raise Exception(  # pylint:disable=broad-exception-raised
-            "Unable to connect to ETOS. Please check your network connection."
-        ) from exception
-
-
 class Printer:
     """Generic printing class matching the interface of halo."""
 
@@ -282,33 +265,17 @@ def main(args):  # pylint:disable=too-many-statements
         warnings.warn(
             "The '-d'/--download-reports' parameter is deprecated", DeprecationWarning
         )
-    etos = ETOS("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
 
     setup_logging(args.loglevel)
     info = generate_spinner(args.no_tty)
 
-    for key, value in args._get_kwargs():  # pylint:disable=protected-access
-        etos.config.set(key, value)
-
-    etos.config.set("artifact_identifier", args.identity)
-    etos.config.set("dataset", [json.loads(dataset) for dataset in args.dataset] or {})
-
     with info(text="Checking connectivity to ETOS", spinner="dots") as spinner:
         spinner.info(f"Running in cluster: {args.cluster!r}")
-        spinner.info("Configuration:")
-        spinner.info(f"{etos.config.config}")
-        try:
-            check_etos_connectivity(f"{args.cluster}/selftest/ping")
-        except Exception as exception:  # pylint:disable=broad-except
-            spinner.fail(str(exception))
-            sys.exit(1)
         spinner.start()
-        spinner.succeed("Connection successful.")
-        spinner.succeed("Ready to launch ETOS.")
 
         # Start execution
-        test = TestRun(etos, spinner)
-        testrun_state = test.run(args.cluster)
+        test = TestRun(args.cluster, spinner)
+        testrun_state = test.run(RequestSchema.from_args(args))
 
         if testrun_state == State.FAILURE:
             spinner.fail(test.result())
@@ -317,9 +284,12 @@ def main(args):  # pylint:disable=too-many-statements
         else:
             spinner.succeed(test.result())
 
-        log_handler = ETOSLogHandler(etos, test.events())
+        # TODO: Don't pass etos-library here.
+        log_handler = ETOSLogHandler(test.etos_library, args.workspace, test.events())
         spinner.start("Downloading test logs.")
-        logs_downloaded_successfully = log_handler.download_logs(spinner)
+        logs_downloaded_successfully = log_handler.download_logs(
+            args.report_dir, args.artifact_dir, spinner
+        )
         if not logs_downloaded_successfully:
             sys.exit("ETOS logs did not download successfully.")
 
