@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """GraphQL query handler."""
+import time
 from .graphql_queries import (
     ARTIFACTS,
     ACTIVITY_TRIGGERED,
@@ -64,6 +65,29 @@ def request(etos, query, search):
         etos.graphql.execute, query=query % search, timeout=60
     )
     yield from wait_generator
+
+
+def wait_for(etos, eiffel_request, timeout, *args):
+    """Request graphql until response or timeout.
+
+    :param etos: Etos Library instance for communicating with ETOS.
+    :type etos: :obj:`etos_lib.etos.ETOS`
+    :param eiffel_request: Request function to wait for.
+    :type eiffel_request: func
+    :param timeout: Timeout, in seconds, for request.
+    :type timeout: int
+    :param args: Positional arguments to eiffel_request.
+    :type args: list
+    :return: Graphql response.
+    :rtype: dict
+    """
+    end = time.time() + timeout
+    while time.time() < end:
+        event = eiffel_request(etos, *args)
+        if event:
+            return event
+        time.sleep(1)
+    return None
 
 
 def search_for(etos, query, search, node):

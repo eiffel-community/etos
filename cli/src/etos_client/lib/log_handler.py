@@ -65,7 +65,7 @@ class ETOSLogHandler:
     def all_artifacts(self):
         """Iterate over all artifacts for the executed test suite."""
         for artifact_created in request_artifacts(
-            self.etos, self.events.get("activityId")
+            self.etos, str(self.events.get("activityId"))
         ):
             for _, location in self.etos.utils.search(artifact_created, "uri"):
                 suite_name = ""

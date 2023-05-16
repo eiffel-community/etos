@@ -17,11 +17,9 @@
 import os
 import logging
 
-from etos_lib import ETOS as ETOSLibrary
-
-from etos_client.lib.test_result_handler import ETOSTestResultHandler
-from etos_client.etos.schema import RequestSchema
+from etos_client.etos.schema import RequestSchema, ResponseSchema
 from etos_client.etos import ETOS
+from etos_client.test_results import TestResults
 
 
 class State:  # pylint:disable=too-few-public-methods
@@ -38,15 +36,15 @@ class TestRun:
     """An ETOS test run representation and handler."""
 
     state = State.NOT_STARTED
+    data: ResponseSchema = None
     logger = logging.getLogger(__name__)
 
     def __init__(self):
         """Initialize the test run handler."""
-        self.etos_library = ETOSLibrary(
-            "ETOS Client", os.getenv("HOSTNAME"), "ETOS Client"
-        )
-        self.__test_result_handler = None
         self.__results = None
+        self.__events = None
+        # TODO: This is silly
+        self.test_results = TestResults()
 
     def run(self, etos: ETOS, request_data: RequestSchema) -> int:
         """Run ETOS and wait for it to finish."""
@@ -56,11 +54,11 @@ class TestRun:
             self.__results = etos.reason
             return self.state
 
+        self.data = response
+
         self.logger.info("Suite ID: %s", response.tercc)
         self.logger.info("Artifact ID: %s", response.artifact_id)
         self.logger.info("Purl: %s", response.artifact_identity)
-        # TODO: Let's not access etos-library here
-        self.etos_library.config.set("suite_id", str(response.tercc))
         os.environ["ETOS_GRAPHQL_SERVER"] = response.event_repository
         self.logger.info("Event repository: %r", response.event_repository)
 
@@ -72,15 +70,11 @@ class TestRun:
 
         Test result handling shall be moved from this method.
         """
-        self.__test_result_handler = ETOSTestResultHandler(self.etos_library)
-        (
-            success,
-            results,
-            canceled,
-        ) = self.__test_result_handler.wait_for_test_suite_finished()
+        success, results, canceled = self.test_results.get_results(self)
         if success:
             self.state = State.SUCCESS
             self.__results = results
+            self.__events = self.test_results.events
         elif canceled:
             self.state = State.CANCELED
             self.__results = canceled
@@ -94,7 +88,7 @@ class TestRun:
 
         Events shall not be handled in this handler.
         """
-        return self.__test_result_handler.events
+        return self.__events
 
     def result(self):
         """Test run result.

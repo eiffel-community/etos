@@ -188,7 +188,9 @@ def main(args):  # pylint:disable=too-many-statements
         LOGGER.info(test.result())
 
     # TODO: Don't pass etos-library here.
-    log_handler = ETOSLogHandler(test.etos_library, args.workspace, test.events())
+    log_handler = ETOSLogHandler(
+        test.test_results.etos_library, args.workspace, test.events()
+    )
     LOGGER.info("Downloading test logs.")
     logs_downloaded_successfully = log_handler.download_logs(
         args.report_dir, args.artifact_dir
