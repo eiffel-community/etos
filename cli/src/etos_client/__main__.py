@@ -19,17 +19,14 @@ import argparse
 import sys
 import os
 import logging
-import time
 import warnings
-
-from halo import Halo
 
 from etos_client import __version__
 from etos_client.etos.schema import RequestSchema
 from etos_client.test_run import TestRun, State
 from etos_client.lib import ETOSLogHandler
 
-_logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 def environ_or_required(key):
@@ -77,7 +74,7 @@ def parse_args(args):
     )
 
     parser.add_argument(
-        "--no-tty", help="Disable features requiring a tty.", action="store_true"
+        "--no-tty", help="This parameter is no longer in use.", action="store_true"
     )
     parser.add_argument(
         "-w",
@@ -162,98 +159,6 @@ def setup_logging(loglevel):
     )
 
 
-class Printer:
-    """Generic printing class matching the interface of halo."""
-
-    __text = None
-    timeout = 60
-    timer = None
-
-    def __init__(self, text, **_):
-        """Initialize the printer class.
-
-        :param text: Initial text.
-        :type text: str
-        """
-        self.timer = time.time() + self.timeout
-        self.text = text
-
-    def __enter__(self):
-        """Enter printer context."""
-        return self
-
-    @property
-    def text(self):
-        """Printer text."""
-        return self.__text
-
-    @text.setter
-    def text(self, text):
-        """Set text for this object.
-
-        Don't reprint unless the text is new or a timeout has been reached.
-        This is to disable unecessary text spam into the console log.
-
-        :param text: Text to print.
-        :type text: str
-        """
-        timeout_reached = time.time() > self.timer
-        if text != self.__text or timeout_reached:
-            self.timer = time.time() + self.timeout
-            self.info(text)
-        self.__text = text
-
-    @staticmethod
-    def info(text):
-        """Print text to stdout.
-
-        :param text: Text to print.
-        :type text: str
-        """
-        _logger.info(text)
-
-    @staticmethod
-    def fail(text):
-        """Print text to stdout.
-
-        :param text: Text to print.
-        :type text: str
-        """
-        _logger.error(text)
-
-    @staticmethod
-    def warn(text):
-        """Print text to stdout.
-
-        :param text: Text to print.
-        :type text: str
-        """
-        _logger.warning(text)
-
-    succeed = info
-
-    def start(self, text=None):
-        """Set starting text."""
-        if text is not None:
-            self.text = text
-
-    def __exit__(self, *_, **__):
-        """Exit printer context."""
-
-
-def generate_spinner(no_tty):
-    """If no tty, return a generic 'printer' class. Else return halo.
-
-    :param no_tty: Whether the executor has an interactive tty or not.
-    :type no_tty: bool
-    :return: Spinner text item.
-    :rtype: :obj:`Spinner`
-    """
-    if no_tty:
-        return Printer
-    return Halo
-
-
 def main(args):  # pylint:disable=too-many-statements
     """Entry point allowing external calls.
 
@@ -263,35 +168,32 @@ def main(args):  # pylint:disable=too-many-statements
     args = parse_args(args)
     if args.download_reports:
         warnings.warn(
-            "The '-d'/--download-reports' parameter is deprecated", DeprecationWarning
+            "The '-d/--download-reports' parameter is deprecated", DeprecationWarning
         )
+    if args.no_tty:
+        warnings.warn("The '--no-tty' parameter is deprecated", DeprecationWarning)
 
     setup_logging(args.loglevel)
-    info = generate_spinner(args.no_tty)
 
-    with info(text="Checking connectivity to ETOS", spinner="dots") as spinner:
-        spinner.info(f"Running in cluster: {args.cluster!r}")
-        spinner.start()
+    LOGGER.info("Running in cluster: %r", args.cluster)
+    test = TestRun(args.cluster)
+    testrun_state = test.run(RequestSchema.from_args(args))
 
-        # Start execution
-        test = TestRun(args.cluster, spinner)
-        testrun_state = test.run(RequestSchema.from_args(args))
+    if testrun_state == State.FAILURE:
+        LOGGER.error(test.result())
+    elif testrun_state == State.CANCELED:
+        sys.exit(test.result())
+    else:
+        LOGGER.info(test.result())
 
-        if testrun_state == State.FAILURE:
-            spinner.fail(test.result())
-        elif testrun_state == State.CANCELED:
-            sys.exit(test.result())
-        else:
-            spinner.succeed(test.result())
-
-        # TODO: Don't pass etos-library here.
-        log_handler = ETOSLogHandler(test.etos_library, args.workspace, test.events())
-        spinner.start("Downloading test logs.")
-        logs_downloaded_successfully = log_handler.download_logs(
-            args.report_dir, args.artifact_dir, spinner
-        )
-        if not logs_downloaded_successfully:
-            sys.exit("ETOS logs did not download successfully.")
+    # TODO: Don't pass etos-library here.
+    log_handler = ETOSLogHandler(test.etos_library, args.workspace, test.events())
+    LOGGER.info("Downloading test logs.")
+    logs_downloaded_successfully = log_handler.download_logs(
+        args.report_dir, args.artifact_dir
+    )
+    if not logs_downloaded_successfully:
+        sys.exit("ETOS logs did not download successfully.")
 
 
 def run():

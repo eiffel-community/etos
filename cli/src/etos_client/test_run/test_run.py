@@ -17,6 +17,7 @@
 import os
 import time
 import traceback
+import logging
 
 from json import JSONDecodeError
 from urllib3.exceptions import MaxRetryError, NewConnectionError
@@ -42,8 +43,9 @@ class TestRun:
     """An ETOS test run representation and handler."""
 
     state = State.NOT_STARTED
+    logger = logging.getLogger(__name__)
 
-    def __init__(self, cluster: str, spinner: "etos_client.Printer"):
+    def __init__(self, cluster: str):
         """Initialize the test run handler."""
         self.etos_library = ETOSLibrary(
             "ETOS Client", os.getenv("HOSTNAME"), "ETOS Client"
@@ -51,7 +53,6 @@ class TestRun:
         self.cluster = cluster
         self.__test_result_handler = None
         self.__results = None
-        self.logger = spinner
 
     def run(self, request_data: "etos_client.etos.schema.RequestSchema") -> int:
         """Run ETOS and wait for it to finish."""
@@ -59,15 +60,15 @@ class TestRun:
             self.state = State.CANCELED
             self.__results = "Unable to connect to ETOS. Please check your connection."
             return self.state
-        self.logger.succeed("Connection successful.")
-        self.logger.succeed("Ready to launch ETOS.")
+        self.logger.info("Connection successful.")
+        self.logger.info("Ready to launch ETOS.")
 
-        self.logger.start("Triggering ETOS.")
+        self.logger.info("Triggering ETOS.")
         if not self.__start(request_data):
             self.state = State.CANCELED
             self.__results = "Failed to start ETOS"
             return self.state
-        self.logger.start("Waiting for ETOS.")
+        self.logger.info("Waiting for ETOS.")
         return self.__wait()
 
     def check_connection(self):
@@ -89,7 +90,7 @@ class TestRun:
             success,
             results,
             canceled,
-        ) = self.__test_result_handler.wait_for_test_suite_finished(self.logger)
+        ) = self.__test_result_handler.wait_for_test_suite_finished()
         if not success:
             if canceled:
                 self.state = State.CANCELED
@@ -113,14 +114,14 @@ class TestRun:
             self.state = State.FAILURE
             return False
         self.state = State.STARTED
-        self.logger.info(f"Suite ID: {response.tercc}")
-        self.logger.info(f"Artifact ID: {response.artifact_id}")
-        self.logger.info(f"Purl: {response.artifact_identity}")
+        self.logger.info("Suite ID: %s", response.tercc)
+        self.logger.info("Artifact ID: %s", response.artifact_id)
+        self.logger.info("Purl: %s", response.artifact_identity)
 
         # TODO: Let's not access etos-library here
         self.etos_library.config.set("suite_id", str(response.tercc))
         os.environ["ETOS_GRAPHQL_SERVER"] = response.event_repository
-        self.logger.info(f"Event repository: {response.event_repository!r}")
+        self.logger.info("Event repository: %r", response.event_repository)
         return True
 
     def __retry_trigger_etos(
@@ -141,10 +142,10 @@ class TestRun:
                     try:
                         response_json = response.json()
                     except JSONDecodeError:
-                        self.logger.info(f"Raw response from ETOS: {response.text!r}")
+                        self.logger.info("Raw response from ETOS: %r", response.text)
                         response_json = {"detail": "Unknown client error from ETOS"}
                     # TODO:!
-                    self.logger.fail(response_json.get("detail"))
+                    self.logger.critical(response_json.get("detail"))
                     return None
                 traceback.print_exc()
                 time.sleep(2)
@@ -157,12 +158,12 @@ class TestRun:
                 traceback.print_exc()
                 time.sleep(2)
         else:
-            self.logger.fail("Failed to trigger ETOS.")
+            self.logger.critical("Failed to trigger ETOS.")
             return None
         if response is not None:
-            self.logger.succeed("ETOS triggered.")
+            self.logger.info("ETOS triggered.")
             return ResponseSchema.from_response(response)
-        self.logger.fail("Failed to trigger ETOS.")
+        self.logger.critical("Failed to trigger ETOS.")
         return None
 
     def events(self):

@@ -27,8 +27,6 @@ from etos_client.event_repository import (
     request_environment,
 )
 
-_LOGGER = logging.getLogger(__name__)
-
 
 # https://github.com/eiffel-community/etos/issues/127 pylint: disable=too-many-instance-attributes
 class ETOSTestResultHandler:
@@ -37,6 +35,7 @@ class ETOSTestResultHandler:
     __activity_id = None
     has_started = False
     has_finished = False
+    logger = logging.getLogger(__name__)
 
     def __init__(self, etos):
         """Initialize ETOS Client test result handler.
@@ -71,10 +70,10 @@ class ETOSTestResultHandler:
             yield from request_main_test_suites_started(self.etos, self.activity_id)
 
     @property
-    def spinner_text(self):
-        """Generate the spinner text based on test results.
+    def text(self):
+        """Generate text based on test results.
 
-        :return: String formatted for the Halo spinner.
+        :return: String; formatted.
         :rtype: str
         """
         message_template = (
@@ -138,12 +137,8 @@ class ETOSTestResultHandler:
             result = True
         return result, message
 
-    def latest_announcement(self, spinner):
-        """Find latest announcement and print it.
-
-        :param spinner: Spinner text item.
-        :type spinner: :obj:`Spinner`
-        """
+    def latest_announcement(self):
+        """Find latest announcement and print it."""
         ids = [self.etos.config.get("suite_id")]
         if self.activity_id is not None:
             ids.append(self.activity_id)
@@ -151,8 +146,7 @@ class ETOSTestResultHandler:
             if announcement not in self.announcements:
                 self.announcements.append(announcement)
                 data = self.announcements[-1].get("data")
-                spinner.info(f"{data.get('heading')}: {data.get('body')}")
-                spinner.start("Waiting for ETOS.")
+                self.logger.info("%s: %s", data.get("heading"), data.get("body"))
 
     def finished(self, test_suite_started_id):
         """Return the test suite finished event for a test suite started.
@@ -207,36 +201,29 @@ class ETOSTestResultHandler:
         self.has_finished = finished
         return self.test_suites_finished, self.main_suites_finished
 
-    def print_suite(self, spinner):
-        """Print test suite batchesUri.
-
-        :param spinner: Spinner text item.
-        :type spinner: :obj:`Spinner`
-        """
-        spinner.text = "Waiting for test suite url."
+    def print_suite(self):
+        """Print test suite batchesUri."""
+        self.logger.info("Waiting for test suite url")
         timeout = time.time() + 60
         while time.time() < timeout:
             tercc = request_suite(self.etos, self.etos.config.get("suite_id"))
             if tercc:
-                spinner.info(f"Test suite: {tercc['data']['batchesUri']}")
-                spinner.start()
+                self.logger.info("Test suite: %s", tercc["data"]["batchesUri"])
                 return
             time.sleep(1)
         raise TimeoutError("Test suite not available in 10s.")
 
-    def wait_for_test_suite_finished(self, spinner):
+    def wait_for_test_suite_finished(self):
         """Query graphql server until the number of started is equal to number of finished.
 
-        :param spinner: Spinner text item.
-        :type spinner: :obj:`Spinner`
         :return: Whether it was a successful execution or not, the test results
                  and if the execution was canceled.
         :rtype: tuple
         """
-        self.print_suite(spinner)
+        self.print_suite()
         timeout = time.time() + 3600 * 24
         while time.time() < timeout:
-            self.latest_announcement(spinner)
+            self.latest_announcement()
             time.sleep(10)
             test_suites, main_suites = self.get_events()
             self.events = {
@@ -256,7 +243,7 @@ class ETOSTestResultHandler:
                 )
             if not self.has_started:
                 continue
-            spinner.text = self.spinner_text
+            self.logger.info(self.text)
             if self.has_finished:
                 return *self.test_result(), canceled
         return False, "Test suites did not finish", canceled
