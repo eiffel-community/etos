@@ -18,6 +18,7 @@ import os
 import time
 import traceback
 import logging
+from typing import Union
 
 from json import JSONDecodeError
 from urllib3.exceptions import MaxRetryError, NewConnectionError
@@ -26,7 +27,7 @@ from requests.exceptions import HTTPError
 from etos_lib import ETOS as ETOSLibrary
 
 from etos_client.lib.test_result_handler import ETOSTestResultHandler
-from etos_client.etos.schema import ResponseSchema
+from etos_client.etos.schema import ResponseSchema, RequestSchema
 
 
 class State:  # pylint:disable=too-few-public-methods
@@ -54,7 +55,7 @@ class TestRun:
         self.__test_result_handler = None
         self.__results = None
 
-    def run(self, request_data: "etos_client.etos.schema.RequestSchema") -> int:
+    def run(self, request_data: RequestSchema) -> int:
         """Run ETOS and wait for it to finish."""
         if not self.check_connection():
             self.state = State.CANCELED
@@ -91,24 +92,19 @@ class TestRun:
             results,
             canceled,
         ) = self.__test_result_handler.wait_for_test_suite_finished()
-        if not success:
-            if canceled:
-                self.state = State.CANCELED
-                self.__results = canceled
-            else:
-                self.state = State.FAILURE
-                self.__results = results
-        else:
+        if success:
             self.state = State.SUCCESS
+            self.__results = results
+        elif canceled:
+            self.state = State.CANCELED
+            self.__results = canceled
+        else:
+            self.state = State.FAILURE
             self.__results = results
         return self.state
 
-    def __start(self, request_data: "etos_client.etos.schema.RequestSchema") -> bool:
-        """Start an ETOS testrun.
-
-        Initializing an ETOSClient here feels weird. Should be passed into
-        this test run handler instead.
-        """
+    def __start(self, request_data: RequestSchema) -> bool:
+        """Start an ETOS testrun."""
         response = self.__retry_trigger_etos(request_data)
         if not response:
             self.state = State.FAILURE
@@ -125,46 +121,46 @@ class TestRun:
         return True
 
     def __retry_trigger_etos(
-        self, request_data: "etos_client.etos.schema.RequestSchema"
-    ) -> ResponseSchema:
+        self, request_data: RequestSchema
+    ) -> Union[ResponseSchema, None]:
         """Trigger ETOS, retrying on non-client errors until successful."""
         end_time = time.time() + 30
-        response = None
         while time.time() < end_time:
-            try:
-                response = self.etos_library.http.request(
-                    "POST", f"{self.cluster}/etos", json=request_data.dict()
-                )
-                break
-            except HTTPError as http_error:
-                response = http_error.response
-                if 400 <= response.status_code < 500:
-                    try:
-                        response_json = response.json()
-                    except JSONDecodeError:
-                        self.logger.info("Raw response from ETOS: %r", response.text)
-                        response_json = {"detail": "Unknown client error from ETOS"}
-                    # TODO:!
-                    self.logger.critical(response_json.get("detail"))
-                    return None
-                traceback.print_exc()
+            response = requests.post(
+                f"{self.cluster}/etos", json=request_data.dict(), timeout=10
+            )
+            if self.__should_retry(response):
                 time.sleep(2)
-            except (
-                ConnectionError,
-                NewConnectionError,
-                MaxRetryError,
-                TimeoutError,
-            ):
-                traceback.print_exc()
-                time.sleep(2)
-        else:
-            self.logger.critical("Failed to trigger ETOS.")
-            return None
-        if response is not None:
-            self.logger.info("ETOS triggered.")
-            return ResponseSchema.from_response(response)
+                continue
+            if not response.ok:
+                return None
+            return ResponseSchema.from_response(response.json())
         self.logger.critical("Failed to trigger ETOS.")
         return None
+
+    def __should_retry(self, response: requests.Response) -> bool:
+        """Check response to see whether it is worth retrying or not."""
+        try:
+            response.raise_for_status()
+        except HTTPError as http_error:
+            if 400 <= http_error.response.status_code < 500:
+                try:
+                    response_json = response.json()
+                except JSONDecodeError:
+                    self.logger.info("Raw response from ETOS: %r", response.text)
+                    response_json = {"detail": "Unknown client error from ETOS"}
+                self.logger.critical(response_json.get("detail"))
+                return False
+            return True
+        except (
+            ConnectionError,
+            NewConnectionError,
+            MaxRetryError,
+            TimeoutError,
+        ):
+            traceback.print_exc()
+            return True
+        return False
 
     def events(self):
         """Events that were sent in this testrun.
