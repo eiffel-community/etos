@@ -23,6 +23,7 @@ import warnings
 
 from etos_client import __version__
 from etos_client.etos.schema import RequestSchema
+from etos_client.etos import ETOS
 from etos_client.test_run import TestRun, State
 from etos_client.lib import ETOSLogHandler
 
@@ -176,8 +177,8 @@ def main(args):  # pylint:disable=too-many-statements
     setup_logging(args.loglevel)
 
     LOGGER.info("Running in cluster: %r", args.cluster)
-    test = TestRun(args.cluster)
-    testrun_state = test.run(RequestSchema.from_args(args))
+    test = TestRun()
+    testrun_state = test.run(ETOS(args.cluster), RequestSchema.from_args(args))
 
     if testrun_state == State.FAILURE:
         LOGGER.error(test.result())
