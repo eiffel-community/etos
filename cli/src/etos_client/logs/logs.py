@@ -48,6 +48,7 @@ class LogDownloader(Thread):
         """Init."""
         super().__init__()
         self.__download_queue = Queue()
+        self.__downloaded = []
         self.__exit = False
         self.__clear_queue = True
         self.__lock = Lock()
@@ -157,7 +158,9 @@ class LogDownloader(Thread):
 
     def __queue_download(self, item: Downloadable) -> None:
         """Queue a downloadable for download."""
-        self.__download_queue.put_nowait(item)
+        if item.uri not in self.__downloaded:
+            self.__download_queue.put_nowait(item)
+            self.__downloaded.append(item.uri)
 
     def download_artifacts(self, artifacts: list[Artifact], path: Path) -> None:
         """Download artifacts to a path."""
@@ -175,6 +178,8 @@ class LogDownloader(Thread):
     ):
         """Download logs from test suites to a path."""
         for test_suite in test_suites:
+            if not test_suite.finished:
+                return
             data = test_suite.finished.get("data", {})
             logs = data.get("testSuitePersistentLogs", [])
             for log in logs:

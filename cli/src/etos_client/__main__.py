@@ -184,6 +184,11 @@ def main(args):  # pylint:disable=too-many-statements
 
     setup_logging(args.loglevel)
 
+    artifact_dir = Path(args.workspace).joinpath(args.artifact_dir)
+    artifact_dir.mkdir(exist_ok=True)
+    report_dir = Path(args.workspace).joinpath(args.report_dir)
+    report_dir.mkdir(exist_ok=True)
+
     LOGGER.info("Running in cluster: %r", args.cluster)
     etos_library = ETOSLibrary("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
     collector = Collector(etos_library, graphql)
@@ -203,6 +208,8 @@ def main(args):  # pylint:disable=too-many-statements
     log_downloader = LogDownloader()
     announcer = Announcer()
 
+    log_downloader.start()
+
     timeout = time.time() + HOUR * 24
     while time.time() < timeout:
         events = collector.collect(response.tercc)
@@ -211,18 +218,15 @@ def main(args):  # pylint:disable=too-many-statements
         if events.activity.finished:
             break
         announcer.announce(events)
+        if events.main_suites:
+            log_downloader.download_logs(events.main_suites, report_dir)
+        log_downloader.download_artifacts(events.artifacts, artifact_dir)
         time.sleep(10)
 
     events = collector.collect(response.tercc)
-    log_downloader.start()
-
-    artifact_dir = Path(args.workspace).joinpath(args.artifact_dir)
-    artifact_dir.mkdir(exist_ok=True)
+    if events.main_suites:
+        log_downloader.download_logs(events.main_suites, report_dir)
     log_downloader.download_artifacts(events.artifacts, artifact_dir)
-
-    report_dir = Path(args.workspace).joinpath(args.report_dir)
-    report_dir.mkdir(exist_ok=True)
-    log_downloader.download_logs(events.main_suites, report_dir)
 
     log_downloader.stop()
     log_downloader.join()
