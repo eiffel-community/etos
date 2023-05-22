@@ -31,6 +31,7 @@ from etos_client.events.collector import Collector
 from etos_client.etos.schema import RequestSchema
 from etos_client.etos import ETOS
 from etos_client.test_results import TestResults
+from etos_client.announcer.announcer import Announcer
 from etos_client.logs.logs import LogDownloader
 from etos_client.event_repository import graphql
 
@@ -201,6 +202,7 @@ def main(args):  # pylint:disable=too-many-statements
 
     test_results = TestResults()
     log_downloader = LogDownloader()
+    announcer = Announcer()
 
     # TODO: Global timeout
     timeout = time.time() + HOUR * 24
@@ -210,16 +212,10 @@ def main(args):  # pylint:disable=too-many-statements
             sys.exit(events.activity.canceled["data"]["reason"])
         if events.activity.finished:
             break
-        # TODO: Test results currently prints important information.
-        test_results.get_results(events)
+        announcer.announce(events)
         time.sleep(10)
 
     events = collector.collect(response.tercc)
-    result, message = test_results.get_results(events)
-    if result:
-        LOGGER.info(message)
-    else:
-        LOGGER.error(message)
     log_downloader.start()
 
     artifact_dir = Path(args.workspace).joinpath(args.artifact_dir)
@@ -233,6 +229,7 @@ def main(args):  # pylint:disable=too-many-statements
     log_downloader.stop()
     log_downloader.join()
 
+    LOGGER.info("Archiving reports.")
     shutil.make_archive(
         artifact_dir.joinpath("reports").relative_to(Path.cwd()), "zip", report_dir
     )
@@ -241,6 +238,12 @@ def main(args):  # pylint:disable=too-many-statements
 
     if log_downloader.failed:
         sys.exit("ETOS logs did not download successfully.")
+
+    result, message = test_results.get_results(events)
+    if result:
+        LOGGER.info(message)
+    else:
+        LOGGER.error(message)
 
 
 def run():

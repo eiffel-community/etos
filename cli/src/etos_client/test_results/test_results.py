@@ -17,7 +17,7 @@
 import logging
 from typing import Optional
 
-from etos_client.events.events import Events, Announcement, TestSuite, SubSuite
+from etos_client.events.events import Events, TestSuite, SubSuite
 
 # pylint:disable=too-few-public-methods
 
@@ -26,46 +26,6 @@ class TestResults:
     """Get test results from an ETOS testrun."""
 
     logger = logging.getLogger(__name__)
-
-    def __init__(self):
-        """Init."""
-        self.__already_logged = []
-
-    # TODO: This is not test results.
-    def __log_announcements(self, announcements: list[Announcement]) -> None:
-        """Get latest new announcements."""
-        for announcement in announcements:
-            if announcement not in self.__already_logged:
-                self.__already_logged.append(announcement)
-                self.logger.info("%s: %s", announcement.heading, announcement.body)
-
-    # TODO: This is not test results.
-    def __text(self, test_suites: list[TestSuite]) -> str:
-        """Generate text based on test results."""
-        message_template = (
-            "{announcement}\t"
-            "Started : {started_length}\t"
-            "Finished: {finished_length}\t"
-        )
-        try:
-            announcement = self.__already_logged[-1].body
-        except (KeyError, IndexError, TypeError):
-            announcement = ""
-
-        started_length = 0
-        finished_length = 0
-        for test_suite in test_suites:
-            for sub_suite in test_suite.sub_suites:
-                started_length += 1
-                if sub_suite.finished:
-                    finished_length += 1
-
-        params = {
-            "started_length": started_length,
-            "finished_length": finished_length,
-            "announcement": announcement,
-        }
-        return message_template.format(**params)
 
     def __has_failed(self, test_suites: list[TestSuite]):
         """Check if any test suite has failed in a list of test suites."""
@@ -102,17 +62,11 @@ class TestResults:
             return None, None
         if not events.activity.triggered:
             return None, None
-
-        self.__log_announcements(events.announcements)
         if events.activity.canceled:
             return None, None
-        if events.main_suites:
-            started = True
-        if not started:
+        if not events.main_suites:
             return None, None
-        self.logger.info(self.__text(events.main_suites))
         for test_suite in events.main_suites:
             if not test_suite.finished:
                 return None, None
-        self.logger.info("Done")
         return self.__test_result(events.main_suites)
