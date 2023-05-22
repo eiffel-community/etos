@@ -24,15 +24,14 @@ import warnings
 import shutil
 from pathlib import Path
 
-# TODO: Clean up these imports
 from etos_lib import ETOS as ETOSLibrary
 from etos_client import __version__
 from etos_client.events.collector import Collector
 from etos_client.etos.schema import RequestSchema
 from etos_client.etos import ETOS
 from etos_client.test_results import TestResults
-from etos_client.announcer.announcer import Announcer
-from etos_client.logs.logs import LogDownloader
+from etos_client.announcer import Announcer
+from etos_client.logs import LogDownloader
 from etos_client.event_repository import graphql
 
 LOGGER = logging.getLogger(__name__)
@@ -204,7 +203,6 @@ def main(args):  # pylint:disable=too-many-statements
     log_downloader = LogDownloader()
     announcer = Announcer()
 
-    # TODO: Global timeout
     timeout = time.time() + HOUR * 24
     while time.time() < timeout:
         events = collector.collect(response.tercc)

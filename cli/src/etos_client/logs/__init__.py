@@ -14,3 +14,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Client log downloader module."""
+from .logs import LogDownloader

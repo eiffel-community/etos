@@ -137,7 +137,6 @@ class LogDownloader(Thread):
     def run(self):
         """Run the log downloader thread."""
         with ThreadPool() as pool:
-            # TODO: Use global timeout
             while True:
                 if self.__exit and not self.__clear_queue:
                     self.logger.info("Forced to exit without clearing the queue.")
