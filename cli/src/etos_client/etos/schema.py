@@ -75,7 +75,7 @@ class RequestSchema(BaseModel):
         return artifact_identity
 
     @validator("dataset", always=True)
-    def dataset_list_trimming(cls, dataset: Optional[Union[dict, list]]):
+    def dataset_list_trimming(cls, dataset: Optional[Union[dict, list]]) -> list[dict]:
         """Trim away list completely should the dataset only contain a single index."""
         if dataset is None:
             return {}

@@ -38,7 +38,7 @@ LOGGER = logging.getLogger(__name__)
 HOUR = 3600
 
 
-def environ_or_required(key):
+def environ_or_required(key: str) -> dict:
     """Get key from environment or make it a required input.
 
     If a key is available as an environment variable, use it as default.
@@ -53,15 +53,8 @@ def environ_or_required(key):
     return {"required": True}
 
 
-def parse_args(args):
-    """Parse command line parameters.
-
-    Args:
-      args ([str]): command line parameters as list of strings
-
-    Returns:
-      :obj:`argparse.Namespace`: command line parameters namespace
-    """
+def parse_args(args: list[str]) -> argparse.Namespace:
+    """Parse command line parameters."""
     parser = argparse.ArgumentParser(
         description="Client for executing test automation suites in ETOS"
     )
@@ -156,24 +149,16 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-def setup_logging(loglevel):
-    """Set up basic logging.
-
-    Args:
-      loglevel (int): minimum loglevel for emitting messages
-    """
+def setup_logging(loglevel: int) -> None:
+    """Set up basic logging."""
     logformat = "[%(asctime)s] %(levelname)s:%(message)s"
     logging.basicConfig(
         level=loglevel, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
     )
 
 
-def main(args):  # pylint:disable=too-many-statements
-    """Entry point allowing external calls.
-
-    Args:
-      args ([str]): command line parameter list
-    """
+def main(args: list[str]) -> None:  # pylint:disable=too-many-statements
+    """Entry point allowing external calls."""
     args = parse_args(args)
     if args.download_reports:
         warnings.warn(
@@ -248,7 +233,7 @@ def main(args):  # pylint:disable=too-many-statements
         LOGGER.error(message)
 
 
-def run():
+def run() -> None:
     """Entry point for console_scripts."""
     main(sys.argv[1:])
 

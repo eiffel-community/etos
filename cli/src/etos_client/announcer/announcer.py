@@ -61,7 +61,7 @@ class Announcer:  # pylint:disable=too-few-public-methods
         }
         return message_template.format(**params)
 
-    def announce(self, events: Events):
+    def announce(self, events: Events) -> None:
         """Announce the ETOS state."""
         if not events.tercc:
             return

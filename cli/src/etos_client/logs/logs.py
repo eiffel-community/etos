@@ -44,7 +44,7 @@ class LogDownloader(Thread):
 
     logger = logging.getLogger(__name__)
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Init."""
         super().__init__()
         self.__download_queue = Queue()
@@ -126,7 +126,7 @@ class LogDownloader(Thread):
         except Empty:
             return False
 
-    def __print_traceback(self, value):
+    def __print_traceback(self, value: Exception) -> None:
         """Print a traceback if error in pool."""
         try:
             raise value
@@ -135,7 +135,7 @@ class LogDownloader(Thread):
                 self.failed = True
             traceback.print_exc()
 
-    def run(self):
+    def run(self) -> None:
         """Run the log downloader thread."""
         with ThreadPool() as pool:
             while True:
@@ -147,7 +147,7 @@ class LogDownloader(Thread):
                     self.logger.info("Download queue empty. Exiting.")
                     return
 
-    def stop(self, clear_queue=True):
+    def stop(self, clear_queue: bool = True) -> None:
         """Stop the downloader thread.
 
         If clear_queue is set to False, then the log downloader will exit ASAP,
@@ -175,7 +175,7 @@ class LogDownloader(Thread):
 
     def download_logs(
         self, test_suites: Union[list[TestSuite], list[SubSuite]], path: Path
-    ):
+    ) -> None:
         """Download logs from test suites to a path."""
         for test_suite in test_suites:
             if not test_suite.finished:

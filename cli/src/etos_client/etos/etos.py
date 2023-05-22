@@ -33,7 +33,7 @@ class ETOS:  # pylint:disable=too-few-public-methods
     logger = logging.getLogger(__name__)
     reason = ""
 
-    def __init__(self, cluster: str):
+    def __init__(self, cluster: str) -> None:
         """Initialize ETOS."""
         self.cluster = cluster
 
@@ -51,7 +51,7 @@ class ETOS:  # pylint:disable=too-few-public-methods
             return None
         return response
 
-    def __check_connection(self):
+    def __check_connection(self) -> bool:
         """Check connection to ETOS."""
         try:
             response = requests.get(f"{self.cluster}/selftest/ping", timeout=5)
@@ -60,7 +60,7 @@ class ETOS:  # pylint:disable=too-few-public-methods
         except Exception:  # pylint:disable=broad-exception-caught
             return False
 
-    def __start(self, request_data: RequestSchema) -> bool:
+    def __start(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
         """Start an ETOS testrun."""
         response = self.__retry_trigger_etos(request_data)
         if not response:

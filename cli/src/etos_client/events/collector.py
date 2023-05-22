@@ -34,7 +34,7 @@ class Collector:  # pylint:disable=too-few-public-methods
         self,
         etos_library: "etos_lib.ETOS",
         event_repository: "etos_client.event_repository.graphql",
-    ):
+    ) -> None:
         """Initialize with event repository."""
         self.event_repository = event_repository
         self.etos_library = etos_library
@@ -84,7 +84,9 @@ class Collector:  # pylint:disable=too-few-public-methods
             sub_suites.append(test_suite)
         return sub_suites
 
-    def __environments(self, activity_id: UUID, test_suites: list[TestSuite]):
+    def __environments(
+        self, activity_id: UUID, test_suites: list[TestSuite]
+    ) -> list[Environment]:
         """Collect environment defined events from an ETOS test run."""
         ids = [str(activity_id)]
         for test_suite in test_suites:
@@ -129,7 +131,9 @@ class Collector:  # pylint:disable=too-few-public-methods
         activity.finished = finished
         return activity
 
-    def __announcements(self, tercc_id: UUID, activity_id: Optional[UUID]):
+    def __announcements(
+        self, tercc_id: UUID, activity_id: Optional[UUID]
+    ) -> list[Announcement]:
         """Collect announcements for an ETOS test run."""
         ids = [str(tercc_id)]
         if activity_id is not None:

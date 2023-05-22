@@ -27,7 +27,7 @@ class TestResults:
 
     logger = logging.getLogger(__name__)
 
-    def __has_failed(self, test_suites: list[TestSuite]):
+    def __has_failed(self, test_suites: list[TestSuite]) -> bool:
         """Check if any test suite has failed in a list of test suites."""
         for test_suite in test_suites:
             outcome = test_suite.finished["data"]["testSuiteOutcome"]
@@ -35,7 +35,7 @@ class TestResults:
                 return True
         return False
 
-    def __count_sub_suite_failures(self, test_suites: list[SubSuite]):
+    def __count_sub_suite_failures(self, test_suites: list[SubSuite]) -> int:
         """Count the number of sub suite failures in a list of sub suites."""
         failures = 0
         for sub_suite in test_suites:
