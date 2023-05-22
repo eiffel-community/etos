@@ -18,6 +18,7 @@ import time
 from .graphql_queries import (
     ARTIFACTS,
     ACTIVITY_TRIGGERED,
+    ACTIVITY_FINISHED,
     ACTIVITY_CANCELED,
     MAIN_TEST_SUITES_STARTED,
     TEST_SUITE_STARTED,
@@ -207,6 +208,26 @@ def request_activity(etos, suite_id):
     )
 
 
+def request_activity_finished(etos, activity_id):
+    """Request an activity finished event from graphql.
+
+    :param etos: Etos Library instance for communicating with ETOS.
+    :type etos: :obj:`etos_lib.etos.ETOS`
+    :param activity_id: ID of the activity that may be finished.
+    :type activity_id: str
+    :return: Response from graphql or None
+    :rtype: dict or None
+    """
+    return get_one(
+        etos,
+        ACTIVITY_FINISHED,
+        Search(
+            search={"links.type": "ACTIVITY_EXECUTION", "links.target": activity_id}
+        ),
+        "activityFinished",
+    )
+
+
 def request_activity_canceled(etos, activity_id):
     """Request an activity event from graphql.
 
@@ -227,20 +248,20 @@ def request_activity_canceled(etos, activity_id):
     )
 
 
-def request_test_suite_started(etos, activity_id):
+def request_sub_test_suite_started(etos, main_suite_id):
     """Request test suite started from graphql.
 
     :param etos: Etos Library instance for communicating with ETOS.
     :type etos: :obj:`etos_lib.etos.ETOS`
-    :param activity_id: ID of activity in which the test suites started
-    :type activity_id: str
+    :param main_suite_id: ID of the main suite in which the test suites started
+    :type main_suite_id: str
     :return: Iterator of test suite started graphql responses.
     :rtype: iterator
     """
     yield from search_for(
         etos,
         TEST_SUITE_STARTED,
-        Search(search={"links.type": "CAUSE", "links.target": activity_id}),
+        Search(search={"links.type": "CAUSE", "links.target": main_suite_id}),
         "testSuiteStarted",
     )
 

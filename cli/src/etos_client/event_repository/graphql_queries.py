@@ -44,6 +44,25 @@ ACTIVITY_TRIGGERED = """
 }
 """
 
+
+ACTIVITY_FINISHED = """
+{
+  activityFinished(%s) {
+    edges {
+      node {
+        data {
+          activityOutcome {
+            description
+            conclusion
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+
 ACTIVITY_CANCELED = """
 {
   activityCanceled(%s) {

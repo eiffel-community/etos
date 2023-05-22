@@ -17,17 +17,25 @@
 """Main executable module."""
 import argparse
 import sys
+import time
 import os
 import logging
 import warnings
+import shutil
+from pathlib import Path
 
+# TODO: Clean up these imports
+from etos_lib import ETOS as ETOSLibrary
 from etos_client import __version__
+from etos_client.events.collector import Collector
 from etos_client.etos.schema import RequestSchema
 from etos_client.etos import ETOS
-from etos_client.test_run import TestRun, State
-from etos_client.lib import ETOSLogHandler
+from etos_client.test_results import TestResults
+from etos_client.logs.logs import LogDownloader
+from etos_client.event_repository import graphql
 
 LOGGER = logging.getLogger(__name__)
+HOUR = 3600
 
 
 def environ_or_required(key):
@@ -177,25 +185,61 @@ def main(args):  # pylint:disable=too-many-statements
     setup_logging(args.loglevel)
 
     LOGGER.info("Running in cluster: %r", args.cluster)
-    test = TestRun()
-    testrun_state = test.run(ETOS(args.cluster), RequestSchema.from_args(args))
+    etos_library = ETOSLibrary("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
+    collector = Collector(etos_library, graphql)
 
-    if testrun_state == State.FAILURE:
-        LOGGER.error(test.result())
-    elif testrun_state == State.CANCELED:
-        sys.exit(test.result())
+    etos = ETOS(args.cluster)
+    response = etos.start(RequestSchema.from_args(args))
+    if not response:
+        sys.exit(etos.reason)
+
+    LOGGER.info("Suite ID: %s", response.tercc)
+    LOGGER.info("Artifact ID: %s", response.artifact_id)
+    LOGGER.info("Purl: %s", response.artifact_identity)
+    os.environ["ETOS_GRAPHQL_SERVER"] = response.event_repository
+    LOGGER.info("Event repository: %r", response.event_repository)
+
+    test_results = TestResults()
+    log_downloader = LogDownloader()
+
+    # TODO: Global timeout
+    timeout = time.time() + HOUR * 24
+    while time.time() < timeout:
+        events = collector.collect(response.tercc)
+        if events.activity.canceled:
+            sys.exit(events.activity.canceled["data"]["reason"])
+        if events.activity.finished:
+            break
+        # TODO: Test results currently prints important information.
+        test_results.get_results(events)
+        time.sleep(10)
+
+    events = collector.collect(response.tercc)
+    result, message = test_results.get_results(events)
+    if result:
+        LOGGER.info(message)
     else:
-        LOGGER.info(test.result())
+        LOGGER.error(message)
+    log_downloader.start()
 
-    # TODO: Don't pass etos-library here.
-    log_handler = ETOSLogHandler(
-        test.test_results.etos_library, args.workspace, test.events()
+    artifact_dir = Path(args.workspace).joinpath(args.artifact_dir)
+    artifact_dir.mkdir(exist_ok=True)
+    log_downloader.download_artifacts(events.artifacts, artifact_dir)
+
+    report_dir = Path(args.workspace).joinpath(args.report_dir)
+    report_dir.mkdir(exist_ok=True)
+    log_downloader.download_logs(events.main_suites, report_dir)
+
+    log_downloader.stop()
+    log_downloader.join()
+
+    shutil.make_archive(
+        artifact_dir.joinpath("reports").relative_to(Path.cwd()), "zip", report_dir
     )
-    LOGGER.info("Downloading test logs.")
-    logs_downloaded_successfully = log_handler.download_logs(
-        args.report_dir, args.artifact_dir
-    )
-    if not logs_downloaded_successfully:
+    LOGGER.info("Reports: %s", report_dir)
+    LOGGER.info("Artifacs: %s", artifact_dir)
+
+    if log_downloader.failed:
         sys.exit("ETOS logs did not download successfully.")
 
 
