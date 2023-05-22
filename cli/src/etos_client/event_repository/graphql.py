@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """GraphQL query handler."""
-import time
+from typing import Iterator, Optional
+from etos_lib import ETOS
 from .graphql_queries import (
     ARTIFACTS,
     ACTIVITY_TRIGGERED,
@@ -39,7 +40,7 @@ class Search(dict):
     works with the eiffel graphql API.
     """
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Convert dictionary to an eiffel graphql API compatible string."""
         strings = []
         for key, value in self.items():
@@ -50,61 +51,16 @@ class Search(dict):
         return ", ".join(strings)
 
 
-def request(etos, query, search):
-    """Request graphql in a generator.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param query: Query to send to graphql.
-    :type query: str
-    :param search: Search string for graphql query.
-    :type search: :obj:`Search`
-    :return: Generator
-    :rtype: generator
-    """
+def request(etos: ETOS, query: str, search: Search) -> Iterator[dict]:
+    """Request graphql in a generator."""
     wait_generator = etos.utils.wait(
         etos.graphql.execute, query=query % search, timeout=60
     )
     yield from wait_generator
 
 
-def wait_for(etos, eiffel_request, timeout, *args):
-    """Request graphql until response or timeout.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param eiffel_request: Request function to wait for.
-    :type eiffel_request: func
-    :param timeout: Timeout, in seconds, for request.
-    :type timeout: int
-    :param args: Positional arguments to eiffel_request.
-    :type args: list
-    :return: Graphql response.
-    :rtype: dict
-    """
-    end = time.time() + timeout
-    while time.time() < end:
-        event = eiffel_request(etos, *args)
-        if event:
-            return event
-        time.sleep(1)
-    return None
-
-
-def search_for(etos, query, search, node):
-    """Request graphql and search for node in response.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param query: Query to send to graphql.
-    :type query: str
-    :param search: Search string for graphql query.
-    :type search: :obj:`Search`
-    :param node: Node to search for.
-    :type node: str
-    :return: Generator
-    :rtype: generator
-    """
+def search_for(etos: ETOS, query: str, search: Search, node: str) -> Iterator[dict]:
+    """Request graphql and search for node in response."""
     for response in request(etos, query, search):
         if response:
             for _, event in etos.graphql.search_for_nodes(response, node):
@@ -113,20 +69,8 @@ def search_for(etos, query, search, node):
     return None  # StopIteration
 
 
-def request_all(etos, query, search, node):
-    """Request all events for a given query.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param query: Query to send to graphql.
-    :type query: str
-    :param search: Search string for graphql query.
-    :type search: :obj:`Search`
-    :param node: Node to search for.
-    :type node: str
-    :return: Generator
-    :rtype: generator
-    """
+def request_all(etos: ETOS, query: str, search: Search, node: str) -> Iterator[dict]:
+    """Request all events for a given query."""
     limit = 100
     search["last"] = limit
     while True:
@@ -148,20 +92,8 @@ def request_all(etos, query, search, node):
         search["search"]["meta.time"] = {"$lt": last_event["meta"]["time"]}
 
 
-def get_one(etos, query, search, node):
-    """Request graphql and get a single node from response.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param query: Query to send to graphql.
-    :type query: str
-    :param search: Search string for graphql query.
-    :type search: :obj:`Search`
-    :param node: Node to search for.
-    :type node: str
-    :return: Event
-    :rtype: :obj:`eiffellib.lib.events.EiffelBaseEvent`
-    """
+def get_one(etos: ETOS, query: str, search: Search, node: str) -> Optional[dict]:
+    """Request graphql and get a single node from response."""
     for response in request(etos, query, search):
         if response:
             try:
@@ -172,16 +104,8 @@ def get_one(etos, query, search, node):
     return None
 
 
-def request_suite(etos, suite_id):
-    """Request a tercc from graphql.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param suite_id: ID of execution recipe.
-    :type suite_id: str
-    :return: Response from graphql or None
-    :rtype: dict or None
-    """
+def request_suite(etos: ETOS, suite_id: str) -> Optional[dict]:
+    """Request a tercc from graphql."""
     return get_one(
         etos,
         TEST_SUITE,
@@ -190,16 +114,8 @@ def request_suite(etos, suite_id):
     )
 
 
-def request_activity(etos, suite_id):
-    """Request an activity event from graphql.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param suite_id: ID of execution recipe triggering this activity.
-    :type suite_id: str
-    :return: Response from graphql or None
-    :rtype: dict or None
-    """
+def request_activity(etos: ETOS, suite_id: str) -> Optional[dict]:
+    """Request an activity event from graphql."""
     return get_one(
         etos,
         ACTIVITY_TRIGGERED,
@@ -208,16 +124,8 @@ def request_activity(etos, suite_id):
     )
 
 
-def request_activity_finished(etos, activity_id):
-    """Request an activity finished event from graphql.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param activity_id: ID of the activity that may be finished.
-    :type activity_id: str
-    :return: Response from graphql or None
-    :rtype: dict or None
-    """
+def request_activity_finished(etos: ETOS, activity_id: str) -> Optional[dict]:
+    """Request an activity finished event from graphql."""
     return get_one(
         etos,
         ACTIVITY_FINISHED,
@@ -228,16 +136,8 @@ def request_activity_finished(etos, activity_id):
     )
 
 
-def request_activity_canceled(etos, activity_id):
-    """Request an activity event from graphql.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param activity_id: ID of the activity beeing canceled.
-    :type activity_id: str
-    :return: Response from graphql or None
-    :rtype: dict or None
-    """
+def request_activity_canceled(etos: ETOS, activity_id: str) -> Optional[dict]:
+    """Request an activity event from graphql."""
     return get_one(
         etos,
         ACTIVITY_CANCELED,
@@ -248,16 +148,8 @@ def request_activity_canceled(etos, activity_id):
     )
 
 
-def request_sub_test_suite_started(etos, main_suite_id):
-    """Request test suite started from graphql.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param main_suite_id: ID of the main suite in which the test suites started
-    :type main_suite_id: str
-    :return: Iterator of test suite started graphql responses.
-    :rtype: iterator
-    """
+def request_sub_test_suite_started(etos: ETOS, main_suite_id: str) -> Iterator[dict]:
+    """Request test suite started from graphql."""
     yield from search_for(
         etos,
         TEST_SUITE_STARTED,
@@ -266,16 +158,8 @@ def request_sub_test_suite_started(etos, main_suite_id):
     )
 
 
-def request_main_test_suites_started(etos, activity_id):
-    """Request test suite started from graphql.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param activity_id: ID of activity in which the test suites started
-    :type activity_id: str
-    :return: Iterator of test suite started graphql responses.
-    :rtype: iterator
-    """
+def request_main_test_suites_started(etos: ETOS, activity_id: str) -> Iterator[dict]:
+    """Request test suite started from graphql."""
     yield from search_for(
         etos,
         MAIN_TEST_SUITES_STARTED,
@@ -290,16 +174,8 @@ def request_main_test_suites_started(etos, activity_id):
     )
 
 
-def request_test_suite_finished(etos, test_suite_id):
-    """Request test suite finished from graphql.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param test_suite_id: Test suite started ID of which finished to search for.
-    :type test_suite_id: list
-    :return: Test suite finished graphql response.
-    :rtype: dict
-    """
+def request_test_suite_finished(etos: ETOS, test_suite_id: str) -> Optional[dict]:
+    """Request test suite finished from graphql."""
     return get_one(
         etos,
         TEST_SUITE_FINISHED,
@@ -314,16 +190,8 @@ def request_test_suite_finished(etos, test_suite_id):
     )
 
 
-def request_announcements(etos, ids):
-    """Request announcements from graphql.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param ids: list of IDs of which announcements to search for.
-    :type ids: list
-    :return: Iterator of announcement published graphql responses.
-    :rtype: iterator
-    """
+def request_announcements(etos: ETOS, ids: list[str]) -> Iterator[dict]:
+    """Request announcements from graphql."""
     yield from search_for(
         etos,
         ANNOUNCEMENTS,
@@ -332,16 +200,8 @@ def request_announcements(etos, ids):
     )
 
 
-def request_environment(etos, ids):
-    """Request environments from graphql.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param ids: list of IDs of which environments to search for.
-    :type ids: list
-    :return: Iterator of environnent defined graphql responses.
-    :rtype: iterator
-    """
+def request_environment(etos: ETOS, ids: list[str]) -> Iterator[dict]:
+    """Request environments from graphql."""
     yield from request_all(
         etos,
         ENVIRONMENTS,
@@ -350,15 +210,9 @@ def request_environment(etos, ids):
     )
 
 
-def request_artifacts(etos, context):
-    """Request artifacts from graphql.
-
-    :param etos: Etos Library instance for communicating with ETOS.
-    :type etos: :obj:`etos_lib.etos.ETOS`
-    :param context: ID of the activity used in CONTEXT.
-    :type context: str
-    """
-    yield from search_for(
+def request_artifacts(etos: ETOS, context: str) -> Iterator[dict]:
+    """Request artifacts from graphql."""
+    yield from request_all(
         etos,
         ARTIFACTS,
         Search(search={"links.type": "CONTEXT", "links.target": context}),

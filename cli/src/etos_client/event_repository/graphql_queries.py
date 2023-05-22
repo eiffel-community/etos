@@ -174,6 +174,9 @@ ARTIFACTS = """
             name
           }
         }
+        meta {
+          time
+        }
         links {
           ... on Cause {
             links {
