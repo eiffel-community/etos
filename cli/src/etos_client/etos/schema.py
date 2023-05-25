@@ -19,7 +19,6 @@ from uuid import UUID
 from typing import Optional, Union
 
 from pydantic import BaseModel, validator
-from packageurl import PackageURL
 
 # Pydantic requires validators first argument to be cls and the methods cannot be classmethods
 # pylint:disable=no-self-argument
@@ -29,7 +28,7 @@ class RequestSchema(BaseModel):
     """Request model for the ETOS start API."""
 
     artifact_id: Optional[str]
-    artifact_identity: Optional[UUID]
+    artifact_identity: Optional[str]
     test_suite_url: str
     dataset: Optional[Union[dict, list]] = {}
     execution_space_provider: Optional[str] = "default"
@@ -49,30 +48,23 @@ class RequestSchema(BaseModel):
             log_area_provider=args.log_area_provider,
         )
 
-    @validator("artifact_id", always=True)
-    def validate_id_or_identity(cls, artifact_id: Optional[str], values: dict) -> str:
-        """Validate that at least one and only one of id and identity are set."""
-        if values.get("artifact_identity") is None and not artifact_id:
-            raise ValueError("Identity is not a valid PackageURL or UUID.")
-        return artifact_id
+    @validator("artifact_identity", always=True)
+    def trim_identity_if_necessary(
+        cls, artifact_identity: Optional[str], values
+    ) -> Optional[str]:
+        """Trim identity if id is set."""
+        if values.get("artifact_id") is not None:
+            return None
+        return artifact_identity
 
     @validator("artifact_id", pre=True)
-    def is_uuid(cls, artifact_id: Optional[str]) -> str:
+    def is_uuid(cls, artifact_id: Optional[str]) -> Optional[str]:
         """Test if string is a valid UUID v4."""
         try:
             UUID(artifact_id, version=4)
         except ValueError:
             return None
         return artifact_id
-
-    @validator("artifact_identity", pre=True)
-    def is_packageurl(cls, artifact_identity: Optional[str]) -> str:
-        """Test if string is a valid PackageURL."""
-        try:
-            PackageURL.from_string(artifact_identity)
-        except ValueError:
-            return None
-        return artifact_identity
 
     @validator("dataset", always=True)
     def dataset_list_trimming(cls, dataset: Optional[Union[dict, list]]) -> list[dict]:
