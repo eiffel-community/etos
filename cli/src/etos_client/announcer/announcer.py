@@ -34,7 +34,7 @@ class Announcer:  # pylint:disable=too-few-public-methods
                 self.__already_logged.append(announcement)
                 self.logger.info("%s: %s", announcement.heading, announcement.body)
 
-    def __text(self, test_suites: list[TestSuite]) -> str:
+    def __etos_state_information(self, test_suites: list[TestSuite]) -> str:
         """Generate text based on ETOS state."""
         message_template = (
             "{announcement}\t"
@@ -69,4 +69,4 @@ class Announcer:  # pylint:disable=too-few-public-methods
             return
         self.__log_announcements(events.announcements)
         if events.main_suites:
-            self.logger.info(self.__text(events.main_suites))
+            self.logger.info(self.__etos_state_information(events.main_suites))

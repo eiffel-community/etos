@@ -48,7 +48,7 @@ class LogDownloader(Thread):
         """Init."""
         super().__init__()
         self.__download_queue = Queue()
-        self.__downloaded = []
+        self.__queued = []
         self.__exit = False
         self.__clear_queue = True
         self.__lock = Lock()
@@ -99,7 +99,9 @@ class LogDownloader(Thread):
                     response_json = response.json()
                 except JSONDecodeError:
                     self.logger.info("Raw response from download: %r", response.text)
-                    response_json = {"detail": "Unknown client error from log area"}
+                    response_json = {
+                        "detail": "Unknown client error when downloading files from log area"
+                    }
                 self.logger.critical(response_json)
                 return False
             return True
@@ -109,7 +111,9 @@ class LogDownloader(Thread):
             MaxRetryError,
             TimeoutError,
         ):
-            traceback.print_exc()
+            self.logger.exception(
+                "Network connectivity error when downloading logs and artifacts."
+            )
             return True
         return False
 
@@ -140,7 +144,7 @@ class LogDownloader(Thread):
         with ThreadPool() as pool:
             while True:
                 if self.__exit and not self.__clear_queue:
-                    self.logger.info("Forced to exit without clearing the queue.")
+                    self.logger.warning("Forced to exit without clearing the queue.")
                     return
                 time.sleep(0.1)
                 if not self.__trigger_download(pool) and self.__exit:
@@ -158,9 +162,9 @@ class LogDownloader(Thread):
 
     def __queue_download(self, item: Downloadable) -> None:
         """Queue a downloadable for download."""
-        if item.uri not in self.__downloaded:
+        if item.uri not in self.__queued:
             self.__download_queue.put_nowait(item)
-            self.__downloaded.append(item.uri)
+            self.__queued.append(item.uri)
 
     def download_artifacts(self, artifacts: list[Artifact], path: Path) -> None:
         """Download artifacts to a path."""

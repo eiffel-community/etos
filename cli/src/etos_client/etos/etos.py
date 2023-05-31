@@ -16,7 +16,6 @@
 """ETOS API handler."""
 import time
 import logging
-import traceback
 from typing import Union
 from json import JSONDecodeError
 
@@ -106,6 +105,6 @@ class ETOS:  # pylint:disable=too-few-public-methods
             MaxRetryError,
             TimeoutError,
         ):
-            traceback.print_exc()
+            self.logger.exception("Network connectivity errors when triggering ETOS.")
             return True
         return False
