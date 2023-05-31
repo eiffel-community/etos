@@ -15,7 +15,7 @@ commonLabels:
 
 images:
 - name: docker-prod.se.axis.com/nemesis/firmware_api
-  newTag: "1.2.0"
+  newTag: "1.3.0"
 
 # Having the sealed secret here is a workaround for secrets
 # not generating a reload of pods.
