@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,26 +15,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Main executable module."""
-
 import argparse
 import sys
+import time
 import os
 import logging
-import time
-import json
+import warnings
+import shutil
+from pathlib import Path
 
-import requests
-from halo import Halo
-from etos_lib.etos import ETOS
-
+from etos_lib import ETOS as ETOSLibrary
 from etos_client import __version__
-from etos_client.client import ETOSClient
-from etos_client.lib import ETOSTestResultHandler, ETOSLogHandler
+from etos_client.events.collector import Collector
+from etos_client.etos.schema import RequestSchema
+from etos_client.etos import ETOS
+from etos_client.test_results import TestResults
+from etos_client.announcer import Announcer
+from etos_client.logs import LogDownloader
+from etos_client.event_repository import graphql
 
-_logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
+HOUR = 3600
 
 
-def environ_or_required(key):
+def environ_or_required(key: str) -> dict:
     """Get key from environment or make it a required input.
 
     If a key is available as an environment variable, use it as default.
@@ -49,15 +53,8 @@ def environ_or_required(key):
     return {"required": True}
 
 
-def parse_args(args):
-    """Parse command line parameters.
-
-    Args:
-      args ([str]): command line parameters as list of strings
-
-    Returns:
-      :obj:`argparse.Namespace`: command line parameters namespace
-    """
+def parse_args(args: list[str]) -> argparse.Namespace:
+    """Parse command line parameters."""
     parser = argparse.ArgumentParser(
         description="Client for executing test automation suites in ETOS"
     )
@@ -79,7 +76,7 @@ def parse_args(args):
     )
 
     parser.add_argument(
-        "--no-tty", help="Disable features requiring a tty.", action="store_true"
+        "--no-tty", help="This parameter is no longer in use.", action="store_true"
     )
     parser.add_argument(
         "-w",
@@ -103,7 +100,7 @@ def parse_args(args):
         "-d",
         "--download-reports",
         default=None,
-        help="Should we download reports. Can be 'yes', 'y', 'no', 'n'.",
+        help="This parameter is no longer in use.",
     )
 
     parser.add_argument(
@@ -152,205 +149,91 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-def setup_logging(loglevel):
-    """Set up basic logging.
-
-    Args:
-      loglevel (int): minimum loglevel for emitting messages
-    """
+def setup_logging(loglevel: int) -> None:
+    """Set up basic logging."""
     logformat = "[%(asctime)s] %(levelname)s:%(message)s"
     logging.basicConfig(
         level=loglevel, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
     )
 
 
-def check_etos_connectivity(url):
-    """Check the connection to ETOS.
-
-    :param url: URL to test connection to.
-    :type url: str
-    """
-    try:
-        response = requests.get(url, timeout=5)
-        response.raise_for_status()
-    except Exception as exception:  # pylint:disable=broad-except
-        raise Exception(  # pylint:disable=broad-exception-raised
-            "Unable to connect to ETOS. Please check your network connection."
-        ) from exception
-
-
-class Printer:
-    """Generic printing class matching the interface of halo."""
-
-    __text = None
-    timeout = 60
-    timer = None
-
-    def __init__(self, text, **_):
-        """Initialize the printer class.
-
-        :param text: Initial text.
-        :type text: str
-        """
-        self.timer = time.time() + self.timeout
-        self.text = text
-
-    def __enter__(self):
-        """Enter printer context."""
-        return self
-
-    @property
-    def text(self):
-        """Printer text."""
-        return self.__text
-
-    @text.setter
-    def text(self, text):
-        """Set text for this object.
-
-        Don't reprint unless the text is new or a timeout has been reached.
-        This is to disable unecessary text spam into the console log.
-
-        :param text: Text to print.
-        :type text: str
-        """
-        timeout_reached = time.time() > self.timer
-        if text != self.__text or timeout_reached:
-            self.timer = time.time() + self.timeout
-            self.info(text)
-        self.__text = text
-
-    @staticmethod
-    def info(text):
-        """Print text to stdout.
-
-        :param text: Text to print.
-        :type text: str
-        """
-        _logger.info(text)
-
-    @staticmethod
-    def fail(text):
-        """Print text to stdout.
-
-        :param text: Text to print.
-        :type text: str
-        """
-        _logger.error(text)
-
-    @staticmethod
-    def warn(text):
-        """Print text to stdout.
-
-        :param text: Text to print.
-        :type text: str
-        """
-        _logger.warning(text)
-
-    succeed = info
-
-    def start(self, text=None):
-        """Set starting text."""
-        if text is not None:
-            self.text = text
-
-    def __exit__(self, *_, **__):
-        """Exit printer context."""
-
-
-def generate_spinner(no_tty):
-    """If no tty, return a generic 'printer' class. Else return halo.
-
-    :param no_tty: Whether the executor has an interactive tty or not.
-    :type no_tty: bool
-    :return: Spinner text item.
-    :rtype: :obj:`Spinner`
-    """
-    if no_tty:
-        return Printer
-    return Halo
-
-
-def main(args):  # pylint:disable=too-many-statements
-    """Entry point allowing external calls.
-
-    Args:
-      args ([str]): command line parameter list
-    """
+def main(args: list[str]) -> None:  # pylint:disable=too-many-statements
+    """Entry point allowing external calls."""
     args = parse_args(args)
-    etos = ETOS("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
+    if args.download_reports:
+        warnings.warn(
+            "The '-d/--download-reports' parameter is deprecated", DeprecationWarning
+        )
+    if args.no_tty:
+        warnings.warn("The '--no-tty' parameter is deprecated", DeprecationWarning)
 
     setup_logging(args.loglevel)
-    info = generate_spinner(args.no_tty)
 
-    for key, value in args._get_kwargs():  # pylint:disable=protected-access
-        etos.config.set(key, value)
+    artifact_dir = Path(args.workspace).joinpath(args.artifact_dir)
+    artifact_dir.mkdir(exist_ok=True)
+    report_dir = Path(args.workspace).joinpath(args.report_dir)
+    report_dir.mkdir(exist_ok=True)
 
-    etos.config.set("artifact_identifier", args.identity)
-    etos.config.set("dataset", [json.loads(dataset) for dataset in args.dataset] or {})
+    LOGGER.info("Running in cluster: %r", args.cluster)
+    etos_library = ETOSLibrary("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
+    collector = Collector(etos_library, graphql)
 
-    with info(text="Checking connectivity to ETOS", spinner="dots") as spinner:
-        spinner.info(f"Running in cluster: {args.cluster!r}")
-        spinner.info("Configuration:")
-        spinner.info(f"{etos.config.config}")
-        try:
-            check_etos_connectivity(f"{args.cluster}/selftest/ping")
-        except Exception as exception:  # pylint:disable=broad-except
-            spinner.fail(str(exception))
-            sys.exit(1)
-        spinner.start()
-        spinner.succeed("Connection successful.")
-        spinner.succeed("Ready to launch ETOS.")
+    etos = ETOS(args.cluster)
+    response = etos.start(RequestSchema.from_args(args))
+    if not response:
+        sys.exit(etos.reason)
 
-        # Start execution
-        etos_client = ETOSClient(etos, args.cluster)
-        spinner.start("Triggering ETOS.")
-        success = etos_client.start(spinner)
-        if not success:
-            # Unix  : 0 == Success, 1 == Fail
-            # Python: 1 == True   , 0 == False
-            sys.exit(not success)
+    LOGGER.info("Suite ID: %s", response.tercc)
+    LOGGER.info("Artifact ID: %s", response.artifact_id)
+    LOGGER.info("Purl: %s", response.artifact_identity)
+    os.environ["ETOS_GRAPHQL_SERVER"] = response.event_repository
+    LOGGER.info("Event repository: %r", response.event_repository)
 
-        spinner.info(f"Suite ID: {etos_client.test_suite_id}")
-        spinner.info(f"Artifact ID: {etos_client.artifact_id}")
-        spinner.info(f"Purl: {etos_client.artifact_identity}")
+    test_results = TestResults()
+    log_downloader = LogDownloader()
+    announcer = Announcer()
 
-        etos.config.set("suite_id", etos_client.test_suite_id)
-        os.environ["ETOS_GRAPHQL_SERVER"] = etos_client.event_repository
-        spinner.info(f"Event repository: {etos.debug.graphql_server!r}")
+    log_downloader.start()
 
-        # Wait for test results
-        test_result_handler = ETOSTestResultHandler(etos)
-        spinner.start("Waiting for ETOS.")
-        success, results, canceled = test_result_handler.wait_for_test_suite_finished(
-            spinner
-        )
-        if not success:
-            spinner.fail(results)
-            if canceled:
-                sys.exit(canceled)
-        else:
-            spinner.succeed(results)
+    timeout = time.time() + HOUR * 24
+    while time.time() < timeout:
+        events = collector.collect(response.tercc)
+        if events.activity.canceled:
+            sys.exit(events.activity.canceled["data"]["reason"])
+        if events.activity.finished:
+            break
+        announcer.announce(events)
+        if events.main_suites:
+            log_downloader.download_logs(events.main_suites, report_dir)
+        log_downloader.download_artifacts(events.artifacts, artifact_dir)
+        time.sleep(10)
 
-        # Download reports
-        if args.download_reports is None:
-            answer = input(
-                "Do you want to download all logs for this test execution? (y/n): "
-            )
-            while answer.lower() not in ("y", "yes", "no", "n"):
-                print("Please answer 'yes' or 'no'")
-                answer = input()
-        else:
-            answer = args.download_reports
-        if answer.lower() in ("y", "yes"):
-            log_handler = ETOSLogHandler(etos, test_result_handler.events)
-            spinner.start("Downloading test logs.")
-            logs_downloaded_successfully = log_handler.download_logs(spinner)
-            if not logs_downloaded_successfully:
-                sys.exit("ETOS logs did not download successfully.")
+    events = collector.collect(response.tercc)
+    if events.main_suites:
+        log_downloader.download_logs(events.main_suites, report_dir)
+    log_downloader.download_artifacts(events.artifacts, artifact_dir)
+
+    log_downloader.stop()
+    log_downloader.join()
+
+    LOGGER.info("Archiving reports.")
+    shutil.make_archive(
+        artifact_dir.joinpath("reports").relative_to(Path.cwd()), "zip", report_dir
+    )
+    LOGGER.info("Reports: %s", report_dir)
+    LOGGER.info("Artifacs: %s", artifact_dir)
+
+    if log_downloader.failed:
+        sys.exit("ETOS logs did not download successfully.")
+
+    result, message = test_results.get_results(events)
+    if result:
+        LOGGER.info(message)
+    else:
+        LOGGER.error(message)
 
 
-def run():
+def run() -> None:
     """Entry point for console_scripts."""
     main(sys.argv[1:])
 

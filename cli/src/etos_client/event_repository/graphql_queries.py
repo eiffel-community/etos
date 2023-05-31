@@ -1,4 +1,4 @@
-# Copyright 2020-2023 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -43,6 +43,25 @@ ACTIVITY_TRIGGERED = """
   }
 }
 """
+
+
+ACTIVITY_FINISHED = """
+{
+  activityFinished(%s) {
+    edges {
+      node {
+        data {
+          activityOutcome {
+            description
+            conclusion
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
 
 ACTIVITY_CANCELED = """
 {
@@ -154,6 +173,9 @@ ARTIFACTS = """
           fileInformation {
             name
           }
+        }
+        meta {
+          time
         }
         links {
           ... on Cause {
