@@ -16,7 +16,7 @@ commonLabels:
 
 images:
 - name: registry.nordix.org/eiffel/etos-suite-starter
-  newTag: "1.29.0"
+  newTag: "1.30.0"
 
 # Might seem unnecessary to patch a file that is already in the overlay,
 # this patch is done so that our CI jobs only have to know the format of
@@ -27,7 +27,7 @@ patches:
 - patch: |-
     - op: replace
       path: "/data/SUITE_RUNNER"
-      value: registry.nordix.org/eiffel/etos-suite-runner:2.4.2
+      value: registry.nordix.org/eiffel/etos-suite-runner:2.5.0
   target:
     kind: ConfigMap
     labelSelector: app.kubernetes.io/name=etos-suite-starter
