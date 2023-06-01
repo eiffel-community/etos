@@ -34,7 +34,7 @@ api:
 suiteRunner:
   image:
     repository: "registry.nordix.org/eiffel/etos-suite-runner"
-    tag: "2.4.2"
+    tag: "2.5.0"
   # Filebeat is for sending logs to an elastic cluster. It is used to debug
   # messages and to follow a test suite throughout an ETOS execution.
   filebeat:
