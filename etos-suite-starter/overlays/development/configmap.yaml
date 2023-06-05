@@ -17,3 +17,4 @@ data:
 
   RABBITMQ_QUEUE: svcqart.suite_starter.dev
   RABBITMQ_ROUTING_KEY: eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.etos-dev.*
+  RABBITMQ_QUEUE_PARAMS: '{"arguments": {"x-queue-type": "quorum"}, "durable": true}'
