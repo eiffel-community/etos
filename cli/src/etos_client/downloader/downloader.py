@@ -39,12 +39,13 @@ class Downloadable(BaseModel):
     name: Optional[Path]
 
 
-class Downloader(Thread):
+class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
     """Log downloader for ETOS client."""
 
     logger = logging.getLogger(__name__)
+    started = False
 
-    def __init__(self) -> None:
+    def __init__(self, report_dir: Path, artifact_dir: Path) -> None:
         """Init."""
         super().__init__()
         self.__download_queue = Queue()
@@ -53,6 +54,9 @@ class Downloader(Thread):
         self.__clear_queue = True
         self.__lock = Lock()
         self.failed = False
+
+        self.__report_dir = report_dir
+        self.__artifact_dir = artifact_dir
 
     def __retry_download(self, item: Downloadable) -> None:
         """Download files."""
@@ -141,6 +145,7 @@ class Downloader(Thread):
 
     def run(self) -> None:
         """Run the log downloader thread."""
+        self.started = True
         with ThreadPool() as pool:
             while True:
                 if self.__exit and not self.__clear_queue:
@@ -166,28 +171,30 @@ class Downloader(Thread):
             self.__download_queue.put_nowait(item)
             self.__queued.append(item.uri)
 
-    def download_artifacts(self, artifacts: list[Artifact], path: Path) -> None:
-        """Download artifacts to a path."""
+    def download_artifacts(self, artifacts: list[Artifact]) -> None:
+        """Download artifacts to a artifact path."""
         for artifact in artifacts:
             for _file in artifact.files:
-                filepath = path.joinpath(f"{artifact.suite_name}_{_file}").relative_to(
-                    Path.cwd()
-                )
+                filepath = self.__artifact_dir.joinpath(
+                    f"{artifact.suite_name}_{_file}"
+                ).relative_to(Path.cwd())
                 self.__queue_download(
                     Downloadable(uri=f"{artifact.location}/{_file}", name=filepath)
                 )
 
     def download_logs(
-        self, test_suites: Union[list[TestSuite], list[SubSuite]], path: Path
+        self, test_suites: Union[list[TestSuite], list[SubSuite]]
     ) -> None:
-        """Download logs from test suites to a path."""
+        """Download logs from test suites to report path."""
         for test_suite in test_suites:
             if not test_suite.finished:
                 return
             data = test_suite.finished.get("data", {})
             logs = data.get("testSuitePersistentLogs", [])
             for log in logs:
-                filepath = path.joinpath(log["name"]).relative_to(Path.cwd())
+                filepath = self.__report_dir.joinpath(log["name"]).relative_to(
+                    Path.cwd()
+                )
                 self.__queue_download(Downloadable(uri=log["uri"], name=filepath))
             if isinstance(test_suite, TestSuite):
-                self.download_logs(test_suite.sub_suites, path)
+                self.download_logs(test_suite.sub_suites)
