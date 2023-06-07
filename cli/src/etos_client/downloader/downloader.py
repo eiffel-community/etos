@@ -39,7 +39,7 @@ class Downloadable(BaseModel):
     name: Optional[Path]
 
 
-class LogDownloader(Thread):
+class Downloader(Thread):
     """Log downloader for ETOS client."""
 
     logger = logging.getLogger(__name__)

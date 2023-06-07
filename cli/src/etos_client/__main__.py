@@ -31,7 +31,7 @@ from etos_client.etos.schema import RequestSchema
 from etos_client.etos import ETOS
 from etos_client.test_results import TestResults
 from etos_client.announcer import Announcer
-from etos_client.logs import LogDownloader
+from etos_client.downloader import Downloader
 from etos_client.event_repository import graphql
 
 LOGGER = logging.getLogger(__name__)
@@ -190,7 +190,7 @@ def main(args: list[str]) -> None:  # pylint:disable=too-many-statements
     LOGGER.info("Event repository: %r", response.event_repository)
 
     test_results = TestResults()
-    log_downloader = LogDownloader()
+    log_downloader = Downloader()
     announcer = Announcer()
 
     log_downloader.start()
