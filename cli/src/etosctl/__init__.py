@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
@@ -14,21 +13,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS client entry point script so etosctl stays backwards compatible."""
-import sys
-import warnings
-from etosctl.__main__ import main
+"""ETOS ctl module."""
+from pkg_resources import get_distribution, DistributionNotFound
 
-
-def run() -> None:
-    """Entry point for console_scripts."""
-    warnings.warn(
-        "'etos_client' is deprecated, please use 'etosctl testrun start' instead. "
-        "Parameters are the same.",
-        DeprecationWarning,
-    )
-    main(["testrun", "start"] + sys.argv[1:])
-
-
-if __name__ == "__main__":
-    run()
+# pylint:disable=invalid-name
+try:
+    # Change here if project is renamed and does not equal the package name
+    dist_name = "etosctl"
+    __version__ = get_distribution(dist_name).version
+except DistributionNotFound:
+    __version__ = "unknown"
+finally:
+    del get_distribution, DistributionNotFound
