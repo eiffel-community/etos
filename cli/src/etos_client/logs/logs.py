@@ -58,9 +58,9 @@ class Logs:
     __events = None
     __current_id = 0
 
-    def connect_to_log_server(self, etos: ETOS, timeout: int) -> None:
+    def connect_to_log_server(self, etos: ETOS, endtime: int) -> None:
         """Connect to the ETOS log server."""
-        while time.time() < timeout:
+        while time.time() < endtime:
             try:
                 self.__events = SSEClient(
                     f"{etos.cluster}/logs/{str(etos.response.tercc)}"
@@ -70,8 +70,10 @@ class Logs:
                 if http_error.response.status_code != 404:
                     traceback.print_exc()
                 time.sleep(2)
+        else:
+            raise TimeoutError("Timed out while connecting to log server")
 
-    def logs(self, timeout: int) -> Iterator[Union[Message, Ping]]:
+    def logs(self, endtime: int) -> Iterator[Union[Message, Ping]]:
         """Connect to log server and collect logs from it."""
         try:
             for event in self.__events:
@@ -90,7 +92,7 @@ class Logs:
                 else:
                     # Pings are expected, by default, to come at a 15s interval.
                     yield Ping()
-                if time.time() >= timeout:
+                if time.time() >= endtime:
                     raise TimeoutError("Timed out!")
         except requests.exceptions.ChunkedEncodingError:
             traceback.print_exc()

@@ -109,7 +109,8 @@ class TestRun:
         """Collect events from ETOS."""
         return self.__collector.collect(etos.response.tercc)
 
-    def __log(self, message: Message):
+    def __log(self, message: Message) -> None:
+        """Log a message from the ETOS log API."""
         logger = getattr(self.remote_logger, message.level)
         logger(
             message,
@@ -119,11 +120,11 @@ class TestRun:
             },
         )
 
-    def __log_until_eof(self, etos: ETOS, timeout: int) -> Iterator[Ping]:
+    def __log_until_eof(self, etos: ETOS, endtime: int) -> Iterator[Ping]:
         """Log from the ETOS log API until finished."""
         logs = Logs()
         logs.connect_to_log_server(etos, time.time() + 10 * MINUTE)
-        for log_message in logs.logs(timeout):
+        for log_message in logs.logs(endtime):
             if isinstance(log_message, Message):
                 self.__log(log_message)
                 continue

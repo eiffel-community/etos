@@ -64,7 +64,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         end_time = time.time() + 30
         while time.time() < end_time:
             response = requests.get(item.uri, stream=True, timeout=10)
-            self.logger.debug(response)
+            self.logger.debug("Download response: %r", response)
             if self.__should_retry(response):
                 self.logger.warning("Download failed. Retrying..")
                 time.sleep(2)
@@ -106,7 +106,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
                     response_json = {
                         "detail": "Unknown client error when downloading files from log area"
                     }
-                self.logger.critical(response_json)
+                self.logger.critical("Download response: %r", response_json)
                 return False
             return True
         except (
@@ -172,7 +172,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             self.__queued.append(item.uri)
 
     def download_artifacts(self, artifacts: list[Artifact]) -> None:
-        """Download artifacts to a artifact path."""
+        """Download artifacts to an artifact path."""
         for artifact in artifacts:
             for _file in artifact.files:
                 filepath = self.__artifact_dir.joinpath(
