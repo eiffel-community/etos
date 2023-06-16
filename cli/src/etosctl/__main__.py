@@ -16,48 +16,80 @@
 """
 etosctl.
 
-Usage: etosctl [-v|-vv] [-h] [--version] [--help] testrun [<args>...]
+Usage: etosctl [-v|-vv] [options] testrun [<args>...]
 
 Commands:
     testrun       Operate on ETOS testruns
 
 Options:
     -h,--help     Show this screen.
-    -v|-vv        Increase loglevel.
     --version     Print version and exit.
 """
 import sys
 import logging
+from typing import Optional
 
 from docopt import docopt, DocoptExit
 
 import etos_client.test as test
+
+from etosctl.options import GLOBAL_OPTIONS
 from etosctl import __version__
 
 LOGGER = logging.getLogger(__name__)
 
 
-def setup_logging(loglevel: int) -> None:
+def setup_logging(verbosity: int) -> None:
     """Set up basic logging."""
+    loglevel = logging.WARNING
+    if verbosity == 1:
+        loglevel = logging.INFO
+    elif verbosity == 2:
+        loglevel = logging.DEBUG
+
     logformat = "[%(asctime)s] %(levelname)s:%(message)s"
     logging.basicConfig(
         level=loglevel, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
     )
 
 
-def main(argv: list[str]) -> None:
-    """Entry point allowing external calls."""
-    options_first = any(cmd in argv for cmd in ("testrun",))
-    args = docopt(__doc__, argv=argv, version=__version__, options_first=options_first)
-    loglevel = logging.WARNING
-    if args["-v"] == 1 or "-v" in args["<args>"]:
-        loglevel = logging.INFO
-    elif args["-v"] == 2 or "-vv" in args["<args>"]:
-        loglevel = logging.DEBUG
-    setup_logging(loglevel)
+def parse_args(argv: list[str], version: Optional[str]) -> dict:
+    """Parse arguments for etosctl."""
+    options_first = any(cmd in argv for cmd in ("testrun", "config"))
+    args = docopt(
+        __doc__ + GLOBAL_OPTIONS,
+        argv=argv,
+        version=version,
+        options_first=options_first,
+    )
 
     if args["testrun"]:
-        test.main(["testrun"] + args["<args>"], __version__)
+        args["<args>"] = ["testrun"] + args["<args>"]
+        sub_args = test.parse_args(args["<args>"], version)
+    elif args["config"]:
+        args["<args>"] = ["config"] + args["<args>"]
+        sub_args = config.parse_args(args["<args>"], version)
+    else:
+        raise DocoptExit()
+
+    # Merge the two arg dictionaries, preferring the dictionary with a value.
+    # If both have a value then prefer the sub command argument.
+    for key, value in sub_args.items():
+        if key in args.keys() and value:
+            args[key] = value
+        elif key not in args.keys():
+            args[key] = value
+    return args
+
+
+def main(argv: list[str]) -> None:
+    """Entry point allowing external calls."""
+    args = parse_args(argv, __version__)
+
+    setup_logging(args["-v"])
+
+    if args["testrun"]:
+        test.main(args)
     else:
         raise DocoptExit()
 

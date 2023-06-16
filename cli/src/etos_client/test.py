@@ -16,33 +16,45 @@
 # limitations under the License.
 """ETOS client testrun.
 
-Usage: etosctl testrun [-v|-vv] [-h] [--version] [--help] (start|attach) [<args>...]
+Usage: etosctl testrun [-v|-vv] [-h] [--version] [--help] start [<args>...]
 
 Commands:
     start         Start a new ETOS testrun
 
 Options:
     -h,--help     Show this screen
-    -v,-vv        Increase loglevel.
     --version     Print version and exit
 """
 import logging
+from typing import Optional
+
 from docopt import docopt, DocoptExit
+
+from etosctl.options import GLOBAL_OPTIONS
 from etos_client import start
 
 LOGGER = logging.getLogger(__name__)
 
 
-def main(argv: list[str], version: str):
-    """Manage testruns in etosctl."""
-    # Options first is set to allow sub-commands to print their help.
-    # However if options first is set and we try to do 'etosctl testrun --help'
-    # the text help would be extremely lackluster.
+def parse_args(argv: list[str], version: Optional[str]) -> dict:
+    """Parse arguments for etosctl testrun."""
     options_first = any(cmd in argv for cmd in ("start",))
-    args = docopt(__doc__, argv=argv, version=version, options_first=options_first)
+    args = docopt(
+        __doc__ + GLOBAL_OPTIONS,
+        argv=argv,
+        version=version,
+        options_first=options_first,
+    )
 
-    cmd = None
     if args["start"]:
-        start.main(["testrun", "start"] + args["<args>"], version)
+        args["<args>"] = ["testrun", "start"] + args["<args>"]
+        return start.parse_args(args["<args>"], version)
+    raise DocoptExit()
+
+
+def main(args: dict) -> None:
+    """Manage testruns in etosctl."""
+    if args["start"]:
+        start.main(args)
     else:
         raise DocoptExit()

@@ -33,7 +33,6 @@ Options:
     --log-area-provider LOG_AREA_PROVIDER                     Which log area provider to use.
     --dataset DATASET                                         Additional dataset information to the environment provider. Check with your provider which information can be supplied.
     --version                                                 Show program's version number and exit
-    -v,-vv                                                    Increase loglevel.
 """
 import sys
 import os
@@ -53,6 +52,7 @@ from etos_client.test_results import TestResults
 from etos_client.downloader import Downloader
 from etos_client.event_repository import graphql
 from etos_client.test_run import TestRun
+from etosctl.options import GLOBAL_OPTIONS
 
 LOGGER = logging.getLogger(__name__)
 MINUTE = 60
@@ -120,8 +120,8 @@ def wait(
     return TestResults().get_results(events)
 
 
-def main(argv: list[str], version) -> None:
-    """Start an ETOS testrun."""
+def parse_args(argv: list[str], version: Optional[str]) -> dict:
+    """Parse arguments for etosctl testrun start."""
     if ("-i" not in argv and "--identity" not in argv) and os.getenv(
         "IDENTITY"
     ) is not None:
@@ -130,8 +130,11 @@ def main(argv: list[str], version) -> None:
         "TEST_SUITE"
     ) is not None:
         argv.extend(["--test-suite", os.getenv("TEST_SUITE")])
-    args = docopt(__doc__, argv=argv, version=version)
+    return docopt(__doc__ + GLOBAL_OPTIONS, argv=argv, version=version)
 
+
+def main(args: dict) -> None:
+    """Start an ETOS testrun."""
     if args["--download-reports"]:
         warnings.warn(
             "The '-d/--download-reports' parameter is deprecated", DeprecationWarning
