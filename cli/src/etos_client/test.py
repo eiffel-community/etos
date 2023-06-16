@@ -31,30 +31,35 @@ from typing import Optional
 from docopt import docopt, DocoptExit
 
 from etosctl.options import GLOBAL_OPTIONS
+from etosctl.plugin import Plugin
 from etos_client import start
 
 LOGGER = logging.getLogger(__name__)
 
 
-def parse_args(argv: list[str], version: Optional[str]) -> dict:
-    """Parse arguments for etosctl testrun."""
-    options_first = any(cmd in argv for cmd in ("start",))
-    args = docopt(
-        __doc__ + GLOBAL_OPTIONS,
-        argv=argv,
-        version=version,
-        options_first=options_first,
-    )
+class TestRun(Plugin):
+    """ETOS client testrun."""
 
-    if args["start"]:
-        args["<args>"] = ["testrun", "start"] + args["<args>"]
-        return start.parse_args(args["<args>"], version)
-    raise DocoptExit()
+    description = "Operate on ETOS testruns"
 
+    def parse_args(self, argv: list[str], version: Optional[str]) -> dict:
+        """Parse arguments for etosctl testrun."""
+        options_first = any(cmd in argv for cmd in ("start",))
+        args = docopt(
+            __doc__ + GLOBAL_OPTIONS,
+            argv=argv,
+            version=version,
+            options_first=options_first,
+        )
 
-def main(args: dict) -> None:
-    """Manage testruns in etosctl."""
-    if args["start"]:
-        start.main(args)
-    else:
+        if args["start"]:
+            args["<args>"] = ["testrun", "start"] + args["<args>"]
+            return start.parse_args(args["<args>"], version)
         raise DocoptExit()
+
+    def main(self, args: dict) -> None:
+        """Manage testruns in etosctl."""
+        if args["start"]:
+            start.main(args)
+        else:
+            raise DocoptExit()

@@ -16,24 +16,25 @@
 """
 etosctl.
 
-Usage: etosctl [-v|-vv] [options] testrun [<args>...]
+Usage: etosctl [-v|-vv] [options] <command> [<args>...]
 
 Commands:
-    testrun       Operate on ETOS testruns
-
+%s
 Options:
-    -h,--help     Show this screen.
-    --version     Print version and exit.
+    -h,--help        Show this screen.
+    --version        Print version and exit.
 """
 import sys
 import logging
+import importlib
+import pkgutil
 from typing import Optional
 
 from docopt import docopt, DocoptExit
 
-import etos_client.test as test
-
+from etos_client.test import TestRun
 from etosctl.options import GLOBAL_OPTIONS
+from etosctl.plugin import PLUGINS
 from etosctl import __version__
 
 LOGGER = logging.getLogger(__name__)
@@ -53,24 +54,25 @@ def setup_logging(verbosity: int) -> None:
     )
 
 
-def parse_args(argv: list[str], version: Optional[str]) -> dict:
+def parse_args(argv: list[str], commands: dict, version: Optional[str]) -> dict:
     """Parse arguments for etosctl."""
-    options_first = any(cmd in argv for cmd in ("testrun", "config"))
+    commands_docs = ""
+    for name, command in commands.items():
+        commands_docs += f"    {name:<16} {command.description}\n"
+
+    options_first = any(cmd in argv for cmd in commands.keys())
     args = docopt(
-        __doc__ + GLOBAL_OPTIONS,
+        __doc__ % commands_docs + GLOBAL_OPTIONS,
         argv=argv,
         version=version,
         options_first=options_first,
     )
-
-    if args["testrun"]:
-        args["<args>"] = ["testrun"] + args["<args>"]
-        sub_args = test.parse_args(args["<args>"], version)
-    elif args["config"]:
-        args["<args>"] = ["config"] + args["<args>"]
-        sub_args = config.parse_args(args["<args>"], version)
-    else:
+    command = commands.get(args["<command>"])
+    if command is None:
+        sys.stderr.write(f"Command {args['<command>']!r} not found\n")
         raise DocoptExit()
+    args["<args>"] = [args["<command>"]] + args["<args>"]
+    sub_args = command.parse_args(args["<args>"], version)
 
     # Merge the two arg dictionaries, preferring the dictionary with a value.
     # If both have a value then prefer the sub command argument.
@@ -82,16 +84,28 @@ def parse_args(argv: list[str], version: Optional[str]) -> dict:
     return args
 
 
+def load_plugins() -> dict:
+    """Load etosctl plugins."""
+    # Make sure we import all plugins, the plugins themselves should
+    # register in order to be loaded into ETOS cli.
+    _ = {
+        name: importlib.import_module(name)
+        for _, name, _ in pkgutil.iter_modules()
+        if name.startswith("etos_") and name.endswith("_plugin")
+    }
+    return PLUGINS
+
+
 def main(argv: list[str]) -> None:
     """Entry point allowing external calls."""
-    args = parse_args(argv, __version__)
+    commands = {"testrun": TestRun("testrun")} | load_plugins()
+    args = parse_args(argv, commands, __version__)
 
     setup_logging(args["-v"])
 
-    if args["testrun"]:
-        test.main(args)
-    else:
-        raise DocoptExit()
+    command = commands.get(args["<command>"])
+    # None verification of command has already been done in parse_args.
+    command.main(args)
 
 
 def run() -> None:
