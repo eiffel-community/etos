@@ -14,52 +14,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS client testrun.
-
-Usage: etosctl testrun [-v|-vv] [-h] [--version] [--help] start [<args>...]
-
-Commands:
-    start         Start a new ETOS testrun
-
-Options:
-    -h,--help     Show this screen
-    --version     Print version and exit
-"""
+"""ETOS client testrun."""
 import logging
-from typing import Optional
 
-from docopt import docopt, DocoptExit
-
-from etosctl.options import GLOBAL_OPTIONS
-from etosctl.plugin import Plugin
-from etos_client import start
+from etosctl.command import Command
+from etosctl.models import CommandMeta
+from etos_client.start import Start
 
 LOGGER = logging.getLogger(__name__)
 
 
-class TestRun(Plugin):
-    """ETOS client testrun."""
+class TestRun(Command):
+    """ETOS client testrun.
 
-    description = "Operate on ETOS testruns"
+    Usage: etosctl [-v|-vv] [options] testrun <command> [<args>...]
 
-    def parse_args(self, argv: list[str], version: Optional[str]) -> dict:
-        """Parse arguments for etosctl testrun."""
-        options_first = any(cmd in argv for cmd in ("start",))
-        args = docopt(
-            __doc__ + GLOBAL_OPTIONS,
-            argv=argv,
-            version=version,
-            options_first=options_first,
-        )
+    Commands:
+        start         Start a new ETOS testrun
 
-        if args["start"]:
-            args["<args>"] = ["testrun", "start"] + args["<args>"]
-            return start.parse_args(args["<args>"], version)
-        raise DocoptExit()
+    Options:
+        -h,--help     Show this screen
+        --version     Print version and exit
+    """
 
-    def main(self, args: dict) -> None:
-        """Manage testruns in etosctl."""
-        if args["start"]:
-            start.main(args)
-        else:
-            raise DocoptExit()
+    meta = CommandMeta(
+        name="testrun",
+        description="Operate on ETOS testruns",
+        version="v1alpha1",
+        subcommands={"start": Start},
+    )

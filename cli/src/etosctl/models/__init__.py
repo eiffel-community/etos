@@ -13,5 +13,5 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Etosctl plugin module."""
-from .plugin import Plugin, PLUGINS, register
+"""ETOS customization models."""
+from .models import CommandMeta

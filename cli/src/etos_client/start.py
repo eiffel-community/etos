@@ -14,26 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-Client for executing test automation suites in ETOS.
-
-Usage: etosctl testrun start [-v|-vv] [-h] -i IDENTITY -s TEST_SUITE [--no-tty] [-w WORKSPACE] [-a ARTIFACT_DIR] [-r REPORT_DIR] [-d DOWNLOAD_REPORTS] [--iut-provider IUT_PROVIDER] [--execution-space-provider EXECUTION_SPACE_PROVIDER] [--log-area-provider LOG_AREA_PROVIDER] [--dataset=DATASET]... [--version] <cluster>
-
-Options:
-    -h, --help                                                Show this help message and exit
-    -i IDENTITY, --identity IDENTITY                          Artifact created identity purl or ID to execute test suite on.
-    -s TEST_SUITE, --test-suite TEST_SUITE                    Test suite execute. Either URL or name.
-    --no-tty                                                  This parameter is no longer in use.
-    -w WORKSPACE, --workspace WORKSPACE                       Which workspace to do all the work in.
-    -a ARTIFACT_DIR, --artifact-dir ARTIFACT_DIR              Where test artifacts should be stored. Relative to workspace.
-    -r REPORT_DIR, --report-dir REPORT_DIR                    Where test reports should be stored. Relative to workspace.
-    -d DOWNLOAD_REPORTS, --download-reports DOWNLOAD_REPORTS  This parameter is no longer in use.
-    --iut-provider IUT_PROVIDER                               Which IUT provider to use.
-    --execution-space-provider EXECUTION_SPACE_PROVIDER       Which execution space provider to use.
-    --log-area-provider LOG_AREA_PROVIDER                     Which log area provider to use.
-    --dataset DATASET                                         Additional dataset information to the environment provider. Check with your provider which information can be supplied.
-    --version                                                 Show program's version number and exit
-"""
+"""Client for executing test automation suites in ETOS."""
 import sys
 import os
 import logging
@@ -41,8 +22,6 @@ import warnings
 import shutil
 from pathlib import Path
 from typing import Optional
-
-from docopt import docopt
 
 from etos_lib import ETOS as ETOSLibrary
 from etos_client.events.collector import Collector
@@ -52,7 +31,8 @@ from etos_client.test_results import TestResults
 from etos_client.downloader import Downloader
 from etos_client.event_repository import graphql
 from etos_client.test_run import TestRun
-from etosctl.options import GLOBAL_OPTIONS
+from etosctl.command import SubCommand
+from etosctl.models import CommandMeta
 
 LOGGER = logging.getLogger(__name__)
 MINUTE = 60
@@ -120,37 +100,63 @@ def wait(
     return TestResults().get_results(events)
 
 
-def parse_args(argv: list[str], version: Optional[str]) -> dict:
-    """Parse arguments for etosctl testrun start."""
-    if ("-i" not in argv and "--identity" not in argv) and os.getenv(
-        "IDENTITY"
-    ) is not None:
-        argv.extend(["--identity", os.getenv("IDENTITY")])
-    if ("-s" not in argv and "--test-suite" not in argv) and os.getenv(
-        "TEST_SUITE"
-    ) is not None:
-        argv.extend(["--test-suite", os.getenv("TEST_SUITE")])
-    return docopt(__doc__ + GLOBAL_OPTIONS, argv=argv, version=version)
+class Start(SubCommand):
+    """
+    Client for executing test automation suites in ETOS.
 
+    Usage: etosctl testrun start [-v|-vv] [-h] -i IDENTITY -s TEST_SUITE [--no-tty] [-w WORKSPACE] [-a ARTIFACT_DIR] [-r REPORT_DIR] [-d DOWNLOAD_REPORTS] [--iut-provider IUT_PROVIDER] [--execution-space-provider EXECUTION_SPACE_PROVIDER] [--log-area-provider LOG_AREA_PROVIDER] [--dataset=DATASET]... [--version] <cluster>
 
-def main(args: dict) -> None:
-    """Start an ETOS testrun."""
-    if args["--download-reports"]:
-        warnings.warn(
-            "The '-d/--download-reports' parameter is deprecated", DeprecationWarning
-        )
-    if args["--no-tty"]:
-        warnings.warn("The '--no-tty' parameter is deprecated", DeprecationWarning)
-    args["--workspace"] = args["--workspace"] or os.getenv("WORKSPACE", os.getcwd())
-    args["--artifact-dir"] = args["--artifact-dir"] or "artifacts"
-    args["--report-dir"] = args["--report-dir"] or "reports"
+    Options:
+        -h, --help                                                Show this help message and exit
+        -i IDENTITY, --identity IDENTITY                          Artifact created identity purl or ID to execute test suite on.
+        -s TEST_SUITE, --test-suite TEST_SUITE                    Test suite execute. Either URL or name.
+        --no-tty                                                  This parameter is no longer in use.
+        -w WORKSPACE, --workspace WORKSPACE                       Which workspace to do all the work in.
+        -a ARTIFACT_DIR, --artifact-dir ARTIFACT_DIR              Where test artifacts should be stored. Relative to workspace.
+        -r REPORT_DIR, --report-dir REPORT_DIR                    Where test reports should be stored. Relative to workspace.
+        -d DOWNLOAD_REPORTS, --download-reports DOWNLOAD_REPORTS  This parameter is no longer in use.
+        --iut-provider IUT_PROVIDER                               Which IUT provider to use.
+        --execution-space-provider EXECUTION_SPACE_PROVIDER       Which execution space provider to use.
+        --log-area-provider LOG_AREA_PROVIDER                     Which log area provider to use.
+        --dataset DATASET                                         Additional dataset information to the environment provider. Check with your provider which information can be supplied.
+        --version                                                 Show program's version number and exit
+    """
 
-    LOGGER.info("Running in cluster: %r", args["<cluster>"])
-    report_dir, artifact_dir = directories(args)
-    etos = start(args)
-    result, message = wait(etos, args["-v"], report_dir, artifact_dir)
+    meta: CommandMeta = CommandMeta(
+        name="start", description="Start an ETOS testrun.", version="Something!"
+    )
 
-    if result:
-        LOGGER.info(message)
-    else:
-        LOGGER.error(message)
+    def parse_args(self, argv: list[str]) -> dict:
+        """Parse arguments for etosctl testrun start."""
+        if ("-i" not in argv and "--identity" not in argv) and os.getenv(
+            "IDENTITY"
+        ) is not None:
+            argv.extend(["--identity", os.getenv("IDENTITY")])
+        if ("-s" not in argv and "--test-suite" not in argv) and os.getenv(
+            "TEST_SUITE"
+        ) is not None:
+            argv.extend(["--test-suite", os.getenv("TEST_SUITE")])
+        return super().parse_args(argv)
+
+    def run(self, args: dict) -> None:
+        """Start an ETOS testrun."""
+        if args["--download-reports"]:
+            warnings.warn(
+                "The '-d/--download-reports' parameter is deprecated",
+                DeprecationWarning,
+            )
+        if args["--no-tty"]:
+            warnings.warn("The '--no-tty' parameter is deprecated", DeprecationWarning)
+        args["--workspace"] = args["--workspace"] or os.getenv("WORKSPACE", os.getcwd())
+        args["--artifact-dir"] = args["--artifact-dir"] or "artifacts"
+        args["--report-dir"] = args["--report-dir"] or "reports"
+
+        LOGGER.info("Running in cluster: %r", args["<cluster>"])
+        report_dir, artifact_dir = directories(args)
+        etos = start(args)
+        result, message = wait(etos, args["-v"], report_dir, artifact_dir)
+
+        if result:
+            LOGGER.info(message)
+        else:
+            LOGGER.error(message)

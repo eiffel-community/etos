@@ -13,15 +13,4 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS ctl module."""
-from pkg_resources import get_distribution, DistributionNotFound
-
-# pylint:disable=invalid-name
-try:
-    # Change here if project is renamed and does not equal the package name
-    dist_name = "etosctl"
-    __version__ = get_distribution(dist_name).version
-except DistributionNotFound:
-    __version__ = "unknown"
-finally:
-    del get_distribution, DistributionNotFound
+"""Etosctl module."""

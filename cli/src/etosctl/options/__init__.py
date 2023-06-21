@@ -13,9 +13,5 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Global options for all commands."""
-
-GLOBAL_OPTIONS = """
-Global options:
-    -v               Increase loglevel. Increments.
-"""
+"""Command line options handler."""
+from .options import GLOBAL_OPTIONS
