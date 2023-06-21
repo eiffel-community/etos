@@ -193,28 +193,32 @@ def main(args: list[str]) -> None:  # pylint:disable=too-many-statements
     log_downloader = LogDownloader()
     announcer = Announcer()
 
+    clear_queue = True
     log_downloader.start()
+    try:
+        timeout = time.time() + HOUR * 24
+        while time.time() < timeout:
+            events = collector.collect(response.tercc)
+            if events.activity.canceled:
+                sys.exit(events.activity.canceled["data"]["reason"])
+            if events.activity.finished:
+                break
+            announcer.announce(events)
+            if events.main_suites:
+                log_downloader.download_logs(events.main_suites, report_dir)
+            log_downloader.download_artifacts(events.artifacts, artifact_dir)
+            time.sleep(10)
 
-    timeout = time.time() + HOUR * 24
-    while time.time() < timeout:
         events = collector.collect(response.tercc)
-        if events.activity.canceled:
-            sys.exit(events.activity.canceled["data"]["reason"])
-        if events.activity.finished:
-            break
-        announcer.announce(events)
         if events.main_suites:
             log_downloader.download_logs(events.main_suites, report_dir)
         log_downloader.download_artifacts(events.artifacts, artifact_dir)
-        time.sleep(10)
-
-    events = collector.collect(response.tercc)
-    if events.main_suites:
-        log_downloader.download_logs(events.main_suites, report_dir)
-    log_downloader.download_artifacts(events.artifacts, artifact_dir)
-
-    log_downloader.stop()
-    log_downloader.join()
+    except SystemExit:
+        clear_queue = False
+        raise
+    finally:
+        log_downloader.stop(clear_queue)
+        log_downloader.join()
 
     LOGGER.info("Archiving reports.")
     shutil.make_archive(
