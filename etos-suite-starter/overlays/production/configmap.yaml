@@ -17,6 +17,7 @@ data:
 
   RABBITMQ_QUEUE: svcqart.suite_starter.prod
   RABBITMQ_ROUTING_KEY: eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.etos-prod.*
+  RABBITMQ_QUEUE_PARAMS: '{"arguments": {"x-queue-type": "quorum"}, "durable": true}'
 
   # Quoted sidecar enabled is required for suite-starter to pass this over to suite-runner.
   ETOS_SIDECAR_ENABLED: "true"

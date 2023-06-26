@@ -15,4 +15,4 @@ resources:
 configMapGenerator:
   - name: etos-suite-starter
     literals:
-      - SUITE_RUNNER=registry.nordix.org/eiffel/etos-suite-runner:2.4.2
+      - SUITE_RUNNER=registry.nordix.org/eiffel/etos-suite-runner:2.5.0
