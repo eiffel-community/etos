@@ -11,3 +11,4 @@ data:
   ETOS_API: http://etos.etos-staging.k8s.axis.com/api
   SOURCE_HOST: ETOS
   ETOS_ROUTING_KEY_TAG: etos-staging
+  ETOS_ENABLE_SENDING_LOGS: "false"
