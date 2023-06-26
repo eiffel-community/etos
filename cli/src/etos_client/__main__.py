@@ -17,7 +17,6 @@
 """Main executable module."""
 import argparse
 import sys
-import time
 import os
 import logging
 import warnings
@@ -30,12 +29,13 @@ from etos_client.events.collector import Collector
 from etos_client.etos.schema import RequestSchema
 from etos_client.etos import ETOS
 from etos_client.test_results import TestResults
-from etos_client.announcer import Announcer
-from etos_client.logs import LogDownloader
+from etos_client.downloader import Downloader
 from etos_client.event_repository import graphql
+from etos_client.test_run import TestRun
 
 LOGGER = logging.getLogger(__name__)
-HOUR = 3600
+MINUTE = 60
+HOUR = MINUTE * 60
 
 
 def environ_or_required(key: str) -> dict:
@@ -157,7 +157,7 @@ def setup_logging(loglevel: int) -> None:
     )
 
 
-def main(args: list[str]) -> None:  # pylint:disable=too-many-statements
+def main(args: list[str]) -> None:
     """Entry point allowing external calls."""
     args = parse_args(args)
     if args.download_reports:
@@ -176,43 +176,21 @@ def main(args: list[str]) -> None:  # pylint:disable=too-many-statements
 
     LOGGER.info("Running in cluster: %r", args.cluster)
     etos_library = ETOSLibrary("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
-    collector = Collector(etos_library, graphql)
 
     etos = ETOS(args.cluster)
     response = etos.start(RequestSchema.from_args(args))
     if not response:
         sys.exit(etos.reason)
-
-    LOGGER.info("Suite ID: %s", response.tercc)
-    LOGGER.info("Artifact ID: %s", response.artifact_id)
-    LOGGER.info("Purl: %s", response.artifact_identity)
     os.environ["ETOS_GRAPHQL_SERVER"] = response.event_repository
-    LOGGER.info("Event repository: %r", response.event_repository)
 
-    test_results = TestResults()
-    log_downloader = LogDownloader()
-    announcer = Announcer()
-
+    collector = Collector(etos_library, graphql)
+    log_downloader = Downloader(report_dir, artifact_dir)
     clear_queue = True
     log_downloader.start()
     try:
-        timeout = time.time() + HOUR * 24
-        while time.time() < timeout:
-            events = collector.collect(response.tercc)
-            if events.activity.canceled:
-                sys.exit(events.activity.canceled["data"]["reason"])
-            if events.activity.finished:
-                break
-            announcer.announce(events)
-            if events.main_suites:
-                log_downloader.download_logs(events.main_suites, report_dir)
-            log_downloader.download_artifacts(events.artifacts, artifact_dir)
-            time.sleep(10)
-
-        events = collector.collect(response.tercc)
-        if events.main_suites:
-            log_downloader.download_logs(events.main_suites, report_dir)
-        log_downloader.download_artifacts(events.artifacts, artifact_dir)
+        test_run = TestRun(collector, log_downloader)
+        test_run.setup_logging(args.loglevel)
+        events = test_run.track(etos, 24 * HOUR)
     except SystemExit:
         clear_queue = False
         raise
@@ -230,7 +208,7 @@ def main(args: list[str]) -> None:  # pylint:disable=too-many-statements
     if log_downloader.failed:
         sys.exit("ETOS logs did not download successfully.")
 
-    result, message = test_results.get_results(events)
+    result, message = TestResults().get_results(events)
     if result:
         LOGGER.info(message)
     else:

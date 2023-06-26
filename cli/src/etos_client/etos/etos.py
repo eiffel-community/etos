@@ -31,6 +31,7 @@ class ETOS:  # pylint:disable=too-few-public-methods
 
     logger = logging.getLogger(__name__)
     reason = ""
+    response: ResponseSchema = None
 
     def __init__(self, cluster: str) -> None:
         """Initialize ETOS."""
@@ -44,11 +45,11 @@ class ETOS:  # pylint:disable=too-few-public-methods
             return None
         self.logger.info("Connection successful.")
         self.logger.info("Triggering ETOS.")
-        response = self.__start(request_data)
-        if not response:
+        self.response = self.__start(request_data)
+        if not self.response:
             self.reason = "Failed to start ETOS"
             return None
-        return response
+        return self.response
 
     def __check_connection(self) -> bool:
         """Check connection to ETOS."""
