@@ -19,6 +19,8 @@ import sys
 import logging
 import inspect
 
+from typing import Optional
+
 from .engine import CustomizationEngine
 from .command import Command
 from .models import CommandMeta
@@ -59,7 +61,7 @@ class Main(Command):
         subcommands={},
     )
 
-    def __init__(self, parent=None, commands=None) -> None:
+    def __init__(self, parent: Optional[Command]=None, commands: Optional[dict[str, Command]]=None) -> None:
         """Load commands into etosctl as sub commands."""
         super().__init__(parent)
         if commands:
