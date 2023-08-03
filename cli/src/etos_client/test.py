@@ -14,21 +14,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS client entry point script so etosctl stays backwards compatible."""
-import sys
-import warnings
-from etosctl.__main__ import main
+"""ETOS client testrun."""
+import logging
+
+from etosctl.command import Command
+from etosctl.models import CommandMeta
+from etos_client.start import Start
+
+LOGGER = logging.getLogger(__name__)
 
 
-def run() -> None:
-    """Entry point for console_scripts."""
-    warnings.warn(
-        "'etos_client' is deprecated, please use 'etosctl testrun start' instead. "
-        "Parameters are the same.",
-        DeprecationWarning,
+class TestRun(Command):
+    """ETOS client testrun.
+
+    Usage: etosctl [-v|-vv] [options] testrun <command> [<args>...]
+
+    Commands:
+        start         Start a new ETOS testrun
+
+    Options:
+        -h,--help     Show this screen
+        --version     Print version and exit
+    """
+
+    meta = CommandMeta(
+        name="testrun",
+        description="Operate on ETOS testruns",
+        version="v1alpha1",
+        subcommands={"start": Start},
     )
-    main(["testrun", "start"] + sys.argv[1:])
-
-
-if __name__ == "__main__":
-    run()

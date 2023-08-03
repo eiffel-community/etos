@@ -36,16 +36,16 @@ class RequestSchema(BaseModel):
     log_area_provider: Optional[str] = "default"
 
     @classmethod
-    def from_args(cls, args: list[str]) -> "RequestSchema":
+    def from_args(cls, args: dict) -> "RequestSchema":
         """Create a RequestSchema from an argument list from argparse."""
         return RequestSchema(
-            artifact_id=args.identity,
-            artifact_identity=args.identity,
-            test_suite_url=args.test_suite,
-            dataset=args.dataset,
-            execution_space_provider=args.execution_space_provider,
-            iut_provider=args.iut_provider,
-            log_area_provider=args.log_area_provider,
+            artifact_id=args["--identity"],
+            artifact_identity=args["--identity"],
+            test_suite_url=args["--test-suite"],
+            dataset=args["--dataset"],
+            execution_space_provider=args["--execution-space-provider"] or "default",
+            iut_provider=args["--iut-provider"] or "default",
+            log_area_provider=args["--log-area-provider"] or "default",
         )
 
     @validator("artifact_identity", always=True)
