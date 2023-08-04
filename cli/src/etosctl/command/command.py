@@ -50,7 +50,7 @@ class BaseCommand:
     )
     subcommand: "Command" = None
 
-    def __init__(self, parent: "Command"=None):
+    def __init__(self, parent: "Command" = None) -> None:
         """Clean up docstring and add global options."""
         self.__doc__ = inspect.cleandoc(self.__doc__) + GLOBAL_OPTIONS
         self.parent = parent
