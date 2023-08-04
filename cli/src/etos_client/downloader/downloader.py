@@ -176,8 +176,10 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         for artifact in artifacts:
             for _file in artifact.files:
                 filepath = self.__artifact_dir.joinpath(
-                    f"{artifact.suite_name}_{_file}"
+                    f"{artifact.suite_name}"
                 ).relative_to(Path.cwd())
+                filepath.mkdir(exist_ok=True)
+                filepath = filepath.joinpath(_file)
                 self.__queue_download(
                     Downloadable(uri=f"{artifact.location}/{_file}", name=filepath)
                 )
