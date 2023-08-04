@@ -61,7 +61,12 @@ class Main(Command):
         subcommands={},
     )
 
-    def __init__(self, parent: Optional[Command]=None, commands: Optional[dict[str, Command]]=None) -> None:
+    def __init__(
+        self,
+        parent: Optional[Command] = None,
+        commands: Optional[dict[str, Command]] = None,
+        argv: list[str] = None,
+    ) -> None:
         """Load commands into etosctl as sub commands."""
         super().__init__(parent)
         if commands:
@@ -71,6 +76,7 @@ class Main(Command):
             for cmd in self.meta.subcommands.values()
         )
         self.__doc__ = self.__doc__ % subcommands
+        self.argv = argv or []
 
     def load_commands(self, commands: dict) -> None:
         """Load commands into etosctl as sub commands."""
@@ -81,7 +87,7 @@ class Main(Command):
 
     def start(self) -> None:
         """Parse input arguments and run etosctl."""
-        args = self.parse_args(sys.argv[1:])
+        args = self.parse_args(self.argv)
         setup_logging(args["-v"])
         self.run(args)
 
@@ -90,7 +96,7 @@ def main(argv: list[str]) -> None:
     """Entry point allowing external calls."""
     engine = CustomizationEngine()
     engine.start()
-    main = Main(commands=engine.commands)
+    main = Main(commands=engine.commands, argv=argv)
     main.start()
 
 
