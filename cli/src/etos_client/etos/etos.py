@@ -21,7 +21,7 @@ from json import JSONDecodeError
 
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 import requests
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, Timeout
 
 from .schema import RequestSchema, ResponseSchema
 
@@ -105,6 +105,7 @@ class ETOS:  # pylint:disable=too-few-public-methods
             NewConnectionError,
             MaxRetryError,
             TimeoutError,
+            Timeout,
         ):
             self.logger.exception("Network connectivity errors when triggering ETOS.")
             return True
