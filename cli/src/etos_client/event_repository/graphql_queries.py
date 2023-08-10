@@ -83,6 +83,9 @@ TEST_SUITE_STARTED = """
   testSuiteStarted(%s) {
     edges {
       node {
+        data {
+          name
+        }
         meta {
           id
         }
@@ -176,17 +179,6 @@ ARTIFACTS = """
         }
         meta {
           time
-        }
-        links {
-          ... on Cause {
-            links {
-              ... on TestSuiteStarted {
-                data {
-                  name
-                }
-              }
-            }
-          }
         }
         reverse {
           edges {
