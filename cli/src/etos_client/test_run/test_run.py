@@ -85,6 +85,7 @@ class TestRun:
         events = self.__collect(etos)
         while not events.activity.finished:
             self.logger.info("Waiting for ETOS to finish")
+            self.__status(events)
             time.sleep(5)
             if time.time() >= timeout:
                 raise TimeoutError("ETOS did not complete in 24 hours. Exiting")
