@@ -210,11 +210,11 @@ def request_environment(etos: ETOS, ids: list[str]) -> Iterator[dict]:
     )
 
 
-def request_artifacts(etos: ETOS, context: str) -> Iterator[dict]:
+def request_artifacts(etos: ETOS, cause: str) -> Iterator[dict]:
     """Request artifacts from graphql."""
     yield from request_all(
         etos,
         ARTIFACTS,
-        Search(search={"links.type": "CONTEXT", "links.target": context}),
+        Search(search={"links.type": "CAUSE", "links.target": cause}),
         "artifactCreated",
     )

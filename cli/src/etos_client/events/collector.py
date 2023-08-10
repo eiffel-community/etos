@@ -145,25 +145,31 @@ class Collector:  # pylint:disable=too-few-public-methods
             announcements.append(Announcement.parse_obj(announcement["data"]))
         return announcements
 
-    def __artifacts(self, activity_id: UUID) -> list[Artifact]:
+    def __artifacts(self, sub_suites: list[SubSuite]) -> list[Artifact]:
         """Collect artifacts from ETOS."""
         artifacts = []
-        for artifact_created in self.event_repository.request_artifacts(
-            self.etos_library, str(activity_id)
-        ):
-            file_names = [
-                _file["name"] for _file in artifact_created["data"]["fileInformation"]
-            ]
-            suite_name = ""
-            for link in artifact_created.get("links", []):
-                try:
-                    suite_name = link["links"]["data"]["name"]
-                except KeyError:
-                    pass
-            for _, location in self.etos_library.utils.search(artifact_created, "uri"):
-                artifacts.append(
-                    Artifact(files=file_names, suite_name=suite_name, location=location)
-                )
+        for sub_suite in sub_suites:
+            sub_suite_id = sub_suite.started["meta"]["id"]
+            for artifact_created in self.event_repository.request_artifacts(
+                self.etos_library, sub_suite_id
+            ):
+                file_names = [
+                    _file["name"]
+                    for _file in artifact_created["data"]["fileInformation"]
+                ]
+                suite_name = sub_suite.started["data"]["name"]
+                for _, location in self.etos_library.utils.search(
+                    artifact_created, "uri"
+                ):
+                    # If the location field in artifactPublished points directly to a file
+                    # then we remove the file name from the URL.
+                    if location.rsplit("/", 1)[1] in file_names:
+                        location = location.rsplit("/", 1)[0]
+                    artifacts.append(
+                        Artifact(
+                            files=file_names, suite_name=suite_name, location=location
+                        )
+                    )
         return artifacts
 
     def collect(self, tercc_id: UUID) -> Events:
@@ -179,10 +185,11 @@ class Collector:  # pylint:disable=too-few-public-methods
             return self.__events
         activity_id = UUID(self.__events.activity.triggered["meta"]["id"], version=4)
         self.__events.main_suites = self.__main_test_suites(activity_id)
+        self.__events.artifacts.clear()
         for main_suite in self.__events.main_suites:
             main_suite.sub_suites = self.__sub_test_suites(main_suite)
+            self.__events.artifacts += self.__artifacts(main_suite.sub_suites)
         self.__events.environments = self.__environments(
             activity_id, self.__events.main_suites
         )
-        self.__events.artifacts = self.__artifacts(activity_id)
         return self.__events

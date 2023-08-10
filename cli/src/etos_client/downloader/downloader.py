@@ -61,13 +61,13 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
     def __retry_download(self, item: Downloadable) -> None:
         """Download files."""
         self.logger.info("Downloading %r", item)
-        end_time = time.time() + 30
+        end_time = time.time() + 60
         while time.time() < end_time:
             response = requests.get(item.uri, stream=True, timeout=10)
             self.logger.debug("Download response: %r", response)
             if self.__should_retry(response):
-                self.logger.warning("Download failed. Retrying..")
-                time.sleep(2)
+                self.logger.warning("Download of %r failed. Retrying..", item)
+                time.sleep(10)
                 continue
             if not response.ok:
                 with self.__lock:
@@ -98,6 +98,10 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         try:
             response.raise_for_status()
         except HTTPError as http_error:
+            if http_error.response.status_code == 404:
+                self.logger.warning("File not found")
+                # Retry as it may just be that the file is being uploaded.
+                return True
             if 400 <= http_error.response.status_code < 500:
                 try:
                     response_json = response.json()
