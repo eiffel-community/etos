@@ -22,3 +22,4 @@ data:
   # Quoted sidecar enabled is required for suite-starter to pass this over to suite-runner.
   ETOS_SIDECAR_ENABLED: "true"
   ETOS_SIDECAR_IMAGE: docker.elastic.co/beats/filebeat:7.10.1
+  TZ: "Europe/Stockholm"

@@ -12,3 +12,4 @@ data:
   SOURCE_HOST: ETOS
   ETOS_ROUTING_KEY_TAG: etos-staging
   ETOS_ENABLE_SENDING_LOGS: "false"
+  TZ: "Europe/Stockholm"
