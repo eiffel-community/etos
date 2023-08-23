@@ -19,6 +19,7 @@ import time
 import json
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Iterator, Union
 
 import requests
@@ -41,9 +42,14 @@ class Message:
         self.message = json.loads(message)
         self.level = self.message.get("levelname", "INFO").lower()
         self.name = self.message.get("name")
+
+        # ETOS library will always format the timestamps as ISO8601 UTC
+        # https://github.com/eiffel-community/etos-library/blob/main/src/etos_lib/logging/formatter.py
         dtime = datetime.strptime(
             self.message.get("@timestamp"), "%Y-%m-%dT%H:%M:%S.%fZ"
-        )
+        ).replace(tzinfo=ZoneInfo("UTC"))
+        dtime = dtime.astimezone()
+
         self.datestring = datetime.strftime(dtime, "%Y-%m-%d %H:%M:%S")
 
     def __str__(self) -> str:
