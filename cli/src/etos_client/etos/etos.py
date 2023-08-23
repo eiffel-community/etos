@@ -74,9 +74,22 @@ class ETOS:  # pylint:disable=too-few-public-methods
         """Trigger ETOS, retrying on non-client errors until successful."""
         end_time = time.time() + 30
         while time.time() < end_time:
-            response = requests.post(
-                f"{self.cluster}/etos", json=request_data.dict(), timeout=10
-            )
+            try:
+                response = requests.post(
+                    f"{self.cluster}/etos", json=request_data.dict(), timeout=10
+                )
+            except (
+                ConnectionError,
+                NewConnectionError,
+                MaxRetryError,
+                TimeoutError,
+                Timeout,
+            ):
+                self.logger.exception(
+                    "Network connectivity errors when triggering ETOS."
+                )
+                time.sleep(2)
+                continue
             if self.__should_retry(response):
                 time.sleep(2)
                 continue
@@ -99,14 +112,5 @@ class ETOS:  # pylint:disable=too-few-public-methods
                     response_json = {"detail": "Unknown client error from ETOS"}
                 self.logger.critical(response_json.get("detail"))
                 return False
-            return True
-        except (
-            ConnectionError,
-            NewConnectionError,
-            MaxRetryError,
-            TimeoutError,
-            Timeout,
-        ):
-            self.logger.exception("Network connectivity errors when triggering ETOS.")
             return True
         return False
