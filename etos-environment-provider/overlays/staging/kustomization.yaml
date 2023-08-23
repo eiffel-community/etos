@@ -20,9 +20,9 @@ commonLabels:
 
 images:
 - name: registry.nordix.org/eiffel/etos-environment-provider
-  newTag: "2.0.0"
+  newTag: "2.0.1"
 - name: registry.nordix.org/eiffel/etos-environment-provider-worker
-  newTag: "2.0.0"
+  newTag: "2.0.1"
 
 # Might seem unnecessary to patch a file that is already in the overlay,
 # this patch is done so that our CI jobs only have to know the format of
