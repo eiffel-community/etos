@@ -18,6 +18,8 @@ import traceback
 import time
 import json
 import logging
+from io import StringIO
+from contextlib import redirect_stdout
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Iterator, Union
@@ -79,7 +81,7 @@ class Logs:
         else:
             raise TimeoutError("Timed out while connecting to log server")
 
-    def logs(self, endtime: int) -> Iterator[Union[Message, Ping]]:
+    def __logs(self, endtime: int) -> Iterator[Union[Message, Ping]]:
         """Connect to log server and collect logs from it."""
         try:
             for event in self.__events:
@@ -106,3 +108,11 @@ class Logs:
             if http_error.response.status_code == 404:
                 return
             raise
+
+    def logs(self, endtime: int) -> Iterator[Union[Message, Ping]]:
+        """Connect to log server and collect logs from it."""
+        # The sseclient library that we are using tends to print unnecessary
+        # logs using the 'print' command, which we cannot suppress without
+        # redirecting stdout.
+        with redirect_stdout(StringIO()):
+            yield from self.__logs(endtime)
