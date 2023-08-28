@@ -35,6 +35,11 @@ class TestRun:
 
     logger = logging.getLogger(__name__)
     remote_logger = logging.getLogger("ETOS")
+    __last_log: int
+    # This log interval is not a guarantee as it depends on several
+    # factors, such as the SSE log listener which has its own Ping
+    # interval.
+    log_interval = 30
 
     def __init__(self, collector: Collector, downloader: Downloader) -> None:
         """Initialize."""
@@ -70,14 +75,16 @@ class TestRun:
         end = time.time() + timeout
 
         self.__log_debug_information(etos.response)
+        self.__last_log = time.time()
         for _ in self.__log_until_eof(etos, end):
             events = self.__collect(etos)
             self.__status(events)
-            self.__announce(events)
+            self.__announce()
             self.__download(events)
         self.__wait(etos, end)
         events = self.__collect(etos)
         self.__download(events)
+        self.__announce(force=True)
         return events
 
     def __wait(self, etos: ETOS, timeout: int) -> None:
@@ -96,9 +103,12 @@ class TestRun:
         if events.activity.canceled:
             raise SystemExit(events.activity.canceled["data"]["reason"])
 
-    def __announce(self, events: Events) -> None:
+    def __announce(self, force: bool = False) -> None:
         """Announce current state of ETOS."""
-        self.__announcer.announce(events)
+        if force or self.__last_log + self.log_interval <= time.time():
+            events = self.__collector.collect_test_case_events()
+            self.__announcer.announce(events, self.__downloader.downloads)
+            self.__last_log = time.time()
 
     def __download(self, events: Events) -> None:
         """Download logs and artifacts."""
@@ -120,6 +130,7 @@ class TestRun:
                 "rtime": message.datestring,
             },
         )
+        self.__last_log = time.time()
 
     def __log_until_eof(self, etos: ETOS, endtime: int) -> Iterator[Ping]:
         """Log from the ETOS log API until finished."""

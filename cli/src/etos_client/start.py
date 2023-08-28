@@ -88,6 +88,9 @@ def wait(
         log_downloader.stop(clear_queue)
         log_downloader.join()
 
+    LOGGER.info(
+        "Downloaded a total of %d logs from test runners", len(log_downloader.downloads)
+    )
     LOGGER.info("Archiving reports.")
     shutil.make_archive(
         artifact_dir.joinpath("reports").relative_to(Path.cwd()), "zip", report_dir

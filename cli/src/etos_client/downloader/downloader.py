@@ -53,7 +53,8 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         self.__exit = False
         self.__clear_queue = True
         self.__lock = Lock()
-        self.failed = False
+        self.failed: bool = False
+        self.downloads: {str} = set()
 
         self.__report_dir = report_dir
         self.__artifact_dir = artifact_dir
@@ -89,6 +90,8 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             index += 1
             download_name = download_name.with_name(f"{index}_{item.name.name}")
         self.logger.debug("Saving file %s", download_name)
+        with self.__lock:
+            self.downloads.add(download_name)
         with open(download_name, "wb+") as report:
             for chunk in response:
                 report.write(chunk)

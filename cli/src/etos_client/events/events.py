@@ -56,6 +56,13 @@ class TestSuite(BaseModel):
     sub_suites: list[SubSuite] = []
 
 
+class TestCase(BaseModel):
+    """ETOS test case events."""
+
+    finished: Optional[dict]
+    canceled: Optional[dict]
+
+
 class Events(BaseModel):
     """ETOS events."""
 
@@ -64,3 +71,4 @@ class Events(BaseModel):
     main_suites: list[TestSuite] = []
     environments: list[Environment] = []
     artifacts: list[Artifact] = []
+    test_cases: list[TestCase] = []

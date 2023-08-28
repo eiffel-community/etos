@@ -15,11 +15,11 @@
 # limitations under the License.
 """ETOS client event collector."""
 from uuid import UUID
-from typing import Optional
 from .events import (
     Events,
     Activity,
     TestSuite,
+    TestCase,
     SubSuite,
     Environment,
     Artifact,
@@ -176,4 +176,42 @@ class Collector:  # pylint:disable=too-few-public-methods
         self.__events.environments = self.__environments(
             activity_id, self.__events.main_suites
         )
+        return self.__events
+
+    def __collect_test_case_finished(self, sub_suite: dict) -> None:
+        """Collect test case finished events."""
+        try:
+            last_finished = [
+                test_case.finished
+                for test_case in self.__events.test_cases
+                if test_case.finished
+            ][-1]
+        except IndexError:
+            last_finished = None
+        for finished in self.event_repository.request_test_case_finished(
+            self.etos_library, sub_suite.started["meta"]["id"], last_finished
+        ):
+            self.__events.test_cases.append(TestCase(finished=finished))
+
+    def __collect_test_case_canceled(self, sub_suite: dict) -> None:
+        """Collect test case finished events."""
+        try:
+            last_canceled = [
+                test_case.canceled
+                for test_case in self.__events.test_cases
+                if test_case.canceled
+            ][-1]
+        except IndexError:
+            last_canceled = None
+        for canceled in self.event_repository.request_test_case_canceled(
+            self.etos_library, sub_suite.started["meta"]["id"], last_canceled
+        ):
+            self.__events.test_cases.append(TestCase(canceled=canceled))
+
+    def collect_test_case_events(self) -> Events:
+        """Collect test case events from ETOS."""
+        for main_suite in self.__events.main_suites:
+            for sub_suite in main_suite.sub_suites:
+                self.__collect_test_case_finished(sub_suite)
+                self.__collect_test_case_canceled(sub_suite)
         return self.__events
