@@ -88,13 +88,9 @@ def wait(
         log_downloader.stop(clear_queue)
         log_downloader.join()
 
-    LOGGER.info(
-        "Downloaded a total of %d logs from test runners", len(log_downloader.downloads)
-    )
+    LOGGER.info("Downloaded a total of %d logs from test runners", len(log_downloader.downloads))
     LOGGER.info("Archiving reports.")
-    shutil.make_archive(
-        artifact_dir.joinpath("reports").relative_to(Path.cwd()), "zip", report_dir
-    )
+    shutil.make_archive(artifact_dir.joinpath("reports").relative_to(Path.cwd()), "zip", report_dir)
     LOGGER.info("Reports: %s", report_dir)
     LOGGER.info("Artifacs: %s", artifact_dir)
 
@@ -131,9 +127,7 @@ class Start(SubCommand):
 
     def parse_args(self, argv: list[str]) -> dict:
         """Parse arguments for etosctl testrun start."""
-        if ("-i" not in argv and "--identity" not in argv) and os.getenv(
-            "IDENTITY"
-        ) is not None:
+        if ("-i" not in argv and "--identity" not in argv) and os.getenv("IDENTITY") is not None:
             argv.extend(["--identity", os.getenv("IDENTITY")])
         if ("-s" not in argv and "--test-suite" not in argv) and os.getenv(
             "TEST_SUITE"

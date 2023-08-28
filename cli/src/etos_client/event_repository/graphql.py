@@ -54,9 +54,7 @@ class Search(dict):
 
 def request(etos: ETOS, query: str, search: Search) -> Iterator[dict]:
     """Request graphql in a generator."""
-    wait_generator = etos.utils.wait(
-        etos.graphql.execute, query=query % search, timeout=60
-    )
+    wait_generator = etos.utils.wait(etos.graphql.execute, query=query % search, timeout=60)
     yield from wait_generator
 
 
@@ -80,8 +78,7 @@ def request_all(etos: ETOS, query: str, search: Search, node: str) -> Iterator[d
         for event in search_for(etos, query, search, node):
             if event.get("meta", {}).get("time") is None:
                 raise AssertionError(
-                    "Meta time must be added to graphql query in order"
-                    " to use this function"
+                    "Meta time must be added to graphql query in order to use this function"
                 )
             last_event = event
             count += 1
@@ -130,9 +127,7 @@ def request_activity_finished(etos: ETOS, activity_id: str) -> Optional[dict]:
     return get_one(
         etos,
         ACTIVITY_FINISHED,
-        Search(
-            search={"links.type": "ACTIVITY_EXECUTION", "links.target": activity_id}
-        ),
+        Search(search={"links.type": "ACTIVITY_EXECUTION", "links.target": activity_id}),
         "activityFinished",
     )
 
@@ -142,9 +137,7 @@ def request_activity_canceled(etos: ETOS, activity_id: str) -> Optional[dict]:
     return get_one(
         etos,
         ACTIVITY_CANCELED,
-        Search(
-            search={"links.type": "ACTIVITY_EXECUTION", "links.target": activity_id}
-        ),
+        Search(search={"links.type": "ACTIVITY_EXECUTION", "links.target": activity_id}),
         "activityCanceled",
     )
 

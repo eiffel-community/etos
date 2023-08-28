@@ -47,9 +47,9 @@ class Message:
 
         # ETOS library will always format the timestamps as ISO8601 UTC
         # https://github.com/eiffel-community/etos-library/blob/main/src/etos_lib/logging/formatter.py
-        dtime = datetime.strptime(
-            self.message.get("@timestamp"), "%Y-%m-%dT%H:%M:%S.%fZ"
-        ).replace(tzinfo=ZoneInfo("UTC"))
+        dtime = datetime.strptime(self.message.get("@timestamp"), "%Y-%m-%dT%H:%M:%S.%fZ").replace(
+            tzinfo=ZoneInfo("UTC")
+        )
         dtime = dtime.astimezone()
 
         self.datestring = datetime.strftime(dtime, "%Y-%m-%d %H:%M:%S")
@@ -70,9 +70,7 @@ class Logs:
         """Connect to the ETOS log server."""
         while time.time() < endtime:
             try:
-                self.__events = SSEClient(
-                    f"{etos.cluster}/logs/{str(etos.response.tercc)}"
-                )
+                self.__events = SSEClient(f"{etos.cluster}/logs/{str(etos.response.tercc)}")
                 break
             except requests.exceptions.HTTPError as http_error:
                 if http_error.response.status_code != 404:
