@@ -31,6 +31,14 @@ class Announcer:  # pylint:disable=too-few-public-methods
                 failed += 1
         return failed
 
+    def __successful(self, test_cases_finished: list[dict]) -> int:
+        """Successful test case count."""
+        successful = 0
+        for test_case in test_cases_finished:
+            if test_case["data"]["testCaseOutcome"]["verdict"] == "PASSED":
+                successful += 1
+        return successful
+
     def __build_announcement(self, events: Events) -> str:
         """Build an announcement based on executed test cases and results."""
         nbr_of_executed = len(events.test_cases)
@@ -44,6 +52,9 @@ class Announcer:  # pylint:disable=too-few-public-methods
         finished = [
             test_case.finished for test_case in events.test_cases if test_case.finished
         ]
+        nbr_of_successful = self.__successful(finished)
+        if nbr_of_successful > 0:
+            detailed.append(f"passed={nbr_of_successful}")
         nbr_of_failed = self.__failed(finished)
         if nbr_of_failed > 0:
             detailed.append(f"failed={nbr_of_failed}")
