@@ -15,7 +15,7 @@
 # limitations under the License.
 """Announcer module."""
 import logging
-from etos_client.events.events import Events, TestSuite, Announcement
+from etos_client.events.events import Events
 
 
 class Announcer:  # pylint:disable=too-few-public-methods
@@ -23,50 +23,65 @@ class Announcer:  # pylint:disable=too-few-public-methods
 
     logger = logging.getLogger(__name__)
 
-    def __init__(self):
-        """Init."""
-        self.__already_logged = []
+    def __failed(self, test_cases_finished: list[dict]) -> int:
+        """Failed test case count."""
+        failed = 0
+        for test_case in test_cases_finished:
+            if test_case["data"]["testCaseOutcome"]["verdict"] != "PASSED":
+                failed += 1
+        return failed
 
-    def __log_announcements(self, announcements: list[Announcement]) -> None:
-        """Get latest new announcements."""
-        for announcement in announcements:
-            if announcement not in self.__already_logged:
-                self.__already_logged.append(announcement)
-                self.logger.info("%s: %s", announcement.heading, announcement.body)
+    def __build_announcement(self, events: Events) -> str:
+        """Build an announcement based on executed test cases and results."""
+        nbr_of_executed = len(events.test_cases)
+        if nbr_of_executed == 0:
+            return "Still waiting for the first test cases to execute"
 
-    def __etos_state_information(self, test_suites: list[TestSuite]) -> str:
-        """Generate text based on ETOS state."""
-        message_template = (
-            "{announcement}\t"
-            "Started : {started_length}\t"
-            "Finished: {finished_length}\t"
+        message = f"Number of test cases executed: {nbr_of_executed}"
+
+        detailed = []
+
+        finished = [
+            test_case.finished for test_case in events.test_cases if test_case.finished
+        ]
+        nbr_of_failed = self.__failed(finished)
+        if nbr_of_failed > 0:
+            detailed.append(f"failed={nbr_of_failed}")
+        nbr_of_canceled = len(
+            [
+                test_case.canceled
+                for test_case in events.test_cases
+                if test_case.canceled
+            ]
         )
-        try:
-            announcement = self.__already_logged[-1].body
-        except (KeyError, IndexError, TypeError):
-            announcement = ""
+        if nbr_of_canceled > 0:
+            detailed.append(f"skipped={nbr_of_canceled}")
 
-        started_length = 0
-        finished_length = 0
-        for test_suite in test_suites:
-            for sub_suite in test_suite.sub_suites:
-                started_length += 1
-                if sub_suite.finished:
-                    finished_length += 1
+        if detailed:
+            message += f" ({', '.join(detailed)})"
+        return message
 
-        params = {
-            "started_length": started_length,
-            "finished_length": finished_length,
-            "announcement": announcement,
-        }
-        return message_template.format(**params)
-
-    def announce(self, events: Events) -> None:
+    def announce(self, events: Events, logs: set) -> None:
         """Announce the ETOS state."""
         if not events.tercc:
+            self.logger.info("Waiting for ETOS to start.")
             return
         if not events.activity.triggered:
+            self.logger.info("Waiting for ETOS to start.")
             return
-        self.__log_announcements(events.announcements)
-        if events.main_suites:
-            self.logger.info(self.__etos_state_information(events.main_suites))
+        if not events.main_suites:
+            self.logger.info("Waiting for main suites to start.")
+            return
+        sub_suites_started = False
+        for main_suite in events.main_suites:
+            if main_suite.sub_suites:
+                sub_suites_started = True
+        if not sub_suites_started:
+            self.logger.info("Waiting for sub suites to start.")
+            return
+
+        self.logger.info(self.__build_announcement(events))
+        if logs:
+            self.logger.info(
+                "Downloaded a total of %d logs from test runners", len(logs)
+            )

@@ -15,14 +15,13 @@
 # limitations under the License.
 """ETOS client event collector."""
 from uuid import UUID
-from typing import Optional
 from .events import (
     Events,
     Activity,
     TestSuite,
+    TestCase,
     SubSuite,
     Environment,
-    Announcement,
     Artifact,
 )
 
@@ -131,20 +130,6 @@ class Collector:  # pylint:disable=too-few-public-methods
         activity.finished = finished
         return activity
 
-    def __announcements(
-        self, tercc_id: UUID, activity_id: Optional[UUID]
-    ) -> list[Announcement]:
-        """Collect announcements for an ETOS test run."""
-        ids = [str(tercc_id)]
-        if activity_id is not None:
-            ids.append(str(activity_id))
-        announcements = []
-        for announcement in self.event_repository.request_announcements(
-            self.etos_library, ids
-        ):
-            announcements.append(Announcement.parse_obj(announcement["data"]))
-        return announcements
-
     def __artifacts(self, sub_suites: list[SubSuite]) -> list[Artifact]:
         """Collect artifacts from ETOS."""
         artifacts = []
@@ -178,7 +163,6 @@ class Collector:  # pylint:disable=too-few-public-methods
         self.__events.tercc = self.__tercc(tercc_id)
         if self.__events.tercc is None:
             return self.__events
-        self.__events.announcements = self.__announcements(tercc_id, activity_id)
 
         self.__events.activity = self.__activity(tercc_id)
         if self.__events.activity.triggered is None:
@@ -192,4 +176,42 @@ class Collector:  # pylint:disable=too-few-public-methods
         self.__events.environments = self.__environments(
             activity_id, self.__events.main_suites
         )
+        return self.__events
+
+    def __collect_test_case_finished(self, sub_suite: dict) -> None:
+        """Collect test case finished events."""
+        try:
+            last_finished = [
+                test_case.finished
+                for test_case in self.__events.test_cases
+                if test_case.finished
+            ][-1]
+        except IndexError:
+            last_finished = None
+        for finished in self.event_repository.request_test_case_finished(
+            self.etos_library, sub_suite.started["meta"]["id"], last_finished
+        ):
+            self.__events.test_cases.append(TestCase(finished=finished))
+
+    def __collect_test_case_canceled(self, sub_suite: dict) -> None:
+        """Collect test case finished events."""
+        try:
+            last_canceled = [
+                test_case.canceled
+                for test_case in self.__events.test_cases
+                if test_case.canceled
+            ][-1]
+        except IndexError:
+            last_canceled = None
+        for canceled in self.event_repository.request_test_case_canceled(
+            self.etos_library, sub_suite.started["meta"]["id"], last_canceled
+        ):
+            self.__events.test_cases.append(TestCase(canceled=canceled))
+
+    def collect_test_case_events(self) -> Events:
+        """Collect test case events from ETOS."""
+        for main_suite in self.__events.main_suites:
+            for sub_suite in main_suite.sub_suites:
+                self.__collect_test_case_finished(sub_suite)
+                self.__collect_test_case_canceled(sub_suite)
         return self.__events

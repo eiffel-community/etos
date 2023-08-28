@@ -25,7 +25,8 @@ from .graphql_queries import (
     TEST_SUITE_STARTED,
     TEST_SUITE_FINISHED,
     TEST_SUITE,
-    ANNOUNCEMENTS,
+    TEST_CASE_FINISHED,
+    TEST_CASE_CANCELED,
     ENVIRONMENTS,
 )
 
@@ -190,16 +191,6 @@ def request_test_suite_finished(etos: ETOS, test_suite_id: str) -> Optional[dict
     )
 
 
-def request_announcements(etos: ETOS, ids: list[str]) -> Iterator[dict]:
-    """Request announcements from graphql."""
-    yield from search_for(
-        etos,
-        ANNOUNCEMENTS,
-        Search(search={"$or": [{"links.target": _id} for _id in ids]}),
-        "announcementPublished",
-    )
-
-
 def request_environment(etos: ETOS, ids: list[str]) -> Iterator[dict]:
     """Request environments from graphql."""
     yield from request_all(
@@ -217,4 +208,34 @@ def request_artifacts(etos: ETOS, cause: str) -> Iterator[dict]:
         ARTIFACTS,
         Search(search={"links.type": "CAUSE", "links.target": cause}),
         "artifactCreated",
+    )
+
+
+def request_test_case_finished(
+    etos: ETOS, test_suite_id: str, last_event: Optional[dict] = None
+) -> Iterator[dict]:
+    """Request test case finished from graphql."""
+    search = Search(search={"links.type": "CONTEXT", "links.target": test_suite_id})
+    if last_event is not None:
+        search["search"]["meta.time"] = {"$lt": last_event["meta"]["time"]}
+    yield from request_all(
+        etos,
+        TEST_CASE_FINISHED,
+        search,
+        "testCaseFinished",
+    )
+
+
+def request_test_case_canceled(
+    etos: ETOS, test_suite_id: str, last_event: Optional[dict] = None
+) -> Iterator[dict]:
+    """Request test case canceled from graphql."""
+    search = Search(search={"links.type": "CONTEXT", "links.target": test_suite_id})
+    if last_event is not None:
+        search["search"]["meta.time"] = {"$lt": last_event["meta"]["time"]}
+    yield from request_all(
+        etos,
+        TEST_CASE_CANCELED,
+        search,
+        "testCaseCanceled",
     )

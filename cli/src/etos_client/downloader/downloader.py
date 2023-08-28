@@ -53,20 +53,21 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         self.__exit = False
         self.__clear_queue = True
         self.__lock = Lock()
-        self.failed = False
+        self.failed: bool = False
+        self.downloads: {str} = set()
 
         self.__report_dir = report_dir
         self.__artifact_dir = artifact_dir
 
     def __retry_download(self, item: Downloadable) -> None:
         """Download files."""
-        self.logger.info("Downloading %r", item)
+        self.logger.debug("Downloading %r", item)
         end_time = time.time() + 60
         while time.time() < end_time:
             response = requests.get(item.uri, stream=True, timeout=10)
             self.logger.debug("Download response: %r", response)
             if self.__should_retry(response):
-                self.logger.warning("Download of %r failed. Retrying..", item)
+                self.logger.debug("Download of %r failed. Retrying..", item)
                 time.sleep(10)
                 continue
             if not response.ok:
@@ -88,7 +89,9 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         while download_name.exists():
             index += 1
             download_name = download_name.with_name(f"{index}_{item.name.name}")
-        self.logger.info("Saving file %s", download_name)
+        self.logger.debug("Saving file %s", download_name)
+        with self.__lock:
+            self.downloads.add(download_name)
         with open(download_name, "wb+") as report:
             for chunk in response:
                 report.write(chunk)
@@ -106,7 +109,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
                 try:
                     response_json = response.json()
                 except JSONDecodeError:
-                    self.logger.info("Raw response from download: %r", response.text)
+                    self.logger.debug("Raw response from download: %r", response.text)
                     response_json = {
                         "detail": "Unknown client error when downloading files from log area"
                     }
