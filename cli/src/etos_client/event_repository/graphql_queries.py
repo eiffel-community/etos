@@ -132,14 +132,56 @@ TEST_SUITE_FINISHED = """
 """
 
 
-ANNOUNCEMENTS = """
+TEST_CASE_FINISHED = """
 {
-  announcementPublished(%s) {
+  testCaseFinished(%s) {
     edges {
       node {
         data {
-          heading
-          body
+          testCaseOutcome {
+            conclusion
+            verdict
+          }
+        }
+        links {
+          ... on TestCaseExecution {
+            testCaseTriggered {
+              data {
+                testCase{
+                  id
+                }
+              }
+            }
+          }
+        }
+        meta {
+          time
+        }
+      }
+    }
+  }
+}
+"""
+
+
+TEST_CASE_CANCELED = """
+{
+  testCaseCanceled(%s) {
+    edges {
+      node {
+        links {
+          ... on TestCaseExecution {
+            testCaseTriggered {
+              data {
+                testCase{
+                  id
+                }
+              }
+            }
+          }
+        }
+        meta {
+          time
         }
       }
     }

@@ -33,13 +33,6 @@ class Environment(BaseModel):
     uri: Optional[str]
 
 
-class Announcement(BaseModel):
-    """ETOS announcements."""
-
-    heading: str
-    body: str
-
-
 class Artifact(BaseModel):
     """ETOS artifact."""
 
@@ -70,5 +63,4 @@ class Events(BaseModel):
     tercc: Optional[dict]
     main_suites: list[TestSuite] = []
     environments: list[Environment] = []
-    announcements: list[Announcement] = []
     artifacts: list[Artifact] = []

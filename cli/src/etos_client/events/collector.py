@@ -22,7 +22,6 @@ from .events import (
     TestSuite,
     SubSuite,
     Environment,
-    Announcement,
     Artifact,
 )
 
@@ -131,20 +130,6 @@ class Collector:  # pylint:disable=too-few-public-methods
         activity.finished = finished
         return activity
 
-    def __announcements(
-        self, tercc_id: UUID, activity_id: Optional[UUID]
-    ) -> list[Announcement]:
-        """Collect announcements for an ETOS test run."""
-        ids = [str(tercc_id)]
-        if activity_id is not None:
-            ids.append(str(activity_id))
-        announcements = []
-        for announcement in self.event_repository.request_announcements(
-            self.etos_library, ids
-        ):
-            announcements.append(Announcement.parse_obj(announcement["data"]))
-        return announcements
-
     def __artifacts(self, sub_suites: list[SubSuite]) -> list[Artifact]:
         """Collect artifacts from ETOS."""
         artifacts = []
@@ -178,7 +163,6 @@ class Collector:  # pylint:disable=too-few-public-methods
         self.__events.tercc = self.__tercc(tercc_id)
         if self.__events.tercc is None:
             return self.__events
-        self.__events.announcements = self.__announcements(tercc_id, activity_id)
 
         self.__events.activity = self.__activity(tercc_id)
         if self.__events.activity.triggered is None:
