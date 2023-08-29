@@ -50,6 +50,7 @@ class Announcer:  # pylint:disable=too-few-public-methods
         detailed = []
 
         finished = [test_case.finished for test_case in events.test_cases if test_case.finished]
+
         nbr_of_successful = self.__successful(finished)
         if nbr_of_successful > 0:
             detailed.append(f"passed={nbr_of_successful}")
