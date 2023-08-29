@@ -48,9 +48,7 @@ class Collector:  # pylint:disable=too-few-public-methods
     def __main_test_suites(self, activity_id: UUID) -> list[TestSuite]:
         """Collect main test suite events for an ETOS activity."""
         test_suites = []
-        collected = {
-            suite.started["meta"]["id"]: suite for suite in self.__events.main_suites
-        }
+        collected = {suite.started["meta"]["id"]: suite for suite in self.__events.main_suites}
         for started in self.event_repository.request_main_test_suites_started(
             self.etos_library, str(activity_id)
         ):
@@ -67,9 +65,7 @@ class Collector:  # pylint:disable=too-few-public-methods
     def __sub_test_suites(self, main_suite: TestSuite) -> list[SubSuite]:
         """Collect sub suites for a single main suite."""
         sub_suites = []
-        collected = {
-            suite.started["meta"]["id"]: suite for suite in main_suite.sub_suites
-        }
+        collected = {suite.started["meta"]["id"]: suite for suite in main_suite.sub_suites}
         for started in self.event_repository.request_sub_test_suite_started(
             self.etos_library, main_suite.started["meta"]["id"]
         ):
@@ -83,9 +79,7 @@ class Collector:  # pylint:disable=too-few-public-methods
             sub_suites.append(test_suite)
         return sub_suites
 
-    def __environments(
-        self, activity_id: UUID, test_suites: list[TestSuite]
-    ) -> list[Environment]:
+    def __environments(self, activity_id: UUID, test_suites: list[TestSuite]) -> list[Environment]:
         """Collect environment defined events from an ETOS test run."""
         ids = [str(activity_id)]
         for test_suite in test_suites:
@@ -93,13 +87,9 @@ class Collector:  # pylint:disable=too-few-public-methods
             for sub_suite in test_suite.sub_suites:
                 ids.append(sub_suite.started["meta"]["id"])
         environments = []
-        for environment in self.event_repository.request_environment(
-            self.etos_library, ids
-        ):
+        for environment in self.event_repository.request_environment(self.etos_library, ids):
             environments.append(
-                Environment(
-                    name=environment["data"]["name"], uri=environment["data"]["uri"]
-                )
+                Environment(name=environment["data"]["name"], uri=environment["data"]["uri"])
             )
         return environments
 
@@ -108,9 +98,7 @@ class Collector:  # pylint:disable=too-few-public-methods
         activity = Activity()
         triggered = self.__events.activity.triggered
         if triggered is None:
-            triggered = self.event_repository.request_activity(
-                self.etos_library, str(tercc_id)
-            )
+            triggered = self.event_repository.request_activity(self.etos_library, str(tercc_id))
         activity.triggered = triggered
         if activity.triggered is None:
             return activity
@@ -139,21 +127,16 @@ class Collector:  # pylint:disable=too-few-public-methods
                 self.etos_library, sub_suite_id
             ):
                 file_names = [
-                    _file["name"]
-                    for _file in artifact_created["data"]["fileInformation"]
+                    _file["name"] for _file in artifact_created["data"]["fileInformation"]
                 ]
                 suite_name = sub_suite.started["data"]["name"]
-                for _, location in self.etos_library.utils.search(
-                    artifact_created, "uri"
-                ):
+                for _, location in self.etos_library.utils.search(artifact_created, "uri"):
                     # If the location field in artifactPublished points directly to a file
                     # then we remove the file name from the URL.
                     if location.rsplit("/", 1)[1] in file_names:
                         location = location.rsplit("/", 1)[0]
                     artifacts.append(
-                        Artifact(
-                            files=file_names, suite_name=suite_name, location=location
-                        )
+                        Artifact(files=file_names, suite_name=suite_name, location=location)
                     )
         return artifacts
 
@@ -173,18 +156,14 @@ class Collector:  # pylint:disable=too-few-public-methods
         for main_suite in self.__events.main_suites:
             main_suite.sub_suites = self.__sub_test_suites(main_suite)
             self.__events.artifacts += self.__artifacts(main_suite.sub_suites)
-        self.__events.environments = self.__environments(
-            activity_id, self.__events.main_suites
-        )
+        self.__events.environments = self.__environments(activity_id, self.__events.main_suites)
         return self.__events
 
     def __collect_test_case_finished(self, sub_suite: dict) -> None:
         """Collect test case finished events."""
         try:
             last_finished = [
-                test_case.finished
-                for test_case in self.__events.test_cases
-                if test_case.finished
+                test_case.finished for test_case in self.__events.test_cases if test_case.finished
             ][-1]
         except IndexError:
             last_finished = None
@@ -197,9 +176,7 @@ class Collector:  # pylint:disable=too-few-public-methods
         """Collect test case finished events."""
         try:
             last_canceled = [
-                test_case.canceled
-                for test_case in self.__events.test_cases
-                if test_case.canceled
+                test_case.canceled for test_case in self.__events.test_cases if test_case.canceled
             ][-1]
         except IndexError:
             last_canceled = None

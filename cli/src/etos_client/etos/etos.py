@@ -68,9 +68,7 @@ class ETOS:  # pylint:disable=too-few-public-methods
 
         return response
 
-    def __retry_trigger_etos(
-        self, request_data: RequestSchema
-    ) -> Union[ResponseSchema, None]:
+    def __retry_trigger_etos(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
         """Trigger ETOS, retrying on non-client errors until successful."""
         end_time = time.time() + 30
         while time.time() < end_time:
@@ -85,9 +83,7 @@ class ETOS:  # pylint:disable=too-few-public-methods
                 TimeoutError,
                 Timeout,
             ):
-                self.logger.exception(
-                    "Network connectivity errors when triggering ETOS."
-                )
+                self.logger.exception("Network connectivity errors when triggering ETOS.")
                 time.sleep(2)
                 continue
             if self.__should_retry(response):

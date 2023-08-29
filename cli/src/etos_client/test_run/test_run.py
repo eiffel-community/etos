@@ -43,9 +43,7 @@ class TestRun:
 
     def __init__(self, collector: Collector, downloader: Downloader) -> None:
         """Initialize."""
-        assert (
-            downloader.started
-        ), "Downloader must be started before it can be used in TestRun"
+        assert downloader.started, "Downloader must be started before it can be used in TestRun"
 
         self.__collector = collector
         self.__downloader = downloader

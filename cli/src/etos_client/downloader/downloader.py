@@ -122,9 +122,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             MaxRetryError,
             TimeoutError,
         ):
-            self.logger.exception(
-                "Network connectivity error when downloading logs and artifacts."
-            )
+            self.logger.exception("Network connectivity error when downloading logs and artifacts.")
             return True
         return False
 
@@ -182,18 +180,16 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         """Download artifacts to an artifact path."""
         for artifact in artifacts:
             for _file in artifact.files:
-                filepath = self.__artifact_dir.joinpath(
-                    f"{artifact.suite_name}"
-                ).relative_to(Path.cwd())
+                filepath = self.__artifact_dir.joinpath(f"{artifact.suite_name}").relative_to(
+                    Path.cwd()
+                )
                 filepath.mkdir(exist_ok=True)
                 filepath = filepath.joinpath(_file)
                 self.__queue_download(
                     Downloadable(uri=f"{artifact.location}/{_file}", name=filepath)
                 )
 
-    def download_logs(
-        self, test_suites: Union[list[TestSuite], list[SubSuite]]
-    ) -> None:
+    def download_logs(self, test_suites: Union[list[TestSuite], list[SubSuite]]) -> None:
         """Download logs from test suites to report path."""
         for test_suite in test_suites:
             if not test_suite.finished:
@@ -201,9 +197,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             data = test_suite.finished.get("data", {})
             logs = data.get("testSuitePersistentLogs", [])
             for log in logs:
-                filepath = self.__report_dir.joinpath(log["name"]).relative_to(
-                    Path.cwd()
-                )
+                filepath = self.__report_dir.joinpath(log["name"]).relative_to(Path.cwd())
                 self.__queue_download(Downloadable(uri=log["uri"], name=filepath))
             if isinstance(test_suite, TestSuite):
                 self.download_logs(test_suite.sub_suites)

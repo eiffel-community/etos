@@ -49,9 +49,8 @@ class Announcer:  # pylint:disable=too-few-public-methods
 
         detailed = []
 
-        finished = [
-            test_case.finished for test_case in events.test_cases if test_case.finished
-        ]
+        finished = [test_case.finished for test_case in events.test_cases if test_case.finished]
+
         nbr_of_successful = self.__successful(finished)
         if nbr_of_successful > 0:
             detailed.append(f"passed={nbr_of_successful}")
@@ -59,11 +58,7 @@ class Announcer:  # pylint:disable=too-few-public-methods
         if nbr_of_failed > 0:
             detailed.append(f"failed={nbr_of_failed}")
         nbr_of_canceled = len(
-            [
-                test_case.canceled
-                for test_case in events.test_cases
-                if test_case.canceled
-            ]
+            [test_case.canceled for test_case in events.test_cases if test_case.canceled]
         )
         if nbr_of_canceled > 0:
             detailed.append(f"skipped={nbr_of_canceled}")
@@ -93,6 +88,4 @@ class Announcer:  # pylint:disable=too-few-public-methods
 
         self.logger.info(self.__build_announcement(events))
         if logs:
-            self.logger.info(
-                "Downloaded a total of %d logs from test runners", len(logs)
-            )
+            self.logger.info("Downloaded a total of %d logs from test runners", len(logs))

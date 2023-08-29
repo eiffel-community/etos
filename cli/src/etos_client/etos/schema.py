@@ -49,9 +49,7 @@ class RequestSchema(BaseModel):
         )
 
     @validator("artifact_identity", always=True)
-    def trim_identity_if_necessary(
-        cls, artifact_identity: Optional[str], values
-    ) -> Optional[str]:
+    def trim_identity_if_necessary(cls, artifact_identity: Optional[str], values) -> Optional[str]:
         """Trim identity if id is set."""
         if values.get("artifact_id") is not None:
             return None
