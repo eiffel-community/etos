@@ -4,6 +4,7 @@ kind: Deployment
 metadata:
   name: etos-firmware-flasher
 spec:
+  replicas: 0
   template:
     spec:
       containers:
