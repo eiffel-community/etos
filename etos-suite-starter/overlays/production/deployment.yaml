@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: etos-suite-starter
 spec:
+  replicas: 0
   template:
     spec:
       volumes:

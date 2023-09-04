@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: etos-environment-provider
 spec:
+  replicas: 0
   template:
     spec:
       volumes:
