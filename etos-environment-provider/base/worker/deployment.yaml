@@ -23,4 +23,4 @@ spec:
               name: etos-environment-provider-worker
       # This grace period ensures that the environment provider will wait
       # for the environment checkouts to complete before shutting down.
-      terminationGracePeriodSeconds: 4250
+      # terminationGracePeriodSeconds: 4250
