@@ -18,9 +18,9 @@ commonLabels:
 
 images:
 - name: registry.nordix.org/eiffel/etos-environment-provider
-  newTag: "1.37.0"
+  newTag: "2.0.1"
 - name: registry.nordix.org/eiffel/etos-environment-provider-worker
-  newTag: "1.37.0"
+  newTag: "2.0.1"
 
 # Might seem unnecessary to patch a file that is already in the overlay,
 # this patch is done so that our CI jobs only have to know the format of
@@ -51,3 +51,7 @@ configMapGenerator:
   - name: etos-environment-provider-sealed-secret-database
     files:
     - redis-secret.yaml
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: etos-environment-provider
+    app.kubernetes.io/instance: etos-development

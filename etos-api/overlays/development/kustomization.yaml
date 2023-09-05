@@ -14,7 +14,7 @@ commonLabels:
 
 images:
 - name: registry.nordix.org/eiffel/etos-api
-  newTag: "1.29.0"
+  newTag: "1.30.1"
 
 
 # This is a workaround for secrets not generating a reload
@@ -29,3 +29,7 @@ configMapGenerator:
   - name: etos-api-sealed-secret
     files:
     - rabbitmq-secret.yaml
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: etos-api
+    app.kubernetes.io/instance: etos-development
