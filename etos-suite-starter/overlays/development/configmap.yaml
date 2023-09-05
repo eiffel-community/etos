@@ -15,6 +15,6 @@ data:
   ETOS_CONFIGMAP: etos-suite-runner
   ETOS_RABBITMQ_SECRET: etos-suite-starter-rabbitmq
 
-  RABBITMQ_QUEUE: svcqart.suite_starter.dev
+  RABBITMQ_QUEUE: svcetos.suite_starter.dev
   RABBITMQ_ROUTING_KEY: eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.etos-dev.*
   RABBITMQ_QUEUE_PARAMS: '{"arguments": {"x-queue-type": "quorum"}, "durable": true}'
