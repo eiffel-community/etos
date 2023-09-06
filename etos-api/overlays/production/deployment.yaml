@@ -3,7 +3,6 @@ kind: Deployment
 metadata:
   name: etos-api
 spec:
-  replicas: 0
   template:
     spec:
       volumes:
