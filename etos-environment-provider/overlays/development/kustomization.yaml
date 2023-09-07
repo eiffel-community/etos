@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - ../../base
   - ./worker/rabbitmq-secret.yaml
+  - ./worker/encryption-key.yaml
   - ./redis-secret.yaml
   - ./ssh-key.yaml
   - ./provider-json.yaml
@@ -48,6 +49,9 @@ configMapGenerator:
   - name: etos-environment-provider-sealed-secret-rabbitmq
     files:
     - worker/rabbitmq-secret.yaml
+  - name: etos-environment-provider-sealed-secret-encryption-key
+    files:
+    - worker/encryption-key.yaml
   - name: etos-environment-provider-sealed-secret-database
     files:
     - redis-secret.yaml

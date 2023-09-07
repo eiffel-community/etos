@@ -14,8 +14,12 @@ spec:
           - configMapRef:
               name: etos-environment-provider-sealed-secret-database
           - configMapRef:
+              name: etos-environment-provider-sealed-secret-encryption-key
+          - configMapRef:
               name: etos-environment-provider-worker
           - secretRef:
               name: etos-environment-provider-worker-rabbitmq
+          - secretRef:
+              name: etos-environment-provider-worker-encryption-key
           - secretRef:
               name: etos-environment-provider-database
