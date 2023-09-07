@@ -31,7 +31,7 @@ patches:
 - patch: |-
     - op: replace
       path: "/data/ETR_VERSION"
-      value: "3.0.0"
+      value: "3.1.0"
   target:
     kind: ConfigMap
     name: etos-environment-provider-worker
