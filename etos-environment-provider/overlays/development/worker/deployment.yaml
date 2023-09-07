@@ -10,11 +10,7 @@ spec:
         - name: etos-environment-provider-worker
           envFrom:
           - configMapRef:
-              name: etos-environment-provider-sealed-secret-rabbitmq
-          - configMapRef:
-              name: etos-environment-provider-sealed-secret-database
-          - configMapRef:
-              name: etos-environment-provider-sealed-secret-encryption-key
+              name: etos-environment-provider-worker-secrets
           - configMapRef:
               name: etos-environment-provider-worker
           - secretRef:
