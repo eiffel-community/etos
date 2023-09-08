@@ -3,9 +3,12 @@ kind: Kustomization
 resources:
   - ../../base
   - ./worker/rabbitmq-secret.yaml
+  - ./worker/encryption-key.yaml
+  - ./api/execution-space-providers.yaml
+  - ./api/iut-providers.yaml
+  - ./api/log-area-providers.yaml
   - ./redis-secret.yaml
   - ./ssh-key.yaml
-  - ./provider-json.yaml
   - ./api/autoscaler.yaml
   - ./worker/autoscaler.yaml
 
@@ -20,9 +23,11 @@ commonLabels:
 
 images:
 - name: registry.nordix.org/eiffel/etos-environment-provider
-  newTag: "2.0.1"
+  newName: docker-prod.se.axis.com/nemesis/etos/etos-environment-provider
+  newTag: "bd2e0e2"
 - name: registry.nordix.org/eiffel/etos-environment-provider-worker
-  newTag: "2.0.1"
+  newName: docker-prod.se.axis.com/nemesis/etos/etos-environment-provider-worker
+  newTag: "8eec01f"
 
 # Might seem unnecessary to patch a file that is already in the overlay,
 # this patch is done so that our CI jobs only have to know the format of
@@ -33,7 +38,7 @@ patches:
 - patch: |-
     - op: replace
       path: "/data/ETR_VERSION"
-      value: "3.0.0"
+      value: "3.1.1"
   target:
     kind: ConfigMap
     name: etos-environment-provider-worker
@@ -48,12 +53,17 @@ patches:
 # or creating a plugin to kustomize. I chose this since this
 # will work natively in ArgoCD.
 configMapGenerator:
-  - name: etos-environment-provider-sealed-secret-rabbitmq
+  - name: etos-environment-provider-worker-secrets
     files:
     - worker/rabbitmq-secret.yaml
-  - name: etos-environment-provider-sealed-secret-database
+    - worker/encryption-key.yaml
+    - redis-secret.yaml
+  - name: etos-environment-provider-secrets
     files:
     - redis-secret.yaml
+    - api/execution-space-providers.yaml
+    - api/log-area-providers.yaml
+    - api/iut-providers.yaml
   - name: etos-environment-provider-filebeat-config
     files:
     - filebeat.yml

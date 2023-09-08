@@ -15,15 +15,15 @@ spec:
         - name: etos-environment-provider-worker
           envFrom:
           - configMapRef:
-              name: etos-environment-provider-sealed-secret-rabbitmq
-          - configMapRef:
-              name: etos-environment-provider-sealed-secret-database
+              name: etos-environment-provider-worker-secrets
           - configMapRef:
               name: etos-environment-provider-worker
           - secretRef:
               name: etos-environment-provider-worker-rabbitmq
           - secretRef:
               name: etos-environment-provider-database
+          - secretRef:
+              name: etos-environment-provider-worker-encryption-key
           volumeMounts:
           - name: shared-logs
             mountPath: /home/etos/logs

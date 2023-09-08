@@ -99,6 +99,8 @@ def secrets(yaml_data, secretpath, active, namespace):
     secrets = []
     for filepath, sealed_secret in secret_names(yaml_data):
         secret = active.get(sealed_secret)
+        if secret is None:
+            continue
         secret["metadata"].pop("managedFields")
         secret["metadata"].pop("ownerReferences")
         secret["metadata"].pop("resourceVersion")
