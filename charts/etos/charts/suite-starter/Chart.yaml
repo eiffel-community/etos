@@ -5,7 +5,7 @@ description: The ETOS Suite Starter exist solely to make sure that the ETOS syst
   and launches an instance of ETOS Suite runner in Kubernetes as a Job.
 type: application
 version: 2.1.0
-appVersion: 2.0.0
+appVersion: 2.0.1
 
 keywords:
   - Test automation
