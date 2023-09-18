@@ -11,11 +11,27 @@ spec:
       - name: filebeat-config
         configMap:
           name: etos-environment-provider-filebeat-config
+      - name: execution-space-providers
+        secret:
+          secretName: execution-space-providers
+      - name: log-area-providers
+        secret:
+          secretName: log-area-providers
+      - name: iut-providers
+        secret:
+          secretName: iut-providers
       containers:
         - name: etos-environment-provider
+          env:
+          - name: EXECUTION_SPACE_PROVIDERS
+            value: /providers/execution_space
+          - name: LOG_AREA_PROVIDERS
+            value: /providers/log_area
+          - name: IUT_PROVIDERS
+            value: /providers/iut
           envFrom:
           - configMapRef:
-              name: etos-environment-provider-sealed-secret-database
+              name: etos-environment-provider-secrets
           - configMapRef:
               name: etos-environment-provider
           - secretRef:
@@ -23,6 +39,15 @@ spec:
           volumeMounts:
           - name: shared-logs
             mountPath: /home/etos/logs
+          - name: execution-space-providers
+            readOnly: true
+            mountPath: "/providers/execution_space"
+          - name: log-area-providers
+            readOnly: true
+            mountPath: "/providers/log_area"
+          - name: iut-providers
+            readOnly: true
+            mountPath: "/providers/iut"
           resources:
             limits:
               cpu: 500m

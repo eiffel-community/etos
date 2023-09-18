@@ -3,9 +3,12 @@ kind: Kustomization
 resources:
   - ../../base
   - ./worker/rabbitmq-secret.yaml
+  - ./worker/encryption-key.yaml
+  - ./api/execution-space-providers.yaml
+  - ./api/iut-providers.yaml
+  - ./api/log-area-providers.yaml
   - ./redis-secret.yaml
   - ./ssh-key.yaml
-  - ./provider-json.yaml
   - ./api/autoscaler.yaml
   - ./worker/autoscaler.yaml
 
@@ -28,12 +31,17 @@ commonLabels:
 # or creating a plugin to kustomize. I chose this since this
 # will work natively in ArgoCD.
 configMapGenerator:
-  - name: etos-environment-provider-sealed-secret-rabbitmq
+  - name: etos-environment-provider-worker-secrets
     files:
     - worker/rabbitmq-secret.yaml
-  - name: etos-environment-provider-sealed-secret-database
+    - worker/encryption-key.yaml
+    - redis-secret.yaml
+  - name: etos-environment-provider-secrets
     files:
     - redis-secret.yaml
+    - api/execution-space-providers.yaml
+    - api/log-area-providers.yaml
+    - api/iut-providers.yaml
   - name: etos-environment-provider-filebeat-config
     files:
     - filebeat.yml

@@ -6,6 +6,8 @@ metadata:
     app.kubernetes.io/name: etos
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "21600"
+    nginx.ingress.kubernetes.io/eventsource: "true"
 spec:
   ingressClassName: nginx
   rules:

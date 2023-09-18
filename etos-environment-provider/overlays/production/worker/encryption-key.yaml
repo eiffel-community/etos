@@ -1,0 +1,23 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  annotations:
+    sealedsecrets.bitnami.com/cluster-wide: "true"
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: etos-production
+    app.kubernetes.io/name: etos-environment-provider-worker
+  name: encryption-key
+spec:
+  encryptedData:
+    ETOS_ENCRYPTION_KEY: AgBnBv6HTWKQ3UUOmnEStAE9jGJiq6JXb2aaiX60nfXvvT/TEeBLxXzN9QBPhJwNUvlKUMYNk1dz/EqpLGcWj3Zxv2sTfHrcH+AJSvLqJp3zPMhroZYI1rpo2rP92u/vHUpEwgc9IlyiKeiJgF66le5w6T4R+ZQ7/QdofYP535vE16ZRtHcH2T+Qyeb5zuNvoknNHZmA/UJ4JBAPPK8L1fosbUU6thxqhel4oT1pxq6auFrgkMIkAuEF8mcES8PSHGn9rtbqW/Kok08IJYwTaZyot9LkU28rECdLjkIJZi1XtJ/CbQtS+b2v8QbEgBtv+xVgGwfvBeKPh0Nb0LxDi6CYoSaKDeWBfscyFa1/qsmuhHmR9VTM1JSktPNkA1R8d/OO4OHpP9JJP59/eAqG76uNkYKcK6ZKHLvu7zEnUyPuGp/pKyEaqXjFC7zeuzlCfxTX+NYKk1fNIAplJeaCSMOMpgnOc6rA7KKNknyNyNbTfA58wX/DxYUKh0eZXoPom9X1kd8Lw14AkF4LgqABItd2b6RJSEf4ALMm64AqhS+gnBYXdfjttV/biJDWgUFKXuB8lI4gOE3G+5f5/anbF8oLgq6oIWUpDRq+PiE5rd4RAvuYpO5kaFCcqjE8eh++eRHbAySeCA7rtxu4v9dp0BUGlgqSdFdRqBXdqVNw/9xEmjCZM+SZOHwlyoH4UdFqGxVXtq5hBAjq8zQzI3WsFyD4zRlzzwdHBstzsueGLc7QdJixxc0XrTxzhSRL5Q==
+  template:
+    metadata:
+      annotations:
+        sealedsecrets.bitnami.com/cluster-wide: "true"
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/instance: etos-production
+        app.kubernetes.io/name: etos-environment-provider-worker
+      name: encryption-key
+

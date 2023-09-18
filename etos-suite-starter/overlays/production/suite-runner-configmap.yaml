@@ -13,3 +13,4 @@ data:
   ETOS_ROUTING_KEY_TAG: etos-prod
   ESR_WAIT_FOR_ENVIRONMENT_TIMEOUT: "3610"
   SUITE_RUNNER: none
+  TZ: "Europe/Stockholm"
