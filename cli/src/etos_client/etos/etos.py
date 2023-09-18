@@ -53,12 +53,25 @@ class ETOS:  # pylint:disable=too-few-public-methods
 
     def __check_connection(self) -> bool:
         """Check connection to ETOS."""
-        try:
-            response = requests.get(f"{self.cluster}/selftest/ping", timeout=5)
-            response.raise_for_status()
+        end_time = time.time() + 30
+        while time.time() < end_time:
+            try:
+                response = requests.get(f"{self.cluster}/selftest/ping", timeout=5)
+            except (
+                ConnectionError,
+                NewConnectionError,
+                MaxRetryError,
+                TimeoutError,
+                Timeout,
+            ):
+                self.logger.exception("Network connectivity errors when checking connection to ETOS.")
+                time.sleep(2)
+                continue
+            if self.__should_retry(response):
+                time.sleep(2)
+                continue
             return True
-        except Exception:  # pylint:disable=broad-exception-caught
-            return False
+        return False
 
     def __start(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
         """Start an ETOS testrun."""
