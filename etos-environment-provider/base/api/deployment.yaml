@@ -16,7 +16,7 @@ spec:
       serviceAccountName: etos-environment-provider
       containers:
         - name: etos-environment-provider
-          image: "registry.nordix.org/eiffel/etos-environment-provider:1.37.0"
+          image: "registry.nordix.org/eiffel/etos-environment-provider:2.2.1"
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
