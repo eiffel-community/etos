@@ -93,8 +93,12 @@ class Logs:
                             event_id,
                         )
                         continue
+                    try:
+                        yield Message(event.data)
+                    except json.JSONDecodeError:
+                        self.logger.warning("Could not parse log from ETOS. Dropping it.")
+                        yield Ping()
                     self.__current_id = event_id
-                    yield Message(event.data)
                 else:
                     # Pings are expected, by default, to come at a 15s interval.
                     yield Ping()
