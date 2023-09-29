@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: etos-sse
+  name: etos-sse
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: etos-sse
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: etos-sse
+    spec:
+      serviceAccountName: etos-sse
+      containers:
+      - name: etos-sse
+        image: "registry.nordix.org/eiffel/etos-sse:latest"
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: SERVICE_HOST
+          value: 0.0.0.0
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /v1alpha/selftest/ping
+            port: http
+        readinessProbe:
+          httpGet:
+            path: /v1alpha/selftest/ping
+            port: http

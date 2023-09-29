@@ -15,6 +15,9 @@ commonLabels:
 images:
 - name: registry.nordix.org/eiffel/etos-api
   newTag: "1.30.2"
+- name: registry.nordix.org/eiffel/etos-sse
+  newName: docker-prod.se.axis.com/nemesis/etos/etos-sse
+  newTag: "0833033"
 
 
 # This is a workaround for secrets not generating a reload

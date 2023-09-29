@@ -7,6 +7,7 @@ resources:
   - rolebinding.yaml
   - service.yaml
   - deployment.yaml
+  - ./sse
 
 
 # By generating the configmap it will get a unique name on each apply

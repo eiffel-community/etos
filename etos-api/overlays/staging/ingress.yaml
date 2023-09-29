@@ -8,6 +8,11 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/proxy-read-timeout: "21600"
     nginx.ingress.kubernetes.io/eventsource: "true"
+    nginx.ingress.kubernetes.io/eventsource: "true"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Connection '';
+      chunked_transfer_encoding off;
+      proxy_cache off;
 spec:
   ingressClassName: nginx
   rules:
@@ -26,5 +31,12 @@ spec:
             backend:
               service:
                 name: etos-api
+                port:
+                  number: 80
+          - path: /(sse)/?(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: etos-sse
                 port:
                   number: 80
