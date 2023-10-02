@@ -148,6 +148,18 @@ class Start(SubCommand):
         args["--artifact-dir"] = args["--artifact-dir"] or "artifacts"
         args["--report-dir"] = args["--report-dir"] or "reports"
 
+        # Remove trailing slash.
+        if args["<cluster>"].endswith("/"):
+            args["<cluster>"] = args["<cluster>"].rstrip("/")
+
+        # Remove '/api' if it exists, as we want the ETOS Client to know about the endpoints.
+        if args["<cluster>"].endswith("/api"):
+            warnings.warn(
+                "Cluster URL should no longer end with '/api'",
+                DeprecationWarning,
+            )
+            args["<cluster>"] = args["<cluster>"].rsplit("/", 1)[0]
+
         LOGGER.info("Running in cluster: %r", args["<cluster>"])
         report_dir, artifact_dir = directories(args)
         etos = start(args)

@@ -70,7 +70,7 @@ class Logs:
         """Connect to the ETOS log server."""
         while time.time() < endtime:
             try:
-                self.__events = SSEClient(f"{etos.cluster}/logs/{str(etos.response.tercc)}")
+                self.__events = SSEClient(f"{etos.cluster}/sse/v1alpha/logs/{str(etos.response.tercc)}")
                 break
             except requests.exceptions.HTTPError as http_error:
                 if http_error.response.status_code != 404:
