@@ -28,6 +28,10 @@ api:
   service:
     port: 80
     name: "etos-api"
+  sse:
+    service:
+      port: 80
+      name: "etos-sse"
 
 # Suite runner configuration. Suite runner is not a subchart to this repository
 # but tried to make it look like it is.
