@@ -4,6 +4,8 @@
 {{- $environmentProviderPort := index .Values "environment-provider" "service" "port" -}}
 {{- $apiName := index .Values "api" "service" "name" -}}
 {{- $apiPort := index .Values "api" "service" "port" -}}
+{{- $sseName := index .Values "api" "sse" "service" "name" -}}
+{{- $ssePort := index .Values "api" "sse" "service" "port" -}}
 {{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
   {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
   {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
@@ -72,6 +74,20 @@ spec:
               {{- else }}
               serviceName: {{ $apiName }}
               servicePort: {{ $apiPort }}
+              {{- end }}
+          - path: {{ trimSuffix "/" .path }}/(sse)/?(.*)
+            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ .pathType }}
+            {{- end }}
+            backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $sseName }}
+                port:
+                  number: {{ $ssePort }}
+              {{- else }}
+              serviceName: {{ $sseName }}
+              servicePort: {{ $ssePort }}
               {{- end }}
           {{- end }}
     {{- end }}

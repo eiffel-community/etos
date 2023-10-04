@@ -56,7 +56,7 @@ class ETOS:  # pylint:disable=too-few-public-methods
         end_time = time.time() + 30
         while time.time() < end_time:
             try:
-                response = requests.get(f"{self.cluster}/selftest/ping", timeout=5)
+                response = requests.get(f"{self.cluster}/api/selftest/ping", timeout=5)
             except (
                 ConnectionError,
                 NewConnectionError,
@@ -87,7 +87,7 @@ class ETOS:  # pylint:disable=too-few-public-methods
         while time.time() < end_time:
             try:
                 response = requests.post(
-                    f"{self.cluster}/etos", json=request_data.dict(), timeout=10
+                    f"{self.cluster}/api/etos", json=request_data.dict(), timeout=10
                 )
             except (
                 ConnectionError,
