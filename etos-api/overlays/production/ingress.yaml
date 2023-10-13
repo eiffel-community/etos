@@ -28,3 +28,10 @@ spec:
                 name: etos-api
                 port:
                   number: 80
+          - path: /(sse)/?(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: etos-sse
+                port:
+                  number: 80

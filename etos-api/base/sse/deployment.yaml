@@ -16,7 +16,7 @@ spec:
       serviceAccountName: etos-sse
       containers:
       - name: etos-sse
-        image: "registry.nordix.org/eiffel/etos-sse:latest"
+        image: "registry.nordix.org/eiffel/etos-sse:1.31.0"
         imagePullPolicy: IfNotPresent
         env:
         - name: SERVICE_HOST
