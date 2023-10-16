@@ -5,12 +5,12 @@ metadata:
 spec:
   template:
     spec:
-      volumes:
-      - name: shared-logs
-        emptyDir: {}
-      - name: filebeat-config
-        configMap:
-          name: etos-api-filebeat-config
+      # volumes:
+      # - name: shared-logs
+      #   emptyDir: {}
+      # - name: filebeat-config
+      #   configMap:
+      #     name: etos-api-filebeat-config
       containers:
         - name: etos-api
           envFrom:
@@ -20,9 +20,9 @@ spec:
               name: etos-api
           - secretRef:
               name: etos-api-rabbitmq
-          volumeMounts:
-          - name: shared-logs
-            mountPath: /home/etos/logs
+          # volumeMounts:
+          # - name: shared-logs
+          #   mountPath: /home/etos/logs
           resources:
             limits:
               cpu: 250m
@@ -30,19 +30,19 @@ spec:
             requests:
               cpu: 100m
               memory: 256Mi
-        - name: sidecar
-          image: docker.elastic.co/beats/filebeat:7.10.1
-          volumeMounts:
-          - name: shared-logs
-            mountPath: /usr/share/filebeat/logs
-          - name: filebeat-config
-            mountPath: /usr/share/filebeat/filebeat.yml
-            readOnly: true
-            subPath: filebeat.yml
-          resources:
-            limits:
-              cpu: 250m
-              memory: 512Mi
-            requests:
-              cpu: 100m
-              memory: 256Mi
+        # - name: sidecar
+        #   image: docker.elastic.co/beats/filebeat:7.10.1
+        #   volumeMounts:
+        #   - name: shared-logs
+        #     mountPath: /usr/share/filebeat/logs
+        #   - name: filebeat-config
+        #     mountPath: /usr/share/filebeat/filebeat.yml
+        #     readOnly: true
+        #     subPath: filebeat.yml
+        #   resources:
+        #     limits:
+        #       cpu: 250m
+        #       memory: 512Mi
+        #     requests:
+        #       cpu: 100m
+        #       memory: 256Mi
