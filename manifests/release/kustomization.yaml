@@ -15,7 +15,6 @@ images:
 - name: registry.nordix.org/eiffel/etos-suite-starter
   newTag: "2.0.1"
 
-
 configMapGenerator:
   - name: etos-environment-provider-worker
     behavior: merge
