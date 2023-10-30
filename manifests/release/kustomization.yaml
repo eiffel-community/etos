@@ -5,13 +5,13 @@ resources:
 
 images:
 - name: registry.nordix.org/eiffel/etos-api
-  newTag: "1.30.2"
+  newTag: "1.31.0"
 - name: registry.nordix.org/eiffel/etos-sse
-  newTag: "1.0.0"
+  newTag: "1.31.0"
 - name: registry.nordix.org/eiffel/etos-environment-provider
-  newTag: "2.2.1"
+  newTag: "2.2.2"
 - name: registry.nordix.org/eiffel/etos-environment-provider-worker
-  newTag: "2.2.1"
+  newTag: "2.2.2"
 - name: registry.nordix.org/eiffel/etos-suite-starter
   newTag: "2.0.1"
 
