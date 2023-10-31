@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etos-cleaning-crew
+  labels:
+    app.kubernetes.io/name: etos-cleaning-crew
+data:
+  ETOS_NAMESPACE: "etos-production"

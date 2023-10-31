@@ -1,0 +1,59 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+patches:
+- target:
+    kind: Deployment
+    name: etos-environment-provider
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/volumeMounts/-
+      value:
+        name: execution-space-providers
+        readOnly: true
+        mountPath: "/providers/execution_space"
+    - op: add
+      path: /spec/template/spec/containers/0/volumeMounts/-
+      value:
+        name: log-area-providers
+        readOnly: true
+        mountPath: "/providers/log_area"
+    - op: add
+      path: /spec/template/spec/containers/0/volumeMounts/-
+      value:
+        name: iut-providers
+        readOnly: true
+        mountPath: "/providers/iut"
+    - op: add
+      path: /spec/template/spec/volumes/-
+      value:
+        name: execution-space-providers
+        secret:
+          secretName: execution-space-providers
+    - op: add
+      path: /spec/template/spec/volumes/-
+      value:
+        name: log-area-providers
+        secret:
+          secretName: log-area-providers
+    - op: add
+      path: /spec/template/spec/volumes/-
+      value:
+        name: iut-providers
+        secret:
+          secretName: iut-providers
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: EXECUTION_SPACE_PROVIDERS
+        value: /providers/execution_space
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: LOG_AREA_PROVIDERS
+        value: /providers/log_area
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: IUT_PROVIDERS
+        value: /providers/iut

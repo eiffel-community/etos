@@ -68,25 +68,6 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: etos-development
-  namespace: argocd
-spec:
-  destination:
-    namespace: etos-development
-    server: https://kubernetes.default.svc
-  project: etos
-  source:
-    path: overlays/development
-    repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
-    targetRevision: HEAD
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
----
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
   name: etos-staging
   namespace: argocd
 spec:

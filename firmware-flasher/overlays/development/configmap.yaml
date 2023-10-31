@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: etos-firmware-flasher
-  labels:
-    app.kubernetes.io/name: etos-firmware-flasher
-data:
-  ETOS_GRAPHQL_SERVER: https://eiffel-er-prod.se.axis.com/graphql
-  ETOS_NAMESPACE: "etos-development"
