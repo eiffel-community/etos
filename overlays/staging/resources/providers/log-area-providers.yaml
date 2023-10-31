@@ -21,4 +21,3 @@ spec:
         app.kubernetes.io/instance: etos-staging
         app.kubernetes.io/name: etos-environment-provider
       name: log-area-providers
-
