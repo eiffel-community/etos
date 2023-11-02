@@ -10,7 +10,7 @@ resources:
   - ./resources/secrets/esr-rabbitmq-secret.yaml
   - ./resources/secrets/encryption-key.yaml
   - ./resources/secrets/user-logs-secret.yaml
-  - ./resources/logstash.yaml
+  - ./resources/secrets/database-secret.yaml
   - ./resources/suite-runner-filebeat.yaml
 
 commonLabels:
