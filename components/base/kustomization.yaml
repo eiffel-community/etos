@@ -32,7 +32,7 @@ patches:
           name: etos-suite-starter
 - target:
     kind: Deployment
-    name: etos-environment-provider-worker
+    name: etos-(environment-provider|environment-provider-worker)
   patch: |-
     - op: add
       path: /spec/template/spec/containers/0/envFrom/-
