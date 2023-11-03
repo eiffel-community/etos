@@ -40,6 +40,11 @@ patches:
         secretRef:
           name: etos-database
     - op: add
+      path: /spec/template/spec/containers/0/envFrom/-
+      value:
+        configMapRef:
+          name: etos-environment-provider-worker
+    - op: add
       path: /spec/template/spec/terminationGracePeriodSeconds
       value: 4250
 
