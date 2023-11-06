@@ -11,6 +11,9 @@ resources:
   - ./resources/secrets/encryption-key.yaml
   - ./resources/secrets/user-logs-secret.yaml
   - ./resources/secrets/database-secret.yaml
+  - ./resources/providers/iut-providers.yaml
+  - ./resources/providers/execution-space-providers.yaml
+  - ./resources/providers/log-area-providers.yaml
   - ./resources/suite-runner-filebeat.yaml
 
 commonLabels:
