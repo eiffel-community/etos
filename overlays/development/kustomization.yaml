@@ -1,0 +1,106 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: etos-development
+
+resources:
+  - github.com/eiffel-community/etos//manifests/release
+  - ./namespace.yaml
+  - ./resources/secrets/elasticsearch-password.yaml
+  - ./resources/secrets/rabbitmq-secret.yaml
+  - ./resources/secrets/esr-rabbitmq-secret.yaml
+  - ./resources/secrets/encryption-key.yaml
+  - ./resources/secrets/user-logs-secret.yaml
+  - ./resources/secrets/database-secret.yaml
+  - ./resources/providers/iut-providers.yaml
+  - ./resources/providers/execution-space-providers.yaml
+  - ./resources/providers/log-area-providers.yaml
+  - ./resources/suite-runner-filebeat.yaml
+
+commonLabels:
+  app.kubernetes.io/instance: etos-development
+
+patches:
+- target:
+    kind: SealedSecret
+  patch: |-
+    - op: add
+      path: /metadata/labels/app.kubernetes.io~1instance
+      value: etos-development
+    - op: add
+      path: /spec/template/metadata/labels/app.kubernetes.io~1instance
+      value: etos-development
+- target:
+    kind: ConfigMap
+    name: (etos|etos-suite-runner)
+  patch: |-
+    - op: add
+      path: /data/ETOS_ENVIRONMENT_PROVIDER
+      value: http://etos.etos-dev.k8s.axis.com/environment-provider
+    - op: add
+      path: /data/ETOS_API
+      value: http://etos.etos-dev.k8s.axis.com/api
+    - op: add
+      path: /data/ETOS_ROUTING_KEY_TAG
+      value: etos-dev
+- target:
+    kind: ConfigMap
+    name: etos-suite-starter
+  patch: |-
+    - op: replace
+      path: /data/RABBITMQ_QUEUE
+      value: svcetos.suite_starter.dev
+    - op: replace
+      path: /data/RABBITMQ_ROUTING_KEY
+      value: eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.etos-dev.*
+- target:
+    kind: Ingress
+    name: etos
+  patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: "etos.etos-dev.k8s.axis.com"
+    - op: add
+      path: /spec/rules/-
+      value:
+        host: "firmware-api.etos-dev.k8s.axis.com"
+        http:
+          paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: etos-firmware-flasher
+                  port:
+                    number: 80
+
+configMapGenerator:
+  - name: etos-filebeat-config
+    files:
+    - ./filebeat.yml
+  - name: reload
+    files:
+    - ./resources/secrets/database-secret.yaml
+    - ./resources/secrets/rabbitmq-secret.yaml
+    - ./resources/secrets/encryption-key.yaml
+    - ./resources/secrets/user-logs-secret.yaml
+    - ./resources/providers/execution-space-providers.yaml
+    - ./resources/providers/log-area-providers.yaml
+    - ./resources/providers/iut-providers.yaml
+generatorOptions:
+  labels:
+    app.kubernetes.io/part-of: etos
+    app.kubernetes.io/instance: etos-development
+
+components:
+  - ../../components/base
+  - ../../components/filebeat
+  - ../../components/autoscaling
+  - ../../components/rabbitmq
+  - ../../components/encryption
+  - ../../components/user-logs
+  # Provider sealed secrets need to have been created
+  - ../../components/providers
+  # A generated configmap named 'reload' must be created for the reloader.
+  - ../../components/reloader
+  - ../../components/firmware-flasher
+  - ../../components/cleaning-crew

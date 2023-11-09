@@ -1,0 +1,8 @@
+filebeat.inputs:
+- type: log
+  paths:
+    /usr/share/filebeat/logs/*
+processors:
+  - add_host_metadata:
+output.logstash:
+  hosts: ["etos-development-logstash-logstash.etos-development.svc.cluster.local:5044"]
