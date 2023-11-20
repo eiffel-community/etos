@@ -34,11 +34,11 @@ class Event:
         self.event = event.get("event", "message")
         self.received = time.time()
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the string representation of an event."""
         return f"{self.event}({self.id}): {self.data}"
 
-    def __eq__(self, other):
+    def __eq__(self, other: "Event") -> bool:
         """Check if the event is the same by testing the IDs."""
         if self.id is None or other.id is None:
             return super().__eq__(other)

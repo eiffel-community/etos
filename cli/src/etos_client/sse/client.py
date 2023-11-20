@@ -113,16 +113,16 @@ class SSEClient:
         self.__connected = True
         return response.stream(CHUNK_SIZE, True)
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Make sure we release the connection on object deletion."""
         self.close()
 
-    def close(self):
+    def close(self) -> None:
         """Close down the SSE client."""
         self.__shutdown = True
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the client. Must be done before reconnecting."""
         self.__pool.clear()
         if self.__release is not None:
