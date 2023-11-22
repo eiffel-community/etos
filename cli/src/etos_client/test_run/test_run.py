@@ -14,18 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS test run handler."""
+import logging
 import sys
 import time
-import logging
 from typing import Iterator
-from etos_client.events.collector import Collector
-from etos_client.events.events import Events
+
+from etos_client.announcer import Announcer
+from etos_client.downloader import Downloader
 from etos_client.etos import ETOS
 from etos_client.etos.schema import ResponseSchema
-from etos_client.logs import Message, Ping, Logs
-from etos_client.downloader import Downloader
-from etos_client.announcer import Announcer
-
+from etos_client.events.collector import Collector
+from etos_client.events.events import Events
+from etos_client.sse.client import SSEClient
+from etos_client.sse.protocol import Message, Ping
 
 MINUTE = 60
 
@@ -132,9 +133,10 @@ class TestRun:
 
     def __log_until_eof(self, etos: ETOS, endtime: int) -> Iterator[Ping]:
         """Log from the ETOS log API until finished."""
-        logs = Logs()
-        logs.connect_to_log_server(etos, time.time() + 10 * MINUTE)
-        for log_message in logs.logs(endtime):
+        client = SSEClient(etos)
+        for log_message in client.event_stream():
+            if time.time() >= endtime:
+                raise TimeoutError("Timed out!")
             if isinstance(log_message, Message):
                 self.__log(log_message)
                 continue

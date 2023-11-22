@@ -14,14 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS API handler."""
-import time
 import logging
-from typing import Union
+import time
 from json import JSONDecodeError
+from typing import Union
 
-from urllib3.exceptions import MaxRetryError, NewConnectionError
 import requests
 from requests.exceptions import HTTPError, Timeout
+from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 from .schema import RequestSchema, ResponseSchema
 
@@ -64,7 +64,9 @@ class ETOS:  # pylint:disable=too-few-public-methods
                 TimeoutError,
                 Timeout,
             ):
-                self.logger.exception("Network connectivity errors when checking connection to ETOS.")
+                self.logger.exception(
+                    "Network connectivity errors when checking connection to ETOS."
+                )
                 time.sleep(2)
                 continue
             if self.__should_retry(response):
