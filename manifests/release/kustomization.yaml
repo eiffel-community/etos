@@ -14,14 +14,3 @@ images:
   newTag: "2.2.2"
 - name: registry.nordix.org/eiffel/etos-suite-starter
   newTag: "2.1.0"
-
-configMapGenerator:
-  - name: etos-environment-provider-worker
-    behavior: merge
-    literals:
-      - ETR_VERSION="3.2.0"
-  - name: etos-suite-starter
-    behavior: merge
-    literals:
-      - SUITE_RUNNER=registry.nordix.org/eiffel/etos-suite-runner:3.1.0
-      - LOG_LISTENER=registry.nordix.org/eiffel/etos-log-listener:3.1.0
