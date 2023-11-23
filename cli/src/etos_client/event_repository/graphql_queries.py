@@ -101,6 +101,9 @@ MAIN_TEST_SUITES_STARTED = """
   testSuiteStarted(%s) {
     edges {
       node {
+        data {
+          name
+        }
         meta {
           id
         }
@@ -123,6 +126,8 @@ TEST_SUITE_FINISHED = """
           }
           testSuiteOutcome {
             verdict
+            conclusion
+            description
           }
         }
       }
