@@ -9,8 +9,8 @@ images:
 - name: registry.nordix.org/eiffel/etos-sse
   newTag: "1.31.1"
 - name: registry.nordix.org/eiffel/etos-environment-provider
-  newTag: "2.2.2"
+  newTag: "2.2.6"
 - name: registry.nordix.org/eiffel/etos-environment-provider-worker
-  newTag: "2.2.2"
+  newTag: "2.2.6"
 - name: registry.nordix.org/eiffel/etos-suite-starter
   newTag: "2.1.0"
