@@ -292,7 +292,7 @@ spec:
   source:
     path: overlays/development
     repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
-    targetRevision: user/fredjn/add-development
+    targetRevision: HEAD
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
