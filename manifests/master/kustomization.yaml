@@ -1,4 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../base
+  - github.com/eiffel-community/etos-api//manifests/base
+  - github.com/eiffel-community/etos-environment-provider//manifests/base
+  - github.com/eiffel-community/etos-suite-runner//manifests/base
+  - github.com/eiffel-community/etos-suite-starter//manifests/base
