@@ -293,6 +293,10 @@ spec:
     path: overlays/development
     repoURL: https://gittools.se.axis.com/gerrit/a/system/etos/ops
     targetRevision: HEAD
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
