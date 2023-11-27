@@ -3,7 +3,9 @@ kind: Kustomization
 namespace: etos-production
 
 resources:
-  - github.com/eiffel-community/etos//manifests/release?ref=6.0.0
+  - github.com/eiffel-community/etos-suite-starter//manifests/base?ref=fa6b0778dcdf3f4b16cc79291486b2077e181e96
+  - github.com/eiffel-community/etos-api//manifests/base?ref=412659f59f89233f7b544632e1beeaabb78d15cd
+  - github.com/eiffel-community/etos-environment-provider//manifests/base?ref=2.2.2
   - ./namespace.yaml
   - ./resources/secrets/elasticsearch-password.yaml
   - ./resources/secrets/rabbitmq-secret.yaml
