@@ -3,4 +3,5 @@ kind: Kustomization
 resources:
   - github.com/eiffel-community/etos-api//manifests/base
   - github.com/eiffel-community/etos-environment-provider//manifests/base
+  - github.com/eiffel-community/etos-suite-runner//manifests/base
   - github.com/eiffel-community/etos-suite-starter//manifests/base
