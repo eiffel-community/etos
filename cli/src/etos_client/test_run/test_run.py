@@ -75,11 +75,21 @@ class TestRun:
 
         self.__log_debug_information(etos.response)
         self.__last_log = time.time()
+        timer = None
         for _ in self.__log_until_eof(etos, end):
             events = self.__collect(etos)
             self.__status(events)
             self.__announce()
             self.__download(events)
+            if events.activity.finished and timer is None:
+                timer = time.time() + 300  # 5 minutes
+            if timer and time.time() >= timer:
+                self.logger.warning("ETOS finished, but did not shut down the log server.")
+                self.logger.warning(
+                    "Forcing a shut down to avoid hanging. Some data may be incorrect, "
+                    "such as the number of tests executed or the number of downloaded logs"
+                )
+                break
         self.__wait(etos, end)
         events = self.__collect(etos)
         self.__download(events)
