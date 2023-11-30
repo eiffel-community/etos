@@ -1,0 +1,83 @@
+name: Update release versions
+on:
+  workflow_dispatch:
+jobs:
+  suiteRunner:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: eiffel-community/etos-suite-runner
+    - name: Get version
+      id: getVersion
+      run: |
+        VERSION=$(gh release view --json tagName --jq .tagName)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  environmentProvider:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: eiffel-community/etos-environment-provider
+    - name: Get version
+      id: getVersion
+      run: |
+        VERSION=$(gh release view --json tagName --jq .tagName)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  suiteStarter:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: eiffel-community/etos-suite-starter
+    - name: Get version
+      id: getVersion
+      run: |
+        VERSION=$(gh release view --json tagName --jq .tagName)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  api:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: eiffel-community/etos-api
+    - name: Get version
+      id: getVersion
+      run: |
+        VERSION=$(gh release view --json tagName --jq .tagName)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  update_manifest:
+    runs-on: ubuntu-latest
+    needs: [suiteRunner, environmentProvider, suiteStarter, api]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Update manifests
+      uses: fjogeleit/yaml-update-action@main
+      with:
+        branch: main
+        commitChange: true
+        valueFile: manifests/release/kustomization.yaml
+        message: Updating release images
+        changes: |
+          {
+            "resources[0]": "github.com/eiffel-community/etos-suite-runner//manifests/base?ref=${{ needs.suiteRunner.outputs.version }}",
+            "resources[1]": "github.com/eiffel-community/etos-environment-provider//manifests/base?ref=${{ needs.environmentProvider.outputs.version }}",
+            "resources[2]": "github.com/eiffel-community/etos-suite-starter//manifests/base?ref=${{ needs.suiteStarter.outputs.version }}",
+            "resources[3]": "github.com/eiffel-community/etos-api//manifests/base?ref=${{ needs.api.outputs.version }}"
+          }
