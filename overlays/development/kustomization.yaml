@@ -104,3 +104,4 @@ components:
   - ../../components/reloader
   - ../../components/firmware-flasher
   - ../../components/cleaning-crew
+  - ../../components/observability
