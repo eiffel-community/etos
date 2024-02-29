@@ -15,5 +15,5 @@
 # numpy==1.13.3
 # scipy==1.0
 #
-etos_lib==2.1.0
+etos_lib==4.0.0
 docopt~=0.6

@@ -26,10 +26,24 @@ from json import JSONDecodeError
 
 from pydantic import BaseModel
 from urllib3.exceptions import MaxRetryError, NewConnectionError
+from urllib3.util import Retry
 import requests
 from requests.exceptions import HTTPError
 
+from etos_lib.lib.http import Http
 from etos_client.events.events import Artifact, TestSuite, SubSuite
+
+
+HTTP_RETRY_PARAMETERS = Retry(
+    total=None,
+    read=0,
+    connect=10,  # With 1 as backoff_factor, will retry for 1023s
+    status=10,  # With 1 as backoff_factor, will retry for 1023s
+    backoff_factor=1,
+    other=0,
+    # 413, 429, 503 + 404 (for cases when the file is not uploaded immediately)
+    status_forcelist=list(Retry.RETRY_AFTER_STATUS_CODES) + [404],
+)
 
 
 class Downloadable(BaseModel):
@@ -53,29 +67,21 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         self.__exit = False
         self.__clear_queue = True
         self.__lock = Lock()
+        self.__http = Http(retry=HTTP_RETRY_PARAMETERS)
         self.failed: bool = False
         self.downloads: {str} = set()
 
         self.__report_dir = report_dir
         self.__artifact_dir = artifact_dir
 
-    def __retry_download(self, item: Downloadable) -> None:
+    def __download(self, item: Downloadable) -> None:
         """Download files."""
         self.logger.debug("Downloading %r", item)
-        end_time = time.time() + 60
-        while time.time() < end_time:
-            response = requests.get(item.uri, stream=True, timeout=10)
-            self.logger.debug("Download response: %r", response)
-            if self.__should_retry(response):
-                self.logger.debug("Download of %r failed. Retrying..", item)
-                time.sleep(10)
-                continue
-            if not response.ok:
-                with self.__lock:
-                    self.failed = True
-                self.logger.critical("Failed to download %r", item)
-                return
+        # retry rules are set in the Http client
+        response = self.__http.get(item.uri, stream=True)
+        if self.__download_ok(response):
             self.__save_file(item, response)
+            self.logger.debug("Item downloaded %r", item)
             return
         with self.__lock:
             self.failed = True
@@ -96,26 +102,24 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             for chunk in response:
                 report.write(chunk)
 
-    def __should_retry(self, response: requests.Response) -> bool:
-        """Check response to see whether it is worth retrying or not."""
+    def __download_ok(self, response: requests.Response) -> bool:
+        """Check download response and log response details."""
         try:
             response.raise_for_status()
+            return True
         except HTTPError as http_error:
             if http_error.response.status_code == 404:
-                self.logger.warning("File not found")
-                # Retry as it may just be that the file is being uploaded.
-                return True
-            if 400 <= http_error.response.status_code < 500:
-                try:
-                    response_json = response.json()
-                except JSONDecodeError:
-                    self.logger.debug("Raw response from download: %r", response.text)
-                    response_json = {
-                        "detail": "Unknown client error when downloading files from log area"
-                    }
-                self.logger.critical("Download response: %r", response_json)
+                self.logger.critical("File not found")
                 return False
-            return True
+            try:
+                response_json = response.json()
+            except JSONDecodeError:
+                self.logger.debug("Raw HTTP response from download: %r", response.text)
+                response_json = {
+                    "detail": "Unknown HTTP client error when downloading files from log area"
+                }
+            self.logger.critical("Download response: %r", response_json)
+            return False
         except (
             ConnectionError,
             NewConnectionError,
@@ -123,15 +127,14 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             TimeoutError,
         ):
             self.logger.exception("Network connectivity error when downloading logs and artifacts.")
-            return True
-        return False
+            return False
 
     def __trigger_download(self, pool: ThreadPool) -> bool:
         """Get downloadable from queue and add it to threadpool."""
         try:
             item = self.__download_queue.get_nowait()
             pool.apply_async(
-                self.__retry_download,
+                self.__download,
                 error_callback=self.__print_traceback,
                 args=(item,),
             )
