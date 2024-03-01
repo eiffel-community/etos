@@ -92,7 +92,7 @@ def wait(
     LOGGER.info("Archiving reports.")
     shutil.make_archive(artifact_dir.joinpath("reports").relative_to(Path.cwd()), "zip", report_dir)
     LOGGER.info("Reports: %s", report_dir)
-    LOGGER.info("Artifacs: %s", artifact_dir)
+    LOGGER.info("Artifacts: %s", artifact_dir)
 
     if log_downloader.failed:
         sys.exit("ETOS logs did not download successfully.")
