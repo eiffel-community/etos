@@ -15,15 +15,28 @@
 # limitations under the License.
 """ETOS API handler."""
 import logging
-import time
 from json import JSONDecodeError
 from typing import Union
 
 import requests
 from requests.exceptions import HTTPError, Timeout
 from urllib3.exceptions import MaxRetryError, NewConnectionError
+from urllib3.util import Retry
 
+from etos_lib.lib.http import Http
 from .schema import RequestSchema, ResponseSchema
+
+
+# Max total time for a ping request including delays with backoff factor 0.5 will be:
+# 0.5 + 1.5 + 3.5 + 7.5 + 15.5 = 28.5 (seconds)
+HTTP_RETRY_PARAMETERS = Retry(
+    total=5,  # limit the total number of retries only (regardless of error type)
+    connect=None,
+    read=None,
+    status_forcelist=[500, 502, 503, 504],  # Common temporary error status codes
+    backoff_factor=0.5,
+    raise_on_redirect=True,  # Raise an exception if too many redirects
+)
 
 
 class ETOS:  # pylint:disable=too-few-public-methods
@@ -36,6 +49,10 @@ class ETOS:  # pylint:disable=too-few-public-methods
     def __init__(self, cluster: str) -> None:
         """Initialize ETOS."""
         self.cluster = cluster
+        # ping HTTP client with 5 sec timeout for each attempt:
+        self.__http_ping = Http(retry=HTTP_RETRY_PARAMETERS, timeout=5)
+        # greater HTTP timeout for other requests:
+        self.__http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
 
     def start(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
         """Start ETOS."""
@@ -53,67 +70,31 @@ class ETOS:  # pylint:disable=too-few-public-methods
 
     def __check_connection(self) -> bool:
         """Check connection to ETOS."""
-        end_time = time.time() + 30
-        while time.time() < end_time:
-            try:
-                response = requests.get(f"{self.cluster}/api/selftest/ping", timeout=5)
-            except (
-                ConnectionError,
-                NewConnectionError,
-                MaxRetryError,
-                TimeoutError,
-                Timeout,
-            ):
-                self.logger.exception(
-                    "Network connectivity errors when checking connection to ETOS."
-                )
-                time.sleep(2)
-                continue
-            if self.__should_retry(response):
-                time.sleep(2)
-                continue
-            return True
-        return False
+        # retry rules are set in the Http client
+        response = self.__http_ping.get(f"{self.cluster}/api/selftest/ping")
+        return self.__response_ok(response)
 
     def __start(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
         """Start an ETOS testrun."""
         response = self.__retry_trigger_etos(request_data)
         if not response:
             return None
-
         return response
 
     def __retry_trigger_etos(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
         """Trigger ETOS, retrying on non-client errors until successful."""
-        end_time = time.time() + 30
-        while time.time() < end_time:
-            try:
-                response = requests.post(
-                    f"{self.cluster}/api/etos", json=request_data.dict(), timeout=10
-                )
-            except (
-                ConnectionError,
-                NewConnectionError,
-                MaxRetryError,
-                TimeoutError,
-                Timeout,
-            ):
-                self.logger.exception("Network connectivity errors when triggering ETOS.")
-                time.sleep(2)
-                continue
-            if self.__should_retry(response):
-                time.sleep(2)
-                continue
-            if not response.ok:
-                return None
+        # retry rules are set in the Http client
+        response = self.__http.post(f"{self.cluster}/api/etos", json=request_data.dict())
+        if self.__response_ok(response):
             return ResponseSchema.from_response(response.json())
         self.logger.critical("Failed to trigger ETOS.")
         return None
 
-    def __should_retry(self, response: requests.Response) -> bool:
-        """Check response to see whether it is worth retrying or not."""
+    def __response_ok(self, response: requests.Response) -> bool:
+        """Check response and log the relevant information."""
         try:
             response.raise_for_status()
+            return True
         except HTTPError as http_error:
             if 400 <= http_error.response.status_code < 500:
                 try:
@@ -122,6 +103,6 @@ class ETOS:  # pylint:disable=too-few-public-methods
                     self.logger.info("Raw response from ETOS: %r", response.text)
                     response_json = {"detail": "Unknown client error from ETOS"}
                 self.logger.critical(response_json.get("detail"))
-                return False
-            return True
+            else:
+                self.logger.critical("Network connectivity error")
         return False
