@@ -17,3 +17,4 @@
 #
 etos_lib==4.0.0
 docopt~=0.6
+pydantic~=2.6
