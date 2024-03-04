@@ -21,16 +21,16 @@ from pydantic import BaseModel
 class Activity(BaseModel):
     """ETOS activity events."""
 
-    triggered: Optional[dict]
-    canceled: Optional[dict]
-    finished: Optional[dict]
+    triggered: Optional[dict] = None
+    canceled: Optional[dict] = None
+    finished: Optional[dict] = None
 
 
 class Environment(BaseModel):
     """ETOS environment events."""
 
     name: str
-    uri: Optional[str]
+    uri: Optional[str] = None
 
 
 class Artifact(BaseModel):
@@ -44,30 +44,30 @@ class Artifact(BaseModel):
 class SubSuite(BaseModel):
     """ETOS sub suite events."""
 
-    started: Optional[dict]
-    finished: Optional[dict]
+    started: Optional[dict] = None
+    finished: Optional[dict] = None
 
 
 class TestSuite(BaseModel):
     """ETOS main suite events."""
 
-    started: Optional[dict]
-    finished: Optional[dict]
+    started: Optional[dict] = None
+    finished: Optional[dict] = None
     sub_suites: list[SubSuite] = []
 
 
 class TestCase(BaseModel):
     """ETOS test case events."""
 
-    finished: Optional[dict]
-    canceled: Optional[dict]
+    finished: Optional[dict] = None
+    canceled: Optional[dict] = None
 
 
 class Events(BaseModel):
     """ETOS events."""
 
     activity: Activity = Activity()
-    tercc: Optional[dict]
+    tercc: Optional[dict] = None
     main_suites: list[TestSuite] = []
     environments: list[Environment] = []
     artifacts: list[Artifact] = []
