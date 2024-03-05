@@ -53,6 +53,14 @@ patches:
       path: /data/RABBITMQ_ROUTING_KEY
       value: eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.etos-prod.*
 - target:
+    kind: ConfigMap
+    name: etos-environment-provider-worker
+  # TODO: This patch shall be removed on the next ETOS release
+  patch: |-
+    - op: replace
+      path: /data/ETR_VERSION
+      value: 3.4.0
+- target:
     kind: Ingress
     name: etos
   patch: |-
