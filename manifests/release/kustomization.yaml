@@ -5,3 +5,6 @@ resources:
   - github.com/eiffel-community/etos-environment-provider//manifests/base?ref=2.3.0
   - github.com/eiffel-community/etos-suite-starter//manifests/base?ref=2.2.0
   - github.com/eiffel-community/etos-api//manifests/base?ref=1.32.0
+
+components:
+  - ../etcd
