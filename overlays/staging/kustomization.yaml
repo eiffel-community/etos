@@ -3,6 +3,8 @@ kind: Kustomization
 namespace: etos-staging
 
 resources:
+  # TODO: Remove this configmap when a new ETOS release adds it.
+  - ./configmap.yaml
   - github.com/eiffel-community/etos//manifests/release
   - ./namespace.yaml
   - ./resources/secrets/elasticsearch-password.yaml
