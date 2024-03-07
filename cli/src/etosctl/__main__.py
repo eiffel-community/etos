@@ -38,6 +38,7 @@ def setup_logging(verbosity: int) -> None:
     logging.basicConfig(
         level=loglevel, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
     )
+    logging.getLogger("gql").setLevel(logging.WARNING)
 
 
 class Main(Command):
