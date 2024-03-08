@@ -4,6 +4,6 @@ resources:
   - github.com/eiffel-community/etos-suite-runner//manifests/base?ref=4.1.0
   - github.com/eiffel-community/etos-environment-provider//manifests/base?ref=3.1.0
   - github.com/eiffel-community/etos-suite-starter//manifests/base?ref=2.3.0
-  - github.com/eiffel-community/etos-api//manifests/base?ref=2.0.0
+  - github.com/eiffel-community/etos-api//manifests/base?ref=2.1.0
 components:
   - ../etcd
