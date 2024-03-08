@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: etos-suite-runner
-  labels:
-    app.kubernetes.io/name: etos-suite-starter

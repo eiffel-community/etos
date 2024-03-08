@@ -3,8 +3,6 @@ kind: Kustomization
 namespace: etos-staging
 
 resources:
-  # TODO: Remove this configmap when a new ETOS release adds it.
-  - ./configmap.yaml
   - github.com/eiffel-community/etos//manifests/release
   - ./namespace.yaml
   - ./resources/secrets/elasticsearch-password.yaml
@@ -54,13 +52,6 @@ patches:
     - op: replace
       path: /data/RABBITMQ_ROUTING_KEY
       value: eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.etos-staging.*
-- target:
-    kind: ConfigMap
-    name: etos-environment-provider-worker
-  patch: |-
-    - op: replace
-      path: /data/ETR_VERSION
-      value: 3.4.0
 - target:
     kind: Ingress
     name: etos
