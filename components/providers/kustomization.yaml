@@ -4,7 +4,7 @@ kind: Component
 patches:
 - target:
     kind: Deployment
-    name: etos-environment-provider
+    name: (etos-environment-provider|etos-api)
   patch: |-
     - op: add
       path: /spec/template/spec/containers/0/volumeMounts/-
