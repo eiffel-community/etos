@@ -14,6 +14,13 @@ spec:
     - host: "etos.etos.k8s.axis.com"
       http:
         paths:
+          - path: /(environment-provider)/?(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: etos-environment-provider
+                port:
+                  number: 80
           - path: /(api)/?(.*)
             pathType: Prefix
             backend:

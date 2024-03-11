@@ -9,11 +9,12 @@ configurations:
 
 patches:
 - path: ./resources/configmaps/common-config.yaml
+- path: ./resources/configmaps/environment-provider-worker.yaml
 - path: ./resources/configmaps/suite-runner.yaml
 - path: ./resources/configmaps/suite-starter.yaml
 - target:
     kind: Deployment
-    name: etos-(api|suite-starter)
+    name: etos-(api|suite-starter|environment-provider|environment-provider-worker)
   patch: |-
     - op: add
       path: /spec/template/spec/containers/0/envFrom/-
@@ -29,6 +30,23 @@ patches:
       value:
         configMapRef:
           name: etos-suite-starter
+- target:
+    kind: Deployment
+    name: etos-(environment-provider|environment-provider-worker)
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/envFrom/-
+      value:
+        secretRef:
+          name: etos-database
+    - op: add
+      path: /spec/template/spec/containers/0/envFrom/-
+      value:
+        configMapRef:
+          name: etos-environment-provider-worker
+    - op: add
+      path: /spec/template/spec/terminationGracePeriodSeconds
+      value: 4250
 
 configMapGenerator:
   - name: etos

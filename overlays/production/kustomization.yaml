@@ -102,9 +102,14 @@ generatorOptions:
     app.kubernetes.io/instance: etos-production
 
 components:
-  - ../../components/base
+  # TODO: Flip these on next release
+  # - ../../components/base
+  - ../../components/oldbase
+  # TODO: Flip these on next release
+  # - ../../components/autoscaling
+  - ../../components/oldautoscaling
+
   - ../../components/filebeat
-  - ../../components/autoscaling
   - ../../components/rabbitmq
   - ../../components/encryption
   - ../../components/user-logs

@@ -34,9 +34,6 @@ patches:
     name: (etos|etos-suite-runner)
   patch: |-
     - op: add
-      path: /data/ETOS_ENVIRONMENT_PROVIDER
-      value: http://etos.etos-dev.k8s.axis.com/environment-provider
-    - op: add
       path: /data/ETOS_API
       value: http://etos.etos-dev.k8s.axis.com/api
     - op: add

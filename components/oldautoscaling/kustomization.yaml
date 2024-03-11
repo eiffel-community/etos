@@ -4,7 +4,11 @@ kind: Component
 resources:
 - autoscalers/api.yaml
 - autoscalers/suite-starter.yaml
+- autoscalers/environment-provider.yaml
+- autoscalers/environment-provider-worker.yaml
 
 patches:
   - path: patches/api.yaml
   - path: patches/suite-starter.yaml
+  - path: patches/environment-provider.yaml
+  - path: patches/environment-provider-worker.yaml
