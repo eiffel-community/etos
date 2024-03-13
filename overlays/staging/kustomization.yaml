@@ -107,5 +107,3 @@ components:
   - ../../components/providers
   # A generated configmap named 'reload' must be created for the reloader.
   - ../../components/reloader
-  - ../../components/firmware-flasher
-  - ../../components/cleaning-crew
