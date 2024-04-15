@@ -3,9 +3,7 @@ kind: Kustomization
 namespace: etos-production
 
 resources:
-  # TODO: Remove this configmap when a new ETOS release adds it.
-  - ./configmap.yaml
-  - github.com/eiffel-community/etos//manifests/release?ref=6.2.0
+  - github.com/eiffel-community/etos//manifests/release?ref=6.3.0
   - ./namespace.yaml
   - ./resources/secrets/elasticsearch-password.yaml
   - ./resources/secrets/rabbitmq-secret.yaml
@@ -35,9 +33,6 @@ patches:
     kind: ConfigMap
     name: (etos|etos-suite-runner)
   patch: |-
-    - op: add
-      path: /data/ETOS_ENVIRONMENT_PROVIDER
-      value: http://etos.etos.k8s.axis.com/environment-provider
     - op: add
       path: /data/ETOS_API
       value: http://etos.etos.k8s.axis.com/api
@@ -102,12 +97,8 @@ generatorOptions:
     app.kubernetes.io/instance: etos-production
 
 components:
-  # TODO: Flip these on next release
-  # - ../../components/base
-  - ../../components/oldbase
-  # TODO: Flip these on next release
-  # - ../../components/autoscaling
-  - ../../components/oldautoscaling
+  - ../../components/base
+  - ../../components/autoscaling
 
   - ../../components/filebeat
   - ../../components/rabbitmq
