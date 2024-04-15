@@ -34,9 +34,6 @@ patches:
     name: (etos|etos-suite-runner)
   patch: |-
     - op: add
-      path: /data/ETOS_ENVIRONMENT_PROVIDER
-      value: http://etos.etos-staging.k8s.axis.com/environment-provider
-    - op: add
       path: /data/ETOS_API
       value: http://etos.etos-staging.k8s.axis.com/api
     - op: add
@@ -92,12 +89,8 @@ generatorOptions:
     app.kubernetes.io/instance: etos-staging
 
 components:
-  # TODO: Flip these on next release
-  # - ../../components/base
-  - ../../components/oldbase
-  # TODO: Flip these on next release
-  # - ../../components/autoscaling
-  - ../../components/oldautoscaling
+  - ../../components/base
+  - ../../components/autoscaling
 
   - ../../components/filebeat
   - ../../components/rabbitmq
