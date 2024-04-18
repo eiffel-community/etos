@@ -9,7 +9,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: etos-api
-  minReplicas: 2
+  minReplicas: 3
   maxReplicas: 100
   metrics:
     - type: Resource
@@ -17,7 +17,7 @@ spec:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 75
+          averageUtilization: 50
     - type: Resource
       resource:
         name: cpu
