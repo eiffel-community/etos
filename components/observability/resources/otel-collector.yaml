@@ -4,10 +4,6 @@ metadata:
   name: sidecar-otel
 spec:
   mode: sidecar
-  observability:
-    metrics:
-      enableMetrics: false
-      DisablePrometheusAnnotaions: true
   config: |
     receivers:
       otlp:
@@ -44,10 +40,6 @@ metadata:
   name: static-otel
 spec:
   mode: statefulset
-  observability:
-    metrics:
-      enableMetrics: false
-      DisablePrometheusAnnotaions: true
   config: |
     receivers:
       otlp:
