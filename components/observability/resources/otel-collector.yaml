@@ -29,10 +29,6 @@ spec:
           receivers: [otlp]
           processors: []
           exporters: [otlp]
-        metrics:
-          receivers: [otlp]
-          processors: []
-          exporters: [otlp]
         logs:
           receivers: [otlp]
           processors: []
@@ -66,10 +62,6 @@ spec:
           level: "debug"
       pipelines:
         traces:
-          receivers: [otlp]
-          processors: []
-          exporters: [otlp]
-        metrics:
           receivers: [otlp]
           processors: []
           exporters: [otlp]
