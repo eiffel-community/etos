@@ -75,6 +75,11 @@ data:
               mountPath: /graveyard
             - name: kubexit
               mountPath: /kubexit
+            resources:
+              limits:
+                memory: 300Mi
+              requests:
+                memory: 150Mi
           - name: etos-log-listener
             image: {log_listener}
             imagePullPolicy: Always
