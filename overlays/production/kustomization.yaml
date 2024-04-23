@@ -97,10 +97,10 @@ generatorOptions:
     app.kubernetes.io/instance: etos-production
 
 components:
-  - ../../components/base
+  - ../../components/oldbase
   - ../../components/autoscaling
 
-  - ../../components/filebeat
+  - ../../components/oldfilebeat
   - ../../components/rabbitmq
   - ../../components/encryption
   - ../../components/user-logs

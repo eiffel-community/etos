@@ -46,9 +46,8 @@ patches:
     name: etos-suite-starter
   patch: |-
     - op: add
+      path: /data/ETOS_SIDECAR_ENABLED
+      value: "true"
+    - op: add
       path: /data/ETOS_SIDECAR_IMAGE
       value: docker.elastic.co/beats/filebeat:7.10.1
-- target:
-    kind: ConfigMap
-    name: etos-suite-runner-template
-  path: ./suite-runner-template.yaml

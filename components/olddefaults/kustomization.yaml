@@ -4,7 +4,7 @@ kind: Component
 patches:
 - target:
     kind: Deployment
-    name: etos-(api|environment-provider|environment-provider-worker)
+    name: etos-(api|suite-starter|environment-provider|environment-provider-worker)
   patch: |-
     - op: add
       path: /spec/template/spec/containers/0/envFrom
