@@ -6,7 +6,6 @@ spec:
   mode: sidecar
   observability:
     metrics:
-      enableMetrics: false
       DisablePrometheusAnnotations: true
   config: |
     receivers:
@@ -42,7 +41,6 @@ spec:
   mode: statefulset
   observability:
     metrics:
-      enableMetrics: false
       DisablePrometheusAnnotations: true
   config: |
     receivers:
