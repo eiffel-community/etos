@@ -90,13 +90,13 @@ generatorOptions:
     app.kubernetes.io/instance: etos-staging
 
 components:
-  - ../../components/oldbase
+  - ../../components/base
   # Reloader generates a configmap that we can merge in reloadable items to.
   # The reloader component should be loaded before any that want to merge.
   - ../../components/reloader
 
   - ../../components/autoscaling
-  - ../../components/oldfilebeat
+  - ../../components/filebeat
   - ../../components/rabbitmq
   - ../../components/encryption
   - ../../components/user-logs
