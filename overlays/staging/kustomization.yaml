@@ -75,6 +75,7 @@ configMapGenerator:
     files:
     - ./filebeat.yml
   - name: reload
+    behavior: merge
     files:
     - ./resources/secrets/database-secret.yaml
     - ./resources/secrets/rabbitmq-secret.yaml
@@ -90,14 +91,15 @@ generatorOptions:
 
 components:
   - ../../components/oldbase
-  - ../../components/autoscaling
+  # Reloader generates a configmap that we can merge in reloadable items to.
+  # The reloader component should be loaded before any that want to merge.
+  - ../../components/reloader
 
+  - ../../components/autoscaling
   - ../../components/oldfilebeat
   - ../../components/rabbitmq
   - ../../components/encryption
   - ../../components/user-logs
   # Provider sealed secrets need to have been created
   - ../../components/providers
-  # A generated configmap named 'reload' must be created for the reloader.
-  - ../../components/reloader
   - ../../components/observability
