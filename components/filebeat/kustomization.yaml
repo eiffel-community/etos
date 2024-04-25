@@ -52,3 +52,10 @@ patches:
     kind: ConfigMap
     name: etos-suite-runner-template
   path: ./suite-runner-template.yaml
+
+
+configMapGenerator:
+  - name: reload
+    behavior: merge
+    files:
+    - ./suite-runner-template.yaml
