@@ -124,7 +124,7 @@ data:
             - name: graveyard
               mountPath: /graveyard
             - name: kubexit
-              mountPath /kubexit
+              mountPath: /kubexit
             resources:
               limits:
                 cpu: 250m
