@@ -13,6 +13,7 @@
    Code rules <coderules>
    Roles <roles/index>
    Services <services/index>
+   SSE Protocol <sse>
 
    License <license>
    Authors <authors>
