@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: etos-production
 
 resources:
-  - github.com/eiffel-community/etos//manifests/release?ref=6.3.0
+  - github.com/eiffel-community/etos//manifests/release?ref=6.4.0
   - ./namespace.yaml
   - ./resources/secrets/elasticsearch-password.yaml
   - ./resources/secrets/rabbitmq-secret.yaml
@@ -50,14 +50,6 @@ patches:
       path: /data/RABBITMQ_ROUTING_KEY
       value: eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.etos-prod.*
 - target:
-    kind: ConfigMap
-    name: etos-environment-provider-worker
-  # TODO: This patch shall be removed on the next ETOS release
-  patch: |-
-    - op: replace
-      path: /data/ETR_VERSION
-      value: 3.4.0
-- target:
     kind: Ingress
     name: etos
   patch: |-
@@ -98,13 +90,13 @@ generatorOptions:
     app.kubernetes.io/instance: etos-production
 
 components:
-  - ../../components/oldbase
+  - ../../components/base
   # Reloader generates a configmap that we can merge in reloadable items to.
   # The reloader component should be loaded before any that want to merge.
   - ../../components/reloader
 
   - ../../components/autoscaling
-  - ../../components/oldfilebeat
+  - ../../components/filebeat
   - ../../components/rabbitmq
   - ../../components/encryption
   - ../../components/user-logs
