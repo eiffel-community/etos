@@ -96,7 +96,7 @@ components:
   - ../../components/reloader
 
   - ../../components/autoscaling
-  - ../../components/filebeat
+  - ../../components/filebeat-opentelemetry
   - ../../components/rabbitmq
   - ../../components/encryption
   - ../../components/user-logs

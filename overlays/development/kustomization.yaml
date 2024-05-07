@@ -39,6 +39,9 @@ patches:
     - op: add
       path: /data/ETOS_ROUTING_KEY_TAG
       value: etos-dev
+    - op: add
+      path: /data/OTEL_COLLECTOR_HOST
+      value: static-otel-collector.etos-development.svc.cluster.local:4317
 - target:
     kind: ConfigMap
     name: etos-suite-starter
@@ -49,6 +52,9 @@ patches:
     - op: replace
       path: /data/RABBITMQ_ROUTING_KEY
       value: eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.etos-dev.*
+    - op: add
+      path: /data/ETOS_OBSERVABILITY_CONFIGMAP
+      value: etos-observability
 - target:
     kind: Ingress
     name: etos
@@ -92,7 +98,7 @@ generatorOptions:
 components:
   - ../../components/base
   - ../../components/reloader
-  - ../../components/filebeat
+  - ../../components/filebeat-opentelemetry
   - ../../components/autoscaling
   - ../../components/rabbitmq
   - ../../components/encryption

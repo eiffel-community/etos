@@ -1,0 +1,147 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etos-suite-runner-template
+data:
+  suite_runner_template.yaml: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: {job_name}
+      labels:
+        app: suite-runner
+        id: {suite_id}
+    spec:
+      ttlSecondsAfterFinished: {ttl}
+      template:
+        metadata:
+          name: {job_name}
+        spec:
+          terminationGracePeriodSeconds: {termination_grace_period}
+          volumes:
+          - name: shared-logs
+            emptyDir: {{}}
+          - name: filebeat-config
+            configMap:
+              name: sidecar-config
+          - name: kubexit
+            emptyDir: {{}}
+          - name: graveyard
+            emptyDir:
+              medium: Memory
+          initContainers:
+          - name: kubexit
+            image: karlkfi/kubexit:latest
+            command: ["cp", "/bin/kubexit", "/kubexit/kubexit"]
+            volumeMounts:
+            - mountPath: /kubexit
+              name: kubexit
+          - name: create-queue
+            image: {log_listener}
+            command: ["python", "-u", "-m", "create_queue"]
+            envFrom:
+            - configMapRef:
+                name: {etos_configmap}
+            - secretRef:
+                name: {etos_rabbitmq_secret}
+            env:
+            - name: TERCC
+              value: '{EiffelTestExecutionRecipeCollectionCreatedEvent}'
+          serviceAccountName: etos-sa
+          containers:
+          - name: {job_name}
+            image: {docker_image}
+            imagePullPolicy: Always
+            command: ['/kubexit/kubexit']
+            args: ['python', '-u', '-m', 'etos_suite_runner']
+            envFrom:
+            - configMapRef:
+                name: {etos_configmap}
+            - secretRef:
+                name: {etos_rabbitmq_secret}
+            - configMapRef:
+                name: {etos_observability_configmap}
+            env:
+            - name: TERCC
+              value: '{EiffelTestExecutionRecipeCollectionCreatedEvent}'
+            - name: Tobias
+              value: testar
+            - name: KUBEXIT_NAME
+              value: esr
+            - name: KUBEXIT_GRAVEYARD
+              value: /graveyard
+            - name: OTEL_CONTEXT
+              value: {otel_context}
+            - name: OTEL_COLLECTOR_HOST
+              value: {otel_collector_host}
+            volumeMounts:
+            - name: shared-logs
+              mountPath: /home/etos/logs
+            - name: graveyard
+              mountPath: /graveyard
+            - name: kubexit
+              mountPath: /kubexit
+            resources:
+              limits:
+                memory: 300Mi
+              requests:
+                memory: 150Mi
+          - name: etos-log-listener
+            image: {log_listener}
+            imagePullPolicy: Always
+            command: ['/kubexit/kubexit']
+            args: ['python', '-u', '-m', 'log_listener']
+            envFrom:
+            - configMapRef:
+                name: {etos_configmap}
+            - secretRef:
+                name: {etos_rabbitmq_secret}
+            env:
+            - name: TERCC
+              value: '{EiffelTestExecutionRecipeCollectionCreatedEvent}'
+            - name: KUBEXIT_NAME
+              value: log_listener
+            - name: KUBEXIT_GRACE_PERIOD
+              value: '400s' # needs to be greater than grace period of the container
+            - name: KUBEXIT_GRAVEYARD
+              value: /graveyard
+            - name: KUBEXIT_DEATH_DEPS
+              value: esr
+            volumeMounts:
+            - name: graveyard
+              mountPath: /graveyard
+            - name: kubexit
+              mountPath: /kubexit
+          - name: sidecar
+            image: {sidecar_image}
+            command: ['/kubexit/kubexit']
+            args: ['/usr/local/bin/docker-entrypoint', '-environment', 'container']
+            env:
+            - name: KUBEXIT_NAME
+              value: sidecar
+            - name: KUBEXIT_GRACE_PERIOD
+              value: '400s'
+            - name: KUBEXIT_GRAVEYARD
+              value: /graveyard
+            - name: KUBEXIT_DEATH_DEPS
+              value: esr
+            volumeMounts:
+            - name: shared-logs
+              mountPath: /usr/share/filebeat/logs
+            - name: filebeat-config
+              mountPath: /usr/share/filebeat/filebeat.yml
+              readOnly: true
+              subPath: filebeat.yml
+            - name: graveyard
+              mountPath: /graveyard
+            - name: kubexit
+              mountPath: /kubexit
+            resources:
+              limits:
+                cpu: 250m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+          restartPolicy: Never
+      backoffLimit: 0
