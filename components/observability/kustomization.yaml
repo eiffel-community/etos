@@ -9,7 +9,7 @@ resources:
 patches:
 - target:
     kind: Deployment
-    name: etos-api
+    name: (etos-api|etos-suite-starter)
   patch: |-
     - op: add
       path: /spec/template/metadata/annotations
@@ -19,7 +19,7 @@ patches:
       value: "true"
 - target:
     kind: Deployment
-    name: etos-api
+    name: (etos-api|etos-suite-starter)
   patch: |-
     - op: add
       path: /spec/template/spec/containers/0/envFrom/-
