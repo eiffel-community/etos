@@ -6,7 +6,7 @@ Database structure
 
 Since the change to using ETCD as a database and to use it more widely in ETOS we have created a table of paths that we are using in ETCD.
 
-.. list-table:: Title
+.. list-table:: Database
   :widths: 50 50
   :header-rows: 1
 
