@@ -14,6 +14,7 @@
    Roles <roles/index>
    Services <services/index>
    SSE Protocol <sse>
+   Database <database>
 
    License <license>
    Authors <authors>
