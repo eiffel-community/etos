@@ -69,6 +69,14 @@ patches:
                   name: etos-firmware-flasher
                   port:
                     number: 80
+- target:
+    kind: StatefulSet
+    name: etcd
+  patch: |-
+    - op: replace
+      path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+      value: 100Gi
+
 
 configMapGenerator:
   - name: etos-filebeat-config
