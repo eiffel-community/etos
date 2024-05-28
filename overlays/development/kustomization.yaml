@@ -31,6 +31,13 @@ patches:
       value: etos-development
 - target:
     kind: ConfigMap
+    name: (etos-suite-runner|etos-suite-starter|etos-api)
+  patch: |-
+    - op: add
+      path: /data/DEV
+      value: "true"
+- target:
+    kind: ConfigMap
     name: (etos|etos-suite-runner)
   patch: |-
     - op: add

@@ -9,6 +9,7 @@ configurations:
 
 patches:
 - path: ./resources/configmaps/common-config.yaml
+- path: ./resources/configmaps/api.yaml
 - path: ./resources/configmaps/suite-runner.yaml
 - path: ./resources/configmaps/suite-starter.yaml
 - target:
