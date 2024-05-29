@@ -86,6 +86,6 @@ class Announcer:  # pylint:disable=too-few-public-methods
             self.logger.info("Waiting for sub suites to start.")
             return
 
-        self.logger.info(self.__build_announcement(events))
+        # self.logger.info(self.__build_announcement(events))
         if logs:
             self.logger.info("Downloaded a total of %d logs from test runners", len(logs))
