@@ -77,14 +77,14 @@ class TestRun:
         last_log = time.time()
         timer = None
         for _ in self.__log_until_eof(etos, end):
-            if last_log + self.log_interval <= time.time():
-                events = self.__collect(etos)
-                last_log = time.time()
+            if last_log + self.log_interval >= time.time():
+                events = self.__collector.collect_activity(etos.response.tercc)
                 self.__status(events)
             else:
                 events = self.__collect(etos)
                 self.__announce(events)
                 self.__download(events)
+                last_log = time.time()
             if events.activity.finished and timer is None:
                 timer = time.time() + 300  # 5 minutes
             if timer and time.time() >= timer:
