@@ -4,16 +4,12 @@ metadata:
   name: sidecar-otel
 spec:
   mode: sidecar
-  observability:
-    metrics:
-      DisablePrometheusAnnotations: true
   config: |
     receivers:
       otlp:
         protocols:
-          grpc:
-          http:
-    processors:
+          grpc: {}
+          http: {}
     exporters:
       otlp:
         endpoint: jaeger-collector-headless.observability.svc.cluster.local:4317
@@ -22,16 +18,20 @@ spec:
     service:
       telemetry:
         logs:
-          level: "debug"
+          level: debug
       pipelines:
-        traces:
-          receivers: [otlp]
-          processors: []
-          exporters: [otlp]
         logs:
-          receivers: [otlp]
+          exporters:
+            - otlp
           processors: []
-          exporters: [otlp]
+          receivers:
+            - otlp
+        traces:
+          exporters:
+            - otlp
+          processors: []
+          receivers:
+            - otlp
 ---
 apiVersion: opentelemetry.io/v1alpha1
 kind: OpenTelemetryCollector
@@ -39,16 +39,12 @@ metadata:
   name: static-otel
 spec:
   mode: statefulset
-  observability:
-    metrics:
-      DisablePrometheusAnnotations: true
   config: |
     receivers:
       otlp:
         protocols:
-          grpc:
-          http:
-    processors:
+          grpc: {}
+          http: {}
     exporters:
       otlp:
         endpoint: jaeger-collector-headless.observability.svc.cluster.local:4317
@@ -57,13 +53,17 @@ spec:
     service:
       telemetry:
         logs:
-          level: "debug"
+          level: debug
       pipelines:
-        traces:
-          receivers: [otlp]
-          processors: []
-          exporters: [otlp]
         logs:
-          receivers: [otlp]
+          exporters:
+            - otlp
           processors: []
-          exporters: [otlp]
+          receivers:
+            - otlp
+        traces:
+          exporters:
+            - otlp
+          processors: []
+          receivers:
+            - otlp
