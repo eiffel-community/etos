@@ -118,7 +118,6 @@ class TestRun:
 
     def __announce(self, events: Events) -> None:
         """Announce current state of ETOS."""
-        # events = self.__collector.collect_test_case_events()
         self.__announcer.announce(events, self.__downloader.downloads)
 
     def __download(self, events: Events) -> None:
