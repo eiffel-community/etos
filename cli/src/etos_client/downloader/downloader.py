@@ -18,7 +18,7 @@ import logging
 import time
 import traceback
 from pathlib import Path
-from typing import Union, Optional
+from typing import Union
 from threading import Thread, Lock
 from multiprocessing.pool import ThreadPool
 from queue import Queue, Empty
@@ -29,9 +29,9 @@ from urllib3.exceptions import MaxRetryError, NewConnectionError
 from urllib3.util import Retry
 import requests
 from requests.exceptions import HTTPError
+import jmespath
 
 from etos_lib.lib.http import Http
-from etos_client.events.events import Artifact, TestSuite, SubSuite
 
 
 HTTP_RETRY_PARAMETERS = Retry(
@@ -46,11 +46,27 @@ HTTP_RETRY_PARAMETERS = Retry(
 )
 
 
+class Filter(BaseModel):
+    """Filter for logs and artifacts."""
+
+    source: str
+    jmespath: str
+
+
 class Downloadable(BaseModel):
     """Represent a downloadable file."""
 
-    uri: str
-    name: Optional[Path]
+    url: str
+    name: list[Filter]
+    path: Path = Path.cwd()
+
+
+class Directory(BaseModel):
+    """Represent a directory of files."""
+
+    name: str
+    logs: list[Downloadable]
+    artifacts: list[Downloadable]
 
 
 class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
@@ -78,7 +94,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         """Download files."""
         self.logger.debug("Downloading %r", item)
         # retry rules are set in the Http client
-        response = self.__http.get(item.uri, stream=True)
+        response = self.__http.get(item.url, stream=True)
         if self.__download_ok(response):
             self.__save_file(item, response)
             self.logger.debug("Item downloaded %r", item)
@@ -88,17 +104,42 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         self.logger.critical("Failed to download %r", item)
         return
 
+    def __apply_filter(self, item: Downloadable, response: requests.Response) -> str:
+        """Apply name filter to downloaded item."""
+        name = []
+        try:
+            response_json = (
+                response.json()
+                if response.headers.get("content-type") == "application/json"
+                else None
+            )
+        except JSONDecodeError:
+            # If a file ends in .json it will be interpreted as json, but it might not be valid.
+            response_json = None
+        sources = {"response": response_json, "headers": response.headers}
+
+        for name_filter in item.name:
+            source = sources.get(name_filter.source)
+            if source is None:
+                raise ValueError(f"Filter source {name_filter.source} not found.")
+            name.append(jmespath.search(name_filter.jmespath, source))
+        return "/".join(name)
+
     def __save_file(self, item: Downloadable, response: requests.Response) -> None:
         """Save downloaded file data to disk."""
-        download_name = item.name
+        download_name = self.__apply_filter(item, response)
+        download_path = item.path.joinpath(download_name)
+        if not download_path.parent.exists():
+            with self.__lock:
+                download_path.parent.mkdir(exist_ok=True, parents=True)
         index = 0
-        while download_name.exists():
+        while download_path.exists():
             index += 1
-            download_name = download_name.with_name(f"{index}_{item.name.name}")
-        self.logger.debug("Saving file %s", download_name)
+            download_path = download_path.with_name(f"{index}_{download_path.name}")
+        self.logger.debug("Saving file %s", download_path)
         with self.__lock:
-            self.downloads.add(download_name)
-        with open(download_name, "wb+") as report:
+            self.downloads.add(str(download_path))
+        with open(download_path, "wb+") as report:
             for chunk in response:
                 report.write(chunk)
 
@@ -175,32 +216,30 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
 
     def __queue_download(self, item: Downloadable) -> None:
         """Queue a downloadable for download."""
-        if item.uri not in self.__queued:
+        if item.url not in self.__queued:
             self.__download_queue.put_nowait(item)
-            self.__queued.append(item.uri)
+            self.__queued.append(item.url)
 
-    def download_artifacts(self, artifacts: list[Artifact]) -> None:
+    def __download_artifacts(self, artifacts: list[Downloadable], path: Path) -> None:
         """Download artifacts to an artifact path."""
         for artifact in artifacts:
-            for _file in artifact.files:
-                filepath = self.__artifact_dir.joinpath(f"{artifact.suite_name}").relative_to(
-                    Path.cwd()
-                )
-                filepath.mkdir(exist_ok=True)
-                filepath = filepath.joinpath(_file)
-                self.__queue_download(
-                    Downloadable(uri=f"{artifact.location}/{_file}", name=filepath)
-                )
+            artifact.path = path
+            self.__queue_download(artifact)
 
-    def download_logs(self, test_suites: Union[list[TestSuite], list[SubSuite]]) -> None:
+    def __download_logs(self, logs: list[Downloadable], path: Path) -> None:
         """Download logs from test suites to report path."""
-        for test_suite in test_suites:
-            if not test_suite.finished:
-                return
-            data = test_suite.finished.get("data", {})
-            logs = data.get("testSuitePersistentLogs", [])
-            for log in logs:
-                filepath = self.__report_dir.joinpath(log["name"]).relative_to(Path.cwd())
-                self.__queue_download(Downloadable(uri=log["uri"], name=filepath))
-            if isinstance(test_suite, TestSuite):
-                self.download_logs(test_suite.sub_suites)
+        for log in logs:
+            log.path = path
+            self.__queue_download(log)
+
+    def download_files(self, directory: Directory):
+        """Download logs and artifacts from a directory."""
+        reports = self.__report_dir.relative_to(Path.cwd())
+        artifacts = self.__artifact_dir.relative_to(Path.cwd()).joinpath(directory.name)
+        self.__download_logs(directory.logs, reports)
+        self.__download_artifacts(directory.artifacts, artifacts)
+
+    def download_directories(self, directories: dict):
+        """Download logs and artifacts from directories."""
+        for name, directory in directories.items():
+            self.download_files(Directory(name=name, **directory))

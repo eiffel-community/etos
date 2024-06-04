@@ -19,8 +19,7 @@ from json import JSONDecodeError
 from typing import Union
 
 import requests
-from requests.exceptions import HTTPError, Timeout
-from urllib3.exceptions import MaxRetryError, NewConnectionError
+from requests.exceptions import HTTPError
 from urllib3.util import Retry
 
 from etos_lib.lib.http import Http

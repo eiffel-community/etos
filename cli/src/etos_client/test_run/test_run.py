@@ -19,7 +19,10 @@ import sys
 import time
 from typing import Iterator
 
-from etos_client.announcer import Announcer
+from urllib3.util import Retry
+from etos_lib.lib.http import Http
+from requests.exceptions import HTTPError
+
 from etos_client.downloader import Downloader
 from etos_client.etos import ETOS
 from etos_client.etos.schema import ResponseSchema
@@ -28,7 +31,16 @@ from etos_client.events.events import Events
 from etos_client.sse.client import SSEClient
 from etos_client.sse.protocol import Message, Ping
 
-MINUTE = 60
+
+HTTP_RETRY_PARAMETERS = Retry(
+    total=None,
+    read=0,
+    connect=2,
+    status=2,
+    backoff_factor=1,
+    other=0,
+    status_forcelist=list(Retry.RETRY_AFTER_STATUS_CODES),
+)
 
 
 class TestRun:
@@ -46,9 +58,9 @@ class TestRun:
         """Initialize."""
         assert downloader.started, "Downloader must be started before it can be used in TestRun"
 
+        self.__http = Http(retry=HTTP_RETRY_PARAMETERS)
         self.__collector = collector
         self.__downloader = downloader
-        self.__announcer = Announcer()
 
     def setup_logging(self, loglevel: int) -> None:
         """Set up logging for ETOS remote logs."""
@@ -80,13 +92,11 @@ class TestRun:
             if last_log + self.log_interval >= time.time():
                 events = self.__collector.collect_activity(etos.response.tercc)
                 self.__status(events)
-            else:
-                events = self.__collect(etos)
                 self.__announce(events)
-                self.__download(events)
                 last_log = time.time()
-            if events.activity.finished and timer is None:
-                timer = time.time() + 300  # 5 minutes
+                if events.activity.finished and timer is None:
+                    timer = time.time() + 300  # 5 minutes
+            self.__download(etos)
             if timer and time.time() >= timer:
                 self.logger.warning("ETOS finished, but did not shut down the log server.")
                 self.logger.warning(
@@ -95,8 +105,8 @@ class TestRun:
                 )
                 break
         self.__wait(etos, end)
-        events = self.__collect(etos)
-        self.__download(events)
+        self.__download(etos)
+        events = self.__collector.collect(etos.response.tercc)
         self.__announce(events)
         return events
 
@@ -118,17 +128,27 @@ class TestRun:
 
     def __announce(self, events: Events) -> None:
         """Announce current state of ETOS."""
-        self.__announcer.announce(events, self.__downloader.downloads)
+        if not events.tercc:
+            self.logger.info("Waiting for ETOS to start.")
+            return
+        if not events.activity.triggered:
+            self.logger.info("Waiting for ETOS to start.")
+            return
+        if self.__downloader.downloads:
+            self.logger.info(
+                "Downloaded a total of %d logs from test runners", len(self.__downloader.downloads)
+            )
 
-    def __download(self, events: Events) -> None:
+    def __download(self, etos: ETOS) -> None:
         """Download logs and artifacts."""
-        if events.main_suites:
-            self.__downloader.download_logs(events.main_suites)
-        self.__downloader.download_artifacts(events.artifacts)
-
-    def __collect(self, etos: ETOS) -> Events:
-        """Collect events from ETOS."""
-        return self.__collector.collect(etos.response.tercc)
+        response = self.__http.get(f"{etos.cluster}/api/v1alpha/logarea/{etos.response.tercc}")
+        try:
+            response.raise_for_status()
+        except HTTPError as error:
+            self.logger.warning("Got an HTTP error: %r when listing logs from log area", error)
+            return
+        directories = response.json()
+        self.__downloader.download_directories(directories)
 
     def __log(self, message: Message) -> None:
         """Log a message from the ETOS log API."""
@@ -140,7 +160,6 @@ class TestRun:
                 "rtime": message.datestring,
             },
         )
-        self.__last_log = time.time()
 
     def __log_until_eof(self, etos: ETOS, endtime: int) -> Iterator[Ping]:
         """Log from the ETOS log API until finished."""
