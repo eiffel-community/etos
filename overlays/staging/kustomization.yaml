@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: etos-staging
 
 resources:
-  - github.com/eiffel-community/etos//manifests/release
+  - github.com/eiffel-community/etos//manifests/release?ref=6.5.0
   - ./namespace.yaml
   - ./resources/secrets/elasticsearch-password.yaml
   - ./resources/secrets/rabbitmq-secret.yaml
