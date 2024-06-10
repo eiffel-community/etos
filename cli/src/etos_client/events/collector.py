@@ -140,9 +140,8 @@ class Collector:  # pylint:disable=too-few-public-methods
                     )
         return artifacts
 
-    def collect(self, tercc_id: UUID) -> Events:
-        """Collect events from ETOS."""
-        activity_id = None
+    def collect_activity(self, tercc_id: UUID) -> Events:
+        """Collect activity events from ETOS."""
         self.__events.tercc = self.__tercc(tercc_id)
         if self.__events.tercc is None:
             return self.__events
@@ -150,6 +149,14 @@ class Collector:  # pylint:disable=too-few-public-methods
         self.__events.activity = self.__activity(tercc_id)
         if self.__events.activity.triggered is None:
             return self.__events
+        return self.__events
+
+    def collect(self, tercc_id: UUID) -> Events:
+        """Collect events from ETOS."""
+        if self.__events.activity.triggered is None:
+            events = self.collect_activity(tercc_id)
+            if events.activity.triggered is None:
+                return self.__events
         activity_id = UUID(self.__events.activity.triggered["meta"]["id"], version=4)
         self.__events.main_suites = self.__main_test_suites(activity_id)
         self.__events.artifacts.clear()

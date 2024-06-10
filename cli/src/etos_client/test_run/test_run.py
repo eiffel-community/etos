@@ -36,11 +36,11 @@ class TestRun:
 
     logger = logging.getLogger(__name__)
     remote_logger = logging.getLogger("ETOS")
-    __last_log: int
-    # This log interval is not a guarantee as it depends on several
+
+    # The log interval is not a guarantee as it depends on several
     # factors, such as the SSE log listener which has its own Ping
     # interval.
-    log_interval = 30
+    log_interval = 120
 
     def __init__(self, collector: Collector, downloader: Downloader) -> None:
         """Initialize."""
@@ -74,13 +74,17 @@ class TestRun:
         end = time.time() + timeout
 
         self.__log_debug_information(etos.response)
-        self.__last_log = time.time()
+        last_log = time.time()
         timer = None
         for _ in self.__log_until_eof(etos, end):
-            events = self.__collect(etos)
-            self.__status(events)
-            self.__announce()
-            self.__download(events)
+            if last_log + self.log_interval >= time.time():
+                events = self.__collector.collect_activity(etos.response.tercc)
+                self.__status(events)
+            else:
+                events = self.__collect(etos)
+                self.__announce(events)
+                self.__download(events)
+                last_log = time.time()
             if events.activity.finished and timer is None:
                 timer = time.time() + 300  # 5 minutes
             if timer and time.time() >= timer:
@@ -93,31 +97,28 @@ class TestRun:
         self.__wait(etos, end)
         events = self.__collect(etos)
         self.__download(events)
-        self.__announce(force=True)
+        self.__announce(events)
         return events
 
     def __wait(self, etos: ETOS, timeout: int) -> None:
         """Wait for ETOS to finish its activity."""
-        events = self.__collect(etos)
+        events = self.__collector.collect_activity(etos.response.tercc)
         while not events.activity.finished:
             self.logger.info("Waiting for ETOS to finish")
             self.__status(events)
             time.sleep(5)
             if time.time() >= timeout:
                 raise TimeoutError("ETOS did not complete in 24 hours. Exiting")
-            events = self.__collect(etos)
+            events = self.__collector.collect_activity(etos.response.tercc)
 
     def __status(self, events: Events) -> None:
         """Check if ETOS test run has been canceled."""
         if events.activity.canceled:
             raise SystemExit(events.activity.canceled["data"]["reason"])
 
-    def __announce(self, force: bool = False) -> None:
+    def __announce(self, events: Events) -> None:
         """Announce current state of ETOS."""
-        if force or self.__last_log + self.log_interval <= time.time():
-            events = self.__collector.collect_test_case_events()
-            self.__announcer.announce(events, self.__downloader.downloads)
-            self.__last_log = time.time()
+        self.__announcer.announce(events, self.__downloader.downloads)
 
     def __download(self, events: Events) -> None:
         """Download logs and artifacts."""
