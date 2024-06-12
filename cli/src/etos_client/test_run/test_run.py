@@ -141,7 +141,7 @@ class TestRun:
 
     def __download(self, etos: ETOS) -> None:
         """Download logs and artifacts."""
-        response = self.__http.get(f"{etos.cluster}/api/v1alpha/logarea/{etos.response.tercc}")
+        response = self.__http.get(f"{etos.cluster}/logarea/v1alpha/logarea/{etos.response.tercc}")
         try:
             response.raise_for_status()
         except HTTPError as error:
