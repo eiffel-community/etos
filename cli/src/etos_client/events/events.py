@@ -41,13 +41,6 @@ class TestSuite(BaseModel):
     sub_suites: list[SubSuite] = []
 
 
-class TestCase(BaseModel):
-    """ETOS test case events."""
-
-    finished: Optional[dict] = None
-    canceled: Optional[dict] = None
-
-
 class Events(BaseModel):
     """ETOS events."""
 
