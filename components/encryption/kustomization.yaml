@@ -18,7 +18,7 @@ patches:
     - op: add
       path: /spec/template/spec/containers/0/envFrom
       value:
-        secretRef:
+      - secretRef:
           name: etos-encryption-key
 
 # Update the ESR RabbitMQ secret
