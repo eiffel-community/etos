@@ -28,10 +28,3 @@ spec:
                 name: etos-sse
                 port:
                   number: 80
-          - path: /(logarea)/?(.*)
-            pathType: Prefix
-            backend:
-              service:
-                name: etos-logarea
-                port:
-                  number: 80

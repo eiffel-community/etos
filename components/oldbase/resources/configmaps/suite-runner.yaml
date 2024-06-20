@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etos-suite-runner
+  labels:
+    app.kubernetes.io/name: etos-suite-starter
+data:
+  DEV: "false"
+  ETOS_GRAPHQL_SERVER: https://eiffel-er-prod.se.axis.com/graphql
+  SOURCE_HOST: ETOS
+  ETOS_NAMESPACE: etos-production
+  TZ: "Europe/Stockholm"
+  ENVIRONMENT_PROVIDER_EVENT_DATA_TIMEOUT: "60"
+  ENVIRONMENT_PROVIDER_TEST_SUITE_TIMEOUT: "10"
+  ESR_WAIT_FOR_ENVIRONMENT_TIMEOUT: "43200"  # 12 hours
+  ETOS_WAIT_FOR_IUT_TIMEOUT: "43200"  # 12 hours
+  SUITE_RUNNER: none

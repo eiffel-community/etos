@@ -11,15 +11,6 @@ patches:
       value:
         secretRef:
           name: etos-encryption-key
-- target:
-    kind: Deployment
-    name: etos-logarea
-  patch: |-
-    - op: add
-      path: /spec/template/spec/containers/0/envFrom
-      value:
-        secretRef:
-          name: etos-encryption-key
 
 # Update the ESR RabbitMQ secret
 replacements:
