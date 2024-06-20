@@ -19,10 +19,6 @@ from .events import (
     Events,
     Activity,
     TestSuite,
-    TestCase,
-    SubSuite,
-    Environment,
-    Artifact,
 )
 
 
@@ -62,37 +58,6 @@ class Collector:  # pylint:disable=too-few-public-methods
             test_suites.append(test_suite)
         return test_suites
 
-    def __sub_test_suites(self, main_suite: TestSuite) -> list[SubSuite]:
-        """Collect sub suites for a single main suite."""
-        sub_suites = []
-        collected = {suite.started["meta"]["id"]: suite for suite in main_suite.sub_suites}
-        for started in self.event_repository.request_sub_test_suite_started(
-            self.etos_library, main_suite.started["meta"]["id"]
-        ):
-            if started["meta"]["id"] not in collected:
-                collected[started["meta"]["id"]] = SubSuite(started=started)
-        for test_suite_id, test_suite in collected.items():
-            if test_suite.finished is None:
-                test_suite.finished = self.event_repository.request_test_suite_finished(
-                    self.etos_library, test_suite_id
-                )
-            sub_suites.append(test_suite)
-        return sub_suites
-
-    def __environments(self, activity_id: UUID, test_suites: list[TestSuite]) -> list[Environment]:
-        """Collect environment defined events from an ETOS test run."""
-        ids = [str(activity_id)]
-        for test_suite in test_suites:
-            ids.append(test_suite.started["meta"]["id"])
-            for sub_suite in test_suite.sub_suites:
-                ids.append(sub_suite.started["meta"]["id"])
-        environments = []
-        for environment in self.event_repository.request_environment(self.etos_library, ids):
-            environments.append(
-                Environment(name=environment["data"]["name"], uri=environment["data"]["uri"])
-            )
-        return environments
-
     def __activity(self, tercc_id: UUID) -> Activity:
         """Collect activity events from an ETOS test run."""
         activity = Activity()
@@ -118,28 +83,6 @@ class Collector:  # pylint:disable=too-few-public-methods
         activity.finished = finished
         return activity
 
-    def __artifacts(self, sub_suites: list[SubSuite]) -> list[Artifact]:
-        """Collect artifacts from ETOS."""
-        artifacts = []
-        for sub_suite in sub_suites:
-            sub_suite_id = sub_suite.started["meta"]["id"]
-            for artifact_created in self.event_repository.request_artifacts(
-                self.etos_library, sub_suite_id
-            ):
-                file_names = [
-                    _file["name"] for _file in artifact_created["data"]["fileInformation"]
-                ]
-                suite_name = sub_suite.started["data"]["name"]
-                for _, location in self.etos_library.utils.search(artifact_created, "uri"):
-                    # If the location field in artifactPublished points directly to a file
-                    # then we remove the file name from the URL.
-                    if location.rsplit("/", 1)[1] in file_names:
-                        location = location.rsplit("/", 1)[0]
-                    artifacts.append(
-                        Artifact(files=file_names, suite_name=suite_name, location=location)
-                    )
-        return artifacts
-
     def collect_activity(self, tercc_id: UUID) -> Events:
         """Collect activity events from ETOS."""
         self.__events.tercc = self.__tercc(tercc_id)
@@ -159,43 +102,4 @@ class Collector:  # pylint:disable=too-few-public-methods
                 return self.__events
         activity_id = UUID(self.__events.activity.triggered["meta"]["id"], version=4)
         self.__events.main_suites = self.__main_test_suites(activity_id)
-        self.__events.artifacts.clear()
-        for main_suite in self.__events.main_suites:
-            main_suite.sub_suites = self.__sub_test_suites(main_suite)
-            self.__events.artifacts += self.__artifacts(main_suite.sub_suites)
-        self.__events.environments = self.__environments(activity_id, self.__events.main_suites)
-        return self.__events
-
-    def __collect_test_case_finished(self, sub_suite: dict) -> None:
-        """Collect test case finished events."""
-        try:
-            last_finished = [
-                test_case.finished for test_case in self.__events.test_cases if test_case.finished
-            ][-1]
-        except IndexError:
-            last_finished = None
-        for finished in self.event_repository.request_test_case_finished(
-            self.etos_library, sub_suite.started["meta"]["id"], last_finished
-        ):
-            self.__events.test_cases.append(TestCase(finished=finished))
-
-    def __collect_test_case_canceled(self, sub_suite: dict) -> None:
-        """Collect test case finished events."""
-        try:
-            last_canceled = [
-                test_case.canceled for test_case in self.__events.test_cases if test_case.canceled
-            ][-1]
-        except IndexError:
-            last_canceled = None
-        for canceled in self.event_repository.request_test_case_canceled(
-            self.etos_library, sub_suite.started["meta"]["id"], last_canceled
-        ):
-            self.__events.test_cases.append(TestCase(canceled=canceled))
-
-    def collect_test_case_events(self) -> Events:
-        """Collect test case events from ETOS."""
-        for main_suite in self.__events.main_suites:
-            for sub_suite in main_suite.sub_suites:
-                self.__collect_test_case_finished(sub_suite)
-                self.__collect_test_case_canceled(sub_suite)
         return self.__events

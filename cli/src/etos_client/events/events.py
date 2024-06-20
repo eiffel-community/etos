@@ -26,21 +26,6 @@ class Activity(BaseModel):
     finished: Optional[dict] = None
 
 
-class Environment(BaseModel):
-    """ETOS environment events."""
-
-    name: str
-    uri: Optional[str] = None
-
-
-class Artifact(BaseModel):
-    """ETOS artifact."""
-
-    files: list[str]
-    suite_name: str
-    location: str
-
-
 class SubSuite(BaseModel):
     """ETOS sub suite events."""
 
@@ -56,19 +41,9 @@ class TestSuite(BaseModel):
     sub_suites: list[SubSuite] = []
 
 
-class TestCase(BaseModel):
-    """ETOS test case events."""
-
-    finished: Optional[dict] = None
-    canceled: Optional[dict] = None
-
-
 class Events(BaseModel):
     """ETOS events."""
 
     activity: Activity = Activity()
     tercc: Optional[dict] = None
     main_suites: list[TestSuite] = []
-    environments: list[Environment] = []
-    artifacts: list[Artifact] = []
-    test_cases: list[TestCase] = []
