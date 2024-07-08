@@ -1,0 +1,21 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: etcd-defrag
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: etcd-defrag
+            image: quay.io/coreos/etcd:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              for endpoint in http://etcd-0.etcd:2379 http://etcd-1.etcd:2379 http://etcd-2.etcd:2379; do
+                ETCDCTL_API=3 etcdctl --endpoints=$endpoint defrag
+              done
+          restartPolicy: OnFailure

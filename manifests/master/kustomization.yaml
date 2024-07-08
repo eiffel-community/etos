@@ -7,3 +7,5 @@ resources:
 
 components:
   - ../etcd
+  # Cron job to run defragmentation and prevent the database from taking up unused disk space
+  - ../etcd-defrag
