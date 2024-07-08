@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: etcd-defrag
 spec:
-  schedule: "06 * * * *"
+  schedule: "0 0 * * *"
   jobTemplate:
     spec:
       template:
