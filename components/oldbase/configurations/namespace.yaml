@@ -1,3 +1,0 @@
-namespace:
-- kind: ConfigMap
-  path: data/ETOS_NAMESPACE
