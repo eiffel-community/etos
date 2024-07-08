@@ -98,9 +98,7 @@ generatorOptions:
     app.kubernetes.io/instance: etos-production
 
 components:
-  # TODO:
-  # - ../../components/base
-  - ../../components/oldbase
+  - ../../components/base
   # Reloader generates a configmap that we can merge in reloadable items to.
   # The reloader component should be loaded before any that want to merge.
   - ../../components/reloader
@@ -108,9 +106,7 @@ components:
   - ../../components/autoscaling
   - ../../components/filebeat
   - ../../components/rabbitmq
-  # TODO:
-  # - ../../components/encryption
-  - ../../components/oldencryption
+  - ../../components/encryption
   - ../../components/user-logs
   # Provider sealed secrets need to have been created
   - ../../components/providers
