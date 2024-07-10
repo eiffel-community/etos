@@ -6,5 +6,3 @@ resources:
   - github.com/eiffel-community/etos-api//manifests/base?ref=2.4.1
 components:
   - ../etcd
-  # Cron job to run defragmentation and prevent the database from taking up unused disk space
-  - ../etcd-defrag
