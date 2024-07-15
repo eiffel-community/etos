@@ -39,7 +39,9 @@ spec:
               --initial-cluster-token etcd-cluster-1 \
               --initial-cluster ${PEERS} \
               --initial-cluster-state new \
-              --data-dir /var/run/etcd/default.etcd
+              --data-dir /var/run/etcd/default.etcd \
+              --auto-compaction-mode=revision \
+              --auto-compaction-retention=1
   volumeClaimTemplates:
   - metadata:
       name: data
