@@ -7,4 +7,32 @@ layout:
 - go.kubebuilder.io/v4
 projectName: etos
 repo: github.com/eiffel-community/etos
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: eiffel-community.github.io
+  group: etos
+  kind: TestRun
+  path: github.com/eiffel-community/etos/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: eiffel-community.github.io
+  group: etos
+  kind: Provider
+  path: github.com/eiffel-community/etos/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: eiffel-community.github.io
+  group: etos
+  kind: Environment
+  path: github.com/eiffel-community/etos/api/v1alpha1
+  version: v1alpha1
 version: "3"

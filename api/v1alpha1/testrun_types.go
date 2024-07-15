@@ -1,0 +1,123 @@
+// Copyright Axis Communications AB.
+//
+// For a full list of individual contributors, please see the commit history.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package v1alpha1
+
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// Providers to use for test execution. These names must correspond to existing
+// Provider kinds in the namespace where a testrun is created.
+type Providers struct {
+	IUT            string `json:"iut"`
+	LogArea        string `json:"logArea"`
+	ExecutionSpace string `json:"executionSpace"`
+}
+
+// TestCase metadata.
+type TestCase struct {
+	ID      string `json:"id"`
+	Version string `json:"version"`
+	Tracker string `json:"tracker"`
+	URL     string `json:"url"`
+}
+
+// Execution describes hot to execute a testCase.
+type Execution struct {
+	Checkout    []string          `json:"checkout"`
+	Parameters  map[string]string `json:"parameters"`
+	Environment map[string]string `json:"environment"`
+	Command     string            `json:"command"`
+	Execute     []string          `json:"execute,omitempty"`
+	TestRunner  string            `json:"testRunner"`
+}
+
+// TestEnvironment to run tests within.
+type TestEnvironment struct{}
+
+type Test struct {
+	TestCase    TestCase        `json:"testCase"`
+	Execution   Execution       `json:"execution"`
+	Environment TestEnvironment `json:"environment"`
+}
+
+// Suite to execute.
+type Suite struct {
+	// Name of the test suite.
+	Name string `json:"name"`
+
+	// Priority to execute the test suite.
+	// +kubebuilder:default=1
+	Priority int `json:"priority"`
+
+	// Tests to execute as part of this testrun.
+	Tests []Test `json:"tests"`
+}
+
+// TestRunSpec defines the desired state of TestRun
+type TestRunSpec struct {
+	// ID is the test suite ID for this execution.
+	// +kubebuilder:validation:Pattern="[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
+	ID string `json:"id"`
+
+	// Artifact is the ID of the software under test.
+	// +kubebuilder:validation:Pattern="[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
+	Artifact string `json:"artifact"`
+
+	SuiteRunnerImage string    `json:"suiteRunnerImage"`
+	Identity         string    `json:"identity"`
+	Providers        Providers `json:"providers"`
+	Suites           []Suite   `json:"suites"`
+}
+
+// TestRunStatus defines the observed state of TestRun
+type TestRunStatus struct {
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+
+	StartTime      *metav1.Time `json:"startTime,omitempty"`
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+
+// TestRun is the Schema for the testruns API
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Environment",type="string",JSONPath=".status.conditions[?(@.type==\"Environment\")].reason"
+// +kubebuilder:printcolumn:name="Suiterunner",type="string",JSONPath=".status.conditions[?(@.type==\"SuiteRunner\")].reason"
+// +kubebuilder:printcolumn:name="Active",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].status"
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].message"
+type TestRun struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   TestRunSpec   `json:"spec,omitempty"`
+	Status TestRunStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+
+// TestRunList contains a list of TestRun
+type TestRunList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []TestRun `json:"items"`
+}
+
+func init() {
+	SchemeBuilder.Register(&TestRun{}, &TestRunList{})
+}

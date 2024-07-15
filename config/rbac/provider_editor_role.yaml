@@ -1,0 +1,27 @@
+# permissions for end users to edit providers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: etos
+    app.kubernetes.io/managed-by: kustomize
+  name: provider-editor-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers/status
+  verbs:
+  - get

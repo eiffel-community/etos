@@ -1,11 +1,100 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  labels:
-    app.kubernetes.io/name: etos
-    app.kubernetes.io/managed-by: kustomize
   name: manager-role
 rules:
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns/status
+  verbs:
+  - get
+  - patch
+  - update

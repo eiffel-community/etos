@@ -1,0 +1,23 @@
+# permissions for end users to view providers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: etos
+    app.kubernetes.io/managed-by: kustomize
+  name: provider-viewer-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers/status
+  verbs:
+  - get
