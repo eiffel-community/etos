@@ -1,0 +1,404 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.15.0
+  name: clusters.etos.eiffel-community.github.io
+spec:
+  group: etos.eiffel-community.github.io
+  names:
+    kind: Cluster
+    listKind: ClusterList
+    plural: clusters
+    singular: cluster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Message
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Cluster is the Schema for the clusters API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterSpec defines the desired state of Cluster
+            properties:
+              database:
+                properties:
+                  deploy:
+                    default: true
+                    type: boolean
+                  etcd:
+                    default:
+                      host: etcd-client
+                      port: "2379"
+                    properties:
+                      host:
+                        default: etcd-client
+                        description: Parameter is ignored if Deploy is set to true.
+                        type: string
+                      port:
+                        default: "2379"
+                        description: Parameter is ignored if Deploy is set to true.
+                        type: string
+                    required:
+                    - host
+                    - port
+                    type: object
+                required:
+                - deploy
+                - etcd
+                type: object
+              etos:
+                properties:
+                  api:
+                    properties:
+                      image:
+                        type: string
+                    required:
+                    - image
+                    type: object
+                  config:
+                    default:
+                      dev: "true"
+                      environmentTimeout: "3600"
+                      eventDataTimeout: "60"
+                      source: ETOS
+                      testSuiteTimeout: "10"
+                    properties:
+                      dev:
+                        default: "true"
+                        type: string
+                      environmentTimeout:
+                        default: "3600"
+                        type: string
+                      etosApiURL:
+                        type: string
+                      etosEventRepositoryURL:
+                        type: string
+                      eventDataTimeout:
+                        default: "60"
+                        type: string
+                      source:
+                        default: ETOS
+                        type: string
+                      testSuiteTimeout:
+                        default: "10"
+                        type: string
+                      timezone:
+                        type: string
+                    required:
+                    - dev
+                    - environmentTimeout
+                    - eventDataTimeout
+                    - source
+                    - testSuiteTimeout
+                    type: object
+                  ingress:
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        default: false
+                        type: boolean
+                      host:
+                        default: ""
+                        type: string
+                      ingressClass:
+                        type: string
+                    required:
+                    - enabled
+                    type: object
+                  logArea:
+                    properties:
+                      image:
+                        type: string
+                    required:
+                    - image
+                    type: object
+                  sse:
+                    properties:
+                      image:
+                        type: string
+                    required:
+                    - image
+                    type: object
+                required:
+                - api
+                - config
+                - logArea
+                - sse
+                type: object
+              eventRepository:
+                properties:
+                  apiImage:
+                    default: registry.nordix.org/eiffel/eiffel-graphql-api
+                    description: |-
+                      We do not build the GraphQL API automatically nor publish it remotely.
+                      These will need to be redefined to work.
+                    type: string
+                  deploy:
+                    type: boolean
+                  host:
+                    default: eventrepository
+                    type: string
+                  ingress:
+                    default:
+                      enabled: false
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        default: false
+                        type: boolean
+                      host:
+                        default: ""
+                        type: string
+                      ingressClass:
+                        type: string
+                    required:
+                    - enabled
+                    type: object
+                  mongo:
+                    default:
+                      deploy: false
+                      uri: mongodb://root:password@mongodb:27017/admin
+                    properties:
+                      deploy:
+                        type: boolean
+                      uri:
+                        default: mongodb://root:password@mongodb:27017/admin
+                        description: |-
+                          TODO: We need to validate this
+                          Ignored if deploy is true
+                        type: string
+                      uriSecretRef:
+                        type: string
+                    required:
+                    - deploy
+                    - uri
+                    type: object
+                  storageImage:
+                    default: registry.nordix.org/eiffel/eiffel-graphql-storage
+                    type: string
+                required:
+                - apiImage
+                - deploy
+                - host
+                - ingress
+                - mongo
+                - storageImage
+                type: object
+              messageBus:
+                properties:
+                  eiffel:
+                    default:
+                      deploy: false
+                      exchange: amq.topic
+                      host: rabbitmq
+                      port: "5672"
+                      queueName: etos
+                      ssl: "false"
+                      vhost: /
+                    properties:
+                      deploy:
+                        default: false
+                        type: boolean
+                      exchange:
+                        default: amq.topic
+                        type: string
+                      host:
+                        default: rabbitmq
+                        type: string
+                      password:
+                        default: guest
+                        type: string
+                      passwordSecret:
+                        type: string
+                      port:
+                        default: "5672"
+                        type: string
+                      queueName:
+                        type: string
+                      queueParams:
+                        type: string
+                      ssl:
+                        default: "false"
+                        type: string
+                      username:
+                        default: guest
+                        type: string
+                      vhost:
+                        default: /
+                        type: string
+                    required:
+                    - deploy
+                    - exchange
+                    - host
+                    - port
+                    - ssl
+                    - vhost
+                    type: object
+                  logs:
+                    default:
+                      deploy: false
+                      exchange: amq.topic
+                      host: rabbitmq
+                      port: "5672"
+                      queueName: etos-*-temp
+                      ssl: "false"
+                      vhost: /
+                    properties:
+                      deploy:
+                        default: false
+                        type: boolean
+                      exchange:
+                        default: amq.topic
+                        type: string
+                      host:
+                        default: rabbitmq
+                        type: string
+                      password:
+                        default: guest
+                        type: string
+                      passwordSecret:
+                        type: string
+                      port:
+                        default: "5672"
+                        type: string
+                      queueName:
+                        type: string
+                      queueParams:
+                        type: string
+                      ssl:
+                        default: "false"
+                        type: string
+                      username:
+                        default: guest
+                        type: string
+                      vhost:
+                        default: /
+                        type: string
+                    required:
+                    - deploy
+                    - exchange
+                    - host
+                    - port
+                    - ssl
+                    - vhost
+                    type: object
+                required:
+                - eiffel
+                - logs
+                type: object
+            required:
+            - database
+            - etos
+            - eventRepository
+            - messageBus
+            type: object
+          status:
+            description: ClusterStatus defines the observed state of Cluster
+            properties:
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

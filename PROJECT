@@ -35,4 +35,13 @@ resources:
   kind: Environment
   path: github.com/eiffel-community/etos/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: eiffel-community.github.io
+  group: etos
+  kind: Cluster
+  path: github.com/eiffel-community/etos/api/v1alpha1
+  version: v1alpha1
 version: "3"
