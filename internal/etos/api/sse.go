@@ -298,8 +298,9 @@ func (r *ETOSSSEDeployment) container(name types.NamespacedName) corev1.Containe
 		FailureThreshold: 3,
 	}
 	return corev1.Container{
-		Name:  name.Name,
-		Image: r.Image,
+		Name:            name.Name,
+		Image:           r.Image.Image,
+		ImagePullPolicy: r.ImagePullPolicy,
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "http",

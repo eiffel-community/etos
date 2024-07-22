@@ -221,8 +221,9 @@ func (r *EventRepositoryDeployment) meta(name types.NamespacedName) metav1.Objec
 func (r *EventRepositoryDeployment) containers(name types.NamespacedName) []corev1.Container {
 	return []corev1.Container{
 		{
-			Name:  fmt.Sprintf("%s-api", name.Name),
-			Image: r.APIImage,
+			Name:            fmt.Sprintf("%s-api", name.Name),
+			Image:           r.API.Image,
+			ImagePullPolicy: r.API.ImagePullPolicy,
 			Ports: []corev1.ContainerPort{
 				{
 					Name:          "amqp",
@@ -232,8 +233,9 @@ func (r *EventRepositoryDeployment) containers(name types.NamespacedName) []core
 			},
 			EnvFrom: r.environment(),
 		}, {
-			Name:  fmt.Sprintf("%s-storage", name.Name),
-			Image: r.StorageImage,
+			Name:            fmt.Sprintf("%s-storage", name.Name),
+			Image:           r.Storage.Image,
+			ImagePullPolicy: r.Storage.ImagePullPolicy,
 			Command: []string{
 				"python3",
 				"-m",

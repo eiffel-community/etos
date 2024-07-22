@@ -164,11 +164,12 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 	}
 
 	data := map[string]string{
-		"ETOS_GRAPHQL_SERVER": eventRepository,
-		"ETOS_NAMESPACE":      cluster.Namespace,
-		"SOURCE_HOST":         r.Config.Source,
-		"ETOS_API":            etosApi,
-		"SUITE_RUNNER_IMAGE":  r.Config.SuiteRunnerImage,
+		"ETOS_GRAPHQL_SERVER":            eventRepository,
+		"ETOS_NAMESPACE":                 cluster.Namespace,
+		"SOURCE_HOST":                    r.Config.Source,
+		"ETOS_API":                       etosApi,
+		"SUITE_RUNNER_IMAGE":             cluster.Spec.ETOS.SuiteRunner.Image.Image,
+		"SUITE_RUNNER_IMAGE_PULL_POLICY": string(cluster.Spec.ETOS.SuiteRunner.ImagePullPolicy),
 
 		"ETOS_ETCD_HOST": cluster.Spec.Database.Etcd.Host,
 		"ETOS_ETCD_PORT": cluster.Spec.Database.Etcd.Port,

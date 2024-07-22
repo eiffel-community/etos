@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,18 +29,27 @@ type MongoDB struct {
 	URISecret string `json:"uriSecretRef,omitempty"`
 }
 
+// Image configuration.
+type Image struct {
+	Image string `json:"image"`
+
+	// +kubebuilder:default="IfNotPresent"
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
+}
+
 type EventRepository struct {
 	// Deploy a local event repository for a cluster.
 	Deploy bool `json:"deploy"`
 
 	// We do not build the GraphQL API automatically nor publish it remotely.
 	// This will need to be provided to work.
-	// +kubebuilder:default="registry.nordix.org/eiffel/eiffel-graphql-api"
-	APIImage string `json:"apiImage"`
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-api:latest", "imagePullPolicy": "IfNotPresent"}
+	API Image `json:"api"`
+
 	// We do not build the GraphQL API automatically nor publish it remotely.
 	// This will need to be provided to work.
-	// +kubebuilder:default="registry.nordix.org/eiffel/eiffel-graphql-storage"
-	StorageImage string `json:"storageImage"`
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-storage:latest", "imagePullPolicy": "IfNotPresent"}
+	Storage Image `json:"storage"`
 
 	// +kubebuilder:default={"uri": "mongodb://root:password@mongodb:27017/admin", "deploy": false}
 	Database MongoDB `json:"mongo"`
@@ -104,15 +114,19 @@ type Ingress struct {
 }
 
 type ETOSApi struct {
-	Image string `json:"image"`
+	Image `json:",inline"`
 }
 
 type ETOSSSE struct {
-	Image string `json:"image"`
+	Image `json:",inline"`
 }
 
 type ETOSLogArea struct {
-	Image string `json:"image"`
+	Image `json:",inline"`
+}
+
+type ETOSSuiteRunner struct {
+	Image `json:",inline"`
 }
 
 type ETOSConfig struct {
@@ -127,8 +141,6 @@ type ETOSConfig struct {
 	// +kubebuilder:default="ETOS"
 	Source string `json:"source"`
 
-	SuiteRunnerImage string `json:"suiteRunnerImage"`
-
 	ETOSApiURL             string `json:"etosApiURL,omitempty"`
 	ETOSEventRepositoryURL string `json:"etosEventRepositoryURL,omitempty"`
 
@@ -136,10 +148,11 @@ type ETOSConfig struct {
 }
 
 type ETOS struct {
-	API     ETOSApi     `json:"api"`
-	SSE     ETOSSSE     `json:"sse"`
-	LogArea ETOSLogArea `json:"logArea"`
-	Ingress Ingress     `json:"ingress,omitempty"`
+	API         ETOSApi         `json:"api"`
+	SSE         ETOSSSE         `json:"sse"`
+	LogArea     ETOSLogArea     `json:"logArea"`
+	SuiteRunner ETOSSuiteRunner `json:"suiteRunner"`
+	Ingress     Ingress         `json:"ingress,omitempty"`
 	// +kubebuilder:default={"dev": "true", "eventDataTimeout": "60", "testSuiteTimeout": "10", "environmentTimeout": "3600", "source": "ETOS"}
 	Config ETOSConfig `json:"config"`
 }

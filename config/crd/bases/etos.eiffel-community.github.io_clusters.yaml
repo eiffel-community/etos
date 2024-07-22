@@ -78,8 +78,14 @@ spec:
                     properties:
                       image:
                         type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
                     required:
                     - image
+                    - imagePullPolicy
                     type: object
                   config:
                     default:
@@ -105,8 +111,6 @@ spec:
                       source:
                         default: ETOS
                         type: string
-                      suiteRunnerImage:
-                        type: string
                       testSuiteTimeout:
                         default: "10"
                         type: string
@@ -117,7 +121,6 @@ spec:
                     - environmentTimeout
                     - eventDataTimeout
                     - source
-                    - suiteRunnerImage
                     - testSuiteTimeout
                     type: object
                   ingress:
@@ -141,30 +144,69 @@ spec:
                     properties:
                       image:
                         type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
                     required:
                     - image
+                    - imagePullPolicy
                     type: object
                   sse:
                     properties:
                       image:
                         type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
                     required:
                     - image
+                    - imagePullPolicy
+                    type: object
+                  suiteRunner:
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                    required:
+                    - image
+                    - imagePullPolicy
                     type: object
                 required:
                 - api
                 - config
                 - logArea
                 - sse
+                - suiteRunner
                 type: object
               eventRepository:
                 properties:
-                  apiImage:
-                    default: registry.nordix.org/eiffel/eiffel-graphql-api
+                  api:
+                    default:
+                      image: registry.nordix.org/eiffel/eiffel-graphql-api:latest
+                      imagePullPolicy: IfNotPresent
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
-                    type: string
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                    required:
+                    - image
+                    - imagePullPolicy
+                    type: object
                   deploy:
                     description: Deploy a local event repository for a cluster.
                     type: boolean
@@ -207,19 +249,32 @@ spec:
                     - deploy
                     - uri
                     type: object
-                  storageImage:
-                    default: registry.nordix.org/eiffel/eiffel-graphql-storage
+                  storage:
+                    default:
+                      image: registry.nordix.org/eiffel/eiffel-graphql-storage:latest
+                      imagePullPolicy: IfNotPresent
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
-                    type: string
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                    required:
+                    - image
+                    - imagePullPolicy
+                    type: object
                 required:
-                - apiImage
+                - api
                 - deploy
                 - host
                 - ingress
                 - mongo
-                - storageImage
+                - storage
                 type: object
               messageBus:
                 properties:
