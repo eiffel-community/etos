@@ -19,11 +19,11 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,7 +79,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	requeue, err := r.reconcile(ctx, testrun, req)
 	if err != nil {
-		if errors.IsConflict(err) {
+		if apierrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
 		logger.Error(err, "error reconciling testrun")
@@ -198,9 +198,19 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1
 		}
 	case batchv1.JobFailed:
 		// Failed
-		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: typeSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Suite runner failed"}) {
-			logger.Info("Setting suiterunner (failed) false")
-			return false, r.Status().Patch(ctx, testrun, patch)
+		condition := findJobStatusCondition(suiteRunner.Status.Conditions, batchv1.JobFailed)
+		if condition != nil {
+			err := errors.New(condition.Message)
+			logger.Error(err, "Suite runner job failed", "status", condition.Status)
+			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: typeSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: fmt.Sprintf("Suite runner failed: %s", err.Error())}) {
+				return false, r.Status().Patch(ctx, testrun, patch)
+			}
+		} else {
+			err := errors.New("Unknown error when starting up a suite runner")
+			logger.Error(err, "Suite runner job failed")
+			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: typeSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Suite runner failed"}) {
+				return false, r.Status().Patch(ctx, testrun, patch)
+			}
 		}
 	case batchv1.JobComplete:
 		// Success
@@ -213,6 +223,7 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1
 }
 
 func (r *TestRunReconciler) getOrCreateSuiteRunner(ctx context.Context, testrun *etosv1alpha1.TestRun, name types.NamespacedName) (*batchv1.Job, error) {
+	logger := log.FromContext(ctx)
 	suiteRunner := &batchv1.Job{}
 	if err := r.Get(ctx, name, suiteRunner); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -228,6 +239,7 @@ func (r *TestRunReconciler) getOrCreateSuiteRunner(ctx context.Context, testrun 
 				return suiteRunner, err
 			}
 		} else {
+			logger.Error(err, "failed to get suite runner job", "name", name.Name, "namespace", name.Namespace)
 			return suiteRunner, err
 		}
 	}
@@ -236,6 +248,7 @@ func (r *TestRunReconciler) getOrCreateSuiteRunner(ctx context.Context, testrun 
 
 // getOrCreateEnvironment attempts to get an environment or create a new one if it does not exist.
 func (r *TestRunReconciler) getOrCreateEnvironment(ctx context.Context, testrun *etosv1alpha1.TestRun, name types.NamespacedName) (*etosv1alpha1.Environment, error) {
+	logger := log.FromContext(ctx)
 	environment := &etosv1alpha1.Environment{}
 	if err := r.Get(ctx, name, environment); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -259,6 +272,7 @@ func (r *TestRunReconciler) getOrCreateEnvironment(ctx context.Context, testrun 
 				return environment, err
 			}
 		} else {
+			logger.Error(err, "failed to get environment", "name", name.Name, "namespace", name.Namespace)
 			return environment, err
 		}
 	}
@@ -278,12 +292,20 @@ func (r TestRunReconciler) isSuiteRunnerFinished(suiteRunner *batchv1.Job) (bool
 
 // IsStatusConditionPresentAndEqual returns true when conditionType is present and equal to status.
 func IsJobStatusConditionPresentAndEqual(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType, status corev1.ConditionStatus) bool {
-	for _, condition := range conditions {
-		if condition.Type == conditionType {
-			return condition.Status == status
+	condition := findJobStatusCondition(conditions, conditionType)
+	if condition == nil {
+		return false
+	}
+	return condition.Status == status
+}
+
+func findJobStatusCondition(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType) *batchv1.JobCondition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
 		}
 	}
-	return false
+	return nil
 }
 
 // suiteRunnerJob is the job definition for an etos suite runner.
