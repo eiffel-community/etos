@@ -92,7 +92,7 @@ func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, name ty
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, nil
 	}
-	return deployment, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
 }
 
 // reconcileServiceAccount will reconcile the ETOS logarea service account to its expected state.
@@ -111,7 +111,7 @@ func (r *ETOSLogAreaDeployment) reconcileServiceAccount(ctx context.Context, nam
 		}
 		return target, nil
 	}
-	return serviceaccount, r.Patch(ctx, target, client.StrategicMergeFrom(serviceaccount))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(serviceaccount))
 }
 
 // reconcileService will reconcile the ETOS logarea service to its expected state.
@@ -130,7 +130,7 @@ func (r *ETOSLogAreaDeployment) reconcileService(ctx context.Context, name types
 		}
 		return target, nil
 	}
-	return service, r.Patch(ctx, target, client.StrategicMergeFrom(service))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
 // serviceaccount creates a service account resource definition for the ETOS logarea.

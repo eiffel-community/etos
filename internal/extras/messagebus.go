@@ -95,7 +95,7 @@ func (r *MessageBusDeployment) reconcileSecret(ctx context.Context, name types.N
 	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
 		return secret, nil
 	}
-	return secret, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
 // reconcileStatefulset will reconcile the messagebus statefulset to its expected state.
@@ -119,7 +119,7 @@ func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, name ty
 	} else if !r.Deploy {
 		return nil, r.Delete(ctx, rabbitmq)
 	}
-	return rabbitmq, r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq))
 }
 
 // reconcileService will reconcile the messagebus service to its expected state.
@@ -143,7 +143,7 @@ func (r *MessageBusDeployment) reconcileService(ctx context.Context, name types.
 	} else if !r.Deploy {
 		return nil, r.Delete(ctx, service)
 	}
-	return service, r.Patch(ctx, target, client.StrategicMergeFrom(service))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
 // secret will create a secret resource definition for the messagebus.

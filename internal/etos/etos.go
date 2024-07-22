@@ -110,7 +110,7 @@ func (r *ETOSDeployment) reconcileIngress(ctx context.Context, name types.Namesp
 	if equality.Semantic.DeepDerivative(target.Spec, ingress.Spec) {
 		return ingress, nil
 	}
-	return ingress, r.Patch(ctx, target, client.StrategicMergeFrom(ingress))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(ingress))
 }
 
 // reconcileConfigmap will reconcile the ETOS configmap to its expected state.
@@ -131,7 +131,7 @@ func (r *ETOSDeployment) reconcileConfigmap(ctx context.Context, name types.Name
 		}
 		return target, nil
 	}
-	return configmap, r.Patch(ctx, target, client.StrategicMergeFrom(configmap))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(configmap))
 }
 
 // ingress creates an ingress resource definition for ETOS.

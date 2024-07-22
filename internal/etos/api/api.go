@@ -108,7 +108,7 @@ func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, name types.
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, nil
 	}
-	return deployment, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
 }
 
 // reconcileSecret will reconcile the ETOS API service account secret to its expected state.
@@ -132,7 +132,7 @@ func (r *ETOSApiDeployment) reconcileSecret(ctx context.Context, name types.Name
 	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
 		return secret, nil
 	}
-	return secret, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
 // reconcileRole will reconcile the ETOS API service account role to its expected state.
@@ -155,7 +155,7 @@ func (r *ETOSApiDeployment) reconcileRole(ctx context.Context, name types.Namesp
 		}
 		return target, nil
 	}
-	return role, r.Patch(ctx, target, client.StrategicMergeFrom(role))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(role))
 }
 
 // reconcileServiceAccount will reconcile the ETOS API service account to its expected state.
@@ -175,7 +175,7 @@ func (r *ETOSApiDeployment) reconcileServiceAccount(ctx context.Context, name ty
 		}
 		return target, nil
 	}
-	return serviceaccount, r.Patch(ctx, target, client.StrategicMergeFrom(serviceaccount))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(serviceaccount))
 }
 
 // reconcileRolebinding will reconcile the ETOS API service account role binding to its expected state.
@@ -195,7 +195,7 @@ func (r *ETOSApiDeployment) reconcileRolebinding(ctx context.Context, name types
 		}
 		return target, nil
 	}
-	return rolebinding, r.Patch(ctx, target, client.StrategicMergeFrom(rolebinding))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rolebinding))
 }
 
 // reconcileService will reconcile the ETOS API service to its expected state.
@@ -215,7 +215,7 @@ func (r *ETOSApiDeployment) reconcileService(ctx context.Context, name types.Nam
 		}
 		return target, nil
 	}
-	return service, r.Patch(ctx, target, client.StrategicMergeFrom(service))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
 // secret creates a secret resource definition for the ETOS API.

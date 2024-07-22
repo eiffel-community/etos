@@ -110,7 +110,7 @@ func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, name types.Name
 	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
 		return secret, nil
 	}
-	return secret, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
 // reconcileStatefulset will reconcile the MongoDB statefulset to its expected state.
@@ -134,7 +134,7 @@ func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, name types
 	} else if !r.Deploy {
 		return nil, r.Delete(ctx, mongodb)
 	}
-	return mongodb, r.Patch(ctx, target, client.StrategicMergeFrom(mongodb))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(mongodb))
 }
 
 // reconcileService will reconcile the MongoDB service to its expected state.
@@ -158,7 +158,7 @@ func (r *MongoDBDeployment) reconcileService(ctx context.Context, name types.Nam
 	} else if !r.Deploy {
 		return nil, r.Delete(ctx, service)
 	}
-	return service, r.Patch(ctx, target, client.StrategicMergeFrom(service))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
 // secret will create a secret resource definition for MongoDB.

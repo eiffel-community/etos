@@ -106,7 +106,7 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, nam
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, nil
 	}
-	return deployment, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
 }
 
 // reconcileService will reconcile the event repository service to its expected state.
@@ -130,7 +130,7 @@ func (r *EventRepositoryDeployment) reconcileService(ctx context.Context, name t
 	} else if !r.Deploy {
 		return nil, r.Delete(ctx, service)
 	}
-	return service, r.Patch(ctx, target, client.StrategicMergeFrom(service))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
 // reconcileIngress will reconcile the event repository ingress to its expected state.
@@ -159,7 +159,7 @@ func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, name t
 	if equality.Semantic.DeepDerivative(target.Spec, ingress.Spec) {
 		return ingress, nil
 	}
-	return ingress, r.Patch(ctx, target, client.StrategicMergeFrom(ingress))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(ingress))
 }
 
 // deployment will create a deployment resource definition for the event repository.

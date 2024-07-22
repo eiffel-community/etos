@@ -97,7 +97,7 @@ func (r *ETCDDeployment) reconcileStatefulset(ctx context.Context, name types.Na
 	} else if !r.Deploy {
 		return nil, r.Delete(ctx, etcd)
 	}
-	return etcd, r.Patch(ctx, target, client.StrategicMergeFrom(etcd))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(etcd))
 }
 
 // reconcileService will reconcile the ETCD service to its expected state.
@@ -121,7 +121,7 @@ func (r *ETCDDeployment) reconcileService(ctx context.Context, name types.Namesp
 	} else if !r.Deploy {
 		return nil, r.Delete(ctx, service)
 	}
-	return service, r.Patch(ctx, target, client.StrategicMergeFrom(service))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
 // reconcileClientService will reconcile the ETCD client service to its expected state.
@@ -147,7 +147,7 @@ func (r *ETCDDeployment) reconcileClientService(ctx context.Context, name types.
 	} else if !r.Deploy {
 		return nil, r.Delete(ctx, service)
 	}
-	return service, r.Patch(ctx, target, client.StrategicMergeFrom(service))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
 // statefulset creates a statefulset resource definition for ETCD.

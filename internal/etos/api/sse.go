@@ -102,7 +102,7 @@ func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, name types.
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, nil
 	}
-	return deployment, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
 }
 
 // reconcileRole will reconcile the ETOS SSE service account role to its expected state.
@@ -125,7 +125,7 @@ func (r *ETOSSSEDeployment) reconcileRole(ctx context.Context, name types.Namesp
 		}
 		return target, nil
 	}
-	return role, r.Patch(ctx, target, client.StrategicMergeFrom(role))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(role))
 }
 
 // reconcileServiceAccount will reconcile the ETOS SSE service account to its expected state.
@@ -145,7 +145,7 @@ func (r *ETOSSSEDeployment) reconcileServiceAccount(ctx context.Context, name ty
 		}
 		return target, nil
 	}
-	return serviceaccount, r.Patch(ctx, target, client.StrategicMergeFrom(serviceaccount))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(serviceaccount))
 }
 
 // reconcileRolebinding will reconcile the ETOS SSE service account rolebinding to its expected state.
@@ -165,7 +165,7 @@ func (r *ETOSSSEDeployment) reconcileRolebinding(ctx context.Context, name types
 		}
 		return target, nil
 	}
-	return rolebinding, r.Patch(ctx, target, client.StrategicMergeFrom(rolebinding))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rolebinding))
 }
 
 // reconcileService will reconcile the ETOS SSE service to its expected state.
@@ -184,7 +184,7 @@ func (r *ETOSSSEDeployment) reconcileService(ctx context.Context, name types.Nam
 		}
 		return target, nil
 	}
-	return service, r.Patch(ctx, target, client.StrategicMergeFrom(service))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
 // role creates a role resource definition for the ETOS SSE service.
