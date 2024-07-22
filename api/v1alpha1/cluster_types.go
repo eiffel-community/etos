@@ -127,6 +127,8 @@ type ETOSConfig struct {
 	// +kubebuilder:default="ETOS"
 	Source string `json:"source"`
 
+	SuiteRunnerImage string `json:"suiteRunnerImage"`
+
 	ETOSApiURL             string `json:"etosApiURL,omitempty"`
 	ETOSEventRepositoryURL string `json:"etosEventRepositoryURL,omitempty"`
 

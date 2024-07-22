@@ -105,6 +105,8 @@ spec:
                       source:
                         default: ETOS
                         type: string
+                      suiteRunnerImage:
+                        type: string
                       testSuiteTimeout:
                         default: "10"
                         type: string
@@ -115,6 +117,7 @@ spec:
                     - environmentTimeout
                     - eventDataTimeout
                     - source
+                    - suiteRunnerImage
                     - testSuiteTimeout
                     type: object
                   ingress:
@@ -160,9 +163,10 @@ spec:
                     default: registry.nordix.org/eiffel/eiffel-graphql-api
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
-                      These will need to be redefined to work.
+                      This will need to be provided to work.
                     type: string
                   deploy:
+                    description: Deploy a local event repository for a cluster.
                     type: boolean
                   host:
                     default: eventrepository
@@ -195,9 +199,7 @@ spec:
                         type: boolean
                       uri:
                         default: mongodb://root:password@mongodb:27017/admin
-                        description: |-
-                          TODO: We need to validate this
-                          Ignored if deploy is true
+                        description: Ignored if deploy is true
                         type: string
                       uriSecretRef:
                         type: string
@@ -207,6 +209,9 @@ spec:
                     type: object
                   storageImage:
                     default: registry.nordix.org/eiffel/eiffel-graphql-storage
+                    description: |-
+                      We do not build the GraphQL API automatically nor publish it remotely.
+                      This will need to be provided to work.
                     type: string
                 required:
                 - apiImage
