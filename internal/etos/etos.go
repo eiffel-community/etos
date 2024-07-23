@@ -24,6 +24,7 @@ import (
 	etosapi "github.com/eiffel-community/etos/internal/etos/api"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,11 +50,33 @@ func NewETOSDeployment(spec etosv1alpha1.ETOS, scheme *runtime.Scheme, client cl
 
 // Reconcile will reconcile ETOS to its expected state.
 func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
+	var err error
 	namespacedName := types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}
 	if _, err := r.reconcileIngress(ctx, namespacedName, cluster); err != nil {
 		return err
 	}
+
+	_, err = r.reconcileRole(ctx, namespacedName, cluster)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.reconcileServiceAccount(ctx, namespacedName, cluster)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.reconcileRolebinding(ctx, namespacedName, cluster)
+	if err != nil {
+		return err
+	}
+
 	configmap, err := r.reconcileConfigmap(ctx, namespacedName, cluster)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.reconcileSecret(ctx, namespacedName, cluster)
 	if err != nil {
 		return err
 	}
@@ -113,6 +136,75 @@ func (r *ETOSDeployment) reconcileIngress(ctx context.Context, name types.Namesp
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(ingress))
 }
 
+// reconcileRole will reconcile the ETOS API service account role to its expected state.
+func (r *ETOSDeployment) reconcileRole(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
+	name.Name = fmt.Sprintf("%s-provider", name.Name)
+
+	labelName := name.Name
+	name.Name = fmt.Sprintf("%s:sa:environment-provider", name.Name)
+
+	target := r.role(name, labelName)
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+
+	role := &rbacv1.Role{}
+	if err := r.Get(ctx, name, role); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return role, err
+		}
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(role))
+}
+
+// reconcileServiceAccount will reconcile the ETOS API service account to its expected state.
+func (r *ETOSDeployment) reconcileServiceAccount(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
+	name.Name = fmt.Sprintf("%s-provider", name.Name)
+
+	target := r.serviceaccount(name)
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+
+	serviceaccount := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, name, serviceaccount); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return serviceaccount, err
+		}
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(serviceaccount))
+}
+
+// reconcileRolebinding will reconcile the ETOS API service account role binding to its expected state.
+func (r *ETOSDeployment) reconcileRolebinding(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
+	name.Name = fmt.Sprintf("%s-provider", name.Name)
+
+	target := r.rolebinding(name)
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+
+	rolebinding := &rbacv1.RoleBinding{}
+	if err := r.Get(ctx, name, rolebinding); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return rolebinding, err
+		}
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rolebinding))
+}
+
 // reconcileConfigmap will reconcile the ETOS configmap to its expected state.
 func (r *ETOSDeployment) reconcileConfigmap(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.ConfigMap, error) {
 	target := r.configmap(name, cluster)
@@ -132,6 +224,30 @@ func (r *ETOSDeployment) reconcileConfigmap(ctx context.Context, name types.Name
 		return target, nil
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(configmap))
+}
+
+// reconcileSecret will reconcile the secret to its expected state.
+func (r *ETOSDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	target := r.secret(name)
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+	scheme.Scheme.Default(target)
+
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, name, secret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return secret, err
+		}
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
+		return secret, nil
+	}
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
 // ingress creates an ingress resource definition for ETOS.
@@ -164,13 +280,17 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 	}
 
 	data := map[string]string{
-		"ETOS_GRAPHQL_SERVER":            eventRepository,
-		"ETOS_CLUSTER":                   cluster.Name,
-		"ETOS_NAMESPACE":                 cluster.Namespace,
-		"SOURCE_HOST":                    r.Config.Source,
-		"ETOS_API":                       etosApi,
-		"SUITE_RUNNER_IMAGE":             cluster.Spec.ETOS.SuiteRunner.Image.Image,
-		"SUITE_RUNNER_IMAGE_PULL_POLICY": string(cluster.Spec.ETOS.SuiteRunner.ImagePullPolicy),
+		"ETOS_GRAPHQL_SERVER":                    eventRepository,
+		"ETOS_CLUSTER":                           cluster.Name,
+		"ETOS_NAMESPACE":                         cluster.Namespace,
+		"ENVIRONMENT_PROVIDER_SERVICE_ACCOUNT":   fmt.Sprintf("%s-provider", cluster.Name),
+		"SOURCE_HOST":                            r.Config.Source,
+		"ETOS_API":                               etosApi,
+		"SUITE_RUNNER_IMAGE":                     cluster.Spec.ETOS.SuiteRunner.Image.Image,
+		"SUITE_RUNNER_IMAGE_PULL_POLICY":         string(cluster.Spec.ETOS.SuiteRunner.ImagePullPolicy),
+		"ENVIRONMENT_PROVIDER_IMAGE":             cluster.Spec.ETOS.EnvironmentProvider.Image.Image,
+		"ENVIRONMENT_PROVIDER_IMAGE_PULL_POLICY": string(cluster.Spec.ETOS.EnvironmentProvider.ImagePullPolicy),
+		"ETR_VERSION":                            cluster.Spec.ETOS.TestRunner.Version,
 
 		"ETOS_ETCD_HOST": cluster.Spec.Database.Etcd.Host,
 		"ETOS_ETCD_PORT": cluster.Spec.Database.Etcd.Port,
@@ -189,6 +309,16 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 	return &corev1.ConfigMap{
 		ObjectMeta: r.meta(name),
 		Data:       data,
+	}
+}
+
+// secret creates a secret definition for ETOS.
+func (r *ETOSDeployment) secret(name types.NamespacedName) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: r.meta(name),
+		Data: map[string][]byte{
+			"ETOS_ENCRYPTION_KEY": []byte(r.Config.EncryptionKey),
+		},
 	}
 }
 
@@ -256,4 +386,63 @@ func (r *ETOSDeployment) ingressRule(name types.NamespacedName) networkingv1.Ing
 		ingressRule.Host = r.Ingress.Host
 	}
 	return ingressRule
+}
+
+// role creates a role resource definition for the ETOS API.
+func (r *ETOSDeployment) role(name types.NamespacedName, labelName string) *rbacv1.Role {
+	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace})
+	meta.Name = name.Name
+	meta.Annotations["rbac.authorization.kubernetes.io/autoupdate"] = "true"
+	return &rbacv1.Role{
+		ObjectMeta: meta,
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					"etos.eiffel-community.github.io",
+				},
+				Resources: []string{
+					"testruns",
+					"providers",
+					"environmentrequests",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{"etos.eiffel-community.github.io"},
+				Resources: []string{
+					"environments",
+				},
+				Verbs: []string{
+					"create", "get", "list", "watch",
+				},
+			},
+		},
+	}
+}
+
+// serviceaccount creates a service account resource definition for the ETOS API.
+func (r *ETOSDeployment) serviceaccount(name types.NamespacedName) *corev1.ServiceAccount {
+	return &corev1.ServiceAccount{
+		ObjectMeta: r.meta(name),
+	}
+}
+
+// rolebinding creates a rolebinding resource definition for the ETOS API.
+func (r *ETOSDeployment) rolebinding(name types.NamespacedName) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		ObjectMeta: r.meta(name),
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.SchemeGroupVersion.Group,
+			Kind:     "Role",
+			Name:     fmt.Sprintf("%s:sa:environment-provider", name.Name),
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind: "ServiceAccount",
+				Name: name.Name,
+			},
+		},
+	}
 }

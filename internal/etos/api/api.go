@@ -258,6 +258,15 @@ func (r *ETOSApiDeployment) role(name types.NamespacedName, labelName string) *r
 				},
 			},
 			{
+				APIGroups: []string{"etos.eiffel-community.github.io"},
+				Resources: []string{
+					"environments",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
+			{
 				APIGroups: []string{""},
 				Resources: []string{
 					"pods",

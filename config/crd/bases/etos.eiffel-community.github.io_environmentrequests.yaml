@@ -4,36 +4,31 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
-  name: testruns.etos.eiffel-community.github.io
+  name: environmentrequests.etos.eiffel-community.github.io
 spec:
   group: etos.eiffel-community.github.io
   names:
-    kind: TestRun
-    listKind: TestRunList
-    plural: testruns
-    singular: testrun
+    kind: EnvironmentRequest
+    listKind: EnvironmentRequestList
+    plural: environmentrequests
+    singular: environmentrequest
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    - jsonPath: .status.conditions[?(@.type=="Environment")].reason
-      name: Environment
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
       type: string
-    - jsonPath: .status.conditions[?(@.type=="SuiteRunner")].reason
-      name: Suiterunner
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Reason
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Active")].status
-      name: Active
-      type: string
-    - jsonPath: .status.conditions[?(@.type=="Active")].message
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Message
       type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: TestRun is the Schema for the testruns API
+        description: EnvironmentRequest is the Schema for the environmentrequests
+          API
         properties:
           apiVersion:
             description: |-
@@ -53,160 +48,34 @@ spec:
           metadata:
             type: object
           spec:
-            description: TestRunSpec defines the desired state of TestRun
+            description: EnvironmentRequestSpec defines the desired state of EnvironmentRequest
             properties:
-              artifact:
-                description: Artifact is the ID of the software under test.
-                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+              executionSpace:
                 type: string
-              cluster:
-                description: Name of the ETOS cluster to execute the testrun in.
+              image:
                 type: string
-              environmentProvider:
-                properties:
-                  image:
-                    type: string
-                  imagePullPolicy:
-                    default: IfNotPresent
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
-                    type: string
-                required:
-                - image
-                - imagePullPolicy
-                type: object
-              id:
-                description: ID is the test suite ID for this execution.
-                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+              imagePullPolicy:
+                default: IfNotPresent
+                description: PullPolicy describes a policy for if/when to pull a container
+                  image
                 type: string
-              identity:
+              iut:
                 type: string
-              providers:
-                description: |-
-                  Providers to use for test execution. These names must correspond to existing
-                  Provider kinds in the namespace where a testrun is created.
-                properties:
-                  executionSpace:
-                    type: string
-                  iut:
-                    type: string
-                  logArea:
-                    type: string
-                required:
-                - executionSpace
-                - iut
-                - logArea
-                type: object
-              suiteRunner:
-                properties:
-                  image:
-                    type: string
-                  imagePullPolicy:
-                    default: IfNotPresent
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
-                    type: string
-                required:
-                - image
-                - imagePullPolicy
-                type: object
-              suites:
-                items:
-                  description: Suite to execute.
-                  properties:
-                    dataset:
-                      description: Dataset for this suite.
-                      x-kubernetes-preserve-unknown-fields: true
-                    name:
-                      description: Name of the test suite.
-                      type: string
-                    priority:
-                      default: 1
-                      description: Priority to execute the test suite.
-                      type: integer
-                    tests:
-                      description: Tests to execute as part of this testrun.
-                      items:
-                        properties:
-                          environment:
-                            description: TestEnvironment to run tests within.
-                            type: object
-                          execution:
-                            description: Execution describes hot to execute a testCase.
-                            properties:
-                              checkout:
-                                items:
-                                  type: string
-                                type: array
-                              command:
-                                type: string
-                              environment:
-                                additionalProperties:
-                                  type: string
-                                type: object
-                              execute:
-                                items:
-                                  type: string
-                                type: array
-                              parameters:
-                                additionalProperties:
-                                  type: string
-                                type: object
-                              testRunner:
-                                type: string
-                            required:
-                            - checkout
-                            - command
-                            - environment
-                            - parameters
-                            - testRunner
-                            type: object
-                          id:
-                            type: string
-                          testCase:
-                            description: TestCase metadata.
-                            properties:
-                              id:
-                                type: string
-                              tracker:
-                                type: string
-                              uri:
-                                type: string
-                              version:
-                                type: string
-                            required:
-                            - id
-                            type: object
-                        required:
-                        - environment
-                        - execution
-                        - id
-                        - testCase
-                        type: object
-                      type: array
-                  required:
-                  - dataset
-                  - name
-                  - priority
-                  - tests
-                  type: object
-                type: array
+              logArea:
+                type: string
+              testrun:
+                type: string
             required:
-            - artifact
-            - cluster
-            - environmentProvider
-            - id
-            - identity
-            - providers
-            - suiteRunner
-            - suites
+            - executionSpace
+            - image
+            - imagePullPolicy
+            - iut
+            - logArea
+            - testrun
             type: object
           status:
-            description: TestRunStatus defines the observed state of TestRun
+            description: EnvironmentRequestStatus defines the observed state of EnvironmentRequest
             properties:
-              completionTime:
-                format: date-time
-                type: string
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
@@ -276,10 +145,7 @@ spec:
                   - type
                   type: object
                 type: array
-              startTime:
-                format: date-time
-                type: string
-              suiteRunners:
+              provider:
                 items:
                   description: |-
                     ObjectReference contains enough information to let you inspect or modify the referred object.

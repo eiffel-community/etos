@@ -17,6 +17,8 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,9 +33,9 @@ type Providers struct {
 // TestCase metadata.
 type TestCase struct {
 	ID      string `json:"id"`
-	Version string `json:"version"`
-	Tracker string `json:"tracker"`
-	URL     string `json:"url"`
+	Version string `json:"version,omitempty"`
+	Tracker string `json:"tracker,omitempty"`
+	URI     string `json:"uri,omitempty"`
 }
 
 // Execution describes hot to execute a testCase.
@@ -50,6 +52,7 @@ type Execution struct {
 type TestEnvironment struct{}
 
 type Test struct {
+	ID          string          `json:"id"`
 	TestCase    TestCase        `json:"testCase"`
 	Execution   Execution       `json:"execution"`
 	Environment TestEnvironment `json:"environment"`
@@ -66,6 +69,17 @@ type Suite struct {
 
 	// Tests to execute as part of this testrun.
 	Tests []Test `json:"tests"`
+
+	// Dataset for this suite.
+	Dataset *apiextensionsv1.JSON `json:"dataset"`
+}
+
+type SuiteRunner struct {
+	*Image `json:",inline"`
+}
+
+type EnvironmentProvider struct {
+	*Image `json:",inline"`
 }
 
 // TestRunSpec defines the desired state of TestRun
@@ -81,15 +95,18 @@ type TestRunSpec struct {
 	// +kubebuilder:validation:Pattern="[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
 	Artifact string `json:"artifact"`
 
-	SuiteRunnerImage string    `json:"suiteRunnerImage"`
-	Identity         string    `json:"identity"`
-	Providers        Providers `json:"providers"`
-	Suites           []Suite   `json:"suites"`
+	SuiteRunner         SuiteRunner         `json:"suiteRunner"`
+	EnvironmentProvider EnvironmentProvider `json:"environmentProvider"`
+	Identity            string              `json:"identity"`
+	Providers           Providers           `json:"providers"`
+	Suites              []Suite             `json:"suites"`
 }
 
 // TestRunStatus defines the observed state of TestRun
 type TestRunStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+
+	SuiteRunners []corev1.ObjectReference `json:"suiteRunners,omitempty"`
 
 	StartTime      *metav1.Time `json:"startTime,omitempty"`
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`

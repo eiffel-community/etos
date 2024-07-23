@@ -90,6 +90,7 @@ spec:
                   config:
                     default:
                       dev: "true"
+                      encryptionKey: ""
                       environmentTimeout: "3600"
                       eventDataTimeout: "60"
                       source: ETOS
@@ -97,6 +98,9 @@ spec:
                     properties:
                       dev:
                         default: "true"
+                        type: string
+                      encryptionKey:
+                        description: 'TODO: This is a secret'
                         type: string
                       environmentTimeout:
                         default: "3600"
@@ -118,10 +122,24 @@ spec:
                         type: string
                     required:
                     - dev
+                    - encryptionKey
                     - environmentTimeout
                     - eventDataTimeout
                     - source
                     - testSuiteTimeout
+                    type: object
+                  environmentProvider:
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                    required:
+                    - image
+                    - imagePullPolicy
                     type: object
                   ingress:
                     properties:
@@ -179,12 +197,21 @@ spec:
                     - image
                     - imagePullPolicy
                     type: object
+                  testRunner:
+                    properties:
+                      version:
+                        type: string
+                    required:
+                    - version
+                    type: object
                 required:
                 - api
                 - config
+                - environmentProvider
                 - logArea
                 - sse
                 - suiteRunner
+                - testRunner
                 type: object
               eventRepository:
                 properties:

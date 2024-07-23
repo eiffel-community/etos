@@ -67,9 +67,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// We don't check the availability of JSONTas as it is not yet running as a service we can check.
 	if (etosv1alpha1.JSONTas{}) == provider.Spec.JSONTas {
+		logger.V(2).Info("Healthcheck", "endpoint", fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
 		resp, err := http.Get(fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
 		if err != nil {
-			meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: "Available", Status: metav1.ConditionFalse, Reason: "Error", Message: "Could not communicate with host"})
+			meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionFalse, Reason: "Error", Message: "Could not communicate with host"})
 			if err = r.Status().Update(ctx, provider); err != nil {
 				logger.Error(err, "failed to update provider status")
 				return ctrl.Result{}, err
@@ -78,7 +79,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{RequeueAfter: time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second}, nil
 		}
 		if resp.StatusCode != 204 {
-			meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: "Available", Status: metav1.ConditionFalse, Reason: "Error", Message: fmt.Sprintf("Wrong status code (%d) from health check endpoint", resp.StatusCode)})
+			meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionFalse, Reason: "Error", Message: fmt.Sprintf("Wrong status code (%d) from health check endpoint", resp.StatusCode)})
 			if err = r.Status().Update(ctx, provider); err != nil {
 				logger.Error(err, "failed to update provider status")
 				return ctrl.Result{}, err
@@ -87,7 +88,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{RequeueAfter: time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second}, nil
 		}
 	}
-	meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: "Available", Status: metav1.ConditionTrue, Reason: "OK", Message: "Provider is up and running"})
+	meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionTrue, Reason: "OK", Message: "Provider is up and running"})
 	if err = r.Status().Update(ctx, provider); err != nil {
 		logger.Error(err, "failed to update provider status")
 		return ctrl.Result{}, err

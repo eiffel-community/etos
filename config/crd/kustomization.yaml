@@ -6,6 +6,7 @@ resources:
 - bases/etos.eiffel-community.github.io_providers.yaml
 - bases/etos.eiffel-community.github.io_environments.yaml
 - bases/etos.eiffel-community.github.io_clusters.yaml
+- bases/etos.eiffel-community.github.io_environmentrequests.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
@@ -19,6 +20,7 @@ patches:
 #- path: patches/cainjection_in_providers.yaml
 #- path: patches/cainjection_in_environments.yaml
 #- path: patches/cainjection_in_clusters.yaml
+#- path: patches/cainjection_in_environmentrequests.yaml
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # [WEBHOOK] To enable webhook, uncomment the following section

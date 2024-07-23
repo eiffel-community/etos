@@ -49,6 +49,32 @@ rules:
 - apiGroups:
   - etos.eiffel-community.github.io
   resources:
+  - environmentrequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
   - environments
   verbs:
   - create

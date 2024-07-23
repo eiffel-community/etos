@@ -129,6 +129,14 @@ type ETOSSuiteRunner struct {
 	Image `json:",inline"`
 }
 
+type ETOSTestRunner struct {
+	Version string `json:"version"`
+}
+
+type ETOSEnvironmentProvider struct {
+	Image `json:",inline"`
+}
+
 type ETOSConfig struct {
 	// +kubebuilder:default="true"
 	Dev string `json:"dev"`
@@ -141,6 +149,9 @@ type ETOSConfig struct {
 	// +kubebuilder:default="ETOS"
 	Source string `json:"source"`
 
+	// TODO: This is a secret
+	EncryptionKey string `json:"encryptionKey"`
+
 	ETOSApiURL             string `json:"etosApiURL,omitempty"`
 	ETOSEventRepositoryURL string `json:"etosEventRepositoryURL,omitempty"`
 
@@ -148,12 +159,14 @@ type ETOSConfig struct {
 }
 
 type ETOS struct {
-	API         ETOSApi         `json:"api"`
-	SSE         ETOSSSE         `json:"sse"`
-	LogArea     ETOSLogArea     `json:"logArea"`
-	SuiteRunner ETOSSuiteRunner `json:"suiteRunner"`
-	Ingress     Ingress         `json:"ingress,omitempty"`
-	// +kubebuilder:default={"dev": "true", "eventDataTimeout": "60", "testSuiteTimeout": "10", "environmentTimeout": "3600", "source": "ETOS"}
+	API                 ETOSApi                 `json:"api"`
+	SSE                 ETOSSSE                 `json:"sse"`
+	LogArea             ETOSLogArea             `json:"logArea"`
+	SuiteRunner         ETOSSuiteRunner         `json:"suiteRunner"`
+	TestRunner          ETOSTestRunner          `json:"testRunner"`
+	EnvironmentProvider ETOSEnvironmentProvider `json:"environmentProvider"`
+	Ingress             Ingress                 `json:"ingress,omitempty"`
+	// +kubebuilder:default={"dev": "true", "eventDataTimeout": "60", "testSuiteTimeout": "10", "environmentTimeout": "3600", "source": "ETOS", "encryptionKey": ""}
 	Config ETOSConfig `json:"config"`
 }
 

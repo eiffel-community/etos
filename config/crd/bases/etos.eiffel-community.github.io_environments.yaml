@@ -14,14 +14,7 @@ spec:
     singular: environment
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type=="Ready")].status
-      name: Ready
-      type: string
-    - jsonPath: .status.conditions[?(@.type=="Ready")].message
-      name: Message
-      type: string
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Environment is the Schema for the environments API
@@ -46,89 +39,108 @@ spec:
           spec:
             description: EnvironmentSpec defines the desired state of Environment
             properties:
-              executionSpace:
+              artifact:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
                 type: string
+              context:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              executor:
+                x-kubernetes-preserve-unknown-fields: true
               iut:
+                x-kubernetes-preserve-unknown-fields: true
+              log_area:
+                x-kubernetes-preserve-unknown-fields: true
+              name:
                 type: string
-              logArea:
+              priority:
+                type: integer
+              recipes:
+                items:
+                  properties:
+                    environment:
+                      description: TestEnvironment to run tests within.
+                      type: object
+                    execution:
+                      description: Execution describes hot to execute a testCase.
+                      properties:
+                        checkout:
+                          items:
+                            type: string
+                          type: array
+                        command:
+                          type: string
+                        environment:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        execute:
+                          items:
+                            type: string
+                          type: array
+                        parameters:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        testRunner:
+                          type: string
+                      required:
+                      - checkout
+                      - command
+                      - environment
+                      - parameters
+                      - testRunner
+                      type: object
+                    id:
+                      type: string
+                    testCase:
+                      description: TestCase metadata.
+                      properties:
+                        id:
+                          type: string
+                        tracker:
+                          type: string
+                        uri:
+                          type: string
+                        version:
+                          type: string
+                      required:
+                      - id
+                      type: object
+                  required:
+                  - environment
+                  - execution
+                  - id
+                  - testCase
+                  type: object
+                type: array
+              sub_suite_id:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              suite_id:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              test_runner:
+                type: string
+              test_suite_started_id:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
                 type: string
             required:
-            - executionSpace
+            - artifact
+            - context
+            - executor
             - iut
-            - logArea
+            - log_area
+            - name
+            - priority
+            - recipes
+            - sub_suite_id
+            - suite_id
+            - test_runner
+            - test_suite_started_id
             type: object
           status:
             description: EnvironmentStatus defines the observed state of Environment
-            properties:
-              conditions:
-                items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
-                  properties:
-                    lastTransitionTime:
-                      description: |-
-                        lastTransitionTime is the last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                      format: date-time
-                      type: string
-                    message:
-                      description: |-
-                        message is a human readable message indicating details about the transition.
-                        This may be an empty string.
-                      maxLength: 32768
-                      type: string
-                    observedGeneration:
-                      description: |-
-                        observedGeneration represents the .metadata.generation that the condition was set based upon.
-                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                        with respect to the current state of the instance.
-                      format: int64
-                      minimum: 0
-                      type: integer
-                    reason:
-                      description: |-
-                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                        Producers of specific condition types may define expected values and meanings for this field,
-                        and whether the values are considered a guaranteed API.
-                        The value should be a CamelCase string.
-                        This field may not be empty.
-                      maxLength: 1024
-                      minLength: 1
-                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                      type: string
-                    status:
-                      description: status of the condition, one of True, False, Unknown.
-                      enum:
-                      - "True"
-                      - "False"
-                      - Unknown
-                      type: string
-                    type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
-                      maxLength: 316
-                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                      type: string
-                  required:
-                  - lastTransitionTime
-                  - message
-                  - reason
-                  - status
-                  - type
-                  type: object
-                type: array
             type: object
         type: object
     served: true
