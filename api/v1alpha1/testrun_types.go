@@ -70,6 +70,9 @@ type Suite struct {
 
 // TestRunSpec defines the desired state of TestRun
 type TestRunSpec struct {
+	// Name of the ETOS cluster to execute the testrun in.
+	Cluster string `json:"cluster"`
+
 	// ID is the test suite ID for this execution.
 	// +kubebuilder:validation:Pattern="[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
 	ID string `json:"id"`

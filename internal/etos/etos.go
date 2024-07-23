@@ -165,6 +165,7 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 
 	data := map[string]string{
 		"ETOS_GRAPHQL_SERVER":            eventRepository,
+		"ETOS_CLUSTER":                   cluster.Name,
 		"ETOS_NAMESPACE":                 cluster.Namespace,
 		"SOURCE_HOST":                    r.Config.Source,
 		"ETOS_API":                       etosApi,
@@ -174,13 +175,7 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 		"ETOS_ETCD_HOST": cluster.Spec.Database.Etcd.Host,
 		"ETOS_ETCD_PORT": cluster.Spec.Database.Etcd.Port,
 
-		// Eiffel
-		"EIFFEL_RABBITMQ_SECRET": r.rabbitmqSecret,
-		// Logs
-		"ETOS_RABBITMQ_SECRET": r.messagebusSecret,
-
-		"ETOS_CONFIGMAP": name.Name,
-		"DEV":            r.Config.Dev,
+		"DEV": r.Config.Dev,
 
 		// TODO: A few of these seem redundant
 		"ESR_WAIT_FOR_ENVIRONMENT_TIMEOUT":        r.Config.EnvironmentTimeout,

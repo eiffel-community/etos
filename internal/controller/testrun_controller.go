@@ -316,14 +316,21 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 								{
 									ConfigMapRef: &corev1.ConfigMapEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "etos-suite-runner",
+											Name: testrun.Spec.Cluster,
 										},
 									},
 								},
 								{
 									SecretRef: &corev1.SecretEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "etos-suite-runner-rabbitmq",
+											Name: fmt.Sprintf("%s-rabbitmq", testrun.Spec.Cluster),
+										},
+									},
+								},
+								{
+									SecretRef: &corev1.SecretEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: fmt.Sprintf("%s-messagebus", testrun.Spec.Cluster),
 										},
 									},
 								},
