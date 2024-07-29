@@ -112,6 +112,9 @@ spec:
                       eventDataTimeout:
                         default: "60"
                         type: string
+                      routingKeyTag:
+                        default: etos
+                        type: string
                       source:
                         default: ETOS
                         type: string

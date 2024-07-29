@@ -155,6 +155,9 @@ type ETOSConfig struct {
 	ETOSApiURL             string `json:"etosApiURL,omitempty"`
 	ETOSEventRepositoryURL string `json:"etosEventRepositoryURL,omitempty"`
 
+	// +kubebuilder:default="etos"
+	RoutingKeyTag string `json:"routingKeyTag,omitempty"`
+
 	Timezone string `json:"timezone,omitempty"`
 }
 

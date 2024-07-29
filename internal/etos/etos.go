@@ -291,6 +291,7 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 		"ENVIRONMENT_PROVIDER_IMAGE":             cluster.Spec.ETOS.EnvironmentProvider.Image.Image,
 		"ENVIRONMENT_PROVIDER_IMAGE_PULL_POLICY": string(cluster.Spec.ETOS.EnvironmentProvider.ImagePullPolicy),
 		"ETR_VERSION":                            cluster.Spec.ETOS.TestRunner.Version,
+		"ETOS_ROUTING_KEY_TAG":                   cluster.Spec.ETOS.Config.RoutingKeyTag,
 
 		"ETOS_ETCD_HOST": cluster.Spec.Database.Etcd.Host,
 		"ETOS_ETCD_PORT": cluster.Spec.Database.Etcd.Port,
