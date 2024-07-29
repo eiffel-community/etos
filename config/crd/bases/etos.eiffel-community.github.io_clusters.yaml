@@ -196,9 +196,24 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
+                      logListener:
+                        description: Image configuration.
+                        properties:
+                          image:
+                            type: string
+                          imagePullPolicy:
+                            default: IfNotPresent
+                            description: PullPolicy describes a policy for if/when
+                              to pull a container image
+                            type: string
+                        required:
+                        - image
+                        - imagePullPolicy
+                        type: object
                     required:
                     - image
                     - imagePullPolicy
+                    - logListener
                     type: object
                   testRunner:
                     properties:

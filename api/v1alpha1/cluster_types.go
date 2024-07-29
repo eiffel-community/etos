@@ -126,7 +126,8 @@ type ETOSLogArea struct {
 }
 
 type ETOSSuiteRunner struct {
-	Image `json:",inline"`
+	Image       `json:",inline"`
+	LogListener Image `json:"logListener"`
 }
 
 type ETOSTestRunner struct {

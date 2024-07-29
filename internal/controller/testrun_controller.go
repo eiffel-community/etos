@@ -360,6 +360,9 @@ func (r *TestRunReconciler) terminationLog(ctx context.Context, suiteRunner *bat
 
 	for _, status := range pod.Status.ContainerStatuses {
 		if status.Name == suiteRunner.Name {
+			if status.State.Terminated == nil {
+				return "", errors.New("could not read termination log from suite runner pod")
+			}
 			return status.State.Terminated.Message, nil
 		}
 	}
@@ -394,7 +397,9 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 	backoff := int32(0)
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels:      make(map[string]string),
+			Labels: map[string]string{
+				"id": testrun.Spec.ID, // TODO: Required for SSE, update SSE to use testrun.
+			},
 			Annotations: make(map[string]string),
 			Name:        testrun.Name,
 			Namespace:   testrun.Namespace,
@@ -407,14 +412,71 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 					Name: testrun.Name,
 				},
 				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
+						{
+							Name: "kubexit",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "graveyard",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory},
+							},
+						},
+					},
 					TerminationGracePeriodSeconds: &grace,
 					ServiceAccountName:            fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
 					RestartPolicy:                 "Never",
+					InitContainers: []corev1.Container{
+						{
+							Name:    "kubexit",
+							Image:   "karlkfi/kubexit:latest",
+							Command: []string{"cp", "/bin/kubexit", "/kubexit/kubexit"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "kubexit",
+									MountPath: "/kubexit",
+								},
+							},
+						},
+						{
+							Name:            "create-queue",
+							Image:           testrun.Spec.LogListener.Image.Image,
+							ImagePullPolicy: testrun.Spec.LogListener.ImagePullPolicy,
+							Command:         []string{"python", "-u", "-m", "create_queue"},
+							EnvFrom: []corev1.EnvFromSource{
+								{
+									ConfigMapRef: &corev1.ConfigMapEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: testrun.Spec.Cluster,
+										},
+									},
+								},
+								{
+									SecretRef: &corev1.SecretEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: fmt.Sprintf("%s-messagebus", testrun.Spec.Cluster),
+										},
+									},
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "IDENTIFIER",
+									Value: testrun.Spec.ID,
+								},
+							},
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							Name:            testrun.Name,
 							Image:           testrun.Spec.SuiteRunner.Image.Image,
 							ImagePullPolicy: testrun.Spec.SuiteRunner.ImagePullPolicy,
+							Command:         []string{"/kubexit/kubexit"},
+							Args:            []string{"python", "-u", "-m", "etos_suite_runner"},
 							EnvFrom: []corev1.EnvFromSource{
 								{
 									ConfigMapRef: &corev1.ConfigMapEnvSource{
@@ -461,6 +523,86 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 								{
 									Name:  "IDENTIFIER",
 									Value: testrun.Spec.ID,
+								},
+								{
+									Name:  "KUBEXIT_NAME",
+									Value: "esr",
+								},
+								{
+									Name:  "KUBEXIT_GRAVEYARD",
+									Value: "/graveyard",
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "graveyard",
+									MountPath: "/graveyard",
+								},
+								{
+									Name:      "kubexit",
+									MountPath: "/kubexit",
+								},
+							},
+						},
+						{
+							Name:            "etos-log-listener",
+							Image:           testrun.Spec.LogListener.Image.Image,
+							ImagePullPolicy: testrun.Spec.LogListener.ImagePullPolicy,
+							Command:         []string{"/kubexit/kubexit"},
+							Args:            []string{"python", "-u", "-m", "log_listener"},
+							EnvFrom: []corev1.EnvFromSource{
+								{
+									ConfigMapRef: &corev1.ConfigMapEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: testrun.Spec.Cluster,
+										},
+									},
+								},
+								{
+									SecretRef: &corev1.SecretEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: testrun.Spec.Cluster,
+										},
+									},
+								},
+								{
+									SecretRef: &corev1.SecretEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: fmt.Sprintf("%s-messagebus", testrun.Spec.Cluster),
+										},
+									},
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "IDENTIFIER",
+									Value: testrun.Spec.ID,
+								},
+								{
+									Name:  "KUBEXIT_NAME",
+									Value: "log_listener",
+								},
+								{
+									Name:  "KUBEXIT_GRAVE_PERIOD",
+									Value: "400s",
+								},
+								{
+									Name:  "KUBEXIT_GRAVEYARD",
+									Value: "/graveyard",
+								},
+								{
+									Name:  "KUBEXIT_DEATH_DEPS",
+									Value: "esr",
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "graveyard",
+									MountPath: "/graveyard",
+								},
+								{
+									Name:      "kubexit",
+									MountPath: "/kubexit",
 								},
 							},
 						},

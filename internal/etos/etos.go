@@ -288,6 +288,8 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 		"ETOS_API":                               etosApi,
 		"SUITE_RUNNER_IMAGE":                     cluster.Spec.ETOS.SuiteRunner.Image.Image,
 		"SUITE_RUNNER_IMAGE_PULL_POLICY":         string(cluster.Spec.ETOS.SuiteRunner.ImagePullPolicy),
+		"LOG_LISTENER_IMAGE":                     cluster.Spec.ETOS.SuiteRunner.LogListener.Image,
+		"LOG_LISTENER_IMAGE_PULL_POLICY":         string(cluster.Spec.ETOS.SuiteRunner.LogListener.ImagePullPolicy),
 		"ENVIRONMENT_PROVIDER_IMAGE":             cluster.Spec.ETOS.EnvironmentProvider.Image.Image,
 		"ENVIRONMENT_PROVIDER_IMAGE_PULL_POLICY": string(cluster.Spec.ETOS.EnvironmentProvider.ImagePullPolicy),
 		"ETR_VERSION":                            cluster.Spec.ETOS.TestRunner.Version,

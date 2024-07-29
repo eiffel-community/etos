@@ -78,6 +78,10 @@ type SuiteRunner struct {
 	*Image `json:",inline"`
 }
 
+type LogListener struct {
+	*Image `json:",inline"`
+}
+
 type EnvironmentProvider struct {
 	*Image `json:",inline"`
 }
@@ -96,6 +100,7 @@ type TestRunSpec struct {
 	Artifact string `json:"artifact"`
 
 	SuiteRunner         SuiteRunner         `json:"suiteRunner"`
+	LogListener         LogListener         `json:"logListener"`
 	EnvironmentProvider EnvironmentProvider `json:"environmentProvider"`
 	Identity            string              `json:"identity"`
 	Providers           Providers           `json:"providers"`

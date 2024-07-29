@@ -81,6 +81,19 @@ spec:
                 type: string
               identity:
                 type: string
+              logListener:
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    default: IfNotPresent
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                required:
+                - image
+                - imagePullPolicy
+                type: object
               providers:
                 description: |-
                   Providers to use for test execution. These names must correspond to existing
@@ -197,6 +210,7 @@ spec:
             - environmentProvider
             - id
             - identity
+            - logListener
             - providers
             - suiteRunner
             - suites
