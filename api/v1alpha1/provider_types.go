@@ -77,8 +77,10 @@ type JSONTas struct {
 // The defaults of this should work most of the time.
 type Healthcheck struct {
 	// +kubebuilder:default=/v1alpha1/selftest/ping
+	// +optional
 	Endpoint string `json:"endpoint"`
 	// +kubebuilder:default=30
+	// +optional
 	IntervalSeconds int `json:"intervalSeconds"`
 }
 
@@ -88,7 +90,8 @@ type ProviderSpec struct {
 	Type string `json:"type"`
 	Host string `json:"host"`
 
-	// +kubebuilder:default={endpoint:"/v1alpha1/selftest/ping",intervalSeconds:30}
+	// +kubebuilder:default={}
+	// +optional
 	Healthcheck Healthcheck `json:"healthCheck"`
 
 	JSONTas JSONTas `json:"jsontas,omitempty"`

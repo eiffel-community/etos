@@ -68,7 +68,6 @@ spec:
             required:
             - executionSpace
             - image
-            - imagePullPolicy
             - iut
             - logArea
             - testrun

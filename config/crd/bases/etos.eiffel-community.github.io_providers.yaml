@@ -50,9 +50,7 @@ spec:
             description: ProviderSpec defines the desired state of Provider
             properties:
               healthCheck:
-                default:
-                  endpoint: /v1alpha1/selftest/ping
-                  intervalSeconds: 30
+                default: {}
                 description: |-
                   Healthcheck defines the health check endpoint and interval for providers.
                   The defaults of this should work most of the time.
@@ -63,9 +61,6 @@ spec:
                   intervalSeconds:
                     default: 30
                     type: integer
-                required:
-                - endpoint
-                - intervalSeconds
                 type: object
               host:
                 type: string

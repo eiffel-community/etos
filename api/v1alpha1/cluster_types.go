@@ -22,9 +22,12 @@ import (
 )
 
 type MongoDB struct {
+	// +kubebuilder:default=false
+	// +optional
 	Deploy bool `json:"deploy"`
 	// Ignored if deploy is true
 	// +kubebuilder:default="mongodb://root:password@mongodb:27017/admin"
+	// +optional
 	URI       string `json:"uri"`
 	URISecret string `json:"uriSecretRef,omitempty"`
 }
@@ -34,78 +37,101 @@ type Image struct {
 	Image string `json:"image"`
 
 	// +kubebuilder:default="IfNotPresent"
+	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
 }
 
 type EventRepository struct {
 	// Deploy a local event repository for a cluster.
+	// +kubebuilder:default=false
+	// +optional
 	Deploy bool `json:"deploy"`
 
 	// We do not build the GraphQL API automatically nor publish it remotely.
 	// This will need to be provided to work.
-	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-api:latest", "imagePullPolicy": "IfNotPresent"}
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-api:latest"}
+	// +optional
 	API Image `json:"api"`
 
 	// We do not build the GraphQL API automatically nor publish it remotely.
 	// This will need to be provided to work.
-	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-storage:latest", "imagePullPolicy": "IfNotPresent"}
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-storage:latest"}
+	// +optional
 	Storage Image `json:"storage"`
 
-	// +kubebuilder:default={"uri": "mongodb://root:password@mongodb:27017/admin", "deploy": false}
+	// +kubebuilder:default={}
+	// +optional
 	Database MongoDB `json:"mongo"`
 	// +kubebuilder:default="eventrepository"
+	// +optional
 	Host string `json:"host"`
-	// +kubebuilder:default={"enabled": false}
+	// +kubebuilder:default={}
+	// +optional
 	Ingress Ingress `json:"ingress"`
 }
 
 type RabbitMQ struct {
 	// +kubebuilder:default=false
+	// +optional
 	Deploy bool `json:"deploy"`
 	// +kubebuilder:default="rabbitmq"
+	// +optional
 	Host string `json:"host"`
 	// +kubebuilder:default="amq.topic"
+	// +optional
 	Exchange       string `json:"exchange"`
 	PasswordSecret string `json:"passwordSecret,omitempty"`
 	// +kubebuilder:default="guest"
+	// +optional
 	Password string `json:"password,omitempty"`
 	// +kubebuilder:default="guest"
+	// +optional
 	Username string `json:"username,omitempty"`
 	// +kubebuilder:default="5672"
+	// +optional
 	Port string `json:"port"`
 	// +kubebuilder:default="false"
+	// +optional
 	SSL string `json:"ssl"`
 	// +kubebuilder:default=/
+	// +optional
 	Vhost       string `json:"vhost"`
 	QueueName   string `json:"queueName,omitempty"`
 	QueueParams string `json:"queueParams,omitempty"`
 }
 
 type MessageBus struct {
-	// +kubebuilder:default={"host": "rabbitmq", "exchange": "amq.topic", "port": "5672", "ssl": "false", "vhost": "/", "queueName": "etos", "deploy": false}
+	// +kubebuilder:default={"queueName": "etos"}
+	// +optional
 	EiffelMessageBus RabbitMQ `json:"eiffel"`
-	// +kubebuilder:default={"host": "rabbitmq", "exchange": "amq.topic", "port": "5672", "ssl": "false", "vhost": "/", "queueName": "etos-*-temp", "deploy": false}
+	// +kubebuilder:default={"queueName": "etos-*-temp"}
+	// +optional
 	ETOSMessageBus RabbitMQ `json:"logs"`
 }
 
 type Etcd struct {
 	// Parameter is ignored if Deploy is set to true.
 	// +kubebuilder:default="etcd-client"
+	// +optional
 	Host string `json:"host"`
 	// Parameter is ignored if Deploy is set to true.
 	// +kubebuilder:default="2379"
+	// +optional
 	Port string `json:"port"`
 }
 
 type Database struct {
 	// +kubebuilder:default=true
+	// +optional
 	Deploy bool `json:"deploy"`
-	// +kubebuilder:default={"host": "etcd-client", "port": "2379"}
+	// +kubebuilder:default={}
+	// +optional
 	Etcd Etcd `json:"etcd"`
 }
 
 type Ingress struct {
 	// +kubebuilder:default=false
+	// +optional
 	Enabled      bool   `json:"enabled"`
 	IngressClass string `json:"ingressClass,omitempty"`
 	// +kubebuilder:default=""
@@ -140,45 +166,69 @@ type ETOSEnvironmentProvider struct {
 
 type ETOSConfig struct {
 	// +kubebuilder:default="true"
+	// +optional
 	Dev string `json:"dev"`
 	// +kubebuilder:default="60"
+	// +optional
 	EventDataTimeout string `json:"eventDataTimeout"`
 	// +kubebuilder:default="10"
+	// +optional
 	TestSuiteTimeout string `json:"testSuiteTimeout"`
 	// +kubebuilder:default="3600"
+	// +optional
 	EnvironmentTimeout string `json:"environmentTimeout"`
 	// +kubebuilder:default="ETOS"
+	// +optional
 	Source string `json:"source"`
 
 	// TODO: This is a secret
+	// +kubebuilder:default=""
 	EncryptionKey string `json:"encryptionKey"`
 
 	ETOSApiURL             string `json:"etosApiURL,omitempty"`
 	ETOSEventRepositoryURL string `json:"etosEventRepositoryURL,omitempty"`
 
 	// +kubebuilder:default="etos"
-	RoutingKeyTag string `json:"routingKeyTag,omitempty"`
+	// +optional
+	RoutingKeyTag string `json:"routingKeyTag"`
 
 	Timezone string `json:"timezone,omitempty"`
 }
 
 type ETOS struct {
-	API                 ETOSApi                 `json:"api"`
-	SSE                 ETOSSSE                 `json:"sse"`
-	LogArea             ETOSLogArea             `json:"logArea"`
-	SuiteRunner         ETOSSuiteRunner         `json:"suiteRunner"`
-	TestRunner          ETOSTestRunner          `json:"testRunner"`
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-api:latest"}
+	// +optional
+	API ETOSApi `json:"api"`
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-sse:latest"}
+	// +optional
+	SSE ETOSSSE `json:"sse"`
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-log-area:latest"}
+	// +optional
+	LogArea ETOSLogArea `json:"logArea"`
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-suite-runner:latest", "logListener": {"image": "registry.nordix.org/eiffel/etos-log-listener:latest"}}
+	// +optional
+	SuiteRunner ETOSSuiteRunner `json:"suiteRunner"`
+	// +kubebuilder:default={"version": "latest"}
+	// +optional
+	TestRunner ETOSTestRunner `json:"testRunner"`
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-environment-provider:latest"}
+	// +optional
 	EnvironmentProvider ETOSEnvironmentProvider `json:"environmentProvider"`
 	Ingress             Ingress                 `json:"ingress,omitempty"`
-	// +kubebuilder:default={"dev": "true", "eventDataTimeout": "60", "testSuiteTimeout": "10", "environmentTimeout": "3600", "source": "ETOS", "encryptionKey": ""}
+	// +kubebuilder:default={"encryptionKey": ""}
+	// +optional
 	Config ETOSConfig `json:"config"`
 }
 
 // ClusterSpec defines the desired state of Cluster
 type ClusterSpec struct {
-	ETOS            ETOS            `json:"etos"`
-	Database        Database        `json:"database"`
-	MessageBus      MessageBus      `json:"messageBus"`
+	// +kubebuilder:default={}
+	ETOS ETOS `json:"etos"`
+	// +kubebuilder:default={}
+	Database Database `json:"database"`
+	// +kubebuilder:default={}
+	MessageBus MessageBus `json:"messageBus"`
+	// +kubebuilder:default={}
 	EventRepository EventRepository `json:"eventRepository"`
 }
 

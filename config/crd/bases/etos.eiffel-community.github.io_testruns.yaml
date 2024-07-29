@@ -73,7 +73,6 @@ spec:
                     type: string
                 required:
                 - image
-                - imagePullPolicy
                 type: object
               id:
                 description: ID is the test suite ID for this execution.
@@ -92,7 +91,6 @@ spec:
                     type: string
                 required:
                 - image
-                - imagePullPolicy
                 type: object
               providers:
                 description: |-
@@ -121,7 +119,6 @@ spec:
                     type: string
                 required:
                 - image
-                - imagePullPolicy
                 type: object
               suites:
                 items:

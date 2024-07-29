@@ -47,14 +47,13 @@ spec:
             description: ClusterSpec defines the desired state of Cluster
             properties:
               database:
+                default: {}
                 properties:
                   deploy:
                     default: true
                     type: boolean
                   etcd:
-                    default:
-                      host: etcd-client
-                      port: "2379"
+                    default: {}
                     properties:
                       host:
                         default: etcd-client
@@ -64,17 +63,14 @@ spec:
                         default: "2379"
                         description: Parameter is ignored if Deploy is set to true.
                         type: string
-                    required:
-                    - host
-                    - port
                     type: object
-                required:
-                - deploy
-                - etcd
                 type: object
               etos:
+                default: {}
                 properties:
                   api:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-api:latest
                     properties:
                       image:
                         type: string
@@ -85,21 +81,16 @@ spec:
                         type: string
                     required:
                     - image
-                    - imagePullPolicy
                     type: object
                   config:
                     default:
-                      dev: "true"
                       encryptionKey: ""
-                      environmentTimeout: "3600"
-                      eventDataTimeout: "60"
-                      source: ETOS
-                      testSuiteTimeout: "10"
                     properties:
                       dev:
                         default: "true"
                         type: string
                       encryptionKey:
+                        default: ""
                         description: 'TODO: This is a secret'
                         type: string
                       environmentTimeout:
@@ -124,14 +115,11 @@ spec:
                       timezone:
                         type: string
                     required:
-                    - dev
                     - encryptionKey
-                    - environmentTimeout
-                    - eventDataTimeout
-                    - source
-                    - testSuiteTimeout
                     type: object
                   environmentProvider:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-environment-provider:latest
                     properties:
                       image:
                         type: string
@@ -142,7 +130,6 @@ spec:
                         type: string
                     required:
                     - image
-                    - imagePullPolicy
                     type: object
                   ingress:
                     properties:
@@ -158,10 +145,10 @@ spec:
                         type: string
                       ingressClass:
                         type: string
-                    required:
-                    - enabled
                     type: object
                   logArea:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-log-area:latest
                     properties:
                       image:
                         type: string
@@ -172,9 +159,10 @@ spec:
                         type: string
                     required:
                     - image
-                    - imagePullPolicy
                     type: object
                   sse:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-sse:latest
                     properties:
                       image:
                         type: string
@@ -185,9 +173,12 @@ spec:
                         type: string
                     required:
                     - image
-                    - imagePullPolicy
                     type: object
                   suiteRunner:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-suite-runner:latest
+                      logListener:
+                        image: registry.nordix.org/eiffel/etos-log-listener:latest
                     properties:
                       image:
                         type: string
@@ -208,35 +199,27 @@ spec:
                             type: string
                         required:
                         - image
-                        - imagePullPolicy
                         type: object
                     required:
                     - image
-                    - imagePullPolicy
                     - logListener
                     type: object
                   testRunner:
+                    default:
+                      version: latest
                     properties:
                       version:
                         type: string
                     required:
                     - version
                     type: object
-                required:
-                - api
-                - config
-                - environmentProvider
-                - logArea
-                - sse
-                - suiteRunner
-                - testRunner
                 type: object
               eventRepository:
+                default: {}
                 properties:
                   api:
                     default:
                       image: registry.nordix.org/eiffel/eiffel-graphql-api:latest
-                      imagePullPolicy: IfNotPresent
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
@@ -250,17 +233,16 @@ spec:
                         type: string
                     required:
                     - image
-                    - imagePullPolicy
                     type: object
                   deploy:
+                    default: false
                     description: Deploy a local event repository for a cluster.
                     type: boolean
                   host:
                     default: eventrepository
                     type: string
                   ingress:
-                    default:
-                      enabled: false
+                    default: {}
                     properties:
                       annotations:
                         additionalProperties:
@@ -274,15 +256,12 @@ spec:
                         type: string
                       ingressClass:
                         type: string
-                    required:
-                    - enabled
                     type: object
                   mongo:
-                    default:
-                      deploy: false
-                      uri: mongodb://root:password@mongodb:27017/admin
+                    default: {}
                     properties:
                       deploy:
+                        default: false
                         type: boolean
                       uri:
                         default: mongodb://root:password@mongodb:27017/admin
@@ -290,14 +269,10 @@ spec:
                         type: string
                       uriSecretRef:
                         type: string
-                    required:
-                    - deploy
-                    - uri
                     type: object
                   storage:
                     default:
                       image: registry.nordix.org/eiffel/eiffel-graphql-storage:latest
-                      imagePullPolicy: IfNotPresent
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
@@ -311,27 +286,14 @@ spec:
                         type: string
                     required:
                     - image
-                    - imagePullPolicy
                     type: object
-                required:
-                - api
-                - deploy
-                - host
-                - ingress
-                - mongo
-                - storage
                 type: object
               messageBus:
+                default: {}
                 properties:
                   eiffel:
                     default:
-                      deploy: false
-                      exchange: amq.topic
-                      host: rabbitmq
-                      port: "5672"
                       queueName: etos
-                      ssl: "false"
-                      vhost: /
                     properties:
                       deploy:
                         default: false
@@ -363,23 +325,10 @@ spec:
                       vhost:
                         default: /
                         type: string
-                    required:
-                    - deploy
-                    - exchange
-                    - host
-                    - port
-                    - ssl
-                    - vhost
                     type: object
                   logs:
                     default:
-                      deploy: false
-                      exchange: amq.topic
-                      host: rabbitmq
-                      port: "5672"
                       queueName: etos-*-temp
-                      ssl: "false"
-                      vhost: /
                     properties:
                       deploy:
                         default: false
@@ -411,17 +360,7 @@ spec:
                       vhost:
                         default: /
                         type: string
-                    required:
-                    - deploy
-                    - exchange
-                    - host
-                    - port
-                    - ssl
-                    - vhost
                     type: object
-                required:
-                - eiffel
-                - logs
                 type: object
             required:
             - database
