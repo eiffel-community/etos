@@ -39,6 +39,9 @@ patches:
     - op: add
       path: /data/ETOS_ROUTING_KEY_TAG
       value: etos-prod
+    - op: add
+      path: /data/OTEL_COLLECTOR_HOST
+      value: static-otel-collector.etos-production.svc.cluster.local:4317
 - target:
     kind: ConfigMap
     name: etos-suite-starter
@@ -104,7 +107,7 @@ components:
   - ../../components/reloader
 
   - ../../components/autoscaling
-  - ../../components/filebeat
+  - ../../components/filebeat-opentelemetry
   - ../../components/rabbitmq
   - ../../components/encryption
   - ../../components/user-logs
@@ -112,3 +115,4 @@ components:
   - ../../components/providers
   - ../../components/firmware-flasher
   - ../../components/cleaning-crew
+  - ../../components/observability
