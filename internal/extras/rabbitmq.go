@@ -39,18 +39,20 @@ var rabbitmqPort int32 = 5672
 type RabbitMQDeployment struct {
 	etosv1alpha1.RabbitMQ
 	client.Client
+	ctx        context.Context
 	Scheme     *runtime.Scheme
 	SecretName string
 }
 
 // NewRabbitMQDeployment will create a new RabbitMQ reconciler.
 func NewRabbitMQDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) (*RabbitMQDeployment, error) {
-	return &RabbitMQDeployment{spec, client, scheme, ""}, nil
+	return &RabbitMQDeployment{spec, client, nil, scheme, ""}, nil
 }
 
 // Reconcile will reconcile RabbitMQ to its expected state.
 func (r *RabbitMQDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
 	logger := log.FromContext(ctx)
+	r.ctx = ctx
 	name := fmt.Sprintf("%s-rabbitmq", cluster.Name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 	if r.Deploy {
@@ -59,17 +61,17 @@ func (r *RabbitMQDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha
 		r.Port = fmt.Sprintf("%d", rabbitmqPort)
 	}
 
-	secret, err := r.reconcileSecret(ctx, namespacedName, cluster)
+	secret, err := r.reconcileSecret(namespacedName, cluster)
 	if err != nil {
 		return err
 	}
 	r.SecretName = secret.Name
 
-	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
+	_, err = r.reconcileStatefulset(namespacedName, cluster)
 	if err != nil {
 		return err
 	}
-	_, err = r.reconcileService(ctx, namespacedName, cluster)
+	_, err = r.reconcileService(namespacedName, cluster)
 	if err != nil {
 		return err
 	}
@@ -78,22 +80,25 @@ func (r *RabbitMQDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha
 }
 
 // reconcileSecret will reconcile the RabbitMQ secret to its expected state.
-func (r *RabbitMQDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	logger := log.FromContext(ctx)
-	target := r.secret(name)
+func (r *RabbitMQDeployment) reconcileSecret(name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	logger := log.FromContext(r.ctx)
+	target, err := r.secret(name)
+	if err != nil {
+		return target, err
+	}
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
 	scheme.Scheme.Default(target)
 
 	secret := &corev1.Secret{}
-	if err := r.Get(ctx, name, secret); err != nil {
+	if err := r.Get(r.ctx, name, secret); err != nil {
 		if !apierrors.IsNotFound(err) {
 			logger.Error(err, "failed to get rabbitmq secret")
 			return secret, err
 		}
 		logger.Info("Secret not found. Creating")
-		if err := r.Create(ctx, target); err != nil {
+		if err := r.Create(r.ctx, target); err != nil {
 			return target, err
 		}
 		return target, nil
@@ -101,63 +106,67 @@ func (r *RabbitMQDeployment) reconcileSecret(ctx context.Context, name types.Nam
 	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
 		return secret, nil
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
+	return target, r.Patch(r.ctx, target, client.StrategicMergeFrom(secret))
 }
 
 // reconcileStatefulset will reconcile the RabbitMQ statefulset to its expected state.
-func (r *RabbitMQDeployment) reconcileStatefulset(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
+func (r *RabbitMQDeployment) reconcileStatefulset(name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
 	target := r.statefulset(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
 
 	rabbitmq := &appsv1.StatefulSet{}
-	if err := r.Get(ctx, name, rabbitmq); err != nil {
+	if err := r.Get(r.ctx, name, rabbitmq); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return rabbitmq, err
 		}
 		if r.Deploy {
-			if err := r.Create(ctx, target); err != nil {
+			if err := r.Create(r.ctx, target); err != nil {
 				return target, err
 			}
 		}
 		return target, nil
 	} else if !r.Deploy {
-		return nil, r.Delete(ctx, rabbitmq)
+		return nil, r.Delete(r.ctx, rabbitmq)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq))
+	return target, r.Patch(r.ctx, target, client.StrategicMergeFrom(rabbitmq))
 }
 
 // reconcileService will reconcile the RabbitMQ service to its expected state.
-func (r *RabbitMQDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *RabbitMQDeployment) reconcileService(name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
 	target := r.service(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
 
 	service := &corev1.Service{}
-	if err := r.Get(ctx, name, service); err != nil {
+	if err := r.Get(r.ctx, name, service); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return service, err
 		}
 		if r.Deploy {
-			if err := r.Create(ctx, target); err != nil {
+			if err := r.Create(r.ctx, target); err != nil {
 				return target, err
 			}
 		}
 		return target, nil
 	} else if !r.Deploy {
-		return nil, r.Delete(ctx, service)
+		return nil, r.Delete(r.ctx, service)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
+	return target, r.Patch(r.ctx, target, client.StrategicMergeFrom(service))
 }
 
 // secret will create a secret resource definition for RabbitMQ.
-func (r *RabbitMQDeployment) secret(name types.NamespacedName) *corev1.Secret {
+func (r *RabbitMQDeployment) secret(name types.NamespacedName) (*corev1.Secret, error) {
+	data, err := r.secretData(name)
+	if err != nil {
+		return nil, err
+	}
 	return &corev1.Secret{
 		ObjectMeta: r.meta(name),
-		Data:       r.secretData(),
-	}
+		Data:       data,
+	}, nil
 }
 
 // statefulset will create a statefulset resource definition for RabbitMQ.
@@ -192,7 +201,7 @@ func (r *RabbitMQDeployment) service(name types.NamespacedName) *corev1.Service 
 }
 
 // secretData will create a map of secrets for the RabbitMQ secret.
-func (r *RabbitMQDeployment) secretData() map[string][]byte {
+func (r *RabbitMQDeployment) secretData(name types.NamespacedName) (map[string][]byte, error) {
 	data := map[string][]byte{
 		"RABBITMQ_HOST":     []byte(r.Host),
 		"RABBITMQ_EXCHANGE": []byte(r.Exchange),
@@ -200,9 +209,12 @@ func (r *RabbitMQDeployment) secretData() map[string][]byte {
 		"RABBITMQ_SSL":      []byte(r.SSL),
 		"RABBITMQ_VHOST":    []byte(r.Vhost),
 	}
-	// TODO: Deal with PasswordSecret
-	if r.Password != "" {
-		data["RABBITMQ_PASSWORD"] = []byte(r.Password)
+	if r.Password != nil {
+		password, err := r.Password.Get(r.ctx, r.Client, name.Namespace)
+		if err != nil {
+			return nil, err
+		}
+		data["RABBITMQ_PASSWORD"] = password
 	}
 	if r.Username != "" {
 		data["RABBITMQ_USERNAME"] = []byte(r.Username)
@@ -213,7 +225,7 @@ func (r *RabbitMQDeployment) secretData() map[string][]byte {
 	if r.QueueParams != "" {
 		data["RABBITMQ_QUEUE_PARAMS"] = []byte(r.QueueParams)
 	}
-	return data
+	return data, nil
 }
 
 // meta will create a common meta object for RabbitMQ.

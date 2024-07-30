@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,8 +86,8 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 	if err := eiffel.Reconcile(ctx, cluster); err != nil {
-		if errors.IsConflict(err) {
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
+			return ctrl.Result{Requeue: true}, nil
 		}
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
@@ -98,8 +97,8 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 	if err := messagebus.Reconcile(ctx, cluster); err != nil {
-		if errors.IsConflict(err) {
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
+			return ctrl.Result{Requeue: true}, nil
 		}
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
@@ -109,19 +108,19 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 	if err := mongodb.Reconcile(ctx, cluster); err != nil {
-		if errors.IsConflict(err) {
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
+			return ctrl.Result{Requeue: true}, nil
 		}
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 
-	graphql, err := extras.NewEventRepositoryDeployment(&cluster.Spec.EventRepository, r.Scheme, r.Client, eiffel.SecretName, mongodb.SecretName)
+	graphql, err := extras.NewEventRepositoryDeployment(&cluster.Spec.EventRepository, r.Scheme, r.Client, mongodb, eiffel.SecretName)
 	if err != nil {
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 	if err := graphql.Reconcile(ctx, cluster); err != nil {
-		if errors.IsConflict(err) {
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
+			return ctrl.Result{Requeue: true}, nil
 		}
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
@@ -131,8 +130,8 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 	if err := etcd.Reconcile(ctx, cluster); err != nil {
-		if errors.IsConflict(err) {
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
+			return ctrl.Result{Requeue: true}, nil
 		}
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
@@ -142,8 +141,8 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 	if err := etos.Reconcile(ctx, cluster); err != nil {
-		if errors.IsConflict(err) {
-			return ctrl.Result{RequeueAfter: time.Second}, nil
+		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
+			return ctrl.Result{Requeue: true}, nil
 		}
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
@@ -156,7 +155,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *ClusterReconciler) update(ctx context.Context, cluster *etosv1alpha1.Cluster, status metav1.ConditionStatus, message string) (ctrl.Result, error) {
 	if meta.SetStatusCondition(&cluster.Status.Conditions, metav1.Condition{Type: StatusReady, Status: status, Reason: "Ready", Message: message}) {
 		if err := r.Status().Update(ctx, cluster); err != nil {
-			if errors.IsConflict(err) {
+			if apierrors.IsConflict(err) {
 				return ctrl.Result{RequeueAfter: time.Second}, nil
 			}
 			return ctrl.Result{}, err

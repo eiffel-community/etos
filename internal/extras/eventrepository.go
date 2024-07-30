@@ -46,12 +46,8 @@ type EventRepositoryDeployment struct {
 }
 
 // NewEventRepositoryDeployment will create a new event repository reconciler.
-func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, mongodbSecret string) (*EventRepositoryDeployment, error) {
-	mongodbURL, err := url.Parse(spec.Database.URI)
-	if err != nil {
-		return nil, err
-	}
-	return &EventRepositoryDeployment{spec, client, scheme, *mongodbURL, rabbitmqSecret, mongodbSecret}, nil
+func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *runtime.Scheme, client client.Client, mongodb *MongoDBDeployment, rabbitmqSecret string) (*EventRepositoryDeployment, error) {
+	return &EventRepositoryDeployment{spec, client, scheme, mongodb.URL, rabbitmqSecret, mongodb.SecretName}, nil
 }
 
 // Reconcile will reconcile the event repository to its expected state.

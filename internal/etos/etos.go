@@ -228,7 +228,10 @@ func (r *ETOSDeployment) reconcileConfigmap(ctx context.Context, name types.Name
 
 // reconcileSecret will reconcile the secret to its expected state.
 func (r *ETOSDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	target := r.secret(name)
+	target, err := r.secret(ctx, name)
+	if err != nil {
+		return target, err
+	}
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -316,13 +319,17 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 }
 
 // secret creates a secret definition for ETOS.
-func (r *ETOSDeployment) secret(name types.NamespacedName) *corev1.Secret {
+func (r *ETOSDeployment) secret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+	value, err := r.Config.EncryptionKey.Get(ctx, r.Client, name.Namespace)
+	if err != nil {
+		return nil, err
+	}
 	return &corev1.Secret{
 		ObjectMeta: r.meta(name),
 		Data: map[string][]byte{
-			"ETOS_ENCRYPTION_KEY": []byte(r.Config.EncryptionKey),
+			"ETOS_ENCRYPTION_KEY": []byte(value),
 		},
-	}
+	}, nil
 }
 
 // meta creates a common meta object for kubernetes resources.

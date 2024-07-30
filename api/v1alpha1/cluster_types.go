@@ -17,7 +17,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,19 +25,9 @@ type MongoDB struct {
 	// +optional
 	Deploy bool `json:"deploy"`
 	// Ignored if deploy is true
-	// +kubebuilder:default="mongodb://root:password@mongodb:27017/admin"
+	// +kubebuilder:default={"value": "mongodb://root:password@mongodb:27017/admin"}
 	// +optional
-	URI       string `json:"uri"`
-	URISecret string `json:"uriSecretRef,omitempty"`
-}
-
-// Image configuration.
-type Image struct {
-	Image string `json:"image"`
-
-	// +kubebuilder:default="IfNotPresent"
-	// +optional
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
+	URI Var `json:"uri"`
 }
 
 type EventRepository struct {
@@ -70,36 +59,6 @@ type EventRepository struct {
 	Ingress Ingress `json:"ingress"`
 }
 
-type RabbitMQ struct {
-	// +kubebuilder:default=false
-	// +optional
-	Deploy bool `json:"deploy"`
-	// +kubebuilder:default="rabbitmq"
-	// +optional
-	Host string `json:"host"`
-	// +kubebuilder:default="amq.topic"
-	// +optional
-	Exchange       string `json:"exchange"`
-	PasswordSecret string `json:"passwordSecret,omitempty"`
-	// +kubebuilder:default="guest"
-	// +optional
-	Password string `json:"password,omitempty"`
-	// +kubebuilder:default="guest"
-	// +optional
-	Username string `json:"username,omitempty"`
-	// +kubebuilder:default="5672"
-	// +optional
-	Port string `json:"port"`
-	// +kubebuilder:default="false"
-	// +optional
-	SSL string `json:"ssl"`
-	// +kubebuilder:default=/
-	// +optional
-	Vhost       string `json:"vhost"`
-	QueueName   string `json:"queueName,omitempty"`
-	QueueParams string `json:"queueParams,omitempty"`
-}
-
 type MessageBus struct {
 	// +kubebuilder:default={"queueName": "etos"}
 	// +optional
@@ -127,16 +86,6 @@ type Database struct {
 	// +kubebuilder:default={}
 	// +optional
 	Etcd Etcd `json:"etcd"`
-}
-
-type Ingress struct {
-	// +kubebuilder:default=false
-	// +optional
-	Enabled      bool   `json:"enabled"`
-	IngressClass string `json:"ingressClass,omitempty"`
-	// +kubebuilder:default=""
-	Host        string            `json:"host,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 type ETOSApi struct {
@@ -181,9 +130,8 @@ type ETOSConfig struct {
 	// +optional
 	Source string `json:"source"`
 
-	// TODO: This is a secret
-	// +kubebuilder:default=""
-	EncryptionKey string `json:"encryptionKey"`
+	// +kubebuilder:default={"value": ""}
+	EncryptionKey Var `json:"encryptionKey"`
 
 	ETOSApiURL             string `json:"etosApiURL,omitempty"`
 	ETOSEventRepositoryURL string `json:"etosEventRepositoryURL,omitempty"`
@@ -215,7 +163,7 @@ type ETOS struct {
 	// +optional
 	EnvironmentProvider ETOSEnvironmentProvider `json:"environmentProvider"`
 	Ingress             Ingress                 `json:"ingress,omitempty"`
-	// +kubebuilder:default={"encryptionKey": ""}
+	// +kubebuilder:default={"encryptionKey": {"value": ""}}
 	// +optional
 	Config ETOSConfig `json:"config"`
 }

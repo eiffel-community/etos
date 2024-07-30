@@ -41,17 +41,13 @@ type MongoDBDeployment struct {
 	etosv1alpha1.MongoDB
 	client.Client
 	Scheme     *runtime.Scheme
-	url        url.URL
+	URL        url.URL
 	SecretName string
 }
 
 // NewMongoDBDeployment will create a new MongoDB reconciler.
 func NewMongoDBDeployment(spec etosv1alpha1.MongoDB, scheme *runtime.Scheme, client client.Client) (*MongoDBDeployment, error) {
-	mongodbURL, err := url.Parse(spec.URI)
-	if err != nil {
-		return nil, err
-	}
-	return &MongoDBDeployment{spec, client, scheme, *mongodbURL, ""}, nil
+	return &MongoDBDeployment{spec, client, scheme, url.URL{}, ""}, nil
 }
 
 // Reconcile will reconcile MongoDB to its expected state.
@@ -59,10 +55,23 @@ func (r *MongoDBDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	logger := log.FromContext(ctx)
 	name := fmt.Sprintf("%s-mongodb", cluster.Name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
+
+	if (url.URL{}) == r.URL {
+		uri, err := r.URI.Get(ctx, r.Client, cluster.Namespace)
+		if err != nil {
+			return err
+		}
+		mongodbURL, err := url.Parse(string(uri))
+		if err != nil {
+			return err
+		}
+		r.URL = *mongodbURL
+	}
+
 	if r.Deploy {
 		logger.Info("Patching host & port when deploying mongodb", "host", name, "port", mongodbPort)
-		r.url.Host = fmt.Sprintf("%s:%d", name, mongodbPort)
-		r.URI = r.url.String()
+		r.URL.Host = fmt.Sprintf("%s:%d", name, mongodbPort)
+		r.URI.Value = r.URL.String()
 	}
 	secret, err := r.reconcileSecret(ctx, namespacedName, cluster)
 	if err != nil {
@@ -203,8 +212,8 @@ func (r *MongoDBDeployment) service(name types.NamespacedName) *corev1.Service {
 // secretData will create a map of secret data for the MongoDB secret.
 func (r *MongoDBDeployment) secretData() map[string][]byte {
 	return map[string][]byte{
-		"MONGODB_CONNSTRING": []byte(r.url.String()),
-		"MONGODB_DATABASE":   []byte(r.url.Path[1:]), // Path always start with '/'
+		"MONGODB_CONNSTRING": []byte(r.URL.String()),
+		"MONGODB_DATABASE":   []byte(r.URL.Path[1:]), // Path always start with '/'
 	}
 }
 
@@ -252,7 +261,7 @@ func (r *MongoDBDeployment) volume(name types.NamespacedName) corev1.Volume {
 
 // container will create a container resource definition for the MongoDB statefulset.
 func (r *MongoDBDeployment) container(name types.NamespacedName) corev1.Container {
-	password, _ := r.url.User.Password()
+	password, _ := r.URL.User.Password()
 	return corev1.Container{
 		Name:  name.Name,
 		Image: "mongo:latest",
@@ -272,11 +281,11 @@ func (r *MongoDBDeployment) container(name types.NamespacedName) corev1.Containe
 		Env: []corev1.EnvVar{
 			{
 				Name:  "MONGO_INITDB_DATABASE",
-				Value: r.url.Path[1:], // Path always start with '/'
+				Value: r.URL.Path[1:], // Path always start with '/'
 			},
 			{
 				Name:  "MONGO_INITDB_ROOT_USERNAME",
-				Value: r.url.User.Username(),
+				Value: r.URL.User.Username(),
 			},
 			{
 				Name:  "MONGO_INITDB_ROOT_PASSWORD",
