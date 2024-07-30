@@ -52,6 +52,9 @@ patches:
     - op: replace
       path: /data/RABBITMQ_ROUTING_KEY
       value: eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.etos-prod.*
+    - op: add
+      path: /data/ETOS_OBSERVABILITY_CONFIGMAP
+      value: etos-observability
 - target:
     kind: Ingress
     name: etos
