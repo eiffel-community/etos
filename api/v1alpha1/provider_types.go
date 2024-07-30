@@ -17,60 +17,66 @@
 package v1alpha1
 
 import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // JSONTasList is the List command in the JSONTas provider.
 type JSONTasList struct {
-	Possible  string `json:"possible"`
-	Available string `json:"available"`
+	Possible  *apiextensionsv1.JSON `json:"possible"`
+	Available *apiextensionsv1.JSON `json:"available"`
 }
 
 // Stage is the definition of a stage where to execute steps.
 type Stage struct {
-	Steps string `json:"steps"`
+	Steps *apiextensionsv1.JSON `json:"steps"`
 }
 
-// JSONTasIUTPrepare defines the preparation stages required for an IUT.
+// JSONTasIUTPrepareaStages defines the preparation stages required for an IUT.
+type JSONTasPrepareStages struct {
+	// Underscore used in these due to backwards compatibility
+	EnvironmentProvider Stage `json:"environment_provider"`
+	SuiteRunner         Stage `json:"suite_runner"`
+	TestRunner          Stage `json:"test_runner"`
+}
+
+// JSONTasIUTPrepare defines the preparation required for an IUT.
 type JSONTasIUTPrepare struct {
-	Stages struct {
-		EnvironmentProvider Stage `json:"environmentProvider"`
-		SuiteRunner         Stage `json:"suiteRunner"`
-		TestRunner          Stage `json:"testRunner"`
-	} `json:"stages"`
+	Stages JSONTasPrepareStages `json:"stages"`
 }
 
 // JSONTasIut is the IUT provider definition for the JSONTas provider.
 type JSONTasIut struct {
-	ID       string      `json:"id"`
-	Checkin  string      `json:"checkin,omitempty"`
-	Checkout string      `json:"checkout,omitempty"`
-	List     JSONTasList `json:"list"`
+	ID       string                `json:"id"`
+	Checkin  *apiextensionsv1.JSON `json:"checkin,omitempty"`
+	Checkout *apiextensionsv1.JSON `json:"checkout,omitempty"`
+	List     JSONTasList           `json:"list"`
 }
 
 // JSONTasExecutionSpace is the execution space provider definition for the JSONTas provider
 type JSONTasExecutionSpace struct {
-	ID       string      `json:"id"`
-	Checkin  string      `json:"checkin,omitempty"`
-	Checkout string      `json:"checkout,omitempty"`
-	List     JSONTasList `json:"list"`
+	ID       string                `json:"id"`
+	Checkin  *apiextensionsv1.JSON `json:"checkin,omitempty"`
+	Checkout *apiextensionsv1.JSON `json:"checkout,omitempty"`
+	List     JSONTasList           `json:"list"`
 }
 
 // JSONTasLogArea is the log area provider definition for the JSONTas provider
 type JSONTasLogArea struct {
-	ID       string      `json:"id"`
-	Checkin  string      `json:"checkin,omitempty"`
-	Checkout string      `json:"checkout,omitempty"`
-	List     JSONTasList `json:"list"`
+	ID       string                `json:"id"`
+	Checkin  *apiextensionsv1.JSON `json:"checkin,omitempty"`
+	Checkout *apiextensionsv1.JSON `json:"checkout,omitempty"`
+	List     JSONTasList           `json:"list"`
 }
 
 // JSONTas defines the definitions that a JSONTas provider shall use.
 type JSONTas struct {
-	Image string `json:"image"`
-	// Validate that only one of these are set.
-	Iut            JSONTasIut            `json:"iut,omitempty"`
-	ExecutionSpace JSONTasExecutionSpace `json:"executionSpace,omitempty"`
-	LogArea        JSONTasLogArea        `json:"logArea,omitempty"`
+	Image string `json:"image,omitempty"`
+	// These are pointers so that they become nil in the Provider object in Kubernetes
+	// and don't muddle up the yaml with empty data.
+	Iut            *JSONTasIut            `json:"iut,omitempty"`
+	ExecutionSpace *JSONTasExecutionSpace `json:"execution_space,omitempty"`
+	LogArea        *JSONTasLogArea        `json:"log,omitempty"`
 }
 
 // Healthcheck defines the health check endpoint and interval for providers.
@@ -88,13 +94,17 @@ type Healthcheck struct {
 type ProviderSpec struct {
 	// +kubebuilder:validation:Enum=execution-space;iut;log-area
 	Type string `json:"type"`
-	Host string `json:"host"`
+	// +optional
+	Host string `json:"host,omitempty"`
 
 	// +kubebuilder:default={}
 	// +optional
-	Healthcheck Healthcheck `json:"healthCheck"`
+	Healthcheck *Healthcheck `json:"healthCheck,omitempty"`
 
-	JSONTas JSONTas `json:"jsontas,omitempty"`
+	// These are pointers so that they become nil in the Provider object in Kubernetes
+	// and don't muddle up the yaml with empty data.
+	JSONTas       *JSONTas   `json:"jsontas,omitempty"`
+	JSONTasSource *VarSource `json:"jsontasSource,omitempty"`
 }
 
 // ProviderStatus defines the observed state of Provider

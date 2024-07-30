@@ -66,7 +66,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// TODO: Schedule checks instead of doing it every time something happens
 
 	// We don't check the availability of JSONTas as it is not yet running as a service we can check.
-	if (etosv1alpha1.JSONTas{}) == provider.Spec.JSONTas {
+	if provider.Spec.JSONTas == nil {
 		logger.V(2).Info("Healthcheck", "endpoint", fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
 		resp, err := http.Get(fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
 		if err != nil {

@@ -65,17 +65,18 @@ spec:
               host:
                 type: string
               jsontas:
-                description: JSONTas defines the definitions that a JSONTas provider
-                  shall use.
+                description: |-
+                  These are pointers so that they become nil in the Provider object in Kubernetes
+                  and don't muddle up the yaml with empty data.
                 properties:
-                  executionSpace:
+                  execution_space:
                     description: JSONTasExecutionSpace is the execution space provider
                       definition for the JSONTas provider
                     properties:
                       checkin:
-                        type: string
+                        x-kubernetes-preserve-unknown-fields: true
                       checkout:
-                        type: string
+                        x-kubernetes-preserve-unknown-fields: true
                       id:
                         type: string
                       list:
@@ -83,9 +84,9 @@ spec:
                           provider.
                         properties:
                           available:
-                            type: string
+                            x-kubernetes-preserve-unknown-fields: true
                           possible:
-                            type: string
+                            x-kubernetes-preserve-unknown-fields: true
                         required:
                         - available
                         - possible
@@ -97,12 +98,14 @@ spec:
                   image:
                     type: string
                   iut:
-                    description: Validate that only one of these are set.
+                    description: |-
+                      These are pointers so that they become nil in the Provider object in Kubernetes
+                      and don't muddle up the yaml with empty data.
                     properties:
                       checkin:
-                        type: string
+                        x-kubernetes-preserve-unknown-fields: true
                       checkout:
-                        type: string
+                        x-kubernetes-preserve-unknown-fields: true
                       id:
                         type: string
                       list:
@@ -110,9 +113,9 @@ spec:
                           provider.
                         properties:
                           available:
-                            type: string
+                            x-kubernetes-preserve-unknown-fields: true
                           possible:
-                            type: string
+                            x-kubernetes-preserve-unknown-fields: true
                         required:
                         - available
                         - possible
@@ -121,14 +124,14 @@ spec:
                     - id
                     - list
                     type: object
-                  logArea:
+                  log:
                     description: JSONTasLogArea is the log area provider definition
                       for the JSONTas provider
                     properties:
                       checkin:
-                        type: string
+                        x-kubernetes-preserve-unknown-fields: true
                       checkout:
-                        type: string
+                        x-kubernetes-preserve-unknown-fields: true
                       id:
                         type: string
                       list:
@@ -136,9 +139,9 @@ spec:
                           provider.
                         properties:
                           available:
-                            type: string
+                            x-kubernetes-preserve-unknown-fields: true
                           possible:
-                            type: string
+                            x-kubernetes-preserve-unknown-fields: true
                         required:
                         - available
                         - possible
@@ -147,8 +150,60 @@ spec:
                     - id
                     - list
                     type: object
-                required:
-                - image
+                type: object
+              jsontasSource:
+                properties:
+                  configMapKeyRef:
+                    description: Selects a key from a ConfigMap.
+                    properties:
+                      key:
+                        description: The key to select.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          TODO: Add other useful fields. apiVersion, kind, uid?
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                        type: string
+                      optional:
+                        description: Specify whether the ConfigMap or its key must
+                          be defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  secretKeyRef:
+                    description: SecretKeySelector selects a key of a Secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          TODO: Add other useful fields. apiVersion, kind, uid?
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
                 type: object
               type:
                 enum:
@@ -157,7 +212,6 @@ spec:
                 - log-area
                 type: string
             required:
-            - host
             - type
             type: object
           status:
