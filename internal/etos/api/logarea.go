@@ -72,9 +72,9 @@ func (r *ETOSLogAreaDeployment) Reconcile(ctx context.Context, cluster *etosv1al
 }
 
 // reconcileDeployment will reconcile the ETOS logarea deployment to its expected state.
-func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
-	target := r.deployment(name)
-	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*appsv1.Deployment, error) {
+	target := r.deployment(name, cluster)
+	if err := ctrl.SetControllerReference(cluster, target, r.Scheme); err != nil {
 		return target, err
 	}
 	scheme.Scheme.Default(target)
@@ -141,7 +141,7 @@ func (r *ETOSLogAreaDeployment) serviceaccount(name types.NamespacedName) *corev
 }
 
 // deployment creates a deployment resource definition for the ETOS logarea.
-func (r *ETOSLogAreaDeployment) deployment(name types.NamespacedName) *appsv1.Deployment {
+func (r *ETOSLogAreaDeployment) deployment(name types.NamespacedName, cluster *etosv1alpha1.Cluster) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: r.meta(name),
 		Spec: appsv1.DeploymentSpec{
@@ -156,7 +156,7 @@ func (r *ETOSLogAreaDeployment) deployment(name types.NamespacedName) *appsv1.De
 				ObjectMeta: r.meta(name),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
-					Containers:         []corev1.Container{r.container(name)},
+					Containers:         []corev1.Container{r.container(name, cluster)},
 				},
 			},
 		},
@@ -179,7 +179,7 @@ func (r *ETOSLogAreaDeployment) service(name types.NamespacedName) *corev1.Servi
 }
 
 // container creates the container resource for the ETOS logarea deployment.
-func (r *ETOSLogAreaDeployment) container(name types.NamespacedName) corev1.Container {
+func (r *ETOSLogAreaDeployment) container(name types.NamespacedName, cluster *etosv1alpha1.Cluster) corev1.Container {
 	probe := &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -206,16 +206,33 @@ func (r *ETOSLogAreaDeployment) container(name types.NamespacedName) corev1.Cont
 		},
 		LivenessProbe:  probe,
 		ReadinessProbe: probe,
-		Env:            r.environment(),
+		Env:            r.environment(cluster),
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cluster.Name,
+					},
+				},
+			},
+		},
 	}
 }
 
 // environment creates the environment resource for the ETOS logarea deployment.
-func (r *ETOSLogAreaDeployment) environment() []corev1.EnvVar {
+func (r *ETOSLogAreaDeployment) environment(cluster *etosv1alpha1.Cluster) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "SERVICE_HOST",
 			Value: "0.0.0.0",
+		},
+		{
+			Name:  "ETOS_ETCD_HOST",
+			Value: cluster.Spec.Database.Etcd.Host,
+		},
+		{
+			Name:  "ETOS_ETCD_PORT",
+			Value: cluster.Spec.Database.Etcd.Port,
 		},
 		{
 			Name:  "STRIP_PREFIX",
