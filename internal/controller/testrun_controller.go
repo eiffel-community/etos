@@ -332,8 +332,9 @@ func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv
 		return err
 	}
 	logger.Info("Listed environments", "environments", len(environments.Items))
+	// TODO: this only checks one environment, not all of them if there are many
 	if len(environments.Items) > 0 {
-		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusEnvironment, Status: metav1.ConditionTrue, Reason: "OK", Message: "Environment ready"}) {
+		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusEnvironment, Status: metav1.ConditionTrue, Reason: "Ready", Message: "Environment ready"}) {
 			logger.Info("Set condition")
 			return r.Status().Update(ctx, testrun)
 		}
