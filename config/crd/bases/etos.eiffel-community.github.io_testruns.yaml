@@ -120,6 +120,8 @@ spec:
                 required:
                 - image
                 type: object
+              suiteSource:
+                type: string
               suites:
                 items:
                   description: Suite to execute.
@@ -210,6 +212,7 @@ spec:
             - logListener
             - providers
             - suiteRunner
+            - suiteSource
             - suites
             type: object
           status:

@@ -104,6 +104,7 @@ type TestRunSpec struct {
 	EnvironmentProvider EnvironmentProvider `json:"environmentProvider"`
 	Identity            string              `json:"identity"`
 	Providers           Providers           `json:"providers"`
+	SuiteSource         string              `json:"suiteSource"`
 	Suites              []Suite             `json:"suites"`
 }
 

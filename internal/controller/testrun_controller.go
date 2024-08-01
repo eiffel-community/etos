@@ -168,7 +168,6 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1
 	}
 
 	// Check environment
-	// TODO: Pending somehow
 	if err := r.checkEnvironment(ctx, testrun); err != nil {
 		return err
 	}
@@ -531,6 +530,10 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 								{
 									Name:  "IDENTITY",
 									Value: testrun.Spec.Identity,
+								},
+								{
+									Name:  "SUITE_SOURCE",
+									Value: testrun.Spec.SuiteSource,
 								},
 								{
 									Name:  "IDENTIFIER",
