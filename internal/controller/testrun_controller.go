@@ -125,8 +125,6 @@ func (j jobs) empty() bool {
 func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
 	logger := log.FromContext(ctx)
 
-	// TODO: Suite Runner gets re-created when the Job is cleaned up due to TTL.
-
 	// Set initial statuses if not set.
 	if meta.FindStatusCondition(testrun.Status.Conditions, StatusActive) == nil {
 		meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Status: metav1.ConditionFalse, Type: StatusActive, Message: "Reconciliation started", Reason: "Pending"})
@@ -409,7 +407,7 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"id": testrun.Spec.ID, // TODO: Required for SSE, update SSE to use testrun.
+				"id": testrun.Spec.ID,
 			},
 			Annotations: make(map[string]string),
 			Name:        testrun.Name,
@@ -530,6 +528,10 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 								{
 									Name:  "IDENTITY",
 									Value: testrun.Spec.Identity,
+								},
+								{
+									Name:  "TESTRUN",
+									Value: testrun.Name,
 								},
 								{
 									Name:  "SUITE_SOURCE",
