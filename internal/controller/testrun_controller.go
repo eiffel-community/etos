@@ -232,13 +232,13 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 		}
 		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Done", Message: "Suite runner finished"}) {
 			logger.Info("Setting suiterunner (success) false")
-			// for _, suiteRunner := range suiteRunners.successfulJobs {
-			// 	if err := r.Delete(ctx, suiteRunner, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
-			// 		if !apierrors.IsNotFound(err) {
-			// 			return err
-			// 		}
-			// 	}
-			// }
+			for _, suiteRunner := range suiteRunners.successfulJobs {
+				if err := r.Delete(ctx, suiteRunner, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
+					if !apierrors.IsNotFound(err) {
+						return err
+					}
+				}
+			}
 			return r.Status().Update(ctx, testrun)
 		}
 	}
