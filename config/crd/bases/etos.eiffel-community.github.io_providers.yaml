@@ -120,6 +120,46 @@ spec:
                         - available
                         - possible
                         type: object
+                      prepare:
+                        description: JSONTasIUTPrepare defines the preparation required
+                          for an IUT.
+                        properties:
+                          stages:
+                            description: JSONTasIUTPrepareaStages defines the preparation
+                              stages required for an IUT.
+                            properties:
+                              environment_provider:
+                                description: Underscore used in these due to backwards
+                                  compatibility
+                                properties:
+                                  steps:
+                                    default: {}
+                                    x-kubernetes-preserve-unknown-fields: true
+                                type: object
+                              suite_runner:
+                                description: Stage is the definition of a stage where
+                                  to execute steps.
+                                properties:
+                                  steps:
+                                    default: {}
+                                    x-kubernetes-preserve-unknown-fields: true
+                                type: object
+                              test_runner:
+                                description: Stage is the definition of a stage where
+                                  to execute steps.
+                                properties:
+                                  steps:
+                                    default: {}
+                                    x-kubernetes-preserve-unknown-fields: true
+                                type: object
+                            required:
+                            - environment_provider
+                            - suite_runner
+                            - test_runner
+                            type: object
+                        required:
+                        - stages
+                        type: object
                     required:
                     - id
                     - list

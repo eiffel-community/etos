@@ -29,6 +29,8 @@ type JSONTasList struct {
 
 // Stage is the definition of a stage where to execute steps.
 type Stage struct {
+	// +kubebuilder:default={}
+	// +optional
 	Steps *apiextensionsv1.JSON `json:"steps"`
 }
 
@@ -51,6 +53,7 @@ type JSONTasIut struct {
 	Checkin  *apiextensionsv1.JSON `json:"checkin,omitempty"`
 	Checkout *apiextensionsv1.JSON `json:"checkout,omitempty"`
 	List     JSONTasList           `json:"list"`
+	Prepare  JSONTasIUTPrepare     `json:"prepare,omitempty"`
 }
 
 // JSONTasExecutionSpace is the execution space provider definition for the JSONTas provider
