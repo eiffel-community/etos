@@ -195,7 +195,8 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
     def run(self) -> None:
         """Run the log downloader thread."""
         self.started = True
-        with ThreadPool() as pool:
+        # 10 is the default max number of connections in Python requests library
+        with ThreadPool(10) as pool:
             while True:
                 if self.__exit and not self.__clear_queue:
                     self.logger.warning("Forced to exit without clearing the queue.")
