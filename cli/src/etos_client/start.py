@@ -41,7 +41,7 @@ HOUR = MINUTE * 60
 
 def start(args: dict) -> ETOS:
     """Start ETOS."""
-    etos = ETOS(args["<cluster>"])
+    etos = ETOS(args["<cluster>"], args["--v1alpha"])
     response = etos.start(RequestSchema.from_args(args))
     if not response:
         sys.exit(etos.reason)
@@ -103,7 +103,7 @@ class Start(SubCommand):
     """
     Client for executing test automation suites in ETOS.
 
-    Usage: etosctl testrun start [-v|-vv] [-h] -i IDENTITY -s TEST_SUITE [--no-tty] [-w WORKSPACE] [-a ARTIFACT_DIR] [-r REPORT_DIR] [-d DOWNLOAD_REPORTS] [--iut-provider IUT_PROVIDER] [--execution-space-provider EXECUTION_SPACE_PROVIDER] [--log-area-provider LOG_AREA_PROVIDER] [--dataset=DATASET]... [--version] <cluster>
+    Usage: etosctl testrun start [-v|-vv] [-h] -i IDENTITY -s TEST_SUITE [--no-tty] [-w WORKSPACE] [-a ARTIFACT_DIR] [-r REPORT_DIR] [-d DOWNLOAD_REPORTS] [--iut-provider IUT_PROVIDER] [--execution-space-provider EXECUTION_SPACE_PROVIDER] [--log-area-provider LOG_AREA_PROVIDER] [--v1alpha] [--dataset=DATASET]... [--version] <cluster>
 
     Options:
         -h, --help                                                Show this help message and exit
@@ -118,6 +118,7 @@ class Start(SubCommand):
         --execution-space-provider EXECUTION_SPACE_PROVIDER       Which execution space provider to use.
         --log-area-provider LOG_AREA_PROVIDER                     Which log area provider to use.
         --dataset DATASET                                         Additional dataset information to the environment provider. Check with your provider which information can be supplied.
+        --v1alpha                                                 Run in the v1alpha version of ETOS.
         --version                                                 Show program's version number and exit
     """
 

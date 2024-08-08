@@ -1,0 +1,149 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.15.0
+  name: environments.etos.eiffel-community.github.io
+spec:
+  group: etos.eiffel-community.github.io
+  names:
+    kind: Environment
+    listKind: EnvironmentList
+    plural: environments
+    singular: environment
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Environment is the Schema for the environments API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: EnvironmentSpec defines the desired state of Environment
+            properties:
+              artifact:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              context:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              executor:
+                x-kubernetes-preserve-unknown-fields: true
+              iut:
+                x-kubernetes-preserve-unknown-fields: true
+              log_area:
+                x-kubernetes-preserve-unknown-fields: true
+              name:
+                type: string
+              priority:
+                type: integer
+              recipes:
+                items:
+                  properties:
+                    environment:
+                      description: TestEnvironment to run tests within.
+                      type: object
+                    execution:
+                      description: Execution describes hot to execute a testCase.
+                      properties:
+                        checkout:
+                          items:
+                            type: string
+                          type: array
+                        command:
+                          type: string
+                        environment:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        execute:
+                          items:
+                            type: string
+                          type: array
+                        parameters:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        testRunner:
+                          type: string
+                      required:
+                      - checkout
+                      - command
+                      - environment
+                      - parameters
+                      - testRunner
+                      type: object
+                    id:
+                      type: string
+                    testCase:
+                      description: TestCase metadata.
+                      properties:
+                        id:
+                          type: string
+                        tracker:
+                          type: string
+                        uri:
+                          type: string
+                        version:
+                          type: string
+                      required:
+                      - id
+                      type: object
+                  required:
+                  - environment
+                  - execution
+                  - id
+                  - testCase
+                  type: object
+                type: array
+              sub_suite_id:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              suite_id:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              test_runner:
+                type: string
+              test_suite_started_id:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+            required:
+            - artifact
+            - context
+            - executor
+            - iut
+            - log_area
+            - name
+            - priority
+            - recipes
+            - sub_suite_id
+            - suite_id
+            - test_runner
+            - test_suite_started_id
+            type: object
+          status:
+            description: EnvironmentStatus defines the observed state of Environment
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
