@@ -16,6 +16,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -46,12 +47,20 @@ type EnvironmentSpec struct {
 }
 
 // EnvironmentStatus defines the observed state of Environment
-type EnvironmentStatus struct{}
+type EnvironmentStatus struct {
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+
+	EnvironmentReleasers []corev1.ObjectReference `json:"environmentReleasers,omitempty"`
+
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
 // Environment is the Schema for the environments API
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].reason"
 type Environment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

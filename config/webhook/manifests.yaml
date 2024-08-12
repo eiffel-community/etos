@@ -10,6 +10,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha1-environmentrequest
+  failurePolicy: Fail
+  name: menvironmentrequest.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - environmentrequests
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-etos-eiffel-community-github-io-v1alpha1-provider
   failurePolicy: Fail
   name: mprovider.kb.io

@@ -23,17 +23,23 @@ import (
 
 // EnvironmentRequestSpec defines the desired state of EnvironmentRequest
 type EnvironmentRequestSpec struct {
-	TestRun                string `json:"testrun"`
-	IUTProvider            string `json:"iut"`
-	LogAreaProvider        string `json:"logArea"`
-	ExecutionSpaceProvider string `json:"executionSpace"`
-	*Image                 `json:",inline"`
+	// ID is the ID for the environments generated. Will be generated if nil
+	// +kubebuilder:validation:Pattern="[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
+	ID string `json:"id,omitempty"`
+
+	TestRun   string    `json:"testrun"`
+	Providers Providers `json:"providers"`
+	*Image    `json:",inline"`
 }
 
 // EnvironmentRequestStatus defines the observed state of EnvironmentRequest
 type EnvironmentRequestStatus struct {
-	ActiveProviders []corev1.ObjectReference `json:"provider,omitempty"`
-	Conditions      []metav1.Condition       `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+
+	EnvironmentProviders []corev1.ObjectReference `json:"environmentProviders,omitempty"`
+
+	StartTime      *metav1.Time `json:"startTime,omitempty"`
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
 // +kubebuilder:object:root=true

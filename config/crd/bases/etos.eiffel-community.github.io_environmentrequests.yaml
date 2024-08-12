@@ -50,7 +50,10 @@ spec:
           spec:
             description: EnvironmentRequestSpec defines the desired state of EnvironmentRequest
             properties:
-              executionSpace:
+              id:
+                description: ID is the ID for the environments generated. Will be
+                  generated if nil
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
                 type: string
               image:
                 type: string
@@ -59,22 +62,35 @@ spec:
                 description: PullPolicy describes a policy for if/when to pull a container
                   image
                 type: string
-              iut:
-                type: string
-              logArea:
-                type: string
+              providers:
+                description: |-
+                  Providers to use for test execution. These names must correspond to existing
+                  Provider kinds in the namespace where a testrun is created.
+                properties:
+                  executionSpace:
+                    type: string
+                  iut:
+                    type: string
+                  logArea:
+                    type: string
+                required:
+                - executionSpace
+                - iut
+                - logArea
+                type: object
               testrun:
                 type: string
             required:
-            - executionSpace
             - image
-            - iut
-            - logArea
+            - providers
             - testrun
             type: object
           status:
             description: EnvironmentRequestStatus defines the observed state of EnvironmentRequest
             properties:
+              completionTime:
+                format: date-time
+                type: string
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
@@ -144,7 +160,7 @@ spec:
                   - type
                   type: object
                 type: array
-              provider:
+              environmentProviders:
                 items:
                   description: |-
                     ObjectReference contains enough information to let you inspect or modify the referred object.
@@ -207,6 +223,9 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              startTime:
+                format: date-time
+                type: string
             type: object
         type: object
     served: true

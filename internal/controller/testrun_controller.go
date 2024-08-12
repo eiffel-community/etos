@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -41,14 +40,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
+// TODO: Move Environment, EnvironmentRequestOwnerKey
 var (
-	OwnerKey               = ".metadata.controller"
-	APIGVStr               = etosv1alpha1.GroupVersion.String()
-	iutProvider            = ".spec.providers.iut"
-	executionSpaceProvider = ".spec.providers.executionSpace"
-	logAreaProvider        = ".spec.providers.logarea"
+	TestRunOwnerKey            = ".metadata.controller.suiterunner"
+	EnvironmentRequestOwnerKey = ".metadata.controller.environmentrequest"
+	EnvironmentOwnerKey        = ".metadata.controller.environment"
+	APIGVStr                   = etosv1alpha1.GroupVersion.String()
+	iutProvider                = ".spec.providers.iut"
+	executionSpaceProvider     = ".spec.providers.executionSpace"
+	logAreaProvider            = ".spec.providers.logarea"
 )
 
 // TestRunReconciler reconciles a TestRun object
@@ -100,28 +103,6 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-type jobs struct {
-	activeJobs     []*batchv1.Job
-	successfulJobs []*batchv1.Job
-	failedJobs     []*batchv1.Job
-}
-
-func (j jobs) active() bool {
-	return len(j.successfulJobs) == 0 && len(j.failedJobs) == 0 && len(j.activeJobs) > 0
-}
-
-func (j jobs) failed() bool {
-	return len(j.failedJobs) > 0 && len(j.activeJobs) == 0
-}
-
-func (j jobs) successful() bool {
-	return len(j.successfulJobs) > 0 && len(j.activeJobs) == 0
-}
-
-func (j jobs) empty() bool {
-	return len(j.successfulJobs) == 0 && len(j.failedJobs) == 0 && len(j.activeJobs) == 0
-}
-
 func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
 	logger := log.FromContext(ctx)
 
@@ -140,7 +121,7 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1
 	}
 
 	// Get active, finished and failed sutie runners.
-	suiteRunners, err := r.suiteRunnerStatus(ctx, testrun)
+	suiteRunners, err := jobStatus(ctx, r, testrun.Namespace, testrun.Name, TestRunOwnerKey)
 	if err != nil {
 		return err
 	}
@@ -161,8 +142,60 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1
 	logger.V(1).Info("suite runner count", "active", len(suiteRunners.activeJobs), "successful", len(suiteRunners.successfulJobs), "failed", len(suiteRunners.failedJobs))
 
 	// Check providers availability
-	if err := r.checkProviders(ctx, testrun); err != nil {
+	if err := checkProviders(ctx, r, testrun.Namespace, testrun.Spec.Providers); err != nil {
 		return err
+	}
+
+	// TODO: A EnvironmentRequest per suite
+
+	var environmentRequestList etosv1alpha1.EnvironmentRequestList
+	if err := r.List(ctx, &environmentRequestList, client.InNamespace(testrun.Namespace), client.MatchingFields{TestRunOwnerKey: testrun.Name}); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+	if len(environmentRequestList.Items) < len(testrun.Spec.Suites) {
+		request := &etosv1alpha1.EnvironmentRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"etos.eiffel-community.github.io/id": testrun.Spec.ID,
+					"app.kubernetes.io/name":             "suite-runner",
+					"app.kubernetes.io/part-of":          "etos",
+				},
+				Annotations:  make(map[string]string),
+				GenerateName: fmt.Sprintf("%s-", testrun.Name),
+				Namespace:    testrun.Namespace,
+			},
+			Spec: etosv1alpha1.EnvironmentRequestSpec{
+				ID:        string(uuid.NewUUID()),
+				Providers: testrun.Spec.Providers,
+				TestRun:   testrun.Name,
+				Image:     testrun.Spec.EnvironmentProvider.Image,
+			},
+		}
+		if err := ctrl.SetControllerReference(testrun, request, r.Scheme); err != nil {
+			return err
+		}
+		if err := r.Create(ctx, request); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	for _, environmentRequest := range environmentRequestList.Items {
+		condition := meta.FindStatusCondition(environmentRequest.Status.Conditions, StatusReady)
+		if condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == "Failed" {
+			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusEnvironment, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Failed to create environment for test"}) {
+				return r.Status().Update(ctx, testrun)
+			}
+			if err := r.complete(ctx, testrun, "Failed", condition.Message); err != nil {
+				return err
+			}
+			return nil
+		} else if condition != nil && condition.Status == metav1.ConditionFalse {
+			logger.Info("Environment request is not finished")
+			// return nil
+		}
 	}
 
 	// Check environment
@@ -182,20 +215,35 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1
 		}
 	}
 	if suiteRunners.failed() {
-		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Suite runners failed to finish"}) {
-			testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, StatusActive)
-			testrun.Status.CompletionTime = &testrunCondition.LastTransitionTime
-			return r.Status().Update(ctx, testrun)
+		if err := r.complete(ctx, testrun, "Failed", "Suite runners failed to finish"); err != nil {
+			return err
 		}
+		// if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Suite runners failed to finish"}) {
+		// 	testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, StatusActive)
+		// 	testrun.Status.CompletionTime = &testrunCondition.LastTransitionTime
+		// 	return r.Status().Update(ctx, testrun)
+		// }
 	}
 	if suiteRunners.successful() {
-		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Successful", Message: "Suite runners finished successfully"}) {
-			testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, StatusActive)
-			testrun.Status.CompletionTime = &testrunCondition.LastTransitionTime
-			return r.Status().Update(ctx, testrun)
+		if err := r.complete(ctx, testrun, "Successful", "Suite runners finished successfully"); err != nil {
+			return err
 		}
+		// if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Successful", Message: "Suite runners finished successfully"}) {
+		// 	testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, StatusActive)
+		// 	testrun.Status.CompletionTime = &testrunCondition.LastTransitionTime
+		// 	return r.Status().Update(ctx, testrun)
+		// }
 	}
 
+	return nil
+}
+
+func (r *TestRunReconciler) complete(ctx context.Context, testrun *etosv1alpha1.TestRun, reason, message string) error {
+	if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: reason, Message: message}) {
+		testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, StatusActive)
+		testrun.Status.CompletionTime = &testrunCondition.LastTransitionTime
+		return r.Status().Update(ctx, testrun)
+	}
 	return nil
 }
 
@@ -205,7 +253,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	// Suite runners failed, setting status.
 	if suiteRunners.failed() {
 		suiteRunner := suiteRunners.failedJobs[0] // TODO
-		message, err := r.terminationLog(ctx, suiteRunner)
+		message, err := terminationLog(ctx, r, suiteRunner)
 		if err != nil {
 			message = err.Error()
 		}
@@ -217,7 +265,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	// Suite runners successful, setting status.
 	if suiteRunners.successful() {
 		suiteRunner := suiteRunners.successfulJobs[0] // TODO
-		message, err := r.terminationLog(ctx, suiteRunner)
+		message, err := terminationLog(ctx, r, suiteRunner)
 		if err != nil {
 			message = err.Error()
 		}
@@ -263,30 +311,6 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	return nil
 }
 
-// suiteRunnerStatus creates a job struct with suite runner jobs that are active, failed or successful.
-func (r *TestRunReconciler) suiteRunnerStatus(ctx context.Context, testrun *etosv1alpha1.TestRun) (*jobs, error) {
-	var activeSuiteRunners []*batchv1.Job
-	var successfulSuiteRunners []*batchv1.Job
-	var failedSuiteRunners []*batchv1.Job
-	var suiteRunners batchv1.JobList
-	if err := r.List(ctx, &suiteRunners, client.InNamespace(testrun.Namespace), client.MatchingFields{OwnerKey: testrun.Name}); err != nil {
-		return &jobs{}, err
-	}
-
-	for i, suiteRunner := range suiteRunners.Items {
-		_, finishedType := r.isSuiteRunnerFinished(suiteRunner)
-		switch finishedType {
-		case "": // Ongoing
-			activeSuiteRunners = append(activeSuiteRunners, &suiteRunners.Items[i])
-		case batchv1.JobFailed:
-			failedSuiteRunners = append(failedSuiteRunners, &suiteRunners.Items[i])
-		case batchv1.JobComplete:
-			successfulSuiteRunners = append(successfulSuiteRunners, &suiteRunners.Items[i])
-		}
-	}
-	return &jobs{activeJobs: activeSuiteRunners, failedJobs: failedSuiteRunners, successfulJobs: successfulSuiteRunners}, nil
-}
-
 // update will set the status condition and update the status of the ETOS testrun.
 // if the update fails due to conflict the reconciliation will requeue.
 func (r *TestRunReconciler) update(ctx context.Context, testrun *etosv1alpha1.TestRun, status metav1.ConditionStatus, message string) (ctrl.Result, error) {
@@ -302,30 +326,12 @@ func (r *TestRunReconciler) update(ctx context.Context, testrun *etosv1alpha1.Te
 	return ctrl.Result{}, nil
 }
 
-// checkProviders checks if all providers for this environment are available.
-// TODO: this function should not be necessary when environmentrequests are supported
-func (r *TestRunReconciler) checkProviders(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
-	err := r.checkProvider(ctx, testrun.Spec.Providers.IUT, testrun.Namespace, &etosv1alpha1.Provider{})
-	if err != nil {
-		return err
-	}
-	err = r.checkProvider(ctx, testrun.Spec.Providers.ExecutionSpace, testrun.Namespace, &etosv1alpha1.Provider{})
-	if err != nil {
-		return err
-	}
-	err = r.checkProvider(ctx, testrun.Spec.Providers.LogArea, testrun.Namespace, &etosv1alpha1.Provider{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // checkEnvironment will check the status of the environment used for test.
 func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
 	logger := log.FromContext(ctx)
 	logger.Info("Checking environment")
 	var environments etosv1alpha1.EnvironmentList
-	if err := r.List(ctx, &environments, client.InNamespace(testrun.Namespace), client.MatchingFields{OwnerKey: testrun.Name}); err != nil {
+	if err := r.List(ctx, &environments, client.InNamespace(testrun.Namespace), client.MatchingFields{TestRunOwnerKey: testrun.Name}); err != nil {
 		return err
 	}
 	logger.Info("Listed environments", "environments", len(environments.Items))
@@ -339,75 +345,20 @@ func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv
 	return nil
 }
 
-// checkProvider checks if the provider condition 'Available' is set to True.
-func (r *TestRunReconciler) checkProvider(ctx context.Context, name string, namespace string, provider *etosv1alpha1.Provider) error {
-	err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, provider)
-	if err != nil {
-		return err
-	}
-	if meta.IsStatusConditionPresentAndEqual(provider.Status.Conditions, StatusAvailable, metav1.ConditionTrue) {
-		return nil
-	}
-	return fmt.Errorf("Provider '%s' does not have a status field", name)
-}
-
-// terminationLog reads the termination-log part of the ESR pod and returns it.
-func (r *TestRunReconciler) terminationLog(ctx context.Context, suiteRunner *batchv1.Job) (string, error) {
-	logger := log.FromContext(ctx)
-	var pods corev1.PodList
-	if err := r.List(ctx, &pods, client.InNamespace(suiteRunner.Namespace), client.MatchingLabels{"job-name": suiteRunner.Name}); err != nil {
-		logger.Error(err, "could not list suite runner pods")
-		return "", err
-	}
-	if len(pods.Items) == 0 {
-		return "", errors.New("no pods found for suite runner job")
-	}
-	if len(pods.Items) > 1 {
-		logger.Info("found more than 1 pod active. Will only check termination-log for the first one", "pod", pods.Items[0])
-	}
-	pod := pods.Items[0]
-
-	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == suiteRunner.Name {
-			if status.State.Terminated == nil {
-				return "", errors.New("could not read termination log from suite runner pod")
-			}
-			return status.State.Terminated.Message, nil
-		}
-	}
-	return "", errors.New("found no container status for suite runner pod")
-}
-
-// isSuiteRunnerFinished checks if a suite runner has status Complete or Failed.
-func (r TestRunReconciler) isSuiteRunnerFinished(suiteRunner batchv1.Job) (bool, batchv1.JobConditionType) {
-	if IsJobStatusConditionPresentAndEqual(suiteRunner.Status.Conditions, batchv1.JobComplete, corev1.ConditionTrue) {
-		return true, batchv1.JobComplete
-	}
-	if IsJobStatusConditionPresentAndEqual(suiteRunner.Status.Conditions, batchv1.JobFailed, corev1.ConditionTrue) {
-		return true, batchv1.JobFailed
-	}
-	return false, ""
-}
-
-// IsStatusConditionPresentAndEqual returns true when conditionType is present and equal to status.
-func IsJobStatusConditionPresentAndEqual(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType, status corev1.ConditionStatus) bool {
-	for _, condition := range conditions {
-		if condition.Type == conditionType {
-			return condition.Status == status
-		}
-	}
-	return false
-}
-
 // suiteRunnerJob is the job definition for an etos suite runner.
 func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.TestRun) *batchv1.Job {
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
-	job := &batchv1.Job{
+	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"id": testrun.Spec.ID,
+				// TODO: remove these two first ones
+				"id":                                 testrun.Spec.ID,
+				"app":                                "suite-runner",
+				"etos.eiffel-community.github.io/id": testrun.Spec.ID,
+				"app.kubernetes.io/name":             "suite-runner",
+				"app.kubernetes.io/part-of":          "etos",
 			},
 			Annotations: make(map[string]string),
 			Name:        testrun.Name,
@@ -628,9 +579,6 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 			},
 		},
 	}
-	job.Labels["app"] = "suite-runner"
-
-	return job
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -640,6 +588,9 @@ func (r *TestRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 	if err := r.registerOwnerIndexForEnvironment(mgr); err != nil {
+		return err
+	}
+	if err := r.registerOwnerIndexForEnvironmentRequest(mgr); err != nil {
 		return err
 	}
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.TestRun{}, iutProvider, func(rawObj client.Object) []string {
@@ -663,6 +614,7 @@ func (r *TestRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&etosv1alpha1.TestRun{}).
 		Owns(&batchv1.Job{}).
+		Owns(&etosv1alpha1.EnvironmentRequest{}).
 		Watches(
 			&etosv1alpha1.Provider{},
 			handler.TypedEnqueueRequestsFromMapFunc(r.findTestrunsForIUTProvider),
@@ -688,7 +640,7 @@ func (r *TestRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // registerOwnerIndexForJob will set an index of the suite runner jobs that a testrun owns.
 func (r *TestRunReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &batchv1.Job{}, OwnerKey, func(rawObj client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &batchv1.Job{}, TestRunOwnerKey, func(rawObj client.Object) []string {
 		job := rawObj.(*batchv1.Job)
 		owner := metav1.GetControllerOf(job)
 		if owner == nil {
@@ -705,9 +657,9 @@ func (r *TestRunReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error {
 	return nil
 }
 
-// registerOwnerIndexForJob will set an index of the environments that a testrun owns.
+// registerOwnerIndexForEnvironment will set an index of the environments that a testrun owns.
 func (r *TestRunReconciler) registerOwnerIndexForEnvironment(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.Environment{}, OwnerKey, func(rawObj client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.Environment{}, TestRunOwnerKey, func(rawObj client.Object) []string {
 		environment := rawObj.(*etosv1alpha1.Environment)
 
 		// TODO: Since we are setting controller to false when creating Environment in the environment provider
@@ -721,6 +673,25 @@ func (r *TestRunReconciler) registerOwnerIndexForEnvironment(mgr ctrl.Manager) e
 			}
 		}
 		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// registerOwnerIndexForEnvironmentRequest will set an index of the environment requests that a testrun owns.
+func (r *TestRunReconciler) registerOwnerIndexForEnvironmentRequest(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.EnvironmentRequest{}, TestRunOwnerKey, func(rawObj client.Object) []string {
+		environmentRequest := rawObj.(*etosv1alpha1.EnvironmentRequest)
+		owner := metav1.GetControllerOf(environmentRequest)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != APIGVStr || owner.Kind != "TestRun" {
+			return nil
+		}
+
+		return []string{owner.Name}
 	}); err != nil {
 		return err
 	}
