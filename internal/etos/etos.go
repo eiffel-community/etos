@@ -425,7 +425,7 @@ func (r *ETOSDeployment) role(name types.NamespacedName, labelName string) *rbac
 					"environments",
 				},
 				Verbs: []string{
-					"create", "get", "list", "watch",
+					"create", "get", "list", "watch", "delete",
 				},
 			},
 		},

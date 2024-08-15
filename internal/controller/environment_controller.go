@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ref "k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -193,7 +195,11 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 	if releasers.empty() && !environment.ObjectMeta.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(environment, releaseFinalizer) {
 			logger.Info("Environment is being deleted, release it")
-			releaser := r.releaseJob(environment)
+			environmentRequest, err := r.environmentRequest(ctx, environment)
+			if err != nil {
+				return err
+			}
+			releaser := r.releaseJob(environment, environmentRequest)
 			fmt.Println(releaser)
 			if err := ctrl.SetControllerReference(environment, releaser, r.Scheme); err != nil {
 				return err
@@ -206,8 +212,27 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 	return nil
 }
 
+// environmentRequest that owns an environment
+func (r *EnvironmentReconciler) environmentRequest(ctx context.Context, environment *etosv1alpha1.Environment) (*etosv1alpha1.EnvironmentRequest, error) {
+	environmentRequestName := ""
+	for _, owner := range environment.GetOwnerReferences() {
+		if owner.Kind == "EnvironmentRequest" {
+			environmentRequestName = owner.Name
+		}
+	}
+	if environmentRequestName == "" {
+		return nil, errors.New("failed to find EnvironmentRequest owner")
+	}
+	environmentRequest := &etosv1alpha1.EnvironmentRequest{}
+	err := r.Get(ctx, types.NamespacedName{Name: environmentRequestName, Namespace: environment.Namespace}, environmentRequest)
+	if err != nil {
+		return nil, err
+	}
+	return environmentRequest, nil
+}
+
 // releaseJob is the job definition for an environment releaser.
-func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment) *batchv1.Job {
+func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment, environmentRequest *etosv1alpha1.EnvironmentRequest) *batchv1.Job {
 	id := environment.Labels["etos.eiffel-community.github.io/id"]
 	cluster := environment.Labels["etos.eiffel-community.github.io/cluster"]
 	ttl := int32(300)
@@ -218,6 +243,7 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment)
 			Labels: map[string]string{
 				"etos.eiffel-community.github.io/id":        id,
 				"etos.eiffel-community.github.io/sub-suite": environment.Name,
+				"etos.eiffel-community.github.io/cluster":   cluster,
 				"app.kubernetes.io/name":                    "environment-releaser",
 				"app.kubernetes.io/part-of":                 "etos",
 			},
@@ -239,8 +265,8 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment)
 					Containers: []corev1.Container{
 						{
 							Name:            environment.Name,
-							Image:           "docker-sandbox.se.axis.com/nemesis/etos/environment-provider:8600943", // TODO
-							ImagePullPolicy: "IfNotPresent",
+							Image:           environmentRequest.Spec.Image.Image,
+							ImagePullPolicy: environmentRequest.Spec.ImagePullPolicy,
 							Command:         []string{"python", "-u", "-m", "environment_provider.environment"},
 							Args:            []string{environment.Name},
 						},
@@ -251,7 +277,7 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment)
 	}
 }
 
-// registerOwnerIndexForJob will set an index of the jobs that an environment request owns.
+// registerOwnerIndexForJob will set an index of the jobs that an environment owns.
 func (r *EnvironmentReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &batchv1.Job{}, EnvironmentOwnerKey, func(rawObj client.Object) []string {
 		job := rawObj.(*batchv1.Job)

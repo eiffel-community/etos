@@ -18,18 +18,51 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type IutProvider struct {
+	ID string `json:"id"`
+}
+
+type LogAreaProvider struct {
+	ID string `json:"id"`
+}
+
+type ExecutionSpaceProvider struct {
+	ID         string `json:"id"`
+	TestRunner string `json:"testRunner"`
+}
+
+type EnvironmentProviders struct {
+	IUT            IutProvider            `json:"iut,omitempty"`
+	ExecutionSpace ExecutionSpaceProvider `json:"executionSpace,omitempty"`
+	LogArea        LogAreaProvider        `json:"logArea,omitempty"`
+}
+
+type Splitter struct {
+	Tests []Test `json:"tests"`
+}
 
 // EnvironmentRequestSpec defines the desired state of EnvironmentRequest
 type EnvironmentRequestSpec struct {
 	// ID is the ID for the environments generated. Will be generated if nil
 	// +kubebuilder:validation:Pattern="[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
-	ID string `json:"id,omitempty"`
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
 
-	TestRun   string    `json:"testrun"`
-	Providers Providers `json:"providers"`
-	*Image    `json:",inline"`
+	*Image        `json:",inline"`
+	Identifier    string `json:"identifier,omitempty"`
+	Artifact      string `json:"artifact,omitempty"`
+	Identity      string `json:"identity,omitempty"`
+	MinimumAmount int    `json:"minimumAmount"`
+	MaximumAmount int    `json:"maximumAmount"`
+	// TODO: Dataset per provider?
+	Dataset *apiextensionsv1.JSON `json:"dataset,omitempty"`
+
+	Providers EnvironmentProviders `json:"providers"`
+	Splitter  Splitter             `json:"splitter"`
 }
 
 // EnvironmentRequestStatus defines the observed state of EnvironmentRequest

@@ -50,10 +50,19 @@ spec:
           spec:
             description: EnvironmentRequestSpec defines the desired state of EnvironmentRequest
             properties:
+              artifact:
+                type: string
+              dataset:
+                description: 'TODO: Dataset per provider?'
+                x-kubernetes-preserve-unknown-fields: true
               id:
                 description: ID is the ID for the environments generated. Will be
                   generated if nil
                 pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              identifier:
+                type: string
+              identity:
                 type: string
               image:
                 type: string
@@ -62,28 +71,109 @@ spec:
                 description: PullPolicy describes a policy for if/when to pull a container
                   image
                 type: string
+              maximumAmount:
+                type: integer
+              minimumAmount:
+                type: integer
+              name:
+                type: string
               providers:
-                description: |-
-                  Providers to use for test execution. These names must correspond to existing
-                  Provider kinds in the namespace where a testrun is created.
                 properties:
                   executionSpace:
-                    type: string
+                    properties:
+                      id:
+                        type: string
+                      testRunner:
+                        type: string
+                    required:
+                    - id
+                    - testRunner
+                    type: object
                   iut:
-                    type: string
+                    properties:
+                      id:
+                        type: string
+                    required:
+                    - id
+                    type: object
                   logArea:
-                    type: string
-                required:
-                - executionSpace
-                - iut
-                - logArea
+                    properties:
+                      id:
+                        type: string
+                    required:
+                    - id
+                    type: object
                 type: object
-              testrun:
-                type: string
+              splitter:
+                properties:
+                  tests:
+                    items:
+                      properties:
+                        environment:
+                          description: TestEnvironment to run tests within.
+                          type: object
+                        execution:
+                          description: Execution describes hot to execute a testCase.
+                          properties:
+                            checkout:
+                              items:
+                                type: string
+                              type: array
+                            command:
+                              type: string
+                            environment:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            execute:
+                              items:
+                                type: string
+                              type: array
+                            parameters:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            testRunner:
+                              type: string
+                          required:
+                          - checkout
+                          - command
+                          - environment
+                          - parameters
+                          - testRunner
+                          type: object
+                        id:
+                          type: string
+                        testCase:
+                          description: TestCase metadata.
+                          properties:
+                            id:
+                              type: string
+                            tracker:
+                              type: string
+                            uri:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - id
+                          type: object
+                      required:
+                      - environment
+                      - execution
+                      - id
+                      - testCase
+                      type: object
+                    type: array
+                required:
+                - tests
+                type: object
             required:
             - image
+            - maximumAmount
+            - minimumAmount
             - providers
-            - testrun
+            - splitter
             type: object
           status:
             description: EnvironmentRequestStatus defines the observed state of EnvironmentRequest

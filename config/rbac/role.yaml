@@ -226,6 +226,12 @@ rules:
 - apiGroups:
   - etos.eiffel-community.github.io
   resources:
+  - environmentsrequests/status
+  verbs:
+  - get
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
   - providers
   verbs:
   - create

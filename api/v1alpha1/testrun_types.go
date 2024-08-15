@@ -74,6 +74,10 @@ type Suite struct {
 	Dataset *apiextensionsv1.JSON `json:"dataset"`
 }
 
+type TestRunner struct {
+	Version string `json:"version"`
+}
+
 type SuiteRunner struct {
 	*Image `json:",inline"`
 }
@@ -100,6 +104,7 @@ type TestRunSpec struct {
 	Artifact string `json:"artifact"`
 
 	SuiteRunner         SuiteRunner         `json:"suiteRunner"`
+	TestRunner          TestRunner          `json:"testRunner"`
 	LogListener         LogListener         `json:"logListener"`
 	EnvironmentProvider EnvironmentProvider `json:"environmentProvider"`
 	Identity            string              `json:"identity"`
@@ -112,7 +117,8 @@ type TestRunSpec struct {
 type TestRunStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 
-	SuiteRunners []corev1.ObjectReference `json:"suiteRunners,omitempty"`
+	SuiteRunners        []corev1.ObjectReference `json:"suiteRunners,omitempty"`
+	EnvironmentRequests []corev1.ObjectReference `json:"environmentRequests,omitempty"`
 
 	StartTime      *metav1.Time `json:"startTime,omitempty"`
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`

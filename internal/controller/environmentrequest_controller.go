@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -75,17 +74,7 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if environmentrequest.Status.CompletionTime != nil {
 		return ctrl.Result{}, nil
 	}
-	testrun := &etosv1alpha1.TestRun{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: environmentrequest.Spec.TestRun}, testrun)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			logger.Info("testrun not found, won't create a request")
-			return ctrl.Result{}, nil
-		}
-		logger.Error(err, "failed to get testrun")
-		return ctrl.Result{}, err
-	}
-	if err := r.reconcile(ctx, environmentrequest, testrun); err != nil {
+	if err := r.reconcile(ctx, environmentrequest); err != nil {
 		if apierrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -94,7 +83,7 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
-func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest, testrun *etosv1alpha1.TestRun) error {
+func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
 	logger := log.FromContext(ctx)
 
 	// Set initial statuses if not set.
@@ -127,13 +116,18 @@ func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmen
 
 	// Check providers availability
 	// TODO Update status
-	if err := checkProviders(ctx, r, environmentrequest.Namespace, environmentrequest.Spec.Providers); err != nil {
+	providers := etosv1alpha1.Providers{
+		IUT:            environmentrequest.Spec.Providers.IUT.ID,
+		ExecutionSpace: environmentrequest.Spec.Providers.ExecutionSpace.ID,
+		LogArea:        environmentrequest.Spec.Providers.LogArea.ID,
+	}
+	if err := checkProviders(ctx, r, environmentrequest.Namespace, providers); err != nil {
 		return err
 	}
 
 	// Reconcile environment provider
 	// TODO Update status
-	if err := r.reconcileEnvironmentProvider(ctx, environmentProviders, environmentrequest, testrun); err != nil {
+	if err := r.reconcileEnvironmentProvider(ctx, environmentProviders, environmentrequest); err != nil {
 		return err
 	}
 
@@ -156,7 +150,7 @@ func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmen
 }
 
 // reconcileEnvironmentProvider will check the status of environment providers, create new ones if necessary.
-func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.Context, providers *jobs, environmentrequest *etosv1alpha1.EnvironmentRequest, testrun *etosv1alpha1.TestRun) error {
+func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.Context, providers *jobs, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
 	logger := log.FromContext(ctx)
 
 	// Environment provider failed, setting status.
@@ -208,11 +202,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	}
 	// No environment providers, create environment provider
 	if providers.empty() {
-		tercc, err := json.Marshal(testrun.Spec.Suites)
-		if err != nil {
-			return err
-		}
-		environmentProvider := r.environmentProviderJob(tercc, environmentrequest, testrun)
+		environmentProvider := r.environmentProviderJob(environmentrequest)
 		if err := ctrl.SetControllerReference(environmentrequest, environmentProvider, r.Scheme); err != nil {
 			return err
 		}
@@ -224,16 +214,19 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 }
 
 // environmentProviderJob is the job definition for an etos environment provider.
-func (r EnvironmentRequestReconciler) environmentProviderJob(tercc []byte, environmentrequest *etosv1alpha1.EnvironmentRequest, testrun *etosv1alpha1.TestRun) *batchv1.Job {
+func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest *etosv1alpha1.EnvironmentRequest) *batchv1.Job {
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
+	// TODO: Cluster might not be a part of the environment request.
+	cluster := environmentrequest.Labels["etos.eiffel-community.github.io/cluster"]
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"etos.eiffel-community.github.io/id": testrun.Spec.ID,
-				"app.kubernetes.io/name":             "environment-provider",
-				"app.kubernetes.io/part-of":          "etos",
+				"etos.eiffel-community.github.io/id":      environmentrequest.Spec.Identifier, // TODO: omitempty
+				"etos.eiffel-community.github.io/cluster": cluster,
+				"app.kubernetes.io/name":                  "environment-provider",
+				"app.kubernetes.io/part-of":               "etos",
 			},
 			Annotations: make(map[string]string),
 			Name:        environmentrequest.Name,
@@ -248,7 +241,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(tercc []byte, envir
 				},
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: &grace,
-					ServiceAccountName:            fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
+					ServiceAccountName:            fmt.Sprintf("%s-provider", cluster),
 					RestartPolicy:                 "Never",
 					Containers: []corev1.Container{
 						{
@@ -259,44 +252,36 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(tercc []byte, envir
 								{
 									ConfigMapRef: &corev1.ConfigMapEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: testrun.Spec.Cluster,
+											Name: cluster,
 										},
 									},
 								},
 								{
 									SecretRef: &corev1.SecretEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: testrun.Spec.Cluster,
+											Name: cluster,
 										},
 									},
 								},
 								{
 									SecretRef: &corev1.SecretEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: fmt.Sprintf("%s-rabbitmq", testrun.Spec.Cluster),
+											Name: fmt.Sprintf("%s-rabbitmq", cluster),
 										},
 									},
 								},
 								{
 									SecretRef: &corev1.SecretEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: fmt.Sprintf("%s-messagebus", testrun.Spec.Cluster),
+											Name: fmt.Sprintf("%s-messagebus", cluster),
 										},
 									},
 								},
 							},
 							Env: []corev1.EnvVar{
 								{
-									Name:  "TERCC",
-									Value: string(tercc),
-								},
-								{
-									Name:  "REQUEST_ID",
-									Value: environmentrequest.Spec.ID,
-								},
-								{
-									Name:  "TESTRUN",
-									Value: environmentrequest.Spec.TestRun,
+									Name:  "REQUEST",
+									Value: environmentrequest.Name,
 								},
 							},
 						},
@@ -382,25 +367,19 @@ func (r *EnvironmentRequestReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	}
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.EnvironmentRequest{}, iutProvider, func(rawObj client.Object) []string {
 		environmentRequest := rawObj.(*etosv1alpha1.EnvironmentRequest)
-		return []string{environmentRequest.Spec.Providers.IUT}
+		return []string{environmentRequest.Spec.Providers.IUT.ID}
 	}); err != nil {
 		return err
 	}
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.EnvironmentRequest{}, logAreaProvider, func(rawObj client.Object) []string {
 		environmentRequest := rawObj.(*etosv1alpha1.EnvironmentRequest)
-		return []string{environmentRequest.Spec.Providers.LogArea}
+		return []string{environmentRequest.Spec.Providers.LogArea.ID}
 	}); err != nil {
 		return err
 	}
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.EnvironmentRequest{}, executionSpaceProvider, func(rawObj client.Object) []string {
 		environmentRequest := rawObj.(*etosv1alpha1.EnvironmentRequest)
-		return []string{environmentRequest.Spec.Providers.ExecutionSpace}
-	}); err != nil {
-		return err
-	}
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.EnvironmentRequest{}, ".spec.testrun", func(rawObj client.Object) []string {
-		environmentRequest := rawObj.(*etosv1alpha1.EnvironmentRequest)
-		return []string{environmentRequest.Spec.TestRun}
+		return []string{environmentRequest.Spec.Providers.ExecutionSpace.ID}
 	}); err != nil {
 		return err
 	}
@@ -421,11 +400,6 @@ func (r *EnvironmentRequestReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		Watches(
 			&etosv1alpha1.Provider{},
 			handler.TypedEnqueueRequestsFromMapFunc(r.findEnvironmentRequestsForExecutionSpaceProvider),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		).
-		Watches(
-			&etosv1alpha1.TestRun{},
-			handler.TypedEnqueueRequestsFromMapFunc(r.FindEnvironmentRequestsForTestrun),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)

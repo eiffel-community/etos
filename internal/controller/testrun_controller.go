@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	ref "k8s.io/client-go/tools/reference"
 	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,7 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
 // TODO: Move Environment, EnvironmentRequestOwnerKey
@@ -66,6 +66,8 @@ type TestRunReconciler struct {
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=testruns/finalizers,verbs=update
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments,verbs=get;watch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments/status,verbs=get
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests,verbs=get;watch
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentsrequests/status,verbs=get
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers,verbs=get;watch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers/status,verbs=get
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
@@ -146,56 +148,13 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1
 		return err
 	}
 
-	// TODO: A EnvironmentRequest per suite
-
-	var environmentRequestList etosv1alpha1.EnvironmentRequestList
-	if err := r.List(ctx, &environmentRequestList, client.InNamespace(testrun.Namespace), client.MatchingFields{TestRunOwnerKey: testrun.Name}); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
+	// Create environment request
+	err, exit := r.reconcileEnvironmentRequest(ctx, testrun)
+	if err != nil {
+		return err
 	}
-	if len(environmentRequestList.Items) < len(testrun.Spec.Suites) {
-		request := &etosv1alpha1.EnvironmentRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"etos.eiffel-community.github.io/id": testrun.Spec.ID,
-					"app.kubernetes.io/name":             "suite-runner",
-					"app.kubernetes.io/part-of":          "etos",
-				},
-				Annotations:  make(map[string]string),
-				GenerateName: fmt.Sprintf("%s-", testrun.Name),
-				Namespace:    testrun.Namespace,
-			},
-			Spec: etosv1alpha1.EnvironmentRequestSpec{
-				ID:        string(uuid.NewUUID()),
-				Providers: testrun.Spec.Providers,
-				TestRun:   testrun.Name,
-				Image:     testrun.Spec.EnvironmentProvider.Image,
-			},
-		}
-		if err := ctrl.SetControllerReference(testrun, request, r.Scheme); err != nil {
-			return err
-		}
-		if err := r.Create(ctx, request); err != nil {
-			return err
-		}
+	if exit {
 		return nil
-	}
-
-	for _, environmentRequest := range environmentRequestList.Items {
-		condition := meta.FindStatusCondition(environmentRequest.Status.Conditions, StatusReady)
-		if condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == "Failed" {
-			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusEnvironment, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Failed to create environment for test"}) {
-				return r.Status().Update(ctx, testrun)
-			}
-			if err := r.complete(ctx, testrun, "Failed", condition.Message); err != nil {
-				return err
-			}
-			return nil
-		} else if condition != nil && condition.Status == metav1.ConditionFalse {
-			logger.Info("Environment request is not finished")
-			// return nil
-		}
 	}
 
 	// Check environment
@@ -218,26 +177,17 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1
 		if err := r.complete(ctx, testrun, "Failed", "Suite runners failed to finish"); err != nil {
 			return err
 		}
-		// if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Suite runners failed to finish"}) {
-		// 	testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, StatusActive)
-		// 	testrun.Status.CompletionTime = &testrunCondition.LastTransitionTime
-		// 	return r.Status().Update(ctx, testrun)
-		// }
 	}
 	if suiteRunners.successful() {
 		if err := r.complete(ctx, testrun, "Successful", "Suite runners finished successfully"); err != nil {
 			return err
 		}
-		// if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Successful", Message: "Suite runners finished successfully"}) {
-		// 	testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, StatusActive)
-		// 	testrun.Status.CompletionTime = &testrunCondition.LastTransitionTime
-		// 	return r.Status().Update(ctx, testrun)
-		// }
 	}
 
 	return nil
 }
 
+// complete sets the completion time and active status on a testrun.
 func (r *TestRunReconciler) complete(ctx context.Context, testrun *etosv1alpha1.TestRun, reason, message string) error {
 	if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: reason, Message: message}) {
 		testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, StatusActive)
@@ -245,6 +195,62 @@ func (r *TestRunReconciler) complete(ctx context.Context, testrun *etosv1alpha1.
 		return r.Status().Update(ctx, testrun)
 	}
 	return nil
+}
+
+// reconcileEnvironmentRequest will check the status of environment requests, create new ones if necessary.
+func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, testrun *etosv1alpha1.TestRun) (error, bool) {
+	logger := log.FromContext(ctx)
+	var environmentRequestList etosv1alpha1.EnvironmentRequestList
+	if err := r.List(ctx, &environmentRequestList, client.InNamespace(testrun.Namespace), client.MatchingFields{TestRunOwnerKey: testrun.Name}); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err, true
+		}
+	}
+	testrun.Status.EnvironmentRequests = nil
+	for _, request := range environmentRequestList.Items {
+		reqRef, err := ref.GetReference(r.Scheme, &request)
+		if err != nil {
+			logger.Error(err, "failed to make reference to active environment request", "environmentrequest", request)
+			continue
+		}
+		testrun.Status.EnvironmentRequests = append(testrun.Status.EnvironmentRequests, *reqRef)
+	}
+	for _, suite := range testrun.Spec.Suites {
+		found := false
+		logger.Info("Checking suite", "name", suite.Name)
+		for _, request := range environmentRequestList.Items {
+			logger.Info("Checking request", "name", request.Name)
+			if request.Spec.Name == suite.Name {
+				found = true
+			}
+		}
+		if !found {
+			request := r.environmentRequest(testrun, suite)
+			if err := ctrl.SetControllerReference(testrun, request, r.Scheme); err != nil {
+				return err, true
+			}
+			logger.Info("Creating a new request", "request", request.Name)
+			if err := r.Create(ctx, request); err != nil {
+				return err, true
+			}
+		}
+	}
+
+	for _, environmentRequest := range environmentRequestList.Items {
+		condition := meta.FindStatusCondition(environmentRequest.Status.Conditions, StatusReady)
+		if condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == "Failed" {
+			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusEnvironment, Status: metav1.ConditionFalse, Reason: "Failed", Message: "Failed to create environment for test"}) {
+				return r.Status().Update(ctx, testrun), true
+			}
+			if err := r.complete(ctx, testrun, "Failed", condition.Message); err != nil {
+				return err, true
+			}
+			return nil, true
+		} else if condition != nil && condition.Status == metav1.ConditionFalse {
+			logger.Info("Environment request is not finished")
+		}
+	}
+	return nil, false
 }
 
 // reconcileSuiteRunner will check the status of suite runners, create new ones if necessary.
@@ -278,10 +284,14 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Done", Message: "Suite runner finished"}) {
 			logger.Info("Setting suiterunner (success) false")
 			for _, suiteRunner := range suiteRunners.successfulJobs {
+				// TODO: Deletion should probably be done outside of this function
 				if err := r.Delete(ctx, suiteRunner, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 					if !apierrors.IsNotFound(err) {
 						return err
 					}
+				}
+				if err = r.deleteEnvironmentRequests(ctx, testrun); err != nil {
+					return err
 				}
 			}
 			return r.Status().Update(ctx, testrun)
@@ -306,6 +316,24 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 		}
 		if err := r.Create(ctx, suiteRunner); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// deleteEnvironmentRequests will delete all environment requests that are a part of a testrun.
+func (r *TestRunReconciler) deleteEnvironmentRequests(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
+	var environmentRequestList etosv1alpha1.EnvironmentRequestList
+	if err := r.List(ctx, &environmentRequestList, client.InNamespace(testrun.Namespace), client.MatchingFields{TestRunOwnerKey: testrun.Name}); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+	for _, environmentRequest := range environmentRequestList.Items {
+		if err := r.Delete(ctx, &environmentRequest, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
 		}
 	}
 	return nil
@@ -343,6 +371,49 @@ func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv
 		}
 	}
 	return nil
+}
+
+// environmentRequest is the definition for an environment request.
+func (r TestRunReconciler) environmentRequest(testrun *etosv1alpha1.TestRun, suite etosv1alpha1.Suite) *etosv1alpha1.EnvironmentRequest {
+	return &etosv1alpha1.EnvironmentRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"etos.eiffel-community.github.io/id":      testrun.Spec.ID,
+				"etos.eiffel-community.github.io/cluster": testrun.Spec.Cluster,
+				"app.kubernetes.io/name":                  "suite-runner",
+				"app.kubernetes.io/part-of":               "etos",
+			},
+			Annotations:  make(map[string]string),
+			GenerateName: fmt.Sprintf("%s-", testrun.Name),
+			Namespace:    testrun.Namespace,
+		},
+		Spec: etosv1alpha1.EnvironmentRequestSpec{
+			ID:            string(uuid.NewUUID()),
+			Name:          suite.Name,
+			Identifier:    testrun.Spec.ID,
+			Artifact:      testrun.Spec.Artifact,
+			Identity:      testrun.Spec.Identity,
+			MinimumAmount: 1,
+			MaximumAmount: len(suite.Tests),
+			Dataset:       suite.Dataset,
+			Providers: etosv1alpha1.EnvironmentProviders{
+				IUT: etosv1alpha1.IutProvider{
+					ID: testrun.Spec.Providers.IUT,
+				},
+				ExecutionSpace: etosv1alpha1.ExecutionSpaceProvider{
+					ID:         testrun.Spec.Providers.ExecutionSpace,
+					TestRunner: testrun.Spec.TestRunner.Version,
+				},
+				LogArea: etosv1alpha1.LogAreaProvider{
+					ID: testrun.Spec.Providers.LogArea,
+				},
+			},
+			Splitter: etosv1alpha1.Splitter{
+				Tests: suite.Tests,
+			},
+			Image: testrun.Spec.EnvironmentProvider.Image,
+		},
+	}
 }
 
 // suiteRunnerJob is the job definition for an etos suite runner.
@@ -661,18 +732,14 @@ func (r *TestRunReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error {
 func (r *TestRunReconciler) registerOwnerIndexForEnvironment(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.Environment{}, TestRunOwnerKey, func(rawObj client.Object) []string {
 		environment := rawObj.(*etosv1alpha1.Environment)
-
-		// TODO: Since we are setting controller to false when creating Environment in the environment provider
-		// we need to find the TestRun owner in another way. This way is much more insecure, but since we are going
-		// to create environments from the controllers later we wuill be able to fix this to be more in line with
-		// how registerOwnerIndexForJob does it.
-		refs := environment.GetOwnerReferences()
-		for i := range refs {
-			if refs[i].APIVersion == APIGVStr && refs[i].Kind == "TestRun" {
-				return []string{refs[i].Name}
-			}
+		owner := metav1.GetControllerOf(environment)
+		if owner == nil {
+			return nil
 		}
-		return nil
+		if owner.APIVersion != APIGVStr || owner.Kind != "TestRun" {
+			return nil
+		}
+		return []string{owner.Name}
 	}); err != nil {
 		return err
 	}
