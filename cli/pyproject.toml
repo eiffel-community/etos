@@ -5,6 +5,7 @@ requires = ["setuptools>=72", "wheel", "setuptools_scm[toml]>=8"]
 name = "etos_client"
 dynamic = ["version"]
 description = "Test suite execution client for ETOS."
+readme = "README.rst"
 authors = [{name = "Tobias Persson", email = "tobias.persson@axis.com"}]
 license = { text  = "Apache License, Version 2.0" }
 classifiers = [
