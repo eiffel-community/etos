@@ -1,0 +1,111 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  annotations:
+    sealedsecrets.bitnami.com/cluster-wide: "true"
+  creationTimestamp: null
+  name: testing-secrets
+spec:
+  encryptedData:
+    EncryptionKey: AgBpG8AD42p8qpGYmG8yxpz0MC77Q7XSjdNKfyr2h4EsvrIVboZfU7rdOTFyfjgxWnCsZobm0HVu0ucM3LbaUwjP7aMo0Zs30mmXjIMeYMzd7jwkd0tZd9RpV6/Cnx/chlqg0osi+20YVcd6xQilZ5Ig5oZGKQurci9rGIq0Qvm4VwTC44vYfD75bBHyfgAH6N6AjU1kn7LdHfXaJ8lo5aqJwoU+KvYiYVdJlFm6ozt3YsjN+rNUUBYCUvhTkSoYObQ2T90q5d4Ej7Gg4XPTKIFE4KFXbKG2JNjErdMJpVapVNombo04sDpjWzeWo0ehLhWn8WPtN9x+1t1b2TkRpGrn9mOst+pKAu89+TqjEzmk+awMDfSeOq8WOCCOApGw5gPGToyjNnZMwgDcE4ZOra/ThsMHS0GRCjdJXc36og4TmcyfA0HETnJKkymHruBfaWM6F9G0JkVW1nxQ4Z/okOge35UX900n9SkR8h3q99xn1BcH4eenV0cioGxQJyIEiq3lB+kBSpTxC3k7QN6/duF4PHqeYNilTxSU4Ak3+wOx0fGIe1KyHPyc8RvZQ0xCItZitJ2KsMq1DrF2AFZJFS4u1/aAo/jDr845HBLZlU+TvngK7LGV6W4yl6R/HbYBT+ILr1VV0X34U+OydSErzNtooRZ7N8vj5ZJtLLoDCnC4gzMQEi1y06K9XH0wtGDyLxTANL/QhrfbKiyHTgZPH7XpkJnQ4RuPC/WNDQ+quL72ScfigM44hjyH3n7tUQ==
+    RabbitMQPassword: AgB61bHSNFjKj9JD0/oBIYMtwBHTPZEoii4DcMokcCePebk3BiBTrCrWdCiawca2toYHr+Lun6h0rGEGU8YSzxoXiowyzg7Bg+PRNVx3OrW73aGaaw7laclwwSLBPbWsg0lCVXkJeTlEIZGkbtCmit3LhvcLZbeQNfl4Fx1inmJZsYATWBSyyMDj4AkAWaOkADTQvWywxvDXX30vi1uzOnGVYI3zmEmxYX3U3K7s9LWcb26xrCEkBryCS1WqejVHYgno6InjlGntByCB1CXb/E7lnU/hqjmFCxtk1NEqaIEJoQ4ZPbgbi0YZUzd6vrdCKtgxZOs9J6jF2ZeCoZHhT4Hsj3EpLtl7fCMsOE/jSGz/KB2iGzyRFMd9o/aEliDFSuq6KiskGcyf6d+/HkZZwZB9oqH5F+ii5dGRQXOjpH5owwM2zy97o8Zt+WyGJ7ctcQ/2DVh3VhtDoifL8fHaQ6eYJ3iTB9ASzdo8axlff+g879P+rMDQ+xge1fWKPDpw/7tmMKsA7wsfIfnMsg9dZBXKRP0na23y2oMzmlahV7t1S6K9DRJ471N0UVkJ1w2Ugb63V3+0PdbED4NCNdioqTDZZNwRhcAClWXorivWVW1XRT9+HZ6gZ+Fn6Yej2QGod8+r5TdBvvLh9oSFHhVGHx+/jhHRKT5T3WEHrijkQ7z4sy5tnZp+wujoFMKlo0dmmutmNAczlb2e55F+5DnLFQ==
+  template:
+    metadata:
+      annotations:
+        sealedsecrets.bitnami.com/cluster-wide: "true"
+      creationTimestamp: null
+      name: testing-secrets
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Cluster
+metadata:
+  labels:
+    app.kubernetes.io/name: etos
+    app.kubernetes.io/managed-by: kustomize
+  name: testing
+spec:
+  etos:
+    config:
+      dev: "false"
+      timezone: "Europe/Stockholm"
+      etosApiURL: "https://etos-testing.etos-dev.k8s.axis.com/api"
+      etosEventRepositoryURL: "https://eiffel-er-prod.se.axis.com/graphql"
+      encryptionKey:
+        valueFrom:
+          secretKeyRef:
+            name: testing-secrets
+            key: EncryptionKey
+      routingKeyTag: etos-test
+      eventDataTimeout: "300"
+      source: ETOS
+      environmentTimeout: "3600"
+      testSuiteTimeout: "10"
+      testrunRetention:
+        failure: 96h
+        success: 1h
+    api:
+      image: registry.nordix.org/eiffel/etos-api:8b88feda
+      iutProviderSecret: iut-providers
+      logAreaProviderSecret: log-area-providers
+      executionSpaceProviderSecret: execution-space-providers
+    sse:
+      image: registry.nordix.org/eiffel/etos-sse:8b88feda
+    logArea:
+      image: registry.nordix.org/eiffel/etos-logarea:8b88feda
+    suiteRunner:
+      image: registry.nordix.org/eiffel/etos-suite-runner:003c1776
+      logListener:
+        etosQueueName: svcetos.*.testlog
+        etosQueueParams: '{"arguments": {"x-queue-type": "quorum", "x-expires": 1800000}, "durable": true}'
+        image: registry.nordix.org/eiffel/etos-log-listener:003c1776
+    suiteStarter:
+      config:
+        gracePeriod: "300"
+        observabilityConfigmapName: ""
+        otelCollectorHost: ""
+        sidecarImage: ""
+        ttl: "3600"
+      eiffelQueueName: svcetos.suite-starter-test.dev
+      eiffelQueueParams: '{"arguments": {"x-queue-type": "quorum"}, "durable": true}'
+      image: registry.nordix.org/eiffel/etos-suite-starter:28ac79b9
+      suiteRunnerTemplateSecretName: ""
+    testRunner:
+      version: "3.6.0"
+    environmentProvider:
+      image: registry.nordix.org/eiffel/etos-environment-provider:6fc91618
+    ingress:
+      enabled: true
+      ingressClass: nginx
+      host: "etos-testing.etos-dev.k8s.axis.com"
+  database:
+    deploy: false
+  messageBus:
+    eiffel:
+      deploy: false
+      exchange: eiffel.public
+      host: dev-rabbitmq.se.axis.com
+      username: svcetos
+      password:
+        valueFrom:
+          secretKeyRef:
+            name: testing-secrets
+            key: RabbitMQPassword
+      port: "5671"
+      ssl: "true"
+      vhost: /
+    logs:
+      deploy: false
+      exchange: etos.private
+      host: dev-rabbitmq.se.axis.com
+      username: svcetos
+      password:
+        valueFrom:
+          secretKeyRef:
+            name: testing-secrets
+            key: RabbitMQPassword
+      port: "5671"
+      ssl: "true"
+      vhost: staging
+  eventRepository:
+    deploy: false
+    host: https://eiffel-er-prod.se.axis.com/graphql

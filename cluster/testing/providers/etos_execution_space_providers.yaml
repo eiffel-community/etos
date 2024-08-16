@@ -1,0 +1,57 @@
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  annotations:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    etos.eiffel-community.github.io/default: "true"
+  name: jenkins-provider
+spec:
+  healthCheck:
+    endpoint: /v1alpha/selftest/ping
+    intervalSeconds: 30
+  host: https://jenkins-provider.etos-dev.k8s.axis.com
+  type: execution-space
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  annotations:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: kubernetes-provider
+spec:
+  healthCheck:
+    endpoint: /v1alpha/selftest/ping
+    intervalSeconds: 30
+  host: https://kubernetes-provider.etos-dev.k8s.axis.com
+  type: execution-space
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  annotations:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: jenkins
+spec:
+  type: execution-space
+  healthCheck:
+    endpoint: /v1alpha/selftest/ping
+    intervalSeconds: 30
+  host: https://jenkins-provider.etos-dev.k8s.axis.com
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  annotations:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: jenkins04
+spec:
+  type: execution-space
+  healthCheck:
+    endpoint: /v1alpha/selftest/ping
+    intervalSeconds: 30
+  host: https://jenkins-provider.etos-dev.k8s.axis.com
+---

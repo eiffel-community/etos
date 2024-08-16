@@ -1,0 +1,15 @@
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/name: default
+    app.kubernetes.io/managed-by: kustomize
+    etos.eiffel-community.github.io/default: "true"
+  name: artifactory
+spec:
+  type: log-area
+  jsontasSource:
+    secretKeyRef:
+      name: testing-log-area-providers
+      key: artifactory
+---

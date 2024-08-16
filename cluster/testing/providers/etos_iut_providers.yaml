@@ -1,0 +1,145 @@
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    etos.eiffel-community.github.io/default: "true"
+  name: poolman-provider-service
+spec:
+  type: iut
+  healthCheck:
+    endpoint: /v1alpha1/selftest/ping
+    intervalSeconds: 30
+  host: https://poolman-provider.etos-dev.k8s.axis.com
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: generic
+spec:
+  type: iut
+  jsontasSource:
+    secretKeyRef:
+      name: testing-iut-providers
+      key: generic
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: nb-poolman
+spec:
+  type: iut
+  jsontasSource:
+    secretKeyRef:
+      name: testing-iut-providers
+      key: nb_poolman
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: nb-poolman-with-flash
+spec:
+  type: iut
+  jsontasSource:
+    secretKeyRef:
+      name: testing-iut-providers
+      key: nb_poolman_with_flash
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: override-ip
+spec:
+  type: iut
+  jsontasSource:
+    secretKeyRef:
+      name: testing-iut-providers
+      key: override_ip
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: override-ip-with-flash
+spec:
+  type: iut
+  jsontasSource:
+    secretKeyRef:
+      name: testing-iut-providers
+      key: override_ip_with_flash
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: poolman
+spec:
+  type: iut
+  jsontasSource:
+    secretKeyRef:
+      name: testing-iut-providers
+      key: poolman
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: poolman-staging
+spec:
+  type: iut
+  jsontasSource:
+    secretKeyRef:
+      name: testing-iut-providers
+      key: poolman_staging
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: poolman-staging-with-flash
+spec:
+  type: iut
+  jsontasSource:
+    secretKeyRef:
+      name: testing-iut-providers
+      key: poolman_staging_with_flash
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: poolman-with-flash
+spec:
+  type: iut
+  jsontasSource:
+    secretKeyRef:
+      name: testing-iut-providers
+      key: poolman_with_flash
+---
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: poolman-with-flash-without-syslog
+spec:
+  type: iut
+  jsontasSource:
+    secretKeyRef:
+      name: testing-iut-providers
+      key: poolman_with_flash_without_syslog
+---
