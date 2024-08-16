@@ -121,8 +121,6 @@ spec:
                 required:
                 - image
                 type: object
-              suiteSource:
-                type: string
               suites:
                 items:
                   description: Suite to execute.
@@ -213,15 +211,9 @@ spec:
                 type: object
             required:
             - artifact
-            - cluster
-            - environmentProvider
             - identity
-            - logListener
             - providers
-            - suiteRunner
-            - suiteSource
             - suites
-            - testRunner
             type: object
           status:
             description: TestRunStatus defines the observed state of TestRun

@@ -90,3 +90,23 @@ webhooks:
     resources:
     - providers
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-etos-eiffel-community-github-io-v1alpha1-testrun
+  failurePolicy: Fail
+  name: mtestrun.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - testruns
+  sideEffects: None

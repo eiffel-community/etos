@@ -78,7 +78,6 @@ type TestRunReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
-
 func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
@@ -554,10 +553,6 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 								{
 									Name:  "TESTRUN",
 									Value: testrun.Name,
-								},
-								{
-									Name:  "SUITE_SOURCE",
-									Value: testrun.Spec.SuiteSource,
 								},
 								{
 									Name:  "IDENTIFIER",

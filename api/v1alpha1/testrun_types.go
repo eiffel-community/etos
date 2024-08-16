@@ -93,7 +93,7 @@ type EnvironmentProvider struct {
 // TestRunSpec defines the desired state of TestRun
 type TestRunSpec struct {
 	// Name of the ETOS cluster to execute the testrun in.
-	Cluster string `json:"cluster"`
+	Cluster string `json:"cluster,omitempty"`
 
 	// ID is the test suite ID for this execution. Will be generated if nil
 	// +kubebuilder:validation:Pattern="[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
@@ -103,14 +103,13 @@ type TestRunSpec struct {
 	// +kubebuilder:validation:Pattern="[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
 	Artifact string `json:"artifact"`
 
-	SuiteRunner         SuiteRunner         `json:"suiteRunner"`
-	TestRunner          TestRunner          `json:"testRunner"`
-	LogListener         LogListener         `json:"logListener"`
-	EnvironmentProvider EnvironmentProvider `json:"environmentProvider"`
-	Identity            string              `json:"identity"`
-	Providers           Providers           `json:"providers"`
-	SuiteSource         string              `json:"suiteSource"`
-	Suites              []Suite             `json:"suites"`
+	SuiteRunner         *SuiteRunner         `json:"suiteRunner,omitempty"`
+	TestRunner          *TestRunner          `json:"testRunner,omitempty"`
+	LogListener         *LogListener         `json:"logListener,omitempty"`
+	EnvironmentProvider *EnvironmentProvider `json:"environmentProvider,omitempty"`
+	Identity            string               `json:"identity"`
+	Providers           Providers            `json:"providers"`
+	Suites              []Suite              `json:"suites"`
 }
 
 // TestRunStatus defines the observed state of TestRun
