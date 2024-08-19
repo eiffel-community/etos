@@ -80,10 +80,14 @@ func (r *TestRun) Default() {
 	}
 
 	addLabel := true
-	for key := range r.ObjectMeta.GetLabels() {
-		if key == "etos.eiffel-community.github.io/id" {
-			addLabel = false
+	if r.ObjectMeta.Labels != nil {
+		for key := range r.ObjectMeta.GetLabels() {
+			if key == "etos.eiffel-community.github.io/id" {
+				addLabel = false
+			}
 		}
+	} else {
+		r.ObjectMeta.Labels = map[string]string{}
 	}
 	if addLabel {
 		r.ObjectMeta.Labels["etos.eiffel-community.github.io/id"] = r.Spec.ID

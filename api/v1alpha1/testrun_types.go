@@ -132,6 +132,7 @@ type TestRunStatus struct {
 // +kubebuilder:printcolumn:name="Suiterunner",type="string",JSONPath=".status.conditions[?(@.type==\"SuiteRunner\")].reason"
 // +kubebuilder:printcolumn:name="Active",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].status"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].message"
+// +kubebuilder:printcolumn:name="ID",type="string",JSONPath=.metadata.labels.etos\.eiffel-community\.github\.io/id
 type TestRun struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

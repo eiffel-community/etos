@@ -30,6 +30,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Active")].message
       name: Message
       type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/id
+      name: ID
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
