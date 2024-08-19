@@ -78,6 +78,16 @@ func (r *TestRun) Default() {
 	if r.Spec.TestRunner == nil && cluster != nil {
 		r.Spec.TestRunner = &TestRunner{Version: cluster.Spec.ETOS.TestRunner.Version}
 	}
+
+	addLabel := true
+	for key := range r.ObjectMeta.GetLabels() {
+		if key == "etos.eiffel-community.github.io/id" {
+			addLabel = false
+		}
+	}
+	if addLabel {
+		r.ObjectMeta.Labels["etos.eiffel-community.github.io/id"] = r.Spec.ID
+	}
 }
 
 // +kubebuilder:webhook:path=/validate-etos-eiffel-community-github-io-v1alpha1-testrun,mutating=false,failurePolicy=fail,sideEffects=None,groups=etos.eiffel-community.github.io,resources=testruns,verbs=create;update,versions=v1alpha1,name=mtestrun.kb.io,admissionReviewVersions=v1
