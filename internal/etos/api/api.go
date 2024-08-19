@@ -254,7 +254,7 @@ func (r *ETOSApiDeployment) role(name types.NamespacedName, labelName string) *r
 					"testruns",
 				},
 				Verbs: []string{
-					"create", "get", "delete", "list", "watch",
+					"create", "get", "delete", "list", "watch", "deletecollection",
 				},
 			},
 			{
