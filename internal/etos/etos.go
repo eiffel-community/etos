@@ -324,7 +324,7 @@ func (r *ETOSDeployment) secret(ctx context.Context, name types.NamespacedName) 
 	return &corev1.Secret{
 		ObjectMeta: r.meta(name),
 		Data: map[string][]byte{
-			"ETOS_ENCRYPTION_KEY": []byte(value),
+			"ETOS_ENCRYPTION_KEY": value,
 		},
 	}, nil
 }
