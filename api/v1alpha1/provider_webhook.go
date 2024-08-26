@@ -85,7 +85,9 @@ func getFromConfigMapKeySelector(ctx context.Context, client client.Client, conf
 	name := types.NamespacedName{Name: configMapKeySelector.Name, Namespace: namespace}
 	obj := &corev1.ConfigMap{}
 
-	// TODO: This seems bad
+	// Retrying to make sure that the configmap has been properly generated before a provider is applied.
+	// There is a race where, for example, a provider and a custom configmap resource are created at the
+	// same time and the configmap does not get generated in time.
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
 		return client.Get(ctx, name, obj)
 	})
