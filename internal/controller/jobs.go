@@ -17,6 +17,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -94,16 +95,43 @@ func IsJobStatusConditionPresentAndEqual(conditions []batchv1.JobCondition, cond
 	return false
 }
 
+type (
+	Conclusion string
+	Verdict    string
+)
+
+const (
+	ConclusionSuccessful   Conclusion = "Successful"
+	ConclusionFailed       Conclusion = "Failed"
+	ConclusionAborted      Conclusion = "Aborted"
+	ConclusionTimedOut     Conclusion = "TimedOut"
+	ConclusionInconclusive Conclusion = "Inconclusive"
+)
+
+const (
+	VerdictPassed       Verdict = "Passed"
+	VerdictFailed       Verdict = "Failed"
+	VerdictInconclusive Verdict = "Inconclusive"
+	VerdictNone         Verdict = "None"
+)
+
+// Result describes the status and result of an ETOS job
+type Result struct {
+	Conclusion  Conclusion `json:"conclusion"`
+	Verdict     Verdict    `json:"verdict,omitempty"`
+	Description string     `json:"description,omitempty"`
+}
+
 // terminationLog reads the termination-log part of the ESR pod and returns it.
-func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job) (string, error) {
+func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job) (*Result, error) {
 	logger := log.FromContext(ctx)
 	var pods corev1.PodList
 	if err := c.List(ctx, &pods, client.InNamespace(job.Namespace), client.MatchingLabels{"job-name": job.Name}); err != nil {
 		logger.Error(err, fmt.Sprintf("could not list pods for job %s", job.Name))
-		return "", err
+		return &Result{Conclusion: ConclusionFailed}, err
 	}
 	if len(pods.Items) == 0 {
-		return "", fmt.Errorf("no pods found for job %s", job.Name)
+		return &Result{Conclusion: ConclusionFailed}, fmt.Errorf("no pods found for job %s", job.Name)
 	}
 	if len(pods.Items) > 1 {
 		// TODO: check specific
@@ -114,10 +142,15 @@ func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job) (str
 	for _, status := range pod.Status.ContainerStatuses {
 		if status.Name == job.Name {
 			if status.State.Terminated == nil {
-				return "", errors.New("could not read termination log from pod")
+				return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
 			}
-			return status.State.Terminated.Message, nil
+			var result Result
+			if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
+				logger.Error(err, "failed to unmarshal termination log to a result struct")
+				return &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message}, nil
+			}
+			return &result, nil
 		}
 	}
-	return "", errors.New("found no container status for pod")
+	return &Result{Conclusion: ConclusionFailed}, errors.New("found no container status for pod")
 }

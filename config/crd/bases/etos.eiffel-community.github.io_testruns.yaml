@@ -27,6 +27,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Active")].status
       name: Active
       type: string
+    - jsonPath: .status.verdict
+      name: Verdict
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Active")].message
       name: Message
       type: string
@@ -429,6 +432,8 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              verdict:
+                type: string
             type: object
         type: object
     served: true

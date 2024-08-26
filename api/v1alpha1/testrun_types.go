@@ -131,6 +131,7 @@ type TestRunStatus struct {
 
 	StartTime      *metav1.Time `json:"startTime,omitempty"`
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+	Verdict        string       `json:"verdict,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -141,6 +142,7 @@ type TestRunStatus struct {
 // +kubebuilder:printcolumn:name="Environment",type="string",JSONPath=".status.conditions[?(@.type==\"Environment\")].reason"
 // +kubebuilder:printcolumn:name="Suiterunner",type="string",JSONPath=".status.conditions[?(@.type==\"SuiteRunner\")].reason"
 // +kubebuilder:printcolumn:name="Active",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].status"
+// +kubebuilder:printcolumn:name="Verdict",type="string",JSONPath=".status.verdict"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].message"
 // +kubebuilder:printcolumn:name="ID",type="string",JSONPath=.metadata.labels.etos\.eiffel-community\.github\.io/id
 type TestRun struct {

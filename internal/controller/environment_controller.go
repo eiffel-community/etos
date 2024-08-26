@@ -62,6 +62,8 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	// If the environment is considered 'Completed', it has been released. Check that the object is
+	// being deleted and contains the finalizer and remove the finalizer.
 	if environment.Status.CompletionTime != nil {
 		if !environment.ObjectMeta.DeletionTimestamp.IsZero() {
 			if controllerutil.ContainsFinalizer(environment, releaseFinalizer) {
@@ -151,14 +153,14 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 	// Environment releaser failed, setting status.
 	if releasers.failed() {
 		releaser := releasers.failedJobs[0] // TODO
-		message, err := terminationLog(ctx, r, releaser)
+		result, err := terminationLog(ctx, r, releaser)
 		if err != nil {
-			message = err.Error()
+			result.Description = err.Error()
 		}
-		if message == "" {
-			message = "Failed release an environment - Unknown error"
+		if result.Description == "" {
+			result.Description = "Failed release an environment - Unknown error"
 		}
-		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: message}) {
+		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 			logger.Info("Setting environment (failed) false")
 			return r.Status().Update(ctx, environment)
 		}
@@ -166,17 +168,17 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 	// Environment releaser successful, setting status.
 	if releasers.successful() {
 		releaser := releasers.successfulJobs[0] // TODO
-		message, err := terminationLog(ctx, r, releaser)
+		result, err := terminationLog(ctx, r, releaser)
 		if err != nil {
-			message = err.Error()
+			result.Description = err.Error()
 		}
-		if message != "" {
-			if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: message}) {
+		if result.Conclusion == ConclusionFailed {
+			if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 				logger.Info("Setting environment (failed) false")
 				return r.Status().Update(ctx, environment)
 			}
 		}
-		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Released", Message: "Environment successfully released"}) {
+		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Released", Message: result.Description}) {
 			logger.Info("Setting environment (success) false")
 			for _, environmentProvider := range releasers.successfulJobs {
 				if err := r.Delete(ctx, environmentProvider, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {

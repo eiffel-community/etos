@@ -255,9 +255,7 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, tes
 	}
 	for _, suite := range testrun.Spec.Suites {
 		found := false
-		logger.Info("Checking suite", "name", suite.Name)
 		for _, request := range environmentRequestList.Items {
-			logger.Info("Checking request", "name", request.Name)
 			if request.Spec.Name == suite.Name {
 				found = true
 			}
@@ -267,7 +265,7 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, tes
 			if err := ctrl.SetControllerReference(testrun, request, r.Scheme); err != nil {
 				return err, true
 			}
-			logger.Info("Creating a new request", "request", request.Name)
+			logger.Info("Creating a new environment request", "request", request.Name)
 			if err := r.Create(ctx, request); err != nil {
 				return err, true
 			}
@@ -297,30 +295,37 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	// Suite runners failed, setting status.
 	if suiteRunners.failed() {
 		suiteRunner := suiteRunners.failedJobs[0] // TODO
-		message, err := terminationLog(ctx, r, suiteRunner)
+		result, err := terminationLog(ctx, r, suiteRunner)
 		if err != nil {
-			message = err.Error()
+			result.Description = err.Error()
 		}
-		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: message}) {
-			logger.Info("Setting suiterunner (failed) false")
+		logger.Info("Suite runner result", "verdict", result.Verdict, "conclusion", result.Conclusion, "message", result.Description)
+		if result.Verdict == "" {
+			result.Verdict = VerdictNone
+		}
+		testrun.Status.Verdict = string(result.Verdict)
+		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 			return r.Status().Update(ctx, testrun)
 		}
 	}
 	// Suite runners successful, setting status.
 	if suiteRunners.successful() {
 		suiteRunner := suiteRunners.successfulJobs[0] // TODO
-		message, err := terminationLog(ctx, r, suiteRunner)
+		result, err := terminationLog(ctx, r, suiteRunner)
 		if err != nil {
-			message = err.Error()
+			result.Description = err.Error()
 		}
-		if message != "" {
-			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: message}) {
-				logger.Info("Setting suiterunner (failed) false")
+		logger.Info("Suite runner result", "verdict", result.Verdict, "conclusion", result.Conclusion, "message", result.Description)
+		if result.Verdict == "" {
+			result.Verdict = VerdictNone
+		}
+		testrun.Status.Verdict = string(result.Verdict)
+		if result.Conclusion == ConclusionFailed {
+			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 				return r.Status().Update(ctx, testrun)
 			}
 		}
 		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Done", Message: "Suite runner finished"}) {
-			logger.Info("Setting suiterunner (success) false")
 			for _, suiteRunner := range suiteRunners.successfulJobs {
 				// TODO: Deletion should probably be done outside of this function
 				if err := r.Delete(ctx, suiteRunner, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
@@ -338,6 +343,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	// Suite runners active, setting status
 	if suiteRunners.active() {
 		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionTrue, Reason: "Running", Message: "Suite runner is running"}) {
+			testrun.Status.Verdict = string(VerdictNone)
 			logger.Info("Setting suiterunner (active) true")
 			return r.Status().Update(ctx, testrun)
 		}

@@ -156,14 +156,14 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	// Environment provider failed, setting status.
 	if providers.failed() {
 		environmentProvider := providers.failedJobs[0] // TODO
-		message, err := terminationLog(ctx, r, environmentProvider)
+		result, err := terminationLog(ctx, r, environmentProvider)
 		if err != nil {
-			message = err.Error()
+			result.Description = err.Error()
 		}
-		if message == "" {
-			message = "Failed provision an environment - Unknown error"
+		if result.Description == "" {
+			result.Description = "Failed provision an environment - Unknown error"
 		}
-		if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: message}) {
+		if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 			logger.Info("Setting environment provider (failed) false")
 			return r.Status().Update(ctx, environmentrequest)
 		}
@@ -171,17 +171,17 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	// Environment provider successful, setting status.
 	if providers.successful() {
 		environmentProvider := providers.successfulJobs[0] // TODO
-		message, err := terminationLog(ctx, r, environmentProvider)
+		result, err := terminationLog(ctx, r, environmentProvider)
 		if err != nil {
-			message = err.Error()
+			result.Description = err.Error()
 		}
-		if message != "" {
-			if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: message}) {
+		if result.Conclusion == ConclusionFailed {
+			if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 				logger.Info("Setting environment provider (failed) false")
 				return r.Status().Update(ctx, environmentrequest)
 			}
 		}
-		if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionTrue, Reason: "Done", Message: "Environment provider finished"}) {
+		if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionTrue, Reason: "Done", Message: result.Description}) {
 			logger.Info("Setting environment provider (success) false")
 			for _, environmentProvider := range providers.successfulJobs {
 				if err := r.Delete(ctx, environmentProvider, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
