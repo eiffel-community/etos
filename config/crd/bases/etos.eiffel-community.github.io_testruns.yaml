@@ -112,6 +112,13 @@ spec:
                 - iut
                 - logArea
                 type: object
+              retention:
+                properties:
+                  failure:
+                    type: string
+                  success:
+                    type: string
+                type: object
               suiteRunner:
                 properties:
                   image:

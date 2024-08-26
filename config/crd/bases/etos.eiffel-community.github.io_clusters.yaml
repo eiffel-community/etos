@@ -175,6 +175,13 @@ spec:
                       testSuiteTimeout:
                         default: "10"
                         type: string
+                      testrunRetention:
+                        properties:
+                          failure:
+                            type: string
+                          success:
+                            type: string
+                        type: object
                       timezone:
                         type: string
                     required:

@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	ref "k8s.io/client-go/tools/reference"
-	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,7 +58,21 @@ var (
 type TestRunReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-	Clock  clock.WithTicker
+	Clock
+}
+
+/*
+We'll mock out the clock to make it easier to jump around in time while testing,
+the "real" clock just calls `time.Now`.
+*/
+type realClock struct{}
+
+func (_ realClock) Now() time.Time { return time.Now() }
+
+// Clock knows how to get the current time.
+// It can be used to fake out timing for testing.
+type Clock interface {
+	Now() time.Time
 }
 
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=testruns,verbs=get;list;watch;create;update;patch;delete
@@ -80,17 +94,41 @@ type TestRunReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
 
 	testrun := &etosv1alpha1.TestRun{}
 	if err := r.Get(ctx, req.NamespacedName, testrun); err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.Info("Testrun not found, exiting", "namespace", req.Namespace, "name", req.Name)
+			logger.Info("Testrun not found, exiting")
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Error getting testrun", "namespace", req.Namespace, "name", req.Name)
+		logger.Error(err, "Error getting testrun")
 		return ctrl.Result{}, err
 	}
 	if testrun.Status.CompletionTime != nil {
+		testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, StatusActive)
+		var retention *metav1.Duration
+		if testrunCondition.Reason == "Successful" {
+			retention = testrun.Spec.Retention.Success
+		} else {
+			retention = testrun.Spec.Retention.Failure
+		}
+		if retention == nil {
+			logger.Info("No retention set, ignoring")
+			return ctrl.Result{}, nil
+		}
+		if testrun.Status.CompletionTime.Add(retention.Duration).Before(time.Now()) {
+			logger.Info(fmt.Sprintf("Testrun TTL(%s) reached, delete", retention.Duration))
+			if err := r.Delete(ctx, testrun, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
+				if !apierrors.IsNotFound(err) {
+					logger.Error(err, "Failed deletion. Ignoring any errors and won't retry")
+				}
+			}
+		} else {
+			next := testrun.Status.CompletionTime.Add(retention.Duration).Sub(r.Now())
+			logger.Info(fmt.Sprintf("Testrun queued for deletion in %s", next))
+			return ctrl.Result{RequeueAfter: next}, nil
+		}
 		return ctrl.Result{}, nil
 	}
 
@@ -650,6 +688,11 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TestRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Set up real clock, since we are not in a test
+	if r.Clock == nil {
+		r.Clock = realClock{}
+	}
+
 	// Register indexes for faster lookups
 	if err := r.registerOwnerIndexForJob(mgr); err != nil {
 		return err

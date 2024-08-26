@@ -300,6 +300,12 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 		"ENVIRONMENT_PROVIDER_EVENT_DATA_TIMEOUT": r.Config.EventDataTimeout,
 		"ENVIRONMENT_PROVIDER_TEST_SUITE_TIMEOUT": r.Config.TestSuiteTimeout,
 	}
+	if cluster.Spec.ETOS.Config.TestRunRetention.Failure != nil {
+		data["TESTRUN_FAILURE_RETENTION"] = cluster.Spec.ETOS.Config.TestRunRetention.Failure.Duration.String()
+	}
+	if cluster.Spec.ETOS.Config.TestRunRetention.Success != nil {
+		data["TESTRUN_SUCCESS_RETENTION"] = cluster.Spec.ETOS.Config.TestRunRetention.Success.Duration.String()
+	}
 	if r.Config.Timezone != "" {
 		data["TZ"] = r.Config.Timezone
 	}

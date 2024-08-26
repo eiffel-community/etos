@@ -130,6 +130,9 @@ type ETOSConfig struct {
 	// +optional
 	Source string `json:"source"`
 
+	// +optional
+	TestRunRetention Retention `json:"testrunRetention,omitempty"`
+
 	// +kubebuilder:default={"value": ""}
 	EncryptionKey Var `json:"encryptionKey"`
 

@@ -90,6 +90,13 @@ type EnvironmentProvider struct {
 	*Image `json:",inline"`
 }
 
+type Retention struct {
+	// +optional
+	Failure *metav1.Duration `json:"failure,omitempty"`
+	// +optional
+	Success *metav1.Duration `json:"success,omitempty"`
+}
+
 // TestRunSpec defines the desired state of TestRun
 type TestRunSpec struct {
 	// Name of the ETOS cluster to execute the testrun in.
@@ -102,6 +109,9 @@ type TestRunSpec struct {
 	// Artifact is the ID of the software under test.
 	// +kubebuilder:validation:Pattern="[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
 	Artifact string `json:"artifact"`
+
+	// +optional
+	Retention Retention `json:"retention,omitempty"`
 
 	SuiteRunner         *SuiteRunner         `json:"suiteRunner,omitempty"`
 	TestRunner          *TestRunner          `json:"testRunner,omitempty"`
