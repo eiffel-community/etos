@@ -192,6 +192,8 @@ spec:
                     type: object
                 type: object
               jsontasSource:
+                description: VarSource describes a value from either a secretmap or
+                  configmap.
                 properties:
                   configMapKeyRef:
                     description: Selects a key from a ConfigMap.

@@ -47,8 +47,8 @@ type ETOSSSEDeployment struct {
 }
 
 // NewETOSSSEDeployment will create a new ETOS SSE reconciler.
-func NewETOSSSEDeployment(spec etosv1alpha1.ETOSSSE, scheme *runtime.Scheme, client client.Client) (*ETOSSSEDeployment, error) {
-	return &ETOSSSEDeployment{spec, client, scheme}, nil
+func NewETOSSSEDeployment(spec etosv1alpha1.ETOSSSE, scheme *runtime.Scheme, client client.Client) *ETOSSSEDeployment {
+	return &ETOSSSEDeployment{spec, client, scheme}
 }
 
 // Reconcile will reconcile the ETOS SSE service to its expected state.

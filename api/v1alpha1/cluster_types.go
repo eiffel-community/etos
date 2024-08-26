@@ -88,7 +88,7 @@ type Database struct {
 	Etcd Etcd `json:"etcd"`
 }
 
-type ETOSApi struct {
+type ETOSAPI struct {
 	Image `json:",inline"`
 }
 
@@ -146,7 +146,7 @@ type ETOSConfig struct {
 type ETOS struct {
 	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-api:latest"}
 	// +optional
-	API ETOSApi `json:"api"`
+	API ETOSAPI `json:"api"`
 	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-sse:latest"}
 	// +optional
 	SSE ETOSSSE `json:"sse"`

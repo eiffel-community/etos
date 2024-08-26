@@ -45,8 +45,8 @@ type RabbitMQDeployment struct {
 }
 
 // NewRabbitMQDeployment will create a new RabbitMQ reconciler.
-func NewRabbitMQDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) (*RabbitMQDeployment, error) {
-	return &RabbitMQDeployment{spec, client, nil, scheme, ""}, nil
+func NewRabbitMQDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) *RabbitMQDeployment {
+	return &RabbitMQDeployment{spec, client, nil, scheme, ""}
 }
 
 // Reconcile will reconcile RabbitMQ to its expected state.

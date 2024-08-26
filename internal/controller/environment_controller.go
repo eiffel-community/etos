@@ -122,7 +122,8 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 	}
 	logger.V(1).Info("environment releaser count", "active", len(releasers.activeJobs), "successful", len(releasers.successfulJobs), "failed", len(releasers.failedJobs))
 
-	// TODO: Fix this
+	// TODO: Provider information does not exist in a deterministic way in the Environment resource
+	// so either we need to find the EnvironmentRequest or the Environment resource needs an update.
 	// if err := checkProviders(ctx, r, environment.Namespace, environment.Spec.Providers); err != nil {
 	// 	return err
 	// }
@@ -130,7 +131,10 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 	if err := r.reconcileReleaser(ctx, releasers, environment); err != nil {
 		return err
 	}
-	// TODO: Retry on failures
+
+	// There is no explicit retry here as it is not necessarily needed. If releasers is not successful
+	// then the Job will get deleted after a while. When that job is deleted, a reconcile is called for
+	// and the Environment will try to get released again.
 	if releasers.successful() {
 		environmentCondition := meta.FindStatusCondition(environment.Status.Conditions, StatusActive)
 		environment.Status.CompletionTime = &environmentCondition.LastTransitionTime

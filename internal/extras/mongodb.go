@@ -46,8 +46,8 @@ type MongoDBDeployment struct {
 }
 
 // NewMongoDBDeployment will create a new MongoDB reconciler.
-func NewMongoDBDeployment(spec etosv1alpha1.MongoDB, scheme *runtime.Scheme, client client.Client) (*MongoDBDeployment, error) {
-	return &MongoDBDeployment{spec, client, scheme, url.URL{}, ""}, nil
+func NewMongoDBDeployment(spec etosv1alpha1.MongoDB, scheme *runtime.Scheme, client client.Client) *MongoDBDeployment {
+	return &MongoDBDeployment{spec, client, scheme, url.URL{}, ""}
 }
 
 // Reconcile will reconcile MongoDB to its expected state.

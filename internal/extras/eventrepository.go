@@ -46,8 +46,8 @@ type EventRepositoryDeployment struct {
 }
 
 // NewEventRepositoryDeployment will create a new event repository reconciler.
-func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *runtime.Scheme, client client.Client, mongodb *MongoDBDeployment, rabbitmqSecret string) (*EventRepositoryDeployment, error) {
-	return &EventRepositoryDeployment{spec, client, scheme, mongodb.URL, rabbitmqSecret, mongodb.SecretName}, nil
+func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *runtime.Scheme, client client.Client, mongodb *MongoDBDeployment, rabbitmqSecret string) *EventRepositoryDeployment {
+	return &EventRepositoryDeployment{spec, client, scheme, mongodb.URL, rabbitmqSecret, mongodb.SecretName}
 }
 
 // Reconcile will reconcile the event repository to its expected state.
@@ -242,7 +242,7 @@ func (r *EventRepositoryDeployment) containers(name types.NamespacedName) []core
 	}
 }
 
-// environment will create an enivonrmnet resource definition for the event repository deployment.
+// environment will create an environment resource definition for the event repository deployment.
 func (r *EventRepositoryDeployment) environment() []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{
 		{

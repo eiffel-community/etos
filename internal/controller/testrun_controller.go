@@ -87,7 +87,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			logger.Info("Testrun not found, exiting", "namespace", req.Namespace, "name", req.Name)
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Testrun not found", "namespace", req.Namespace, "name", req.Name)
+		logger.Error(err, "Error getting testrun", "namespace", req.Namespace, "name", req.Name)
 		return ctrl.Result{}, err
 	}
 	if testrun.Status.CompletionTime != nil {
@@ -98,6 +98,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if apierrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
+		logger.Error(err, "Reconciliation failed for testrun", "namespace", req.Namespace, "name", req.Name)
 		return r.update(ctx, testrun, metav1.ConditionFalse, err.Error())
 	}
 
@@ -121,7 +122,7 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1
 		return r.Status().Update(ctx, testrun)
 	}
 
-	// Get active, finished and failed sutie runners.
+	// Get active, finished and failed suite runners.
 	suiteRunners, err := jobStatus(ctx, r, testrun.Namespace, testrun.Name, TestRunOwnerKey)
 	if err != nil {
 		return err

@@ -43,8 +43,8 @@ type MessageBusDeployment struct {
 }
 
 // NewMessageBusDeployment will create a new messagebus reconciler.
-func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) (*MessageBusDeployment, error) {
-	return &MessageBusDeployment{spec, client, nil, scheme, ""}, nil
+func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) *MessageBusDeployment {
+	return &MessageBusDeployment{spec, client, nil, scheme, ""}
 }
 
 // Reconcile will reconcile the messagebus to its expected state.

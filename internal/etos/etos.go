@@ -44,8 +44,8 @@ type ETOSDeployment struct {
 }
 
 // NewETOSDeployment will create a new ETOSDeployment reconciler.
-func NewETOSDeployment(spec etosv1alpha1.ETOS, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string) (*ETOSDeployment, error) {
-	return &ETOSDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret}, nil
+func NewETOSDeployment(spec etosv1alpha1.ETOS, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string) *ETOSDeployment {
+	return &ETOSDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret}
 }
 
 // Reconcile will reconcile ETOS to its expected state.
@@ -81,26 +81,17 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		return err
 	}
 
-	api, err := etosapi.NewETOSApiDeployment(r.API, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, configmap.Name)
-	if err != nil {
-		return err
-	}
+	api := etosapi.NewETOSApiDeployment(r.API, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, configmap.Name)
 	if err := api.Reconcile(ctx, cluster); err != nil {
 		return err
 	}
 
-	sse, err := etosapi.NewETOSSSEDeployment(r.SSE, r.Scheme, r.Client)
-	if err != nil {
-		return err
-	}
+	sse := etosapi.NewETOSSSEDeployment(r.SSE, r.Scheme, r.Client)
 	if err := sse.Reconcile(ctx, cluster); err != nil {
 		return err
 	}
 
-	logarea, err := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client)
-	if err != nil {
-		return err
-	}
+	logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client)
 	if err := logarea.Reconcile(ctx, cluster); err != nil {
 		return err
 	}

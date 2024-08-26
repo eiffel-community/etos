@@ -93,10 +93,14 @@ spec:
                       encryptionKey:
                         default:
                           value: ""
+                        description: Var describes either a string value or a value
+                          from a VarSource.
                         properties:
                           value:
                             type: string
                           valueFrom:
+                            description: VarSource describes a value from either a
+                              secretmap or configmap.
                             properties:
                               configMapKeyRef:
                                 description: Selects a key from a ConfigMap.
@@ -191,6 +195,7 @@ spec:
                     - image
                     type: object
                   ingress:
+                    description: Ingress configuration.
                     properties:
                       annotations:
                         additionalProperties:
@@ -302,6 +307,7 @@ spec:
                     type: string
                   ingress:
                     default: {}
+                    description: Ingress configuration.
                     properties:
                       annotations:
                         additionalProperties:
@@ -330,6 +336,8 @@ spec:
                           value:
                             type: string
                           valueFrom:
+                            description: VarSource describes a value from either a
+                              secretmap or configmap.
                             properties:
                               configMapKeyRef:
                                 description: Selects a key from a ConfigMap.
@@ -410,6 +418,7 @@ spec:
                   eiffel:
                     default:
                       queueName: etos
+                    description: RabbitMQ configuration.
                     properties:
                       deploy:
                         default: false
@@ -423,10 +432,14 @@ spec:
                       password:
                         default:
                           value: guest
+                        description: Var describes either a string value or a value
+                          from a VarSource.
                         properties:
                           value:
                             type: string
                           valueFrom:
+                            description: VarSource describes a value from either a
+                              secretmap or configmap.
                             properties:
                               configMapKeyRef:
                                 description: Selects a key from a ConfigMap.
@@ -502,6 +515,7 @@ spec:
                   logs:
                     default:
                       queueName: etos-*-temp
+                    description: RabbitMQ configuration.
                     properties:
                       deploy:
                         default: false
@@ -515,10 +529,14 @@ spec:
                       password:
                         default:
                           value: guest
+                        description: Var describes either a string value or a value
+                          from a VarSource.
                         properties:
                           value:
                             type: string
                           valueFrom:
+                            description: VarSource describes a value from either a
+                              secretmap or configmap.
                             properties:
                               configMapKeyRef:
                                 description: Selects a key from a ConfigMap.

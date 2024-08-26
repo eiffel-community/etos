@@ -67,6 +67,7 @@ type ClusterReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
 
 	// TODO: Logstash
 
@@ -81,69 +82,57 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	eiffel, err := extras.NewRabbitMQDeployment(cluster.Spec.MessageBus.EiffelMessageBus, r.Scheme, r.Client)
-	if err != nil {
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
-	}
+	eiffel := extras.NewRabbitMQDeployment(cluster.Spec.MessageBus.EiffelMessageBus, r.Scheme, r.Client)
 	if err := eiffel.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
+		logger.Error(err, "Error reconciling the Eiffel event bus")
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 
-	messagebus, err := extras.NewMessageBusDeployment(cluster.Spec.MessageBus.ETOSMessageBus, r.Scheme, r.Client)
-	if err != nil {
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
-	}
+	messagebus := extras.NewMessageBusDeployment(cluster.Spec.MessageBus.ETOSMessageBus, r.Scheme, r.Client)
 	if err := messagebus.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
+		logger.Error(err, "Error reconciling the ETOS message bus")
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 
-	mongodb, err := extras.NewMongoDBDeployment(cluster.Spec.EventRepository.Database, r.Scheme, r.Client)
-	if err != nil {
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
-	}
+	mongodb := extras.NewMongoDBDeployment(cluster.Spec.EventRepository.Database, r.Scheme, r.Client)
 	if err := mongodb.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
+		logger.Error(err, "Error reconciling the Eiffel event bus database")
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 
-	graphql, err := extras.NewEventRepositoryDeployment(&cluster.Spec.EventRepository, r.Scheme, r.Client, mongodb, eiffel.SecretName)
-	if err != nil {
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
-	}
+	graphql := extras.NewEventRepositoryDeployment(&cluster.Spec.EventRepository, r.Scheme, r.Client, mongodb, eiffel.SecretName)
 	if err := graphql.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
+		logger.Error(err, "Error reconciling the Eiffel event repository")
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 
-	etcd, err := etos.NewETCDDeployment(&cluster.Spec.Database, r.Scheme, r.Client)
-	if err != nil {
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
-	}
+	etcd := etos.NewETCDDeployment(&cluster.Spec.Database, r.Scheme, r.Client)
 	if err := etcd.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
+		logger.Error(err, "Error reconciling the ETOS database")
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 
-	etos, err := etos.NewETOSDeployment(cluster.Spec.ETOS, r.Scheme, r.Client, eiffel.SecretName, messagebus.SecretName)
-	if err != nil {
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
-	}
+	etos := etos.NewETOSDeployment(cluster.Spec.ETOS, r.Scheme, r.Client, eiffel.SecretName, messagebus.SecretName)
 	if err := etos.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
+		logger.Error(err, "Error reconciling ETOS")
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 

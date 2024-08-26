@@ -59,7 +59,9 @@ func getFromSecretKeySelector(ctx context.Context, client client.Client, secretK
 
 	providerlog.Info("Getting jsontas from a secret", "name", secretKeySelector.Name, "key", secretKeySelector.Key)
 
-	// TODO: This seems bad
+	// Retrying to make sure that the secret has been properly generated before a provider is applied.
+	// There is a race where, for example, a provider and a custom secret resource (such as a SealedSecret)
+	// are created at the same time and the secret does not get generated in time.
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
 		err := client.Get(ctx, name, obj)
 		if err != nil {

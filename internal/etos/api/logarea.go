@@ -46,8 +46,8 @@ type ETOSLogAreaDeployment struct {
 }
 
 // NewETOSLogAreaDeployment will create a new ETOS logarea reconciler.
-func NewETOSLogAreaDeployment(spec etosv1alpha1.ETOSLogArea, scheme *runtime.Scheme, client client.Client) (*ETOSLogAreaDeployment, error) {
-	return &ETOSLogAreaDeployment{spec, client, scheme}, nil
+func NewETOSLogAreaDeployment(spec etosv1alpha1.ETOSLogArea, scheme *runtime.Scheme, client client.Client) *ETOSLogAreaDeployment {
+	return &ETOSLogAreaDeployment{spec, client, scheme}
 }
 
 // Reconcile will reconcile the ETOS logarea to its expected state.

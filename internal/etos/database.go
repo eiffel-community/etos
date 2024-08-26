@@ -46,8 +46,8 @@ type ETCDDeployment struct {
 }
 
 // NewETCDDeployment will create a new ETCD reconciler.
-func NewETCDDeployment(spec *etosv1alpha1.Database, scheme *runtime.Scheme, client client.Client) (*ETCDDeployment, error) {
-	return &ETCDDeployment{spec, client, scheme}, nil
+func NewETCDDeployment(spec *etosv1alpha1.Database, scheme *runtime.Scheme, client client.Client) *ETCDDeployment {
+	return &ETCDDeployment{spec, client, scheme}
 }
 
 // Reconcile will reconcile ETCD to its expected state.

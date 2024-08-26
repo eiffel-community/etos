@@ -41,7 +41,7 @@ var (
 )
 
 type ETOSApiDeployment struct {
-	etosv1alpha1.ETOSApi
+	etosv1alpha1.ETOSAPI
 	client.Client
 	Scheme           *runtime.Scheme
 	rabbitmqSecret   string
@@ -50,8 +50,8 @@ type ETOSApiDeployment struct {
 }
 
 // NewETOSApiDeployment will create a new ETOS API reconciler.
-func NewETOSApiDeployment(spec etosv1alpha1.ETOSApi, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string, configmap string) (*ETOSApiDeployment, error) {
-	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, configmap}, nil
+func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string, configmap string) *ETOSApiDeployment {
+	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, configmap}
 }
 
 // Reconcile will reconcile the ETOS API to its expected state.

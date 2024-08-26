@@ -26,11 +26,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// VarSource describes a value from either a secretmap or configmap.
 type VarSource struct {
 	ConfigMapKeyRef *corev1.ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
 	SecretKeyRef    *corev1.SecretKeySelector    `json:"secretKeyRef,omitempty"`
 }
 
+// Var describes either a string value or a value from a VarSource.
 type Var struct {
 	Value     string    `json:"value,omitempty"`
 	ValueFrom VarSource `json:"valueFrom,omitempty"`
@@ -89,6 +91,7 @@ type Image struct {
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
 }
 
+// Ingress configuration.
 type Ingress struct {
 	// +kubebuilder:default=false
 	// +optional
@@ -99,6 +102,7 @@ type Ingress struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
+// RabbitMQ configuration.
 type RabbitMQ struct {
 	// +kubebuilder:default=false
 	// +optional
