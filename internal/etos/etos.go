@@ -297,8 +297,10 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 		// TODO: A few of these seem redundant
 		"ESR_WAIT_FOR_ENVIRONMENT_TIMEOUT":        r.Config.EnvironmentTimeout,
 		"ETOS_WAIT_FOR_IUT_TIMEOUT":               r.Config.EnvironmentTimeout,
+		"ETOS_EVENT_DATA_TIMEOUT":                 r.Config.EventDataTimeout,
 		"ENVIRONMENT_PROVIDER_EVENT_DATA_TIMEOUT": r.Config.EventDataTimeout,
 		"ENVIRONMENT_PROVIDER_TEST_SUITE_TIMEOUT": r.Config.TestSuiteTimeout,
+		"ETOS_TEST_SUITE_TIMEOUT":                 r.Config.TestSuiteTimeout,
 	}
 	if cluster.Spec.ETOS.Config.TestRunRetention.Failure != nil {
 		data["TESTRUN_FAILURE_RETENTION"] = cluster.Spec.ETOS.Config.TestRunRetention.Failure.Duration.String()
