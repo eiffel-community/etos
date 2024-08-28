@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -248,6 +249,16 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 							Name:            environmentrequest.Name,
 							Image:           environmentrequest.Spec.Image.Image,
 							ImagePullPolicy: environmentrequest.Spec.ImagePullPolicy,
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("256Mi"),
+									corev1.ResourceCPU:    resource.MustParse("250m"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("128Mi"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+								},
+							},
 							EnvFrom: []corev1.EnvFromSource{
 								{
 									ConfigMapRef: &corev1.ConfigMapEnvSource{
