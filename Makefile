@@ -120,6 +120,10 @@ build-installer: manifests generate kustomize ## Generate a consolidated YAML wi
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default > dist/install.yaml
 
+.PHONY: split-installer
+split-installer: build-installer
+	python scripts/split_installer.py dist/install.yaml
+
 ##@ Deployment
 
 ifndef ignore-not-found
