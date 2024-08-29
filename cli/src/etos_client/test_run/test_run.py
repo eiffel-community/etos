@@ -19,28 +19,13 @@ import sys
 import time
 from typing import Iterator
 
-from urllib3.util import Retry
-from etos_lib.lib.http import Http
-from requests.exceptions import HTTPError
-
 from etos_client.downloader import Downloader
 from etos_client.etos import ETOS
 from etos_client.etos.schema import ResponseSchema
 from etos_client.events.collector import Collector
 from etos_client.events.events import Events
 from etos_client.sse.client import SSEClient
-from etos_client.sse.protocol import Message, Ping
-
-
-HTTP_RETRY_PARAMETERS = Retry(
-    total=None,
-    read=0,
-    connect=2,
-    status=2,
-    backoff_factor=1,
-    other=0,
-    status_forcelist=list(Retry.RETRY_AFTER_STATUS_CODES),
-)
+from etos_client.sse.protocol import Message, UserEvent, Report, Artifact
 
 
 class TestRun:
@@ -58,7 +43,6 @@ class TestRun:
         """Initialize."""
         assert downloader.started, "Downloader must be started before it can be used in TestRun"
 
-        self.__http = Http(retry=HTTP_RETRY_PARAMETERS)
         self.__collector = collector
         self.__downloader = downloader
 
@@ -88,7 +72,9 @@ class TestRun:
         self.__log_debug_information(etos.response)
         last_log = time.time()
         timer = None
-        for _ in self.__log_until_eof(etos, end):
+        for event in self.__log_until_eof(etos, end):
+            if isinstance(event, (Report, Artifact)):
+                self.__downloader.download(event)
             if last_log + self.log_interval >= time.time():
                 events = self.__collector.collect_activity(etos.response.tercc)
                 self.__status(events)
@@ -96,7 +82,6 @@ class TestRun:
                 last_log = time.time()
                 if events.activity.finished and timer is None:
                     timer = time.time() + 300  # 5 minutes
-            self.__download(etos)
             if timer and time.time() >= timer:
                 self.logger.warning("ETOS finished, but did not shut down the log server.")
                 self.logger.warning(
@@ -105,7 +90,6 @@ class TestRun:
                 )
                 break
         self.__wait(etos, end)
-        self.__download(etos)
         events = self.__collector.collect(etos.response.tercc)
         self.__announce(events)
         return events
@@ -139,17 +123,6 @@ class TestRun:
                 "Downloaded a total of %d logs from test runners", len(self.__downloader.downloads)
             )
 
-    def __download(self, etos: ETOS) -> None:
-        """Download logs and artifacts."""
-        response = self.__http.get(f"{etos.cluster}/logarea/v1alpha/logarea/{etos.response.tercc}")
-        try:
-            response.raise_for_status()
-        except HTTPError as error:
-            self.logger.warning("Got an HTTP error: %r when listing logs from log area", error)
-            return
-        directories = response.json()
-        self.__downloader.download_directories(directories)
-
     def __log(self, message: Message) -> None:
         """Log a message from the ETOS log API."""
         logger = getattr(self.remote_logger, message.level)
@@ -161,13 +134,13 @@ class TestRun:
             },
         )
 
-    def __log_until_eof(self, etos: ETOS, endtime: int) -> Iterator[Ping]:
+    def __log_until_eof(self, etos: ETOS, endtime: int) -> Iterator[UserEvent]:
         """Log from the ETOS log API until finished."""
         client = SSEClient(etos)
-        for log_message in client.event_stream():
+        for event in client.event_stream():
             if time.time() >= endtime:
                 raise TimeoutError("Timed out!")
-            if isinstance(log_message, Message):
-                self.__log(log_message)
+            if isinstance(event, Message):
+                self.__log(event)
                 continue
-            yield log_message
+            yield event

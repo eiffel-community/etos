@@ -36,8 +36,12 @@ ETOS communicates to clients using SSE (server sent events). For now ETOS only s
     - Implemented
   * - Artifact
     - An artifact to download
-    - {id: 1, event: Artifact, data: "{'url': 'http://download.me'}"}
-    - Suggested
+    - {id: 1, event: Artifact, data: "{'url': 'http://download.me', 'name': 'filename.txt', 'directory': 'MyTest_SubSuite_0'}"}
+    - Implemented
+  * - Report
+    - A report to download
+    - {id: 1, event: Report, data: "{'url': 'http://download.me', 'name': 'filename.txt'}"}
+    - Implemented
   * - TestCase
     - A test case execution
     - {id: 1, event: TestCase, data: "{'id': 'uuid', 'triggered': True, 'started': True, 'finished': False}"}

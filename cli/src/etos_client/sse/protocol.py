@@ -98,6 +98,34 @@ class Message(UserEvent):
         return self.message.get("message")
 
 
+class Report(UserEvent):
+    """An ETOS test case report file event."""
+
+    def __init__(self, event: dict) -> None:
+        """Initialize a report by loading an expected json string."""
+        super().__init__(event)
+
+        try:
+            self.file = json.loads(self.data)
+        except json.JSONDecodeError:
+            print(self.data)
+            raise
+
+
+class Artifact(UserEvent):
+    """An ETOS test case artifact file event."""
+
+    def __init__(self, event: dict) -> None:
+        """Initialize a artifact by loading an expected json string."""
+        super().__init__(event)
+
+        try:
+            self.file = json.loads(self.data)
+        except json.JSONDecodeError:
+            print(self.data)
+            raise
+
+
 def parse(event: dict) -> Event:
     """Parse an event dict and return a corresponding Event class."""
     for name, obj in inspect.getmembers(sys.modules[__name__]):
