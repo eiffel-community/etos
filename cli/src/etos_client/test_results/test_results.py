@@ -57,12 +57,6 @@ class TestResults:
         """Build test results based on events retrieved."""
         if not self.__has_failed(test_suites):
             return True, "Test suite finished successfully."
-
-        failures = 0
-        sub_suites = 0
-        for test_suite in test_suites:
-            failures += self.__count_sub_suite_failures(test_suite.sub_suites)
-            sub_suites += len(test_suite.sub_suites)
         messages = self.__fail_messages(test_suites)
         if len(messages) == 1:
             return False, messages[0]
@@ -70,9 +64,7 @@ class TestResults:
             for message in messages[:-1]:
                 self.logger.error(message)
             return False, messages[-1]
-        if sub_suites == 0:
-            return False, "ETOS failed to start any test suites"
-        return False, f"{failures}/{sub_suites} test suites failed."
+        return False, f"Test case failures during test suite execution"
 
     def get_results(self, events: Events) -> tuple[Optional[bool], Optional[str]]:
         """Get results from an ETOS testrun."""
