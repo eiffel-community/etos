@@ -255,6 +255,16 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 	return corev1.Container{
 		Name:  name.Name,
 		Image: "quay.io/coreos/etcd:latest",
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+				corev1.ResourceCPU:    resource.MustParse("200m"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+				corev1.ResourceCPU:    resource.MustParse("200m"),
+			},
+		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      fmt.Sprintf("%s-data", name.Name),
