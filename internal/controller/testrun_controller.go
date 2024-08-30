@@ -640,6 +640,16 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 							ImagePullPolicy: testrun.Spec.LogListener.ImagePullPolicy,
 							Command:         []string{"/kubexit/kubexit"},
 							Args:            []string{"python", "-u", "-m", "log_listener"},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("256Mi"),
+									corev1.ResourceCPU:    resource.MustParse("250m"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("128Mi"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+								},
+							},
 							EnvFrom: []corev1.EnvFromSource{
 								{
 									ConfigMapRef: &corev1.ConfigMapEnvSource{
