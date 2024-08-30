@@ -17,6 +17,7 @@
 import logging
 import time
 import traceback
+import hashlib
 from pathlib import Path
 from typing import Union
 from threading import Thread, Lock
@@ -51,6 +52,7 @@ class Downloadable(BaseModel):
 
     url: str
     name: str
+    checksums: dict[str, str]
     path: Path = Path.cwd()
 
 
@@ -105,6 +107,23 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         with open(download_path, "wb+") as report:
             for chunk in response:
                 report.write(chunk)
+        if not self.__verify(item, download_path):
+            self.logger.error("Checksum verification failed on %r", item)
+
+    def __verify(self, item: Downloadable, path: Path) -> bool:
+        """Verify the checksum of the downloaded item.
+
+        Path is the real path to the saved file.
+        """
+        with path.open("rb") as report:
+            md5_checksum = hashlib.md5(report.read()).hexdigest()
+        if md5_checksum != item.checksums.get("md5"):
+            self.logger.error(
+                "MD5 checksum of file is not as expected. Downloaded: %r , Expected: %r",
+                md5_checksum, item.checksums.get("md5")
+            )
+            return False
+        return True
 
     def __download_ok(self, response: requests.Response) -> bool:
         """Check download response and log response details."""
@@ -187,12 +206,26 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
     def download_report(self, report: Report):
         """Download an report to the report directory."""
         reports = self.__report_dir.relative_to(Path.cwd()).joinpath(report.file.get("directory", ""))
-        self.__queue_download(Downloadable(url=report.file.get("url"), name=report.file.get("name"), path=reports))
+        self.__queue_download(
+            Downloadable(
+                url=report.file.get("url"),
+                name=report.file.get("name"),
+                checksums=report.file.get("checksums"),
+                path=reports,
+            )
+        )
 
     def download_artifact(self, artifact: Artifact):
         """Download an artifact to the artifact directory."""
         artifacts = self.__artifact_dir.relative_to(Path.cwd()).joinpath(artifact.file.get("directory", ""))
-        self.__queue_download(Downloadable(url=artifact.file.get("url"), name=artifact.file.get("name"), path=artifacts))
+        self.__queue_download(
+            Downloadable(
+                url=artifact.file.get("url"),
+                name=artifact.file.get("name"),
+                checksums=artifact.file.get("checksums"),
+                path=artifacts,
+            )
+        )
 
     def download(self, file: Union[Report, Artifact]):
         """Download a file from either a Report or Artifact event."""
