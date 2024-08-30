@@ -115,14 +115,40 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
 
         Path is the real path to the saved file.
         """
+        translation_table = {
+            "SHA-224": "sha224",
+            "SHA-256": "sha256",
+            "SHA-384": "sha384",
+            "SHA-512": "sha512",
+            "SHA-512/224": "sha512_224",
+            "SHA-512/256": "sha512_256"
+        }
+        hash = None
+        expected_digest = None
+        for nist_scheme, python_scheme in translation_table.items():
+            if item.checksums.get(nist_scheme) is not None:
+                hash = hashlib.new(python_scheme)
+                expected_digest = item.checksums.get(nist_scheme)
+                break
+
+        if hash is None:
+            self.logger.info("No digest set on file, won't check integrity of %r", item)
+            return True
+        self.logger.debug("Checking integrity of downloaded file using %r", hash.name)
+
         with path.open("rb") as report:
-            md5_checksum = hashlib.md5(report.read()).hexdigest()
-        if md5_checksum != item.checksums.get("md5"):
+            hash.update(report.read())
+        digest = hash.hexdigest()
+        self.logger.debug("Expecting digest %r", expected_digest)
+        self.logger.debug("Verify digest %r", digest)
+
+        if digest != expected_digest:
             self.logger.error(
-                "MD5 checksum of file is not as expected. Downloaded: %r , Expected: %r",
-                md5_checksum, item.checksums.get("md5")
+                "%s checksum of file is not as expected. Downloaded: %r , Expected: %r",
+                hash.name, digest, expected_digest
             )
             return False
+        self.logger.debug("Integrity verification successful")
         return True
 
     def __download_ok(self, response: requests.Response) -> bool:
