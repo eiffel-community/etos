@@ -90,6 +90,7 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
+// reconcile an environment resource to its desired state.
 func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etosv1alpha1.Environment) error {
 	logger := log.FromContext(ctx)
 
@@ -153,34 +154,31 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 
 	// Environment releaser failed, setting status.
 	if releasers.failed() {
-		releaser := releasers.failedJobs[0] // TODO
+		releaser := releasers.failedJobs[0] // TODO: We should allow multiple releaser jobs in the future
 		result, err := terminationLog(ctx, r, releaser)
 		if err != nil {
 			result.Description = err.Error()
 		}
 		if result.Description == "" {
-			result.Description = "Failed release an environment - Unknown error"
+			result.Description = "Failed to release an environment - Unknown error"
 		}
 		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
-			logger.Info("Setting environment (failed) false")
 			return r.Status().Update(ctx, environment)
 		}
 	}
 	// Environment releaser successful, setting status.
 	if releasers.successful() {
-		releaser := releasers.successfulJobs[0] // TODO
+		releaser := releasers.successfulJobs[0] // TODO: We should allow multiple releaser jobs in the future
 		result, err := terminationLog(ctx, r, releaser)
 		if err != nil {
 			result.Description = err.Error()
 		}
 		if result.Conclusion == ConclusionFailed {
 			if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
-				logger.Info("Setting environment (failed) false")
 				return r.Status().Update(ctx, environment)
 			}
 		}
 		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Released", Message: result.Description}) {
-			logger.Info("Setting environment (success) false")
 			for _, environmentProvider := range releasers.successfulJobs {
 				if err := r.Delete(ctx, environmentProvider, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 					if !apierrors.IsNotFound(err) {
@@ -194,7 +192,6 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 	// Suite runners active, setting status
 	if releasers.active() {
 		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Releasing", Message: "Environment is being released"}) {
-			logger.Info("Setting environment (active) true")
 			return r.Status().Update(ctx, environment)
 		}
 	}
@@ -302,7 +299,7 @@ func (r *EnvironmentReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error
 		if owner == nil {
 			return nil
 		}
-		if owner.APIVersion != APIGVStr || owner.Kind != "Environment" {
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != "Environment" {
 			return nil
 		}
 

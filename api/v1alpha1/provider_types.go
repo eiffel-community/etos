@@ -34,7 +34,7 @@ type Stage struct {
 	Steps *apiextensionsv1.JSON `json:"steps"`
 }
 
-// JSONTasIUTPrepareaStages defines the preparation stages required for an IUT.
+// JSONTasIUTPrepareStages defines the preparation stages required for an IUT.
 type JSONTasPrepareStages struct {
 	// Underscore used in these due to backwards compatibility
 	EnvironmentProvider Stage `json:"environment_provider"`

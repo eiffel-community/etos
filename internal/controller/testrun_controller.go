@@ -49,7 +49,7 @@ var (
 	TestRunOwnerKey            = ".metadata.controller.suiterunner"
 	EnvironmentRequestOwnerKey = ".metadata.controller.environmentrequest"
 	EnvironmentOwnerKey        = ".metadata.controller.environment"
-	APIGVStr                   = etosv1alpha1.GroupVersion.String()
+	APIGroupVersionString      = etosv1alpha1.GroupVersion.String()
 	iutProvider                = ".spec.providers.iut"
 	executionSpaceProvider     = ".spec.providers.executionSpace"
 	logAreaProvider            = ".spec.providers.logarea"
@@ -783,7 +783,7 @@ func (r *TestRunReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error {
 		if owner == nil {
 			return nil
 		}
-		if owner.APIVersion != APIGVStr || owner.Kind != "TestRun" {
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != "TestRun" {
 			return nil
 		}
 
@@ -802,7 +802,7 @@ func (r *TestRunReconciler) registerOwnerIndexForEnvironment(mgr ctrl.Manager) e
 		if owner == nil {
 			return nil
 		}
-		if owner.APIVersion != APIGVStr || owner.Kind != "TestRun" {
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != "TestRun" {
 			return nil
 		}
 		return []string{owner.Name}
@@ -820,7 +820,7 @@ func (r *TestRunReconciler) registerOwnerIndexForEnvironmentRequest(mgr ctrl.Man
 		if owner == nil {
 			return nil
 		}
-		if owner.APIVersion != APIGVStr || owner.Kind != "TestRun" {
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != "TestRun" {
 			return nil
 		}
 
@@ -882,7 +882,7 @@ func (r *TestRunReconciler) findTestrunsForEnvironment(ctx context.Context, envi
 	// how registerOwnerIndexForJob does it.
 	refs := environment.GetOwnerReferences()
 	for i := range refs {
-		if refs[i].APIVersion == APIGVStr && refs[i].Kind == "TestRun" {
+		if refs[i].APIVersion == APIGroupVersionString && refs[i].Kind == "TestRun" {
 			return []reconcile.Request{
 				{
 					NamespacedName: types.NamespacedName{

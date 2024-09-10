@@ -38,7 +38,7 @@ type TestCase struct {
 	URI     string `json:"uri,omitempty"`
 }
 
-// Execution describes hot to execute a testCase.
+// Execution describes how to execute a testCase.
 type Execution struct {
 	Checkout    []string          `json:"checkout"`
 	Parameters  map[string]string `json:"parameters"`
@@ -67,7 +67,7 @@ type Suite struct {
 	// +kubebuilder:default=1
 	Priority int `json:"priority"`
 
-	// Tests to execute as part of this testrun.
+	// Tests to execute as part of this suite.
 	Tests []Test `json:"tests"`
 
 	// Dataset for this suite.
@@ -90,6 +90,7 @@ type EnvironmentProvider struct {
 	*Image `json:",inline"`
 }
 
+// Retention describes the failure and success retentions for testruns.
 type Retention struct {
 	// +optional
 	Failure *metav1.Duration `json:"failure,omitempty"`

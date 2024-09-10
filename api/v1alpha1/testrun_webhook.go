@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// log is for logging in this package.
+// testrunlog is for logging in this package.
 var testrunlog = logf.Log.WithName("testrun-resource")
 
 // SetupWebhookWithManager will setup the manager to manage the webhooks
@@ -58,7 +58,7 @@ func (r *TestRun) Default() {
 	clusters := &ClusterList{}
 	if r.Spec.Cluster == "" {
 		if err := cli.List(context.TODO(), clusters, client.InNamespace(r.Namespace)); err != nil {
-			testrunlog.Error(err, "Failed to get clusters in namespace")
+			testrunlog.Error(err, "name", r.Name, "namespace", r.Namespace, "Failed to get clusters in namespace")
 		}
 	}
 	var cluster *Cluster
