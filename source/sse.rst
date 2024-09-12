@@ -36,11 +36,11 @@ ETOS communicates to clients using SSE (server sent events). For now ETOS only s
     - Implemented
   * - Artifact
     - An artifact to download
-    - {id: 1, event: Artifact, data: "{'url': 'http://download.me', 'name': 'filename.txt', 'directory': 'MyTest_SubSuite_0', 'checksums': {'SHA-224': '', 'SHA-256': '', 'SHA-384': '', 'SHA-512': '', 'SHA-512/224': '', 'SHA-512/256': ''}}"}
+    - {id: 1, event: Artifact, data: "{'url': 'http://download.me', 'name': 'filename.txt', 'directory': 'MyTest_SubSuite_0', 'checksums': {'SHA-224': '<hash>', 'SHA-256': '<hash>', 'SHA-384': '<hash>', 'SHA-512': '<hash>', 'SHA-512/224': '<hash>', 'SHA-512/256': '<hash>'}}"}
     - Implemented
   * - Report
     - A report to download
-    - {id: 1, event: Report, data: "{'url': 'http://download.me', 'name': 'filename.txt', 'checksums': {'SHA-224': '', 'SHA-256': '', 'SHA-384': '', 'SHA-512': '', 'SHA-512/224': '', 'SHA-512/256': ''}}"}
+    - {id: 1, event: Report, data: "{'url': 'http://download.me', 'name': 'filename.txt', 'checksums': {'SHA-224': '<hash>', 'SHA-256': '<hash>', 'SHA-384': '<hash>', 'SHA-512': '<hash>', 'SHA-512/224': '<hash>', 'SHA-512/256': '<hash>'}}"}
     - Implemented
   * - TestCase
     - A test case execution
