@@ -67,14 +67,14 @@ class IntegrityError(Exception):
         self.expected_hash = expected_hash
 
     def __str__(self):
-        """String representation of this exception."""
+        """Exception as string."""
         return (
             f"Failed integrity protection on {self.url!r}, using hash {self.hash_type!r}. "
             f"Expected: {self.expected_hash!r} but it was {self.downloaded_hash!r}"
         )
 
     def __repr__(self):
-        """String representation of this exception."""
+        """Exception as string."""
         return self.__str__()
 
 
@@ -146,7 +146,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             "SHA-384": "sha384",
             "SHA-512": "sha512",
             "SHA-512/224": "sha512_224",
-            "SHA-512/256": "sha512_256"
+            "SHA-512/256": "sha512_256",
         }
         hashfunc = None
         expected_digest = None
@@ -170,7 +170,9 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         if digest != expected_digest:
             self.logger.error(
                 "%s checksum of file is not as expected. Downloaded: %r , Expected: %r",
-                hashfunc.name, digest, expected_digest
+                hashfunc.name,
+                digest,
+                expected_digest,
             )
             raise IntegrityError(item.url, hashfunc.name, digest, expected_digest)
         self.logger.debug("Integrity verification successful")
@@ -256,7 +258,9 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
 
     def download_report(self, report: Report):
         """Download an report to the report directory."""
-        reports = self.__report_dir.relative_to(Path.cwd()).joinpath(report.file.get("directory", ""))
+        reports = self.__report_dir.relative_to(Path.cwd()).joinpath(
+            report.file.get("directory", "")
+        )
         self.__queue_download(
             Downloadable(
                 url=report.file.get("url"),
@@ -268,7 +272,9 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
 
     def download_artifact(self, artifact: Artifact):
         """Download an artifact to the artifact directory."""
-        artifacts = self.__artifact_dir.relative_to(Path.cwd()).joinpath(artifact.file.get("directory", ""))
+        artifacts = self.__artifact_dir.relative_to(Path.cwd()).joinpath(
+            artifact.file.get("directory", "")
+        )
         self.__queue_download(
             Downloadable(
                 url=artifact.file.get("url"),
