@@ -56,6 +56,28 @@ class Downloadable(BaseModel):
     path: Path = Path.cwd()
 
 
+class IntegrityError(Exception):
+    """Integrity verification error."""
+
+    def __init__(self, url: str, hash_type: str, downloaded_hash: str, expected_hash: str):
+        """Initialize."""
+        self.url = url
+        self.hash_type = hash_type
+        self.downloaded_hash = downloaded_hash
+        self.expected_hash = expected_hash
+
+    def __str__(self):
+        """String representation of this exception."""
+        return (
+            f"Failed integrity protection on {self.url!r}, using hash {self.hash_type!r}. "
+            f"Expected: {self.expected_hash!r} but it was {self.downloaded_hash!r}"
+        )
+
+    def __repr__(self):
+        """String representation of this exception."""
+        return self.__str__()
+
+
 class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
     """Log downloader for ETOS client."""
 
@@ -107,10 +129,13 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         with open(download_path, "wb+") as report:
             for chunk in response:
                 report.write(chunk)
-        if not self.__verify(item, download_path):
-            self.logger.error("Checksum verification failed on %r", item)
+        try:
+            self.__verify(item, download_path)
+        except IntegrityError:
+            download_path.unlink()
+            raise
 
-    def __verify(self, item: Downloadable, path: Path) -> bool:
+    def __verify(self, item: Downloadable, path: Path):
         """Verify the checksum of the downloaded item.
 
         Path is the real path to the saved file.
@@ -123,33 +148,33 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             "SHA-512/224": "sha512_224",
             "SHA-512/256": "sha512_256"
         }
-        hash = None
+        hashfunc = None
         expected_digest = None
         for nist_scheme, python_scheme in translation_table.items():
             if item.checksums.get(nist_scheme) is not None:
-                hash = hashlib.new(python_scheme)
+                hashfunc = hashlib.new(python_scheme)
                 expected_digest = item.checksums.get(nist_scheme)
                 break
 
-        if hash is None:
+        if hashfunc is None or expected_digest is None:
             self.logger.info("No digest set on file, won't check integrity of %r", item)
-            return True
-        self.logger.debug("Checking integrity of downloaded file using %r", hash.name)
+            return
+        self.logger.debug("Checking integrity of downloaded file using %r", hashfunc.name)
 
         with path.open("rb") as report:
-            hash.update(report.read())
-        digest = hash.hexdigest()
+            hashfunc.update(report.read())
+        digest = hashfunc.hexdigest()
         self.logger.debug("Expecting digest %r", expected_digest)
         self.logger.debug("Verify digest %r", digest)
 
         if digest != expected_digest:
             self.logger.error(
                 "%s checksum of file is not as expected. Downloaded: %r , Expected: %r",
-                hash.name, digest, expected_digest
+                hashfunc.name, digest, expected_digest
             )
-            return False
+            raise IntegrityError(item.url, hashfunc.name, digest, expected_digest)
         self.logger.debug("Integrity verification successful")
-        return True
+        return
 
     def __download_ok(self, response: requests.Response) -> bool:
         """Check download response and log response details."""
