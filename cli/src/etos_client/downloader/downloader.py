@@ -17,6 +17,7 @@
 import logging
 import time
 import traceback
+import hashlib
 from pathlib import Path
 from typing import Union
 from threading import Thread, Lock
@@ -29,9 +30,9 @@ from urllib3.exceptions import MaxRetryError, NewConnectionError
 from urllib3.util import Retry
 import requests
 from requests.exceptions import HTTPError
-import jmespath
 
 from etos_lib.lib.http import Http
+from etos_client.sse.protocol import Report, Artifact
 
 
 HTTP_RETRY_PARAMETERS = Retry(
@@ -46,27 +47,35 @@ HTTP_RETRY_PARAMETERS = Retry(
 )
 
 
-class Filter(BaseModel):
-    """Filter for logs and artifacts."""
-
-    source: str
-    jmespath: str
-
-
 class Downloadable(BaseModel):
     """Represent a downloadable file."""
 
     url: str
-    name: list[Filter]
+    name: str
+    checksums: dict[str, str]
     path: Path = Path.cwd()
 
 
-class Directory(BaseModel):
-    """Represent a directory of files."""
+class IntegrityError(Exception):
+    """Integrity verification error."""
 
-    name: str
-    logs: list[Downloadable]
-    artifacts: list[Downloadable]
+    def __init__(self, url: str, hash_type: str, downloaded_hash: str, expected_hash: str):
+        """Initialize."""
+        self.url = url
+        self.hash_type = hash_type
+        self.downloaded_hash = downloaded_hash
+        self.expected_hash = expected_hash
+
+    def __str__(self):
+        """Exception as string."""
+        return (
+            f"Failed integrity protection on {self.url!r}, using hash {self.hash_type!r}. "
+            f"Expected: {self.expected_hash!r} but it was {self.downloaded_hash!r}"
+        )
+
+    def __repr__(self):
+        """Exception as string."""
+        return self.__str__()
 
 
 class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
@@ -104,31 +113,9 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         self.logger.critical("Failed to download %r", item)
         return
 
-    def __apply_filter(self, item: Downloadable, response: requests.Response) -> str:
-        """Apply name filter to downloaded item."""
-        name = []
-        try:
-            response_json = (
-                response.json()
-                if response.headers.get("content-type") == "application/json"
-                else None
-            )
-        except JSONDecodeError:
-            # If a file ends in .json it will be interpreted as json, but it might not be valid.
-            response_json = None
-        sources = {"response": response_json, "headers": response.headers}
-
-        for name_filter in item.name:
-            source = sources.get(name_filter.source)
-            if source is None:
-                raise ValueError(f"Filter source {name_filter.source} not found.")
-            name.append(jmespath.search(name_filter.jmespath, source))
-        return "/".join(name)
-
     def __save_file(self, item: Downloadable, response: requests.Response) -> None:
         """Save downloaded file data to disk."""
-        download_name = self.__apply_filter(item, response)
-        download_path = item.path.joinpath(download_name)
+        download_path = item.path.joinpath(item.name)
         if not download_path.parent.exists():
             with self.__lock:
                 download_path.parent.mkdir(exist_ok=True, parents=True)
@@ -142,6 +129,54 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         with open(download_path, "wb+") as report:
             for chunk in response:
                 report.write(chunk)
+        try:
+            self.__verify(item, download_path)
+        except IntegrityError:
+            download_path.unlink()
+            raise
+
+    def __verify(self, item: Downloadable, path: Path):
+        """Verify the checksum of the downloaded item.
+
+        Path is the real path to the saved file.
+        """
+        translation_table = {
+            "SHA-224": "sha224",
+            "SHA-256": "sha256",
+            "SHA-384": "sha384",
+            "SHA-512": "sha512",
+            "SHA-512/224": "sha512_224",
+            "SHA-512/256": "sha512_256",
+        }
+        hashfunc = None
+        expected_digest = None
+        for nist_scheme, python_scheme in translation_table.items():
+            if item.checksums.get(nist_scheme) is not None:
+                hashfunc = hashlib.new(python_scheme)
+                expected_digest = item.checksums.get(nist_scheme)
+                break
+
+        if hashfunc is None or expected_digest is None:
+            self.logger.info("No digest set on file, won't check integrity of %r", item)
+            return
+        self.logger.debug("Checking integrity of downloaded file using %r", hashfunc.name)
+
+        with path.open("rb") as report:
+            hashfunc.update(report.read())
+        digest = hashfunc.hexdigest()
+        self.logger.debug("Expecting digest %r", expected_digest)
+        self.logger.debug("Verify digest %r", digest)
+
+        if digest != expected_digest:
+            self.logger.error(
+                "%s checksum of file is not as expected. Downloaded: %r , Expected: %r",
+                hashfunc.name,
+                digest,
+                expected_digest,
+            )
+            raise IntegrityError(item.url, hashfunc.name, digest, expected_digest)
+        self.logger.debug("Integrity verification successful")
+        return
 
     def __download_ok(self, response: requests.Response) -> bool:
         """Check download response and log response details."""
@@ -221,26 +256,37 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             self.__download_queue.put_nowait(item)
             self.__queued.append(item.url)
 
-    def __download_artifacts(self, artifacts: list[Downloadable], path: Path) -> None:
-        """Download artifacts to an artifact path."""
-        for artifact in artifacts:
-            artifact.path = path
-            self.__queue_download(artifact)
+    def download_report(self, report: Report):
+        """Download an report to the report directory."""
+        reports = self.__report_dir.relative_to(Path.cwd()).joinpath(
+            report.file.get("directory", "")
+        )
+        self.__queue_download(
+            Downloadable(
+                url=report.file.get("url"),
+                name=report.file.get("name"),
+                checksums=report.file.get("checksums"),
+                path=reports,
+            )
+        )
 
-    def __download_logs(self, logs: list[Downloadable], path: Path) -> None:
-        """Download logs from test suites to report path."""
-        for log in logs:
-            log.path = path
-            self.__queue_download(log)
+    def download_artifact(self, artifact: Artifact):
+        """Download an artifact to the artifact directory."""
+        artifacts = self.__artifact_dir.relative_to(Path.cwd()).joinpath(
+            artifact.file.get("directory", "")
+        )
+        self.__queue_download(
+            Downloadable(
+                url=artifact.file.get("url"),
+                name=artifact.file.get("name"),
+                checksums=artifact.file.get("checksums"),
+                path=artifacts,
+            )
+        )
 
-    def download_files(self, directory: Directory):
-        """Download logs and artifacts from a directory."""
-        reports = self.__report_dir.relative_to(Path.cwd())
-        artifacts = self.__artifact_dir.relative_to(Path.cwd()).joinpath(directory.name)
-        self.__download_logs(directory.logs, reports)
-        self.__download_artifacts(directory.artifacts, artifacts)
-
-    def download_directories(self, directories: dict):
-        """Download logs and artifacts from directories."""
-        for name, directory in directories.items():
-            self.download_files(Directory(name=name, **directory))
+    def download(self, file: Union[Report, Artifact]):
+        """Download a file from either a Report or Artifact event."""
+        if isinstance(file, Report):
+            self.download_report(file)
+        elif isinstance(file, Artifact):
+            self.download_artifact(file)

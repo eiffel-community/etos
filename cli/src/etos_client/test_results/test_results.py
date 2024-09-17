@@ -17,7 +17,7 @@
 import logging
 from typing import Optional
 
-from etos_client.events.events import Events, SubSuite, TestSuite
+from etos_client.events.events import Events, TestSuite
 
 # pylint:disable=too-few-public-methods
 
@@ -34,15 +34,6 @@ class TestResults:
             if outcome["verdict"] != "PASSED":
                 return True
         return False
-
-    def __count_sub_suite_failures(self, test_suites: list[SubSuite]) -> int:
-        """Count the number of sub suite failures in a list of sub suites."""
-        failures = 0
-        for sub_suite in test_suites:
-            outcome = sub_suite.finished["data"]["testSuiteOutcome"]
-            if outcome["verdict"] != "PASSED":
-                failures += 1
-        return failures
 
     def __fail_messages(self, test_suites: list[TestSuite]) -> list[str]:
         """Build a fail message from main suites errors."""
@@ -64,7 +55,7 @@ class TestResults:
             for message in messages[:-1]:
                 self.logger.error(message)
             return False, messages[-1]
-        return False, f"Test case failures during test suite execution"
+        return False, "Test case failures during test suite execution"
 
     def get_results(self, events: Events) -> tuple[Optional[bool], Optional[str]]:
         """Get results from an ETOS testrun."""
