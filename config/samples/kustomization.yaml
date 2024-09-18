@@ -1,0 +1,8 @@
+## Append samples of your project ##
+resources:
+- etos_v1alpha1_testrun.yaml
+- etos_v1alpha1_provider.yaml
+- etos_v1alpha1_environment.yaml
+- etos_v1alpha1_cluster.yaml
+- etos_v1alpha1_environmentrequest.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

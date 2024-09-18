@@ -1,0 +1,9 @@
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: EnvironmentRequest
+metadata:
+  labels:
+    app.kubernetes.io/name: etos
+    app.kubernetes.io/managed-by: kustomize
+  name: environmentrequest-sample
+spec:
+  # TODO(user): Add fields here
