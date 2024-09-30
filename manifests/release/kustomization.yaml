@@ -3,6 +3,6 @@ kind: Kustomization
 resources:
   - github.com/eiffel-community/etos-suite-runner//manifests/base?ref=5.2.1
   - github.com/eiffel-community/etos-suite-starter//manifests/base?ref=2.6.2
-  - github.com/eiffel-community/etos-api//manifests/base?ref=2.4.2
+  - github.com/eiffel-community/etos-api//manifests/base?ref=2.5.0
 components:
   - ../etcd
