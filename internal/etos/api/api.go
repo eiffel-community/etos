@@ -322,6 +322,7 @@ func (r *ETOSApiDeployment) deployment(name types.NamespacedName) *appsv1.Deploy
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
 					Containers:         []corev1.Container{r.container(name)},
+					Volumes:            r.volumes(),
 				},
 			},
 		},
@@ -379,14 +380,67 @@ func (r *ETOSApiDeployment) container(name types.NamespacedName) corev1.Containe
 				Protocol:      "TCP",
 			},
 		},
+		VolumeMounts:   r.volumeMounts(),
 		LivenessProbe:  probe,
 		ReadinessProbe: probe,
-		EnvFrom:        r.environment(),
+		EnvFrom:        r.environmentFrom(),
+		Env:            r.environment(),
 	}
 }
 
-// environment creates the environment resource for the ETOS API deployment.
-func (r *ETOSApiDeployment) environment() []corev1.EnvFromSource {
+// volumeMounts creates the container volume mounts for providers if necessary.
+func (r *ETOSApiDeployment) volumeMounts() []corev1.VolumeMount {
+	mounts := []corev1.VolumeMount{}
+	if r.IUTProviderSecret != "" {
+		mounts = append(mounts, corev1.VolumeMount{Name: "iut-providers", ReadOnly: true, MountPath: "/providers/iut"})
+	}
+	if r.LogAreaProviderSecret != "" {
+		mounts = append(mounts, corev1.VolumeMount{Name: "log-area-providers", ReadOnly: true, MountPath: "/providers/log_area"})
+	}
+	if r.ExecutionSpaceProviderSecret != "" {
+		mounts = append(mounts, corev1.VolumeMount{Name: "execution-space-providers", ReadOnly: true, MountPath: "/providers/execution_space"})
+	}
+	return mounts
+}
+
+// volumes creates the volume specification for the ETOS API pod.
+func (r *ETOSApiDeployment) volumes() []corev1.Volume {
+	vol := []corev1.Volume{}
+	if r.IUTProviderSecret != "" {
+		vol = append(vol, corev1.Volume{
+			Name: "iut-providers",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: r.IUTProviderSecret,
+				},
+			},
+		})
+	}
+	if r.LogAreaProviderSecret != "" {
+		vol = append(vol, corev1.Volume{
+			Name: "log-area-providers",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: r.LogAreaProviderSecret,
+				},
+			},
+		})
+	}
+	if r.ExecutionSpaceProviderSecret != "" {
+		vol = append(vol, corev1.Volume{
+			Name: "execution-space-providers",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: r.ExecutionSpaceProviderSecret,
+				},
+			},
+		})
+	}
+	return vol
+}
+
+// environmentFrom creates the environment resource for the ETOS API deployment.
+func (r *ETOSApiDeployment) environmentFrom() []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{
 		{
 			SecretRef: &corev1.SecretEnvSource{
@@ -410,6 +464,21 @@ func (r *ETOSApiDeployment) environment() []corev1.EnvFromSource {
 			},
 		},
 	}
+}
+
+// environment creates environment variables for providers if supplied.
+func (r *ETOSApiDeployment) environment() []corev1.EnvVar {
+	env := []corev1.EnvVar{}
+	if r.IUTProviderSecret != "" {
+		env = append(env, corev1.EnvVar{Name: "IUT_PROVIDERS", Value: "/providers/iut"})
+	}
+	if r.LogAreaProviderSecret != "" {
+		env = append(env, corev1.EnvVar{Name: "LOG_AREA_PROVIDERS", Value: "/providers/log_area"})
+	}
+	if r.ExecutionSpaceProviderSecret != "" {
+		env = append(env, corev1.EnvVar{Name: "EXECUTION_SPACE_PROVIDERS", Value: "/providers/execution_space"})
+	}
+	return env
 }
 
 // meta creates the common meta resource for the ETOS API deployment.

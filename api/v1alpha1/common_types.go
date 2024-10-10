@@ -127,7 +127,7 @@ type RabbitMQ struct {
 	SSL string `json:"ssl"`
 	// +kubebuilder:default=/
 	// +optional
-	Vhost       string `json:"vhost"`
-	QueueName   string `json:"queueName,omitempty"`
-	QueueParams string `json:"queueParams,omitempty"`
+	Vhost string `json:"vhost"`
+	// QueueName   string `json:"queueName,omitempty"`
+	// QueueParams string `json:"queueParams,omitempty"`
 }

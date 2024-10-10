@@ -69,7 +69,7 @@ spec:
                       description: TestEnvironment to run tests within.
                       type: object
                     execution:
-                      description: Execution describes hot to execute a testCase.
+                      description: Execution describes how to execute a testCase.
                       properties:
                         checkout:
                           items:

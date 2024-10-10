@@ -116,7 +116,7 @@ func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmen
 	logger.V(1).Info("environment provider count", "active", len(environmentProviders.activeJobs), "successful", len(environmentProviders.successfulJobs), "failed", len(environmentProviders.failedJobs))
 
 	// Check providers availability
-	// TODO Update status
+	// TODO: Update status
 	providers := etosv1alpha1.Providers{
 		IUT:            environmentrequest.Spec.Providers.IUT.ID,
 		ExecutionSpace: environmentrequest.Spec.Providers.ExecutionSpace.ID,
