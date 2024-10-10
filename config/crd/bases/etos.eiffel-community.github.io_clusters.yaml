@@ -48,12 +48,14 @@ spec:
             properties:
               database:
                 default: {}
+                description: Database describes the deployment of a database for ETOS.
                 properties:
                   deploy:
                     default: true
                     type: boolean
                   etcd:
                     default: {}
+                    description: Etcd describes the deployment of an ETCD database.
                     properties:
                       host:
                         default: etcd-client
@@ -67,17 +69,25 @@ spec:
                 type: object
               etos:
                 default: {}
+                description: ETOS describes the deployment of an ETOS cluster.
                 properties:
                   api:
                     default:
                       image: registry.nordix.org/eiffel/etos-api:latest
+                    description: ETOSAPI describes the deployment of the ETOS API.
                     properties:
+                      executionSpaceProviderSecret:
+                        type: string
                       image:
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
+                        type: string
+                      iutProviderSecret:
+                        type: string
+                      logAreaProviderSecret:
                         type: string
                     required:
                     - image
@@ -86,6 +96,7 @@ spec:
                     default:
                       encryptionKey:
                         value: ""
+                    description: ETOSConfig describes a common configuration for ETOS.
                     properties:
                       dev:
                         default: "true"
@@ -176,6 +187,8 @@ spec:
                         default: "10"
                         type: string
                       testrunRetention:
+                        description: Retention describes the failure and success retentions
+                          for testruns.
                         properties:
                           failure:
                             type: string
@@ -190,6 +203,8 @@ spec:
                   environmentProvider:
                     default:
                       image: registry.nordix.org/eiffel/etos-environment-provider:latest
+                    description: ETOSEnvironmentProvider describes the deployment
+                      of an ETOS environment provider.
                     properties:
                       image:
                         type: string
@@ -220,6 +235,8 @@ spec:
                   logArea:
                     default:
                       image: registry.nordix.org/eiffel/etos-log-area:latest
+                    description: ETOSLogArea describes th deployment of an ETOS log
+                      area API.
                     properties:
                       image:
                         type: string
@@ -234,6 +251,7 @@ spec:
                   sse:
                     default:
                       image: registry.nordix.org/eiffel/etos-sse:latest
+                    description: ETOSSSE describes th deployment of an ETOS SSE API.
                     properties:
                       image:
                         type: string
@@ -250,6 +268,8 @@ spec:
                       image: registry.nordix.org/eiffel/etos-suite-runner:latest
                       logListener:
                         image: registry.nordix.org/eiffel/etos-log-listener:latest
+                    description: ETOSSuiteRunner describes the deployment of an ETOS
+                      suite runner.
                     properties:
                       image:
                         type: string
@@ -259,8 +279,15 @@ spec:
                           pull a container image
                         type: string
                       logListener:
-                        description: Image configuration.
+                        description: ETOSLogListener describes the deployment of an
+                          ETOS log listener.
                         properties:
+                          etosQueueName:
+                            default: etos-*-temp
+                            type: string
+                          etosQueueParams:
+                            default: ""
+                            type: string
                           image:
                             type: string
                           imagePullPolicy:
@@ -275,9 +302,62 @@ spec:
                     - image
                     - logListener
                     type: object
+                  suiteStarter:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-suite-starter:latest
+                    description: ETOSSuiteStarter describes the deployment of an ETOS
+                      suite starter.
+                    properties:
+                      config:
+                        default:
+                          gracePeriod: "300"
+                          ttl: "3600"
+                        description: |-
+                          ETOSSuiteStarterConfig describes the configuration required for a suite starter.
+                          This is separate from the ETOSConfig as we want to remove this in the future when the suite
+                          starter is no longer in use.
+                        properties:
+                          gracePeriod:
+                            default: "300"
+                            type: string
+                          observabilityConfigmapName:
+                            default: ""
+                            type: string
+                          otelCollectorHost:
+                            default: ""
+                            type: string
+                          sidecarImage:
+                            default: ""
+                            type: string
+                          ttl:
+                            default: "3600"
+                            type: string
+                        type: object
+                      eiffelQueueName:
+                        default: etos-suite-starter
+                        type: string
+                      eiffelQueueParams:
+                        default: ""
+                        type: string
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                      suiteRunnerTemplateConfigmapName:
+                        default: ""
+                        description: Provide a custom suite runner template.
+                        type: string
+                    required:
+                    - image
+                    type: object
                   testRunner:
                     default:
                       version: latest
+                    description: ETOSTestRunner describes the deployment of an ETOS
+                      test runner.
                     properties:
                       version:
                         type: string
@@ -287,6 +367,8 @@ spec:
                 type: object
               eventRepository:
                 default: {}
+                description: EventRepository describes the deployment of an event
+                  repository for ETOS.
                 properties:
                   api:
                     default:
@@ -309,6 +391,12 @@ spec:
                     default: false
                     description: Deploy a local event repository for a cluster.
                     type: boolean
+                  eiffelQueueName:
+                    default: etos
+                    type: string
+                  eiffelQueueParams:
+                    default: ""
+                    type: string
                   host:
                     default: eventrepository
                     type: string
@@ -331,6 +419,7 @@ spec:
                     type: object
                   mongo:
                     default: {}
+                    description: MongoDB describes the deployment of a MongoDB.
                     properties:
                       deploy:
                         default: false
@@ -421,10 +510,10 @@ spec:
                 type: object
               messageBus:
                 default: {}
+                description: MessageBus describes the deployment of messagesbuses
+                  for ETOS.
                 properties:
                   eiffel:
-                    default:
-                      queueName: etos
                     description: RabbitMQ configuration.
                     properties:
                       deploy:
@@ -504,10 +593,6 @@ spec:
                         type: object
                       port:
                         default: "5672"
-                        type: string
-                      queueName:
-                        type: string
-                      queueParams:
                         type: string
                       ssl:
                         default: "false"
@@ -520,8 +605,6 @@ spec:
                         type: string
                     type: object
                   logs:
-                    default:
-                      queueName: etos-*-temp
                     description: RabbitMQ configuration.
                     properties:
                       deploy:
@@ -601,10 +684,6 @@ spec:
                         type: object
                       port:
                         default: "5672"
-                        type: string
-                      queueName:
-                        type: string
-                      queueParams:
                         type: string
                       ssl:
                         default: "false"

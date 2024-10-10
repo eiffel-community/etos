@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// MongoDB describes the deployment of a MongoDB.
 type MongoDB struct {
 	// +kubebuilder:default=false
 	// +optional
@@ -30,6 +31,7 @@ type MongoDB struct {
 	URI Var `json:"uri"`
 }
 
+// EventRepository describes the deployment of an event repository for ETOS.
 type EventRepository struct {
 	// Deploy a local event repository for a cluster.
 	// +kubebuilder:default=false
@@ -47,6 +49,12 @@ type EventRepository struct {
 	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-storage:latest"}
 	// +optional
 	Storage Image `json:"storage"`
+	// +kubebuilder:default="etos"
+	// +optional
+	EiffelQueueName string `json:"eiffelQueueName,omitempty"`
+	// +kubebuilder:default=""
+	// +optional
+	EiffelQueueParams string `json:"eiffelQueueParams,omitempty"`
 
 	// +kubebuilder:default={}
 	// +optional
@@ -59,15 +67,15 @@ type EventRepository struct {
 	Ingress Ingress `json:"ingress"`
 }
 
+// MessageBus describes the deployment of messagesbuses for ETOS.
 type MessageBus struct {
-	// +kubebuilder:default={"queueName": "etos"}
 	// +optional
 	EiffelMessageBus RabbitMQ `json:"eiffel"`
-	// +kubebuilder:default={"queueName": "etos-*-temp"}
 	// +optional
 	ETOSMessageBus RabbitMQ `json:"logs"`
 }
 
+// Etcd describes the deployment of an ETCD database.
 type Etcd struct {
 	// Parameter is ignored if Deploy is set to true.
 	// +kubebuilder:default="etcd-client"
@@ -79,6 +87,7 @@ type Etcd struct {
 	Port string `json:"port"`
 }
 
+// Database describes the deployment of a database for ETOS.
 type Database struct {
 	// +kubebuilder:default=true
 	// +optional
@@ -88,31 +97,96 @@ type Database struct {
 	Etcd Etcd `json:"etcd"`
 }
 
+// ETOSAPI describes the deployment of the ETOS API.
 type ETOSAPI struct {
 	Image `json:",inline"`
+	// The provider secrets are necessary in order to run ETOS the old way and not using the controller.
+	// They can be removed from here when the suite starter is no longer in use.
+	// +optional
+	IUTProviderSecret string `json:"iutProviderSecret"`
+	// +optional
+	ExecutionSpaceProviderSecret string `json:"executionSpaceProviderSecret"`
+	// +optional
+	LogAreaProviderSecret string `json:"logAreaProviderSecret"`
 }
 
+// ETOSSuiteStarterConfig describes the configuration required for a suite starter.
+// This is separate from the ETOSConfig as we want to remove this in the future when the suite
+// starter is no longer in use.
+type ETOSSuiteStarterConfig struct {
+	// +kubebuilder:default="3600"
+	// +optional
+	TTL string `json:"ttl,omitempty"`
+	// +kubebuilder:default=""
+	// +optional
+	ObservabilityConfigmapName string `json:"observabilityConfigmapName,omitempty"`
+	// +kubebuilder:default="300"
+	// +optional
+	GracePeriod string `json:"gracePeriod,omitempty"`
+	// +kubebuilder:default=""
+	// +optional
+	SidecarImage string `json:"sidecarImage,omitempty"`
+	// +kubebuilder:default=""
+	// +optional
+	OTELCollectorHost string `json:"otelCollectorHost,omitempty"`
+}
+
+// ETOSSuiteStarter describes the deployment of an ETOS suite starter.
+type ETOSSuiteStarter struct {
+	Image `json:",inline"`
+	// +kubebuilder:default="etos-suite-starter"
+	// +optional
+	EiffelQueueName string `json:"eiffelQueueName,omitempty"`
+	// +kubebuilder:default=""
+	// +optional
+	EiffelQueueParams string `json:"eiffelQueueParams,omitempty"`
+	// Provide a custom suite runner template.
+	// +kubebuilder:default=""
+	// +optional
+	SuiteRunnerTemplateConfigmapName string `json:"suiteRunnerTemplateConfigmapName,omitempty"`
+	// +kubebuilder:default={"ttl": "3600", "gracePeriod": "300"}
+	// +optional
+	Config ETOSSuiteStarterConfig `json:"config"`
+}
+
+// ETOSSSE describes th deployment of an ETOS SSE API.
 type ETOSSSE struct {
 	Image `json:",inline"`
 }
 
+// ETOSLogArea describes th deployment of an ETOS log area API.
 type ETOSLogArea struct {
 	Image `json:",inline"`
 }
 
-type ETOSSuiteRunner struct {
-	Image       `json:",inline"`
-	LogListener Image `json:"logListener"`
+// ETOSLogListener describes the deployment of an ETOS log listener.
+type ETOSLogListener struct {
+	Image `json:",inline"`
+	// +kubebuilder:default="etos-*-temp"
+	// +optional
+	ETOSQueueName string `json:"etosQueueName,omitempty"`
+	// +kubebuilder:default=""
+	// +optional
+	ETOSQueueParams string `json:"etosQueueParams,omitempty"`
 }
 
+// ETOSSuiteRunner describes the deployment of an ETOS suite runner.
+type ETOSSuiteRunner struct {
+	Image       `json:",inline"`
+	LogListener ETOSLogListener `json:"logListener"`
+}
+
+// ETOSTestRunner describes the deployment of an ETOS test runner.
 type ETOSTestRunner struct {
 	Version string `json:"version"`
 }
 
+// ETOSEnvironmentProvider describes the deployment of an ETOS environment provider.
 type ETOSEnvironmentProvider struct {
 	Image `json:",inline"`
 }
 
+// ETOSConfig describes a common configuration for ETOS.
 type ETOSConfig struct {
 	// +kubebuilder:default="true"
 	// +optional
@@ -146,6 +220,7 @@ type ETOSConfig struct {
 	Timezone string `json:"timezone,omitempty"`
 }
 
+// ETOS describes the deployment of an ETOS cluster.
 type ETOS struct {
 	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-api:latest"}
 	// +optional
@@ -162,6 +237,9 @@ type ETOS struct {
 	// +kubebuilder:default={"version": "latest"}
 	// +optional
 	TestRunner ETOSTestRunner `json:"testRunner"`
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-suite-starter:latest"}
+	// +optional
+	SuiteStarter ETOSSuiteStarter `json:"suiteStarter"`
 	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-environment-provider:latest"}
 	// +optional
 	EnvironmentProvider ETOSEnvironmentProvider `json:"environmentProvider"`
