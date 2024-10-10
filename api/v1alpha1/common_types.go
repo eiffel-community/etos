@@ -128,6 +128,4 @@ type RabbitMQ struct {
 	// +kubebuilder:default=/
 	// +optional
 	Vhost string `json:"vhost"`
-	// QueueName   string `json:"queueName,omitempty"`
-	// QueueParams string `json:"queueParams,omitempty"`
 }
