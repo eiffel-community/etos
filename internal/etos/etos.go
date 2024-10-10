@@ -22,6 +22,7 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	etosapi "github.com/eiffel-community/etos/internal/etos/api"
+	etossuitestarter "github.com/eiffel-community/etos/internal/etos/suitestarter"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -76,7 +77,7 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		return err
 	}
 
-	_, err = r.reconcileSecret(ctx, namespacedName, cluster)
+	encryption, err := r.reconcileSecret(ctx, namespacedName, cluster)
 	if err != nil {
 		return err
 	}
@@ -93,6 +94,11 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 
 	logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client)
 	if err := logarea.Reconcile(ctx, cluster); err != nil {
+		return err
+	}
+
+	suitestarter := etossuitestarter.NewETOSSuiteStarterDeployment(r.SuiteStarter, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, configmap, encryption)
+	if err := suitestarter.Reconcile(ctx, cluster); err != nil {
 		return err
 	}
 
@@ -282,7 +288,7 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 		"ETOS_API":                               etosApi,
 		"SUITE_RUNNER_IMAGE":                     cluster.Spec.ETOS.SuiteRunner.Image.Image,
 		"SUITE_RUNNER_IMAGE_PULL_POLICY":         string(cluster.Spec.ETOS.SuiteRunner.ImagePullPolicy),
-		"LOG_LISTENER_IMAGE":                     cluster.Spec.ETOS.SuiteRunner.LogListener.Image,
+		"LOG_LISTENER_IMAGE":                     cluster.Spec.ETOS.SuiteRunner.LogListener.Image.Image,
 		"LOG_LISTENER_IMAGE_PULL_POLICY":         string(cluster.Spec.ETOS.SuiteRunner.LogListener.ImagePullPolicy),
 		"ENVIRONMENT_PROVIDER_IMAGE":             cluster.Spec.ETOS.EnvironmentProvider.Image.Image,
 		"ENVIRONMENT_PROVIDER_IMAGE_PULL_POLICY": string(cluster.Spec.ETOS.EnvironmentProvider.ImagePullPolicy),

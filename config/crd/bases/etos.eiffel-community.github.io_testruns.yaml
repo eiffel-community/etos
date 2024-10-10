@@ -116,6 +116,8 @@ spec:
                 - logArea
                 type: object
               retention:
+                description: Retention describes the failure and success retentions
+                  for testruns.
                 properties:
                   failure:
                     type: string
@@ -149,14 +151,14 @@ spec:
                       description: Priority to execute the test suite.
                       type: integer
                     tests:
-                      description: Tests to execute as part of this testrun.
+                      description: Tests to execute as part of this suite.
                       items:
                         properties:
                           environment:
                             description: TestEnvironment to run tests within.
                             type: object
                           execution:
-                            description: Execution describes hot to execute a testCase.
+                            description: Execution describes how to execute a testCase.
                             properties:
                               checkout:
                                 items:

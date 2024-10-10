@@ -238,6 +238,10 @@ func (r *EventRepositoryDeployment) containers(name types.NamespacedName) []core
 				"eiffel_graphql_api.storage",
 			},
 			EnvFrom: r.environment(),
+			Env: []corev1.EnvVar{
+				{Name: "RABBITMQ_QUEUE", Value: r.EventRepository.EiffelQueueName},
+				{Name: "RABBITMQ_QUEUE_PARAMS", Value: r.EventRepository.EiffelQueueParams},
+			},
 		},
 	}
 }
