@@ -305,6 +305,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, n
 
 // configmap creates a configmap resource definition for the ETOS suite runner.
 func (r *ETOSSuiteStarterDeployment) configmap(name types.NamespacedName, secretName string, cluster *etosv1alpha1.Cluster) *corev1.ConfigMap {
+	routingKey := fmt.Sprintf("eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.%s.*", cluster.Spec.ETOS.Config.RoutingKeyTag)
 	data := map[string]string{
 		"SUITE_RUNNER":                  cluster.Spec.ETOS.SuiteRunner.Image.Image,
 		"LOG_LISTENER":                  cluster.Spec.ETOS.SuiteRunner.LogListener.Image.Image,
@@ -312,6 +313,7 @@ func (r *ETOSSuiteStarterDeployment) configmap(name types.NamespacedName, secret
 		"ETOS_RABBITMQ_SECRET":          secretName,
 		"ETOS_ESR_TTL":                  r.Config.TTL,
 		"ETOS_TERMINATION_GRACE_PERIOD": r.Config.GracePeriod,
+		"RABBITMQ_ROUTING_KEY":          routingKey,
 	}
 	if r.Config.ObservabilityConfigmapName != "" {
 		data["ETOS_OBSERVABILITY_CONFIGMAP"] = r.Config.ObservabilityConfigmapName
