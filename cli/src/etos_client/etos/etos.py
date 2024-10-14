@@ -85,7 +85,9 @@ class ETOS:  # pylint:disable=too-few-public-methods
         """Trigger ETOS, retrying on non-client errors until successful."""
         # retry rules are set in the Http client
         if self.v1alpha:
-            response = self.__http.post(f"{self.cluster}/api/v1alpha/testrun", json=request_data.model_dump())
+            response = self.__http.post(
+                f"{self.cluster}/api/v1alpha/testrun", json=request_data.model_dump()
+            )
         else:
             response = self.__http.post(f"{self.cluster}/api/etos", json=request_data.model_dump())
         if self.__response_ok(response):

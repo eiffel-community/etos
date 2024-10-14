@@ -1,5 +1,6 @@
 [build-system]
 requires = ["setuptools>=72", "wheel", "setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "etos_client"
@@ -13,6 +14,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License"
 ]
+requires-python = ">=3.9"
 dependencies = [
     "etos_lib==4.0.0",
     "docopt~=0.6",
@@ -22,40 +24,18 @@ dependencies = [
 [project.optional-dependencies]
 testing = ["pytest", "pytest-cov"]
 
+[project.scripts]
+etos_client =  "etos_client.__main__:run"
+etosctl = "etosctl.__main__:run"
+
 [project.urls]
 Documentation = "https://etos.readthedocs.io/"
 Homepage = "https://github.com/eiffel-community/etos"
 Repository = "https://github.com/eiffel-community/etos"
 
-[options]
-zip_safe = false
-include_package_data = true
-python_requires = ">=3.4"
-
-[options.packages.find]
-where = "src"
-exclude = ["tests"]
-
-[tool.setuptools.package-dir]
-"" = "src"
-
-[project.scripts]
-etos_client =  "etos_client.__main__:run"
-etosctl = "etosctl.__main__:run"
-
-[test]
-extras = true
-
-[tool.pytest.ini_options]
-addopts = "--cov etos_cleint --cov-report term-missing --verbose"
-norecursedirs = ["dist", "build", ".tox"]
-testpaths = ["tests"]
-
-[aliases]
-dists = "bdist_wheel"
-
-[bdist_wheel]
-universal = 1
+[tool.build]
+# Use this option if your package is pure-python
+universal = true
 
 [tool.build_sphinx]
 source_dir = "docs"
@@ -67,3 +47,11 @@ formats = "bdist_wheel"
 
 [tool.flake8]
 exclude = [".tox", "build", "dist", ".eggs", "docs/conf.py"]
+
+[tool.pytest.ini_options]
+addopts = "--cov etos_cleint --cov-report term-missing --verbose"
+norecursedirs = ["dist", "build", ".tox"]
+testpaths = ["tests"]
+
+[tool.setuptools.packages]
+find = { where = ["src"], exclude = ["tests"] }
