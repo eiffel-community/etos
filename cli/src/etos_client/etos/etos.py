@@ -89,10 +89,16 @@ class ETOS:  # pylint:disable=too-few-public-methods
         timeout = 120
         if self.v1alpha:
             response = self.__http.post(
-                f"{self.cluster}/api/v1alpha/testrun", json=request_data.model_dump(), timeout=timeout
+                f"{self.cluster}/api/v1alpha/testrun",
+                json=request_data.model_dump(),
+                timeout=timeout,
             )
         else:
-            response = self.__http.post(f"{self.cluster}/api/etos", json=request_data.model_dump(), timeout=timeout)
+            response = self.__http.post(
+                f"{self.cluster}/api/etos",
+                json=request_data.model_dump(),
+                timeout=timeout,
+            )
         if self.__response_ok(response):
             return ResponseSchema.from_response(response.json())
         self.logger.critical("Failed to trigger ETOS.")
