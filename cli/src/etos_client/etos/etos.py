@@ -51,9 +51,8 @@ class ETOS:  # pylint:disable=too-few-public-methods
         self.v1alpha = v1alpha
         # ping HTTP client with 5 sec timeout for each attempt:
         self.__http_ping = Http(retry=HTTP_RETRY_PARAMETERS, timeout=5)
-        # greater HTTP timeout for other requests: connection and read timeout combined
-        # Limitation: the current HTTP client does not allow to set timeout per request.
-        self.__http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=120)
+        # greater HTTP timeout for other requests:
+        self.__http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
 
     def start(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
         """Start ETOS."""
@@ -85,12 +84,15 @@ class ETOS:  # pylint:disable=too-few-public-methods
     def __retry_trigger_etos(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
         """Trigger ETOS, retrying on non-client errors until successful."""
         # retry rules are set in the Http client
+        # The timeout needs to be long enough to include steps such as test runner validation
+        # done by the ETOS API server in the background.
+        timeout = 120
         if self.v1alpha:
             response = self.__http.post(
-                f"{self.cluster}/api/v1alpha/testrun", json=request_data.model_dump()
+                f"{self.cluster}/api/v1alpha/testrun", json=request_data.model_dump(), timeout=timeout
             )
         else:
-            response = self.__http.post(f"{self.cluster}/api/etos", json=request_data.model_dump())
+            response = self.__http.post(f"{self.cluster}/api/etos", json=request_data.model_dump(), timeout=timeout)
         if self.__response_ok(response):
             return ResponseSchema.from_response(response.json())
         self.logger.critical("Failed to trigger ETOS.")
