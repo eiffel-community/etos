@@ -51,8 +51,8 @@ class ETOS:  # pylint:disable=too-few-public-methods
         self.v1alpha = v1alpha
         # ping HTTP client with 5 sec timeout for each attempt:
         self.__http_ping = Http(retry=HTTP_RETRY_PARAMETERS, timeout=5)
-        # greater HTTP timeout for other requests:
-        self.__http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
+        # greater HTTP timeout for other requests: connection and read timeout combined
+        self.__http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=120)
 
     def start(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
         """Start ETOS."""
