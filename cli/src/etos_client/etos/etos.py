@@ -52,6 +52,7 @@ class ETOS:  # pylint:disable=too-few-public-methods
         # ping HTTP client with 5 sec timeout for each attempt:
         self.__http_ping = Http(retry=HTTP_RETRY_PARAMETERS, timeout=5)
         # greater HTTP timeout for other requests: connection and read timeout combined
+        # Limitation: the current HTTP client does not allow to set timeout per request.
         self.__http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=120)
 
     def start(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
