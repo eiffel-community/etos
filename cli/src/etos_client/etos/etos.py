@@ -84,12 +84,21 @@ class ETOS:  # pylint:disable=too-few-public-methods
     def __retry_trigger_etos(self, request_data: RequestSchema) -> Union[ResponseSchema, None]:
         """Trigger ETOS, retrying on non-client errors until successful."""
         # retry rules are set in the Http client
+        # The timeout needs to be long enough to include steps such as test runner validation
+        # done by the ETOS API server in the background.
+        timeout = 120
         if self.v1alpha:
             response = self.__http.post(
-                f"{self.cluster}/api/v1alpha/testrun", json=request_data.model_dump()
+                f"{self.cluster}/api/v1alpha/testrun",
+                json=request_data.model_dump(),
+                timeout=timeout,
             )
         else:
-            response = self.__http.post(f"{self.cluster}/api/etos", json=request_data.model_dump())
+            response = self.__http.post(
+                f"{self.cluster}/api/etos",
+                json=request_data.model_dump(),
+                timeout=timeout,
+            )
         if self.__response_ok(response):
             return ResponseSchema.from_response(response.json())
         self.logger.critical("Failed to trigger ETOS.")
