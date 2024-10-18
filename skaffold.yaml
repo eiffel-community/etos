@@ -1,0 +1,17 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: etos
+build:
+  artifacts:
+    - image: registry.nordix.org/eiffel/etos-controller
+      docker:
+        dockerfile: Dockerfile
+      hooks:
+        after:
+          - command:
+            - make
+            - build-installer
+manifests:
+  rawYaml:
+  - dist/install.yaml
