@@ -42,13 +42,13 @@ type ETOSSuiteStarterDeployment struct {
 	Scheme           *runtime.Scheme
 	rabbitmqSecret   string
 	messagebusSecret string
-	etosConfigmap    *corev1.ConfigMap
+	etosConfig       *corev1.Secret
 	encryptionSecret *corev1.Secret
 }
 
 // NewETOSSuiteStarterDeployment will create a new ETOS SuiteStarter reconciler.
-func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, scheme *runtime.Scheme, client client.Client, rabbitmqSecret, messagebusSecret string, configmap *corev1.ConfigMap, encryption *corev1.Secret) *ETOSSuiteStarterDeployment {
-	return &ETOSSuiteStarterDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, configmap, encryption}
+func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, scheme *runtime.Scheme, client client.Client, rabbitmqSecret, messagebusSecret string, config *corev1.Secret, encryption *corev1.Secret) *ETOSSuiteStarterDeployment {
+	return &ETOSSuiteStarterDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config, encryption}
 }
 
 // Reconcile will reconcile the ETOS suite starter to its expected state.
@@ -61,26 +61,26 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 	if err != nil {
 		return err
 	}
+	// This secret is in use when running the TestRun controller. When the suite starter is removed, this MUST still be created.
 	secret, err := r.reconcileSuiteRunnerSecret(ctx, namespacedName, cluster)
 	if err != nil {
 		return err
 	}
-	configmap, err := r.reconcileConfigmap(ctx, secret.ObjectMeta.Name, namespacedName, cluster)
+	cfg, err := r.reconcileConfig(ctx, secret.ObjectMeta.Name, namespacedName, cluster)
 	if err != nil {
 		return err
 	}
-
 	template, err := r.reconcileTemplate(ctx, namespacedName, cluster)
 	if err != nil {
 		return err
 	}
 	var suiteRunnerTemplateName string
-	if r.SuiteRunnerTemplateConfigmapName == "" {
+	if r.SuiteRunnerTemplateSecretName == "" {
 		suiteRunnerTemplateName = template.ObjectMeta.Name
 	} else {
-		suiteRunnerTemplateName = r.SuiteRunnerTemplateConfigmapName
+		suiteRunnerTemplateName = r.SuiteRunnerTemplateSecretName
 	}
-	_, err = r.reconcileDeployment(ctx, configmap.ObjectMeta.Name, suiteRunnerTemplateName, namespacedName, cluster)
+	_, err = r.reconcileDeployment(ctx, cfg.ObjectMeta.Name, suiteRunnerTemplateName, namespacedName, cluster)
 	if err != nil {
 		return err
 	}
@@ -124,13 +124,13 @@ func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerServiceAccount(ctx cont
 }
 
 // reconcileSuiteRunnerSecret will reconcile the ETOS suite runner secret to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	name.Name = fmt.Sprintf("%s-suite-runner", name.Name)
+func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerSecret(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
+	name.Name = fmt.Sprintf("%s-etos-suite-runner-cfg", cluster.ObjectMeta.Name)
 	target, err := r.mergedSecret(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+	if err := ctrl.SetControllerReference(cluster, target, r.Scheme); err != nil {
 		return target, err
 	}
 
@@ -148,53 +148,57 @@ func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerSecret(ctx context.Cont
 }
 
 // reconcileConfigmap will reconcile the ETOS suite starter config to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileConfigmap(ctx context.Context, secretName string, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.ConfigMap, error) {
-	target := r.configmap(name, secretName, cluster)
+func (r *ETOSSuiteStarterDeployment) reconcileConfig(ctx context.Context, secretName string, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
+	target, err := r.config(ctx, name, secretName, cluster)
+	if err != nil {
+		return nil, err
+	}
 	if err := ctrl.SetControllerReference(cluster, target, r.Scheme); err != nil {
 		return target, err
 	}
 
-	configmap := &corev1.ConfigMap{}
-	if err := r.Get(ctx, name, configmap); err != nil {
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, name, secret); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return configmap, err
+			return secret, err
 		}
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
 		return target, nil
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(configmap))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
 // reconcileTemplate will reconcile the ETOS SuiteRunner template to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.ConfigMap, error) {
-	name.Name = fmt.Sprintf("%s-template", name.Name)
+func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-template", name.Name), Namespace: name.Namespace}
 	target := r.suiteRunnerTemplate(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
 	scheme.Scheme.Default(target)
 
-	configmap := &corev1.ConfigMap{}
-	if err := r.Get(ctx, name, configmap); err != nil {
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, name, secret); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return configmap, err
+			return secret, err
 		}
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
 		return target, nil
 	}
-	if equality.Semantic.DeepDerivative(target.Data, configmap.Data) {
-		return configmap, nil
+	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
+		return secret, nil
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(configmap))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
 // reconcileDeployment will reconcile the ETOS SuiteStarter deployment to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, configmap string, suiteRunnerTemplate string, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
-	target := r.deployment(name, configmap, suiteRunnerTemplate)
+func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, secretName string, suiteRunnerTemplate string, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
+	target := r.deployment(name, secretName, suiteRunnerTemplate)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -218,14 +222,15 @@ func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, co
 
 // reconcileSecret will reconcile the ETOS SuiteStarter service account secret to its expected state.
 func (r *ETOSSuiteStarterDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	target := r.secret(name)
+	tokenName := types.NamespacedName{Name: fmt.Sprintf("%s-token", name.Name), Namespace: name.Namespace}
+	target := r.secret(tokenName, name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
 	scheme.Scheme.Default(target)
 
 	secret := &corev1.Secret{}
-	if err := r.Get(ctx, name, secret); err != nil {
+	if err := r.Get(ctx, tokenName, secret); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return secret, err
 		}
@@ -303,39 +308,52 @@ func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, n
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rolebinding))
 }
 
-// configmap creates a configmap resource definition for the ETOS suite runner.
-func (r *ETOSSuiteStarterDeployment) configmap(name types.NamespacedName, secretName string, cluster *etosv1alpha1.Cluster) *corev1.ConfigMap {
+// config creates a secret resource definition for the ETOS suite runner.
+func (r *ETOSSuiteStarterDeployment) config(ctx context.Context, name types.NamespacedName, secretName string, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
 	routingKey := fmt.Sprintf("eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.%s.*", cluster.Spec.ETOS.Config.RoutingKeyTag)
-	data := map[string]string{
-		"SUITE_RUNNER":                  cluster.Spec.ETOS.SuiteRunner.Image.Image,
-		"LOG_LISTENER":                  cluster.Spec.ETOS.SuiteRunner.LogListener.Image.Image,
-		"ETOS_CONFIGMAP":                r.etosConfigmap.ObjectMeta.Name,
-		"ETOS_RABBITMQ_SECRET":          secretName,
-		"ETOS_ESR_TTL":                  r.Config.TTL,
-		"ETOS_TERMINATION_GRACE_PERIOD": r.Config.GracePeriod,
-		"RABBITMQ_ROUTING_KEY":          routingKey,
+	data := map[string][]byte{
+		"SUITE_RUNNER":                  []byte(cluster.Spec.ETOS.SuiteRunner.Image.Image),
+		"LOG_LISTENER":                  []byte(cluster.Spec.ETOS.SuiteRunner.LogListener.Image.Image),
+		"ETOS_CONFIGMAP":                []byte(r.etosConfig.ObjectMeta.Name),
+		"ETOS_RABBITMQ_SECRET":          []byte(secretName),
+		"ETOS_ESR_TTL":                  []byte(r.Config.TTL),
+		"ETOS_TERMINATION_GRACE_PERIOD": []byte(r.Config.GracePeriod),
+		"RABBITMQ_ROUTING_KEY":          []byte(routingKey),
+		"RABBITMQ_QUEUE":                []byte(r.EiffelQueueName),
 	}
 	if r.Config.ObservabilityConfigmapName != "" {
-		data["ETOS_OBSERVABILITY_CONFIGMAP"] = r.Config.ObservabilityConfigmapName
+		data["ETOS_OBSERVABILITY_CONFIGMAP"] = []byte(r.Config.ObservabilityConfigmapName)
 	}
 	if r.Config.SidecarImage != "" {
-		data["ETOS_SIDECAR_IMAGE"] = r.Config.SidecarImage
+		data["ETOS_SIDECAR_IMAGE"] = []byte(r.Config.SidecarImage)
 	}
 	if r.Config.OTELCollectorHost != "" {
-		data["OTEL_COLLECTOR_HOST"] = r.Config.OTELCollectorHost
+		data["OTEL_COLLECTOR_HOST"] = []byte(r.Config.OTELCollectorHost)
 	}
-	maps.Copy(data, r.etosConfigmap.Data)
-	return &corev1.ConfigMap{
+	if r.EiffelQueueParams != "" {
+		data["RABBITMQ_QUEUE_PARAMS"] = []byte(r.EiffelQueueParams)
+	}
+	eiffel := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
+		return nil, err
+	}
+	etos := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.messagebusSecret, Namespace: name.Namespace}, etos); err != nil {
+		return nil, err
+	}
+	maps.Copy(data, eiffel.Data)
+	maps.Copy(data, etos.Data)
+	maps.Copy(data, r.etosConfig.Data)
+	return &corev1.Secret{
 		ObjectMeta: r.meta(name),
 		Data:       data,
-	}
+	}, nil
 }
 
 // secret creates a secret resource definition for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) secret(name types.NamespacedName) *corev1.Secret {
+func (r *ETOSSuiteStarterDeployment) secret(name, serviceAccountName types.NamespacedName) *corev1.Secret {
 	meta := r.meta(name)
-	meta.Annotations["kubernetes.io/service-account.name"] = name.Name
-	name.Name = fmt.Sprintf("%s-token", name.Name)
+	meta.Annotations["kubernetes.io/service-account.name"] = serviceAccountName.Name
 	return &corev1.Secret{
 		ObjectMeta: meta,
 		Type:       corev1.SecretTypeServiceAccountToken,
@@ -356,6 +374,7 @@ func (r *ETOSSuiteStarterDeployment) mergedSecret(ctx context.Context, name type
 	data := map[string][]byte{}
 	maps.Copy(data, eiffel.Data)
 	maps.Copy(data, etos.Data)
+	maps.Copy(data, r.etosConfig.Data)
 	maps.Copy(data, r.encryptionSecret.Data)
 	return &corev1.Secret{
 		ObjectMeta: r.meta(name),
@@ -421,7 +440,7 @@ func (r *ETOSSuiteStarterDeployment) rolebinding(name types.NamespacedName) *rba
 }
 
 // deployment creates a deployment resource definition for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) deployment(name types.NamespacedName, configmap string, suiteRunnerTemplate string) *appsv1.Deployment {
+func (r *ETOSSuiteStarterDeployment) deployment(name types.NamespacedName, secretName string, suiteRunnerTemplate string) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: r.meta(name),
 		Spec: appsv1.DeploymentSpec{
@@ -436,14 +455,12 @@ func (r *ETOSSuiteStarterDeployment) deployment(name types.NamespacedName, confi
 				ObjectMeta: r.meta(name),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
-					Containers:         []corev1.Container{r.container(name, configmap)},
+					Containers:         []corev1.Container{r.container(name, secretName)},
 					Volumes: []corev1.Volume{{
 						Name: "suite-runner-template",
 						VolumeSource: corev1.VolumeSource{
-							ConfigMap: &corev1.ConfigMapVolumeSource{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: suiteRunnerTemplate,
-								},
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: suiteRunnerTemplate,
 							},
 						},
 					}},
@@ -454,13 +471,7 @@ func (r *ETOSSuiteStarterDeployment) deployment(name types.NamespacedName, confi
 }
 
 // container creates the container resource for the ETOS SuiteStarter deployment.
-func (r *ETOSSuiteStarterDeployment) container(name types.NamespacedName, configmap string) corev1.Container {
-	env := []corev1.EnvVar{
-		{Name: "RABBITMQ_QUEUE", Value: r.EiffelQueueName},
-	}
-	if r.EiffelQueueParams != "" {
-		env = append(env, corev1.EnvVar{Name: "RABBITMQ_QUEUE_PARAMS", Value: r.EiffelQueueParams})
-	}
+func (r *ETOSSuiteStarterDeployment) container(name types.NamespacedName, secretName string) corev1.Container {
 	return corev1.Container{
 		Name:            name.Name,
 		Image:           r.Image.Image,
@@ -475,8 +486,15 @@ func (r *ETOSSuiteStarterDeployment) container(name types.NamespacedName, config
 				corev1.ResourceCPU:    resource.MustParse("100m"),
 			},
 		},
-		EnvFrom: r.environment(configmap),
-		Env:     env,
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+				},
+			},
+		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "suite-runner-template",
@@ -487,10 +505,10 @@ func (r *ETOSSuiteStarterDeployment) container(name types.NamespacedName, config
 	}
 }
 
-// suiteRunnerTemplate creates a configmap resource for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedName) *corev1.ConfigMap {
-	data := map[string]string{
-		"suite_runner_template.yaml": `
+// suiteRunnerTemplate creates a secret resource for the ETOS SuiteStarter.
+func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedName) *corev1.Secret {
+	data := map[string][]byte{
+		"suite_runner_template.yaml": []byte(`
       apiVersion: batch/v1
       kind: Job
       metadata:
@@ -522,7 +540,7 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedNa
               image: registry.nordix.org/eiffel/etos-log-listener:4969c9b2
               command: ["python", "-u", "-m", "create_queue"]
               envFrom:
-              - configMapRef:
+              - secretRef:
                   name: {etos_configmap}
               - secretRef:
                   name: {etos_rabbitmq_secret}
@@ -537,7 +555,7 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedNa
               command: ['/kubexit/kubexit']
               args: ['python', '-u', '-m', 'etos_suite_runner']
               envFrom:
-              - configMapRef:
+              - secretRef:
                   name: {etos_configmap}
               - secretRef:
                   name: {etos_rabbitmq_secret}
@@ -565,7 +583,7 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedNa
               command: ['/kubexit/kubexit']
               args: ['python', '-u', '-m', 'log_listener']
               envFrom:
-              - configMapRef:
+              - secretRef:
                   name: {etos_configmap}
               - secretRef:
                   name: {etos_rabbitmq_secret}
@@ -587,38 +605,11 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedNa
                 mountPath: /kubexit
             restartPolicy: Never
         backoffLimit: 0
-    `,
+    `),
 	}
-	return &corev1.ConfigMap{
+	return &corev1.Secret{
 		ObjectMeta: r.meta(name),
 		Data:       data,
-	}
-}
-
-// environment creates the environment resource for the ETOS SuiteStarter deployment.
-func (r *ETOSSuiteStarterDeployment) environment(configmap string) []corev1.EnvFromSource {
-	return []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.rabbitmqSecret,
-				},
-			},
-		},
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.messagebusSecret,
-				},
-			},
-		},
-		{
-			ConfigMapRef: &corev1.ConfigMapEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: configmap,
-				},
-			},
-		},
 	}
 }
 

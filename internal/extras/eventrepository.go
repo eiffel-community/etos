@@ -18,6 +18,7 @@ package extras
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
@@ -55,7 +56,12 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 	name := fmt.Sprintf("%s-graphql", cluster.Name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-	_, err := r.reconcileDeployment(ctx, namespacedName, cluster)
+	cfg, err := r.reconcileConfig(ctx, namespacedName, cluster)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.ObjectMeta.Name, cluster)
 	if err != nil {
 		return err
 	}
@@ -77,9 +83,32 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 	return nil
 }
 
+// reconcileConfig will reconcile the secret to use as configuration for the event repository.
+func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	target, err := r.config(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, name, secret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return secret, err
+		}
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
+}
+
 // reconcileDeployment will reconcile the event repository deployment to its expected state.
-func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
-	target := r.deployment(name)
+func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+	target := r.deployment(name, secretName)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -158,8 +187,29 @@ func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, name t
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(ingress))
 }
 
+// config creates a new Secret to be used as configuration for the event repository.
+func (r *EventRepositoryDeployment) config(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+	eiffel := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
+		return nil, err
+	}
+	etos := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.mongodbSecret, Namespace: name.Namespace}, etos); err != nil {
+		return nil, err
+	}
+	data := map[string][]byte{}
+	maps.Copy(data, eiffel.Data)
+	maps.Copy(data, etos.Data)
+	data["RABBITMQ_QUEUE"] = []byte(r.EventRepository.EiffelQueueName)
+	data["RABBITMQ_QUEUE_PARAMS"] = []byte(r.EventRepository.EiffelQueueParams)
+	return &corev1.Secret{
+		ObjectMeta: r.meta(name),
+		Data:       data,
+	}, nil
+}
+
 // deployment will create a deployment resource definition for the event repository.
-func (r *EventRepositoryDeployment) deployment(name types.NamespacedName) *appsv1.Deployment {
+func (r *EventRepositoryDeployment) deployment(name types.NamespacedName, secretName string) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: r.meta(name),
 		Spec: appsv1.DeploymentSpec{
@@ -169,7 +219,7 @@ func (r *EventRepositoryDeployment) deployment(name types.NamespacedName) *appsv
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: r.meta(name),
 				Spec: corev1.PodSpec{
-					Containers: r.containers(name),
+					Containers: r.containers(name, secretName),
 				},
 			},
 		},
@@ -214,7 +264,7 @@ func (r *EventRepositoryDeployment) meta(name types.NamespacedName) metav1.Objec
 }
 
 // containers will create a container resource definition for the event repository deployment.
-func (r *EventRepositoryDeployment) containers(name types.NamespacedName) []corev1.Container {
+func (r *EventRepositoryDeployment) containers(name types.NamespacedName, secretName string) []corev1.Container {
 	return []corev1.Container{
 		{
 			Name:            fmt.Sprintf("%s-api", name.Name),
@@ -227,7 +277,15 @@ func (r *EventRepositoryDeployment) containers(name types.NamespacedName) []core
 					Protocol:      "TCP",
 				},
 			},
-			EnvFrom: r.environment(),
+			EnvFrom: []corev1.EnvFromSource{
+				{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secretName,
+						},
+					},
+				},
+			},
 		}, {
 			Name:            fmt.Sprintf("%s-storage", name.Name),
 			Image:           r.Storage.Image,
@@ -237,29 +295,13 @@ func (r *EventRepositoryDeployment) containers(name types.NamespacedName) []core
 				"-m",
 				"eiffel_graphql_api.storage",
 			},
-			EnvFrom: r.environment(),
-			Env: []corev1.EnvVar{
-				{Name: "RABBITMQ_QUEUE", Value: r.EventRepository.EiffelQueueName},
-				{Name: "RABBITMQ_QUEUE_PARAMS", Value: r.EventRepository.EiffelQueueParams},
-			},
-		},
-	}
-}
-
-// environment will create an environment resource definition for the event repository deployment.
-func (r *EventRepositoryDeployment) environment() []corev1.EnvFromSource {
-	return []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.mongodbSecret,
-				},
-			},
-		},
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.rabbitmqSecret,
+			EnvFrom: []corev1.EnvFromSource{
+				{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secretName,
+						},
+					},
 				},
 			},
 		},

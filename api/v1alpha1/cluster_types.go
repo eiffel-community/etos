@@ -143,7 +143,7 @@ type ETOSSuiteStarter struct {
 	// Provide a custom suite runner template.
 	// +kubebuilder:default=""
 	// +optional
-	SuiteRunnerTemplateConfigmapName string `json:"suiteRunnerTemplateConfigmapName,omitempty"`
+	SuiteRunnerTemplateSecretName string `json:"suiteRunnerTemplateSecretName,omitempty"`
 	// +kubebuilder:default={"ttl": "3600", "gracePeriod": "300"}
 	// +optional
 	Config ETOSSuiteStarterConfig `json:"config"`

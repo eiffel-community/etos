@@ -86,6 +86,9 @@ spec:
                           pull a container image
                         type: string
                       iutProviderSecret:
+                        description: |-
+                          The provider secrets are necessary in order to run ETOS the old way and not using the controller.
+                          They can be removed from here when the suite starter is no longer in use.
                         type: string
                       logAreaProviderSecret:
                         type: string
@@ -346,7 +349,7 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                      suiteRunnerTemplateConfigmapName:
+                      suiteRunnerTemplateSecretName:
                         default: ""
                         description: Provide a custom suite runner template.
                         type: string
