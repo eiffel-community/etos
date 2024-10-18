@@ -120,9 +120,10 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             with self.__lock:
                 download_path.parent.mkdir(exist_ok=True, parents=True)
         index = 0
+        original_name = download_path.name
         while download_path.exists():
             index += 1
-            download_path = download_path.with_name(f"{index}_{download_path.name}")
+            download_path = download_path.with_name(f"{index}_{original_name}")
         self.logger.debug("Saving file %s", download_path)
         with self.__lock:
             self.downloads.add(str(download_path))
