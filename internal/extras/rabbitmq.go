@@ -219,12 +219,6 @@ func (r *RabbitMQDeployment) secretData(name types.NamespacedName) (map[string][
 	if r.Username != "" {
 		data["RABBITMQ_USERNAME"] = []byte(r.Username)
 	}
-	if r.QueueName != "" {
-		data["RABBITMQ_QUEUE"] = []byte(r.QueueName)
-	}
-	if r.QueueParams != "" {
-		data["RABBITMQ_QUEUE_PARAMS"] = []byte(r.QueueParams)
-	}
 	return data, nil
 }
 

@@ -214,12 +214,6 @@ func (r *MessageBusDeployment) secretData(namespace string) (map[string][]byte, 
 	if r.Username != "" {
 		data["ETOS_RABBITMQ_USERNAME"] = []byte(r.Username)
 	}
-	if r.QueueName != "" {
-		data["ETOS_RABBITMQ_QUEUE_NAME"] = []byte(r.QueueName)
-	}
-	if r.QueueParams != "" {
-		data["ETOS_RABBITMQ_QUEUE_PARAMS"] = []byte(r.QueueParams)
-	}
 	return data, nil
 }
 

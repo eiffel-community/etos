@@ -222,7 +222,7 @@ func (r *ETOSLogAreaDeployment) container(name types.NamespacedName, cluster *et
 			{
 				SecretRef: &corev1.SecretEnvSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cluster.Name,
+						Name: fmt.Sprintf("%s-encryption-key", cluster.Name),
 					},
 				},
 			},

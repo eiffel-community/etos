@@ -116,7 +116,7 @@ func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmen
 	logger.V(1).Info("environment provider count", "active", len(environmentProviders.activeJobs), "successful", len(environmentProviders.successfulJobs), "failed", len(environmentProviders.failedJobs))
 
 	// Check providers availability
-	// TODO Update status
+	// TODO: Update status
 	providers := etosv1alpha1.Providers{
 		IUT:            environmentrequest.Spec.Providers.IUT.ID,
 		ExecutionSpace: environmentrequest.Spec.Providers.ExecutionSpace.ID,
@@ -255,30 +255,9 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 							},
 							EnvFrom: []corev1.EnvFromSource{
 								{
-									ConfigMapRef: &corev1.ConfigMapEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: cluster,
-										},
-									},
-								},
-								{
 									SecretRef: &corev1.SecretEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: cluster,
-										},
-									},
-								},
-								{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: fmt.Sprintf("%s-rabbitmq", cluster),
-										},
-									},
-								},
-								{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: fmt.Sprintf("%s-messagebus", cluster),
+											Name: fmt.Sprintf("%s-environment-provider-cfg", cluster),
 										},
 									},
 								},
