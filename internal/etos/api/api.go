@@ -19,6 +19,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -47,12 +48,12 @@ type ETOSApiDeployment struct {
 	Scheme           *runtime.Scheme
 	rabbitmqSecret   string
 	messagebusSecret string
-	configmap        string
+	configSecret     string
 }
 
 // NewETOSApiDeployment will create a new ETOS API reconciler.
-func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string, configmap string) *ETOSApiDeployment {
-	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, configmap}
+func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string, config string) *ETOSApiDeployment {
+	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config}
 }
 
 // Reconcile will reconcile the ETOS API to its expected state.
@@ -61,7 +62,11 @@ func (r *ETOSApiDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	name := fmt.Sprintf("%s-etos-api", cluster.Name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-	_, err = r.reconcileDeployment(ctx, namespacedName, cluster)
+	cfg, err := r.reconcileConfig(ctx, namespacedName, cluster)
+	if err != nil {
+		return err
+	}
+	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.ObjectMeta.Name, cluster)
 	if err != nil {
 		return err
 	}
@@ -88,9 +93,33 @@ func (r *ETOSApiDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	return nil
 }
 
+// reconcileConfig will reconcile the secret to use as configuration for the ETOS API.
+func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
+	target, err := r.config(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, name, secret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return secret, err
+		}
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
+}
+
 // reconcileDeployment will reconcile the ETOS API deployment to its expected state.
-func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
-	target := r.deployment(name)
+func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+	target := r.deployment(name, secretName)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -114,14 +143,15 @@ func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, name types.
 
 // reconcileSecret will reconcile the ETOS API service account secret to its expected state.
 func (r *ETOSApiDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	target := r.secret(name)
+	tokenName := types.NamespacedName{Name: fmt.Sprintf("%s-token", name.Name), Namespace: name.Namespace}
+	target := r.secret(tokenName, name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
 	scheme.Scheme.Default(target)
 
 	secret := &corev1.Secret{}
-	if err := r.Get(ctx, name, secret); err != nil {
+	if err := r.Get(ctx, tokenName, secret); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return secret, err
 		}
@@ -219,11 +249,34 @@ func (r *ETOSApiDeployment) reconcileService(ctx context.Context, name types.Nam
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
+// config creates a new Secret to be used as configuration for the ETOS API.
+func (r *ETOSApiDeployment) config(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+	eiffel := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
+		return nil, err
+	}
+	etos := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.messagebusSecret, Namespace: name.Namespace}, etos); err != nil {
+		return nil, err
+	}
+	config := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.configSecret, Namespace: name.Namespace}, config); err != nil {
+		return nil, err
+	}
+	data := map[string][]byte{}
+	maps.Copy(data, eiffel.Data)
+	maps.Copy(data, etos.Data)
+	maps.Copy(data, config.Data)
+	return &corev1.Secret{
+		ObjectMeta: r.meta(name),
+		Data:       data,
+	}, nil
+}
+
 // secret creates a secret resource definition for the ETOS API.
-func (r *ETOSApiDeployment) secret(name types.NamespacedName) *corev1.Secret {
+func (r *ETOSApiDeployment) secret(name, serviceAccountName types.NamespacedName) *corev1.Secret {
 	meta := r.meta(name)
-	meta.Annotations["kubernetes.io/service-account.name"] = name.Name
-	name.Name = fmt.Sprintf("%s-token", name.Name)
+	meta.Annotations["kubernetes.io/service-account.name"] = serviceAccountName.Name
 	return &corev1.Secret{
 		ObjectMeta: meta,
 		Type:       corev1.SecretTypeServiceAccountToken,
@@ -306,7 +359,7 @@ func (r *ETOSApiDeployment) rolebinding(name types.NamespacedName) *rbacv1.RoleB
 }
 
 // deployment creates a deployment resource definition for the ETOS API.
-func (r *ETOSApiDeployment) deployment(name types.NamespacedName) *appsv1.Deployment {
+func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName string) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: r.meta(name),
 		Spec: appsv1.DeploymentSpec{
@@ -321,7 +374,7 @@ func (r *ETOSApiDeployment) deployment(name types.NamespacedName) *appsv1.Deploy
 				ObjectMeta: r.meta(name),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
-					Containers:         []corev1.Container{r.container(name)},
+					Containers:         []corev1.Container{r.container(name, secretName)},
 					Volumes:            r.volumes(),
 				},
 			},
@@ -345,7 +398,7 @@ func (r *ETOSApiDeployment) service(name types.NamespacedName) *corev1.Service {
 }
 
 // container creates the container resource for the ETOS API deployment.
-func (r *ETOSApiDeployment) container(name types.NamespacedName) corev1.Container {
+func (r *ETOSApiDeployment) container(name types.NamespacedName, secretName string) corev1.Container {
 	probe := &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -383,8 +436,16 @@ func (r *ETOSApiDeployment) container(name types.NamespacedName) corev1.Containe
 		VolumeMounts:   r.volumeMounts(),
 		LivenessProbe:  probe,
 		ReadinessProbe: probe,
-		EnvFrom:        r.environmentFrom(),
-		Env:            r.environment(),
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+				},
+			},
+		},
+		Env: r.environment(),
 	}
 }
 
@@ -437,33 +498,6 @@ func (r *ETOSApiDeployment) volumes() []corev1.Volume {
 		})
 	}
 	return vol
-}
-
-// environmentFrom creates the environment resource for the ETOS API deployment.
-func (r *ETOSApiDeployment) environmentFrom() []corev1.EnvFromSource {
-	return []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.rabbitmqSecret,
-				},
-			},
-		},
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.messagebusSecret,
-				},
-			},
-		},
-		{
-			ConfigMapRef: &corev1.ConfigMapEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.configmap,
-				},
-			},
-		},
-	}
 }
 
 // environment creates environment variables for providers if supplied.

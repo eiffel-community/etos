@@ -19,6 +19,7 @@ package etos
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	etosapi "github.com/eiffel-community/etos/internal/etos/api"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type ETOSDeployment struct {
@@ -52,53 +54,70 @@ func NewETOSDeployment(spec etosv1alpha1.ETOS, scheme *runtime.Scheme, client cl
 // Reconcile will reconcile ETOS to its expected state.
 func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
 	var err error
+	logger := log.FromContext(ctx)
 	namespacedName := types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}
 	if _, err := r.reconcileIngress(ctx, namespacedName, cluster); err != nil {
+		logger.Error(err, "Ingress reconciliation failed")
 		return err
 	}
 
 	_, err = r.reconcileRole(ctx, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Role reconciliation failed")
 		return err
 	}
 
 	_, err = r.reconcileServiceAccount(ctx, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "ServiceAccount reconciliation failed")
 		return err
 	}
 
 	_, err = r.reconcileRolebinding(ctx, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Rolebinding reconciliation failed")
 		return err
 	}
 
-	configmap, err := r.reconcileConfigmap(ctx, namespacedName, cluster)
+	config, err := r.reconcileConfig(ctx, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Config reconciliation failed")
 		return err
 	}
 
 	encryption, err := r.reconcileSecret(ctx, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Secret reconciliation failed")
 		return err
 	}
 
-	api := etosapi.NewETOSApiDeployment(r.API, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, configmap.Name)
+	_, err = r.reconcileEnvironmentProviderConfig(ctx, namespacedName, encryption.ObjectMeta.Name, config.ObjectMeta.Name, cluster)
+	if err != nil {
+		logger.Error(err, "Environment provider config reconciliation failed")
+		return err
+	}
+
+	api := etosapi.NewETOSApiDeployment(r.API, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config.ObjectMeta.Name)
 	if err := api.Reconcile(ctx, cluster); err != nil {
+		logger.Error(err, "ETOS API reconciliation failed")
 		return err
 	}
 
 	sse := etosapi.NewETOSSSEDeployment(r.SSE, r.Scheme, r.Client)
 	if err := sse.Reconcile(ctx, cluster); err != nil {
+		logger.Error(err, "ETOS SSE reconciliation failed")
 		return err
 	}
 
 	logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client)
 	if err := logarea.Reconcile(ctx, cluster); err != nil {
+		logger.Error(err, "ETOS LogArea reconciliation failed")
 		return err
 	}
 
-	suitestarter := etossuitestarter.NewETOSSuiteStarterDeployment(r.SuiteStarter, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, configmap, encryption)
+	suitestarter := etossuitestarter.NewETOSSuiteStarterDeployment(r.SuiteStarter, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config, encryption)
 	if err := suitestarter.Reconcile(ctx, cluster); err != nil {
+		logger.Error(err, "ETOS SuiteStarter reconciliation failed")
 		return err
 	}
 
@@ -202,29 +221,31 @@ func (r *ETOSDeployment) reconcileRolebinding(ctx context.Context, name types.Na
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rolebinding))
 }
 
-// reconcileConfigmap will reconcile the ETOS configmap to its expected state.
-func (r *ETOSDeployment) reconcileConfigmap(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.ConfigMap, error) {
-	target := r.configmap(name, cluster)
+// reconcileConfig will reconcile the ETOS config to its expected state.
+func (r *ETOSDeployment) reconcileConfig(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
+	target := r.config(name, cluster)
 	if err := ctrl.SetControllerReference(cluster, target, r.Scheme); err != nil {
 		return target, err
 	}
 	scheme.Scheme.Default(target)
 
-	configmap := &corev1.ConfigMap{}
-	if err := r.Get(ctx, name, configmap); err != nil {
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, name, secret); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return configmap, err
+			return secret, err
 		}
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
 		return target, nil
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(configmap))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
 // reconcileSecret will reconcile the secret to its expected state.
 func (r *ETOSDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-encryption-key", name.Name), Namespace: name.Namespace}
 	target, err := r.secret(ctx, name)
 	if err != nil {
 		return target, err
@@ -250,6 +271,59 @@ func (r *ETOSDeployment) reconcileSecret(ctx context.Context, name types.Namespa
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
+// reconcileEnvironmentProviderConfig will reconcile the secret to use as configuration for the ETOS environment provider.
+func (r *ETOSDeployment) reconcileEnvironmentProviderConfig(ctx context.Context, name types.NamespacedName, encryptionKeyName, configmapName string, owner metav1.Object) (*corev1.Secret, error) {
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-environment-provider-cfg", name.Name), Namespace: name.Namespace}
+	target, err := r.environmentProviderConfig(ctx, name, encryptionKeyName, configmapName)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, name, secret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return secret, err
+		}
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
+}
+
+// config creates a new Secret to be used as configuration for the ETOS API.
+func (r *ETOSDeployment) environmentProviderConfig(ctx context.Context, name types.NamespacedName, encryptionKeyName, configmapName string) (*corev1.Secret, error) {
+	eiffel := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
+		return nil, err
+	}
+	etos := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.messagebusSecret, Namespace: name.Namespace}, etos); err != nil {
+		return nil, err
+	}
+	encryption := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: encryptionKeyName, Namespace: name.Namespace}, encryption); err != nil {
+		return nil, err
+	}
+	config := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: configmapName, Namespace: name.Namespace}, config); err != nil {
+		return nil, err
+	}
+	data := map[string][]byte{}
+	maps.Copy(data, eiffel.Data)
+	maps.Copy(data, etos.Data)
+	maps.Copy(data, encryption.Data)
+	maps.Copy(data, config.Data)
+	return &corev1.Secret{
+		ObjectMeta: r.meta(name),
+		Data:       data,
+	}, nil
+}
+
 // ingress creates an ingress resource definition for ETOS.
 func (r *ETOSDeployment) ingress(name types.NamespacedName) *networkingv1.Ingress {
 	ingress := &networkingv1.Ingress{
@@ -264,8 +338,8 @@ func (r *ETOSDeployment) ingress(name types.NamespacedName) *networkingv1.Ingres
 	return ingress
 }
 
-// configmap creates a configmap definition for ETOS.
-func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alpha1.Cluster) *corev1.ConfigMap {
+// config creates a secret definition for ETOS.
+func (r *ETOSDeployment) config(name types.NamespacedName, cluster *etosv1alpha1.Cluster) *corev1.Secret {
 	etosHost := name.Name
 	if r.Ingress.Host != "" {
 		etosHost = r.Ingress.Host
@@ -279,45 +353,45 @@ func (r *ETOSDeployment) configmap(name types.NamespacedName, cluster *etosv1alp
 		eventRepository = r.Config.ETOSEventRepositoryURL
 	}
 
-	data := map[string]string{
-		"ETOS_GRAPHQL_SERVER":                    eventRepository,
-		"ETOS_CLUSTER":                           cluster.Name,
-		"ETOS_NAMESPACE":                         cluster.Namespace,
-		"ENVIRONMENT_PROVIDER_SERVICE_ACCOUNT":   fmt.Sprintf("%s-provider", cluster.Name),
-		"SOURCE_HOST":                            r.Config.Source,
-		"ETOS_API":                               etosApi,
-		"SUITE_RUNNER_IMAGE":                     cluster.Spec.ETOS.SuiteRunner.Image.Image,
-		"SUITE_RUNNER_IMAGE_PULL_POLICY":         string(cluster.Spec.ETOS.SuiteRunner.ImagePullPolicy),
-		"LOG_LISTENER_IMAGE":                     cluster.Spec.ETOS.SuiteRunner.LogListener.Image.Image,
-		"LOG_LISTENER_IMAGE_PULL_POLICY":         string(cluster.Spec.ETOS.SuiteRunner.LogListener.ImagePullPolicy),
-		"ENVIRONMENT_PROVIDER_IMAGE":             cluster.Spec.ETOS.EnvironmentProvider.Image.Image,
-		"ENVIRONMENT_PROVIDER_IMAGE_PULL_POLICY": string(cluster.Spec.ETOS.EnvironmentProvider.ImagePullPolicy),
-		"ETR_VERSION":                            cluster.Spec.ETOS.TestRunner.Version,
-		"ETOS_ROUTING_KEY_TAG":                   cluster.Spec.ETOS.Config.RoutingKeyTag,
+	data := map[string][]byte{
+		"ETOS_GRAPHQL_SERVER":                    []byte(eventRepository),
+		"ETOS_CLUSTER":                           []byte(cluster.Name),
+		"ETOS_NAMESPACE":                         []byte(cluster.Namespace),
+		"ENVIRONMENT_PROVIDER_SERVICE_ACCOUNT":   []byte(fmt.Sprintf("%s-provider", cluster.Name)),
+		"SOURCE_HOST":                            []byte(r.Config.Source),
+		"ETOS_API":                               []byte(etosApi),
+		"SUITE_RUNNER_IMAGE":                     []byte(cluster.Spec.ETOS.SuiteRunner.Image.Image),
+		"SUITE_RUNNER_IMAGE_PULL_POLICY":         []byte(string(cluster.Spec.ETOS.SuiteRunner.ImagePullPolicy)),
+		"LOG_LISTENER_IMAGE":                     []byte(cluster.Spec.ETOS.SuiteRunner.LogListener.Image.Image),
+		"LOG_LISTENER_IMAGE_PULL_POLICY":         []byte(string(cluster.Spec.ETOS.SuiteRunner.LogListener.ImagePullPolicy)),
+		"ENVIRONMENT_PROVIDER_IMAGE":             []byte(cluster.Spec.ETOS.EnvironmentProvider.Image.Image),
+		"ENVIRONMENT_PROVIDER_IMAGE_PULL_POLICY": []byte(string(cluster.Spec.ETOS.EnvironmentProvider.ImagePullPolicy)),
+		"ETR_VERSION":                            []byte(cluster.Spec.ETOS.TestRunner.Version),
+		"ETOS_ROUTING_KEY_TAG":                   []byte(cluster.Spec.ETOS.Config.RoutingKeyTag),
 
-		"ETOS_ETCD_HOST": cluster.Spec.Database.Etcd.Host,
-		"ETOS_ETCD_PORT": cluster.Spec.Database.Etcd.Port,
+		"ETOS_ETCD_HOST": []byte(cluster.Spec.Database.Etcd.Host),
+		"ETOS_ETCD_PORT": []byte(cluster.Spec.Database.Etcd.Port),
 
-		"DEV": r.Config.Dev,
+		"DEV": []byte(r.Config.Dev),
 
 		// TODO: A few of these seem redundant
-		"ESR_WAIT_FOR_ENVIRONMENT_TIMEOUT":        r.Config.EnvironmentTimeout,
-		"ETOS_WAIT_FOR_IUT_TIMEOUT":               r.Config.EnvironmentTimeout,
-		"ETOS_EVENT_DATA_TIMEOUT":                 r.Config.EventDataTimeout,
-		"ENVIRONMENT_PROVIDER_EVENT_DATA_TIMEOUT": r.Config.EventDataTimeout,
-		"ENVIRONMENT_PROVIDER_TEST_SUITE_TIMEOUT": r.Config.TestSuiteTimeout,
-		"ETOS_TEST_SUITE_TIMEOUT":                 r.Config.TestSuiteTimeout,
+		"ESR_WAIT_FOR_ENVIRONMENT_TIMEOUT":        []byte(r.Config.EnvironmentTimeout),
+		"ETOS_WAIT_FOR_IUT_TIMEOUT":               []byte(r.Config.EnvironmentTimeout),
+		"ETOS_EVENT_DATA_TIMEOUT":                 []byte(r.Config.EventDataTimeout),
+		"ENVIRONMENT_PROVIDER_EVENT_DATA_TIMEOUT": []byte(r.Config.EventDataTimeout),
+		"ENVIRONMENT_PROVIDER_TEST_SUITE_TIMEOUT": []byte(r.Config.TestSuiteTimeout),
+		"ETOS_TEST_SUITE_TIMEOUT":                 []byte(r.Config.TestSuiteTimeout),
 	}
 	if cluster.Spec.ETOS.Config.TestRunRetention.Failure != nil {
-		data["TESTRUN_FAILURE_RETENTION"] = cluster.Spec.ETOS.Config.TestRunRetention.Failure.Duration.String()
+		data["TESTRUN_FAILURE_RETENTION"] = []byte(cluster.Spec.ETOS.Config.TestRunRetention.Failure.Duration.String())
 	}
 	if cluster.Spec.ETOS.Config.TestRunRetention.Success != nil {
-		data["TESTRUN_SUCCESS_RETENTION"] = cluster.Spec.ETOS.Config.TestRunRetention.Success.Duration.String()
+		data["TESTRUN_SUCCESS_RETENTION"] = []byte(cluster.Spec.ETOS.Config.TestRunRetention.Success.Duration.String())
 	}
 	if r.Config.Timezone != "" {
-		data["TZ"] = r.Config.Timezone
+		data["TZ"] = []byte(r.Config.Timezone)
 	}
-	return &corev1.ConfigMap{
+	return &corev1.Secret{
 		ObjectMeta: r.meta(name),
 		Data:       data,
 	}
