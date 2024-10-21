@@ -64,8 +64,14 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 		logger.Error(err, "Failed to reconcile the EventRepository configuration")
 		return err
 	}
+	var configName string
+	if cfg != nil {
+		configName = cfg.ObjectMeta.Name
+	} else {
+		configName = namespacedName.Name
+	}
 
-	_, err = r.reconcileDeployment(ctx, logger, namespacedName, cfg.ObjectMeta.Name, cluster)
+	_, err = r.reconcileDeployment(ctx, logger, namespacedName, configName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the EventRepository deployment")
 		return err
@@ -93,24 +99,33 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 
 // reconcileConfig will reconcile the secret to use as configuration for the event repository.
 func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	target, err := r.config(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
-		return target, err
+	var err error
+	var target *corev1.Secret
+	if r.Deploy {
+		target, err = r.config(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		if err = ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+			return target, err
+		}
 	}
 
 	secret := &corev1.Secret{}
-	if err := r.Get(ctx, name, secret); err != nil {
+	if err = r.Get(ctx, name, secret); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return secret, err
 		}
-		logger.Info("Creating the configuration for an EventRepository")
-		if err := r.Create(ctx, target); err != nil {
-			return target, err
+		if r.Deploy {
+			logger.Info("Creating the configuration for an EventRepository")
+			if err = r.Create(ctx, target); err != nil {
+				return target, err
+			}
 		}
 		return target, nil
+	} else if !r.Deploy {
+		logger.Info("Removing the configuration for EventRepository")
+		return nil, r.Delete(ctx, secret)
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
