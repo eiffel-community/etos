@@ -22,6 +22,7 @@ import (
 	"maps"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -35,6 +36,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -60,41 +62,49 @@ func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, scheme *runtime.Scheme, cli
 func (r *ETOSApiDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
 	var err error
 	name := fmt.Sprintf("%s-etos-api", cluster.Name)
+	logger := log.FromContext(ctx, "Reconciler", "ETOSApi", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-	cfg, err := r.reconcileConfig(ctx, namespacedName, cluster)
+	cfg, err := r.reconcileConfig(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the config for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.ObjectMeta.Name, cluster)
+	_, err = r.reconcileDeployment(ctx, logger, namespacedName, cfg.ObjectMeta.Name, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the deployment for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileSecret(ctx, namespacedName, cluster)
+	_, err = r.reconcileSecret(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the secret for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileRole(ctx, namespacedName, cluster)
+	_, err = r.reconcileRole(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the role for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileServiceAccount(ctx, namespacedName, cluster)
+	_, err = r.reconcileServiceAccount(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the service account for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileRolebinding(ctx, namespacedName, cluster)
+	_, err = r.reconcileRolebinding(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the role binding for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileService(ctx, namespacedName, cluster)
+	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the service for the ETOS API")
 		return err
 	}
 	return nil
 }
 
 // reconcileConfig will reconcile the secret to use as configuration for the ETOS API.
-func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
 	target, err := r.config(ctx, name)
 	if err != nil {
@@ -109,6 +119,7 @@ func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, name types.Name
 		if !apierrors.IsNotFound(err) {
 			return secret, err
 		}
+		logger.Info("Creating a new config for the ETOS API")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
@@ -118,7 +129,7 @@ func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, name types.Name
 }
 
 // reconcileDeployment will reconcile the ETOS API deployment to its expected state.
-func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
 	target := r.deployment(name, secretName)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -130,6 +141,7 @@ func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, name types.
 		if !apierrors.IsNotFound(err) {
 			return deployment, err
 		}
+		logger.Info("Creating a new deployment for the ETOS API")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
@@ -142,7 +154,7 @@ func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, name types.
 }
 
 // reconcileSecret will reconcile the ETOS API service account secret to its expected state.
-func (r *ETOSApiDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *ETOSApiDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
 	tokenName := types.NamespacedName{Name: fmt.Sprintf("%s-token", name.Name), Namespace: name.Namespace}
 	target := r.secret(tokenName, name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
@@ -155,6 +167,7 @@ func (r *ETOSApiDeployment) reconcileSecret(ctx context.Context, name types.Name
 		if !apierrors.IsNotFound(err) {
 			return secret, err
 		}
+		logger.Info("Creating a new secret for the ETOS API service account")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
@@ -167,7 +180,7 @@ func (r *ETOSApiDeployment) reconcileSecret(ctx context.Context, name types.Name
 }
 
 // reconcileRole will reconcile the ETOS API service account role to its expected state.
-func (r *ETOSApiDeployment) reconcileRole(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
+func (r *ETOSApiDeployment) reconcileRole(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s:sa:esr-handler", name.Name)
 
@@ -181,6 +194,7 @@ func (r *ETOSApiDeployment) reconcileRole(ctx context.Context, name types.Namesp
 		if !apierrors.IsNotFound(err) {
 			return role, err
 		}
+		logger.Info("Creating a new role for the ETOS API")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
@@ -190,7 +204,7 @@ func (r *ETOSApiDeployment) reconcileRole(ctx context.Context, name types.Namesp
 }
 
 // reconcileServiceAccount will reconcile the ETOS API service account to its expected state.
-func (r *ETOSApiDeployment) reconcileServiceAccount(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
+func (r *ETOSApiDeployment) reconcileServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
 	target := r.serviceaccount(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -201,6 +215,7 @@ func (r *ETOSApiDeployment) reconcileServiceAccount(ctx context.Context, name ty
 		if !apierrors.IsNotFound(err) {
 			return serviceaccount, err
 		}
+		logger.Info("Creating a new service account for the ETOS API")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
@@ -210,7 +225,7 @@ func (r *ETOSApiDeployment) reconcileServiceAccount(ctx context.Context, name ty
 }
 
 // reconcileRolebinding will reconcile the ETOS API service account role binding to its expected state.
-func (r *ETOSApiDeployment) reconcileRolebinding(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
+func (r *ETOSApiDeployment) reconcileRolebinding(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
 	target := r.rolebinding(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -221,6 +236,7 @@ func (r *ETOSApiDeployment) reconcileRolebinding(ctx context.Context, name types
 		if !apierrors.IsNotFound(err) {
 			return rolebinding, err
 		}
+		logger.Info("Creating a rolebinding for the ETOS API")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
@@ -230,7 +246,7 @@ func (r *ETOSApiDeployment) reconcileRolebinding(ctx context.Context, name types
 }
 
 // reconcileService will reconcile the ETOS API service to its expected state.
-func (r *ETOSApiDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *ETOSApiDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
 	target := r.service(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -241,6 +257,7 @@ func (r *ETOSApiDeployment) reconcileService(ctx context.Context, name types.Nam
 		if !apierrors.IsNotFound(err) {
 			return service, err
 		}
+		logger.Info("Creating a new kubernetes service for the ETOS API")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
