@@ -21,6 +21,7 @@ import (
 	"net/url"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -52,8 +53,8 @@ func NewMongoDBDeployment(spec etosv1alpha1.MongoDB, scheme *runtime.Scheme, cli
 
 // Reconcile will reconcile MongoDB to its expected state.
 func (r *MongoDBDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
-	logger := log.FromContext(ctx)
 	name := fmt.Sprintf("%s-mongodb", cluster.Name)
+	logger := log.FromContext(ctx, "Reconciler", "MongoDB", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
 	if (url.URL{}) == r.URL {
@@ -72,19 +73,24 @@ func (r *MongoDBDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 		logger.Info("Patching host & port when deploying mongodb", "host", name, "port", mongodbPort)
 		r.URL.Host = fmt.Sprintf("%s:%d", name, mongodbPort)
 		r.URI.Value = r.URL.String()
+	} else {
+		logger.Info("Not deploying MongoDB")
 	}
-	secret, err := r.reconcileSecret(ctx, namespacedName, cluster)
+	secret, err := r.reconcileSecret(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the MongoDB secret")
 		return err
 	}
 	r.SecretName = secret.Name
 
-	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
+	_, err = r.reconcileStatefulset(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the MongoDB statefulset")
 		return err
 	}
-	_, err = r.reconcileService(ctx, namespacedName, cluster)
+	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the MongoDB service")
 		return err
 	}
 
@@ -92,8 +98,7 @@ func (r *MongoDBDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 }
 
 // reconcileSecret will reconcile the MongoDB secret to its expected state.
-func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	logger := log.FromContext(ctx)
+func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
 	target := r.secret(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -114,6 +119,7 @@ func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, name types.Name
 		}
 		return target, nil
 	} else if !r.Deploy {
+		logger.Info("Removing the MongoDB secret")
 		return nil, r.Delete(ctx, secret)
 	}
 	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
@@ -123,7 +129,7 @@ func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, name types.Name
 }
 
 // reconcileStatefulset will reconcile the MongoDB statefulset to its expected state.
-func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
+func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
 	target := r.statefulset(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -135,19 +141,21 @@ func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, name types
 			return mongodb, err
 		}
 		if r.Deploy {
+			logger.Info("Deploying a new MongoDB statefulset")
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
 		}
 		return mongodb, nil
 	} else if !r.Deploy {
+		logger.Info("Removing the MongoDB statefulset")
 		return nil, r.Delete(ctx, mongodb)
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(mongodb))
 }
 
 // reconcileService will reconcile the MongoDB service to its expected state.
-func (r *MongoDBDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *MongoDBDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
 	target := r.service(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -159,12 +167,14 @@ func (r *MongoDBDeployment) reconcileService(ctx context.Context, name types.Nam
 			return service, err
 		}
 		if r.Deploy {
+			logger.Info("Creating a new MongoDB kubernetes service")
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
 		}
 		return service, nil
 	} else if !r.Deploy {
+		logger.Info("Removing the kubernetes service for MongoDB")
 		return nil, r.Delete(ctx, service)
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
