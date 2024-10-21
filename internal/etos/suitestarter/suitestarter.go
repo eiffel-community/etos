@@ -140,7 +140,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerServiceAccount(ctx cont
 // reconcileSuiteRunnerSecret will reconcile the ETOS suite runner secret to its expected state.
 func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
 	name.Name = fmt.Sprintf("%s-etos-suite-runner-cfg", cluster.ObjectMeta.Name)
-	target, err := r.mergedSecret(ctx, name)
+	target, err := r.mergedSecret(ctx, name, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -384,7 +384,7 @@ func (r *ETOSSuiteStarterDeployment) secret(name, serviceAccountName types.Names
 
 // mergedSecret creates a secret that is the merged values of Eiffel, ETOS and encryption key secrets.
 // This is for use in the suite runner which only has a single secret as input.
-func (r *ETOSSuiteStarterDeployment) mergedSecret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+func (r *ETOSSuiteStarterDeployment) mergedSecret(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
 	eiffel := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
 		return nil, err
@@ -398,6 +398,11 @@ func (r *ETOSSuiteStarterDeployment) mergedSecret(ctx context.Context, name type
 	maps.Copy(data, etos.Data)
 	maps.Copy(data, r.etosConfig.Data)
 	maps.Copy(data, r.encryptionSecret.Data)
+	// Used by the LogListener and the CreateQueue initContainer.
+	data["ETOS_RABBITMQ_QUEUE_NAME"] = []byte(cluster.Spec.ETOS.SuiteRunner.LogListener.ETOSQueueName)
+	if cluster.Spec.ETOS.SuiteRunner.LogListener.ETOSQueueParams != "" {
+		data["ETOS_RABBITMQ_QUEUE_PARAMS"] = []byte(cluster.Spec.ETOS.SuiteRunner.LogListener.ETOSQueueParams)
+	}
 	return &corev1.Secret{
 		ObjectMeta: r.meta(name),
 		Data:       data,
