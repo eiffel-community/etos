@@ -111,8 +111,8 @@ func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, logger logr.Log
 			logger.Error(err, "failed to get mongodb secret")
 			return secret, err
 		}
-		logger.Info("Secret not found. Creating")
 		if r.Deploy {
+			logger.Info("Secret not found. Creating")
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
