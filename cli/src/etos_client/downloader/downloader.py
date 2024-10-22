@@ -265,7 +265,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             Downloadable(
                 url=report.file.get("url"),
                 name=report.file.get("name"),
-                checksums=report.file.get("checksums"),
+                checksums=report.file.get("checksums", {}),
                 path=reports,
             )
         )
@@ -279,7 +279,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             Downloadable(
                 url=artifact.file.get("url"),
                 name=artifact.file.get("name"),
-                checksums=artifact.file.get("checksums"),
+                checksums=artifact.file.get("checksums", {}),
                 path=artifacts,
             )
         )
