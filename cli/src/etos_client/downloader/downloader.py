@@ -52,7 +52,7 @@ class Downloadable(BaseModel):
 
     url: str
     name: str
-    checksums: dict[str, str]
+    checksums: dict[str, str] = {}
     path: Path = Path.cwd()
 
 
