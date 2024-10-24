@@ -59,8 +59,7 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 	name := fmt.Sprintf("%s-etos-suite-starter", cluster.Name)
 	logger := log.FromContext(ctx, "Reconciler", "ETOSSuiteStarter", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
-	// There is an assumption in the suite starter that the service account is named 'etos-sa'.
-	_, err = r.reconcileSuiteRunnerServiceAccount(ctx, logger, types.NamespacedName{Name: "etos-sa", Namespace: cluster.Namespace}, cluster)
+	_, err = r.reconcileSuiteRunnerServiceAccount(ctx, logger, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite runner service account")
 		return err
@@ -535,7 +534,7 @@ func (r *ETOSSuiteStarterDeployment) container(name types.NamespacedName, secret
 // suiteRunnerTemplate creates a secret resource for the ETOS SuiteStarter.
 func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedName) *corev1.Secret {
 	data := map[string][]byte{
-		"suite_runner_template.yaml": []byte(`
+		"suite_runner_template.yaml": []byte(fmt.Sprintf(`
       apiVersion: batch/v1
       kind: Job
       metadata:
@@ -574,7 +573,7 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedNa
               env:
               - name: TERCC
                 value: '{EiffelTestExecutionRecipeCollectionCreatedEvent}'
-            serviceAccountName: etos-sa
+            serviceAccountName: %s
             containers:
             - name: {job_name}
               image: {docker_image}
@@ -632,7 +631,7 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedNa
                 mountPath: /kubexit
             restartPolicy: Never
         backoffLimit: 0
-    `),
+    `, name.Name)),
 	}
 	return &corev1.Secret{
 		ObjectMeta: r.meta(name),
