@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -55,25 +57,29 @@ func NewETOSLogAreaDeployment(spec etosv1alpha1.ETOSLogArea, scheme *runtime.Sch
 func (r *ETOSLogAreaDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
 	var err error
 	name := fmt.Sprintf("%s-etos-logarea", cluster.Name)
+	logger := log.FromContext(ctx, "Reconciler", "ETOSLogArea", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-	_, err = r.reconcileDeployment(ctx, namespacedName, cluster)
+	_, err = r.reconcileDeployment(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the deployment for the ETOS LogArea")
 		return err
 	}
-	_, err = r.reconcileServiceAccount(ctx, namespacedName, cluster)
+	_, err = r.reconcileServiceAccount(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the service account for the ETOS LogArea")
 		return err
 	}
-	_, err = r.reconcileService(ctx, namespacedName, cluster)
+	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the service for the ETOS LogArea")
 		return err
 	}
 	return nil
 }
 
 // reconcileDeployment will reconcile the ETOS logarea deployment to its expected state.
-func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*appsv1.Deployment, error) {
+func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*appsv1.Deployment, error) {
 	target := r.deployment(name, cluster)
 	if err := ctrl.SetControllerReference(cluster, target, r.Scheme); err != nil {
 		return target, err
@@ -85,6 +91,7 @@ func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, name ty
 		if !apierrors.IsNotFound(err) {
 			return deployment, err
 		}
+		logger.Info("Creating a new deployment for the ETOS LogArea")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
@@ -97,7 +104,7 @@ func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, name ty
 }
 
 // reconcileServiceAccount will reconcile the ETOS logarea service account to its expected state.
-func (r *ETOSLogAreaDeployment) reconcileServiceAccount(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
+func (r *ETOSLogAreaDeployment) reconcileServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
 	target := r.serviceaccount(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -107,6 +114,7 @@ func (r *ETOSLogAreaDeployment) reconcileServiceAccount(ctx context.Context, nam
 		if !apierrors.IsNotFound(err) {
 			return serviceaccount, err
 		}
+		logger.Info("Creating a new service account for the ETOS LogArea")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
@@ -116,7 +124,7 @@ func (r *ETOSLogAreaDeployment) reconcileServiceAccount(ctx context.Context, nam
 }
 
 // reconcileService will reconcile the ETOS logarea service to its expected state.
-func (r *ETOSLogAreaDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *ETOSLogAreaDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
 	target := r.service(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -126,6 +134,7 @@ func (r *ETOSLogAreaDeployment) reconcileService(ctx context.Context, name types
 		if !apierrors.IsNotFound(err) {
 			return service, err
 		}
+		logger.Info("Creating a new kubernetes service for the ETOS LogArea")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
@@ -222,7 +231,7 @@ func (r *ETOSLogAreaDeployment) container(name types.NamespacedName, cluster *et
 			{
 				SecretRef: &corev1.SecretEnvSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cluster.Name,
+						Name: fmt.Sprintf("%s-encryption-key", cluster.Name),
 					},
 				},
 			},

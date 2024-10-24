@@ -125,7 +125,7 @@ spec:
                           for an IUT.
                         properties:
                           stages:
-                            description: JSONTasIUTPrepareaStages defines the preparation
+                            description: JSONTasIUTPrepareStages defines the preparation
                               stages required for an IUT.
                             properties:
                               environment_provider:
