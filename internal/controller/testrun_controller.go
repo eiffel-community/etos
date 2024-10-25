@@ -463,7 +463,6 @@ func (r TestRunReconciler) environmentRequest(testrun *etosv1alpha1.TestRun, sui
 
 // suiteRunnerJob is the job definition for an etos suite runner.
 func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.TestRun) *batchv1.Job {
-	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
 	return &batchv1.Job{
@@ -481,8 +480,7 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 			Namespace:   testrun.Namespace,
 		},
 		Spec: batchv1.JobSpec{
-			TTLSecondsAfterFinished: &ttl,
-			BackoffLimit:            &backoff,
+			BackoffLimit: &backoff,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: testrun.Name,
