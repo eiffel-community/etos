@@ -13,10 +13,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Stream type description."""
 import abc
 import time
 
 from typing import Iterable
+
 
 class Event:
     """An event from ETOS."""
@@ -42,10 +44,12 @@ class Event:
 
 
 class Stream(metaclass=abc.ABCMeta):
+    """Base class for ETOS event streaming protocol."""
 
-    def __init__(self, url: str, id: str):
+    def __init__(self, url: str, stream_id: str):
+        """Set up URL and stream ID."""
         self.url = url
-        self.id = id
+        self.id = stream_id
 
     @classmethod
     @abc.abstractmethod

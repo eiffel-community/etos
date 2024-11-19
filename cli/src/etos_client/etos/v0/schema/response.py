@@ -17,6 +17,7 @@
 from uuid import UUID
 from pydantic import BaseModel
 
+
 class ResponseSchema(BaseModel):
     """Response model for the ETOS start API."""
 

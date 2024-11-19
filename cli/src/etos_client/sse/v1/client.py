@@ -23,8 +23,9 @@ from urllib3.exceptions import HTTPError, MaxRetryError
 from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry
 
-from .protocol import Shutdown, parse
 from etos_client.types.stream import Stream, Event
+
+from .protocol import Shutdown, parse
 
 CHUNK_SIZE = 500
 RETRIES = Retry(
@@ -64,9 +65,9 @@ class SSEClient(Stream):
     __connected = False
     __shutdown = False
 
-    def __init__(self, url: str, id: str) -> None:
+    def __init__(self, url: str, stream_id: str) -> None:
         """Set up a connection pool and retry strategy."""
-        super().__init__(url, id)
+        super().__init__(url, stream_id)
         self.last_event_id = None
         self.__pool = PoolManager(retries=RETRIES)
         self.__release: Optional[Callable] = None

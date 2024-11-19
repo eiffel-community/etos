@@ -42,7 +42,7 @@ class TestRun(Command):
     meta = CommandMeta(
         name="testrun",
         description="Operate on ETOS testruns",
-        version="v1alpha1",
+        version="v0",
         subcommands={
             "v0": ETOSv0,
             "v1alpha": ETOSv1alpha,
@@ -51,11 +51,11 @@ class TestRun(Command):
 
     def parse_args(self, argv: list[str]) -> dict:
         """Parse arguments for etosctl testrun start."""
-        # Check for an optional subcommand, if it does not exist set v0 as default.
+        # Check for an optional subcommand, if it does not exist set meta version as default.
         subcommand = False
         for cmd in self.meta.subcommands.keys():
             if cmd in argv:
                 subcommand = True
         if not subcommand:
-            argv = ["v0"] + argv
+            argv = [self.meta.version] + argv
         return super().parse_args(argv)

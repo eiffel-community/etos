@@ -60,10 +60,12 @@ class Etos:
     start_request = RequestSchema
     supported_sse_versions = ("v1",)
 
-    def __init__(self, args: dict, streamer: Type[Stream]=SSEClient):
-        assert streamer.version() in self.supported_sse_versions, \
-            f"Version {streamer.version()} is not supported by this version of ETOS client, " \
+    def __init__(self, args: dict, streamer: Type[Stream] = SSEClient):
+        """Set up streamer and cluster variables."""
+        assert streamer.version() in self.supported_sse_versions, (
+            f"Version {streamer.version()} is not supported by this version of ETOS client, "
             "supported versions: {self.supported_sse_versions}"
+        )
         self.args = args
         self.cluster = args.get("<cluster>")
         assert self.cluster is not None
@@ -82,11 +84,15 @@ class Etos:
         if error is not None:
             return Result(verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, reason=error)
         if success is None or msg is None:
-            return Result(verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, reason="No test result received from ETOS testrun")
+            return Result(
+                verdict=Verdict.INCONCLUSIVE,
+                conclusion=Conclusion.FAILED,
+                reason="No test result received from ETOS testrun",
+            )
         return Result(
             verdict=Verdict.PASSED if success else Verdict.FAILED,
             conclusion=Conclusion.SUCCESSFUL,
-            reason=msg
+            reason=msg,
         )
 
     def __start(self) -> tuple[Optional[ResponseSchema], Optional[str]]:
@@ -108,10 +114,14 @@ class Etos:
             except JSONDecodeError:
                 self.logger.info("Raw response from ETOS: %r", response.text)
                 response_json = {}
-            return None, response_json.get("detail", "Unknown error from ETOS, please contact ETOS support")
+            return None, response_json.get(
+                "detail", "Unknown error from ETOS, please contact ETOS support"
+            )
         return self.start_response.from_response(response_json), None
 
-    def __wait(self, response: ResponseSchema) -> tuple[tuple[Optional[bool], Optional[str]], Optional[str]]:
+    def __wait(
+        self, response: ResponseSchema
+    ) -> tuple[tuple[Optional[bool], Optional[str]], Optional[str]]:
         """Wait for ETOS to finish."""
         etos_library = ETOSLibrary("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
         os.environ["ETOS_GRAPHQL_SERVER"] = response.event_repository
@@ -128,7 +138,7 @@ class Etos:
             events = test_run.track(
                 self.streamer(self.args["<cluster>"], str(response.tercc)),
                 response,
-                24 * 60 * 60  # 24 hours
+                24 * 60 * 60,  # 24 hours
             )
         except SystemExit as exit:
             clear_queue = False
@@ -137,9 +147,13 @@ class Etos:
             log_downloader.stop(clear_queue)
             log_downloader.join()
 
-        self.logger.info("Downloaded a total of %d logs from test runners", len(log_downloader.downloads))
+        self.logger.info(
+            "Downloaded a total of %d logs from test runners", len(log_downloader.downloads)
+        )
         self.logger.info("Archiving reports.")
-        shutil.make_archive(str(artifact_dir.joinpath("reports").relative_to(Path.cwd())), "zip", report_dir)
+        shutil.make_archive(
+            str(artifact_dir.joinpath("reports").relative_to(Path.cwd())), "zip", report_dir
+        )
         self.logger.info("Reports: %s", report_dir)
         self.logger.info("Artifacts: %s", artifact_dir)
 

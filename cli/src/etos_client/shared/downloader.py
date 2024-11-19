@@ -76,7 +76,7 @@ class IntegrityError(Exception):
         return self.__str__()
 
 
-class Downloader(Thread):
+class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
     """Log downloader for ETOS client."""
 
     logger = logging.getLogger(__name__)

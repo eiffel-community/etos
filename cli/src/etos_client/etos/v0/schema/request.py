@@ -22,6 +22,8 @@ from pydantic import BaseModel, ValidationInfo, field_validator
 
 
 class RequestSchema(BaseModel):
+    """Schema for ETOSv0 API requests."""
+
     artifact_id: Optional[str]
     artifact_identity: Optional[str]
     test_suite_url: str
@@ -44,7 +46,9 @@ class RequestSchema(BaseModel):
         )
 
     @field_validator("artifact_identity")
-    def trim_identity_if_necessary(cls, artifact_identity: Optional[str], info: ValidationInfo) -> Optional[str]:
+    def trim_identity_if_necessary(
+        cls, artifact_identity: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
         """Trim identity if id is set."""
         if info.data.get("artifact_id") is not None:
             return None

@@ -40,7 +40,9 @@ class TestRun:
     # interval.
     log_interval = 120
 
-    def __init__(self, collector: Collector, downloader: Downloader, report_dir: Path, artifact_dir: Path) -> None:
+    def __init__(
+        self, collector: Collector, downloader: Downloader, report_dir: Path, artifact_dir: Path
+    ) -> None:
         """Initialize."""
         assert downloader.started, "Downloader must be started before it can be used in TestRun"
 
