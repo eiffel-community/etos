@@ -17,32 +17,12 @@
 import inspect
 import json
 import sys
-import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from etos_client.types.stream import Event
+
 # pylint: disable=too-few-public-methods
-
-
-class Event:
-    """An event from ETOS."""
-
-    def __init__(self, event: dict) -> None:
-        """Initialize the object from a dict."""
-        self.data = event.get("data", "")
-        self.id = int(event.get("id")) if event.get("id") else None
-        self.event = event.get("event", "message")
-        self.received = time.time()
-
-    def __str__(self) -> str:
-        """Return the string representation of an event."""
-        return f"{self.event}({self.id}): {self.data}"
-
-    def __eq__(self, other: "Event") -> bool:
-        """Check if the event is the same by testing the IDs."""
-        if self.id is None or other.id is None:
-            return super().__eq__(other)
-        return self.id == other.id
 
 
 class ServerEvent(Event):

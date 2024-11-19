@@ -13,20 +13,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS request data."""
+"""ETOS v0 schema."""
 import json
 from uuid import UUID
+
 from typing import Optional, Union
-
-from pydantic import BaseModel, validator
-
-# Pydantic requires validators first argument to be cls and the methods cannot be classmethods
-# pylint:disable=no-self-argument
+from pydantic import BaseModel, ValidationInfo, field_validator
 
 
 class RequestSchema(BaseModel):
-    """Request model for the ETOS start API."""
-
     artifact_id: Optional[str]
     artifact_identity: Optional[str]
     test_suite_url: str
@@ -48,14 +43,14 @@ class RequestSchema(BaseModel):
             log_area_provider=args["--log-area-provider"] or "default",
         )
 
-    @validator("artifact_identity", always=True)
-    def trim_identity_if_necessary(cls, artifact_identity: Optional[str], values) -> Optional[str]:
+    @field_validator("artifact_identity")
+    def trim_identity_if_necessary(cls, artifact_identity: Optional[str], info: ValidationInfo) -> Optional[str]:
         """Trim identity if id is set."""
-        if values.get("artifact_id") is not None:
+        if info.data.get("artifact_id") is not None:
             return None
         return artifact_identity
 
-    @validator("artifact_id", pre=True)
+    @field_validator("artifact_id")
     def is_uuid(cls, artifact_id: Optional[str]) -> Optional[str]:
         """Test if string is a valid UUID v4."""
         try:
@@ -64,30 +59,11 @@ class RequestSchema(BaseModel):
             return None
         return artifact_id
 
-    @validator("dataset", always=True)
+    @field_validator("dataset")
     def dataset_list_trimming(cls, dataset: Optional[Union[dict, list]]) -> list[dict]:
         """Trim away list completely should the dataset only contain a single index."""
         if dataset is None:
-            return {}
+            return [{}]
         if len(dataset) == 1:
             return json.loads(dataset[0])
         return [json.loads(data) for data in dataset]
-
-
-class ResponseSchema(BaseModel):
-    """Response model for the ETOS start API."""
-
-    event_repository: str
-    tercc: UUID
-    artifact_id: UUID
-    artifact_identity: str
-
-    @classmethod
-    def from_response(cls, response: dict) -> "ResponseSchema":
-        """Create a ResponseSchema from a dictionary. Typically used for ETOS API http response."""
-        return ResponseSchema(
-            event_repository=response.get("event_repository"),
-            tercc=response.get("tercc"),
-            artifact_id=response.get("artifact_id"),
-            artifact_identity=response.get("artifact_identity"),
-        )

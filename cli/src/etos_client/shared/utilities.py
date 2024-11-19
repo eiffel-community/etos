@@ -13,4 +13,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS SSE."""
+"""ETOS shared utility functions."""
+import os
+from pathlib import Path
+
+
+def directories(args: dict) -> tuple[Path, Path]:
+    """Create directories for ETOS logs."""
+    workspace = args["--workspace"] or os.getenv("WORKSPACE", os.getcwd())
+    artifact_dir = args["--artifact-dir"] or "artifacts"
+    report_dir = args["--report-dir"] or "reports"
+    artifact_dir = Path(workspace).joinpath(artifact_dir)
+    artifact_dir.mkdir(exist_ok=True)
+    report_dir = Path(workspace).joinpath(report_dir)
+    report_dir.mkdir(exist_ok=True)
+    return report_dir, artifact_dir
