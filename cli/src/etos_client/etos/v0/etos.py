@@ -19,14 +19,13 @@ import logging
 import shutil
 from pathlib import Path
 from json import JSONDecodeError
-from typing import Optional, Type
+from typing import Optional
 
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
 from etos_lib.lib.http import Http
 from etos_lib import ETOS as ETOSLibrary
 
-from etos_client.types.stream import Stream
 from etos_client.types.result import Result, Verdict, Conclusion
 from etos_client.shared.downloader import Downloader
 from etos_client.shared.utilities import directories
@@ -58,18 +57,13 @@ class Etos:
     logger = logging.getLogger(__name__)
     start_response = ResponseSchema
     start_request = RequestSchema
-    supported_sse_versions = ("v1",)
 
-    def __init__(self, args: dict, streamer: Type[Stream] = SSEClient):
-        """Set up streamer and cluster variables."""
-        assert streamer.version() in self.supported_sse_versions, (
-            f"Version {streamer.version()} is not supported by this version of ETOS client, "
-            "supported versions: {self.supported_sse_versions}"
-        )
+    def __init__(self, args: dict, sse_client: SSEClient):
+        """Set up sse client and cluster variables."""
         self.args = args
         self.cluster = args.get("<cluster>")
         assert self.cluster is not None
-        self.streamer = streamer
+        self.sse_client = sse_client
 
     def run(self) -> Result:
         """Run ETOS v0."""
@@ -136,7 +130,7 @@ class Etos:
             test_run = TestRun(collector, log_downloader, report_dir, artifact_dir)
             test_run.setup_logging(self.args["-v"])
             events = test_run.track(
-                self.streamer(self.args["<cluster>"], str(response.tercc)),
+                self.sse_client,
                 response,
                 24 * 60 * 60,  # 24 hours
             )

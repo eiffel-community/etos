@@ -13,11 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Stream type description."""
-import abc
+"""Shared event types."""
 import time
-
-from typing import Iterable
 
 
 class Event:
@@ -41,30 +38,3 @@ class Event:
         if self.id is None or other.id is None:
             return super().__eq__(other)
         return self.id == other.id
-
-
-class Stream(metaclass=abc.ABCMeta):
-    """Base class for ETOS event streaming protocol."""
-
-    def __init__(self, url: str, stream_id: str):
-        """Set up URL and stream ID."""
-        self.url = url
-        self.id = stream_id
-
-    @classmethod
-    @abc.abstractmethod
-    def version(cls) -> str:
-        """SSE stream version."""
-        return "Unknown"
-
-    @abc.abstractmethod
-    def event_stream(self) -> Iterable[Event]:
-        """Connect to and follow the ETOS SSE event stream."""
-
-    @abc.abstractmethod
-    def close(self) -> None:
-        """Close down the SSE client."""
-
-    @abc.abstractmethod
-    def reset(self) -> None:
-        """Reset the client. Must be done before reconnecting."""

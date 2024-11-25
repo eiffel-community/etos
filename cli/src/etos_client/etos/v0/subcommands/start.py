@@ -22,6 +22,7 @@ import warnings
 
 from etos_client.types.result import Conclusion, Verdict
 from etos_client.etos.v0.etos import Etos
+from etos_client.sse.v1.client import SSEClient
 
 from etosctl.command import SubCommand
 from etosctl.models import CommandMeta
@@ -88,7 +89,7 @@ class Start(SubCommand):
 
         self.logger.info("Running in cluster: %r", args["<cluster>"])
 
-        etos = Etos(args)
+        etos = Etos(args, SSEClient(args["<cluster>"]))
         result = etos.run()
         if result.conclusion == Conclusion.FAILED:
             sys.exit(result.reason)

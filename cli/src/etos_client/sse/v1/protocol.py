@@ -20,7 +20,7 @@ import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from etos_client.types.stream import Event
+from etos_client.shared.events import Event
 
 # pylint: disable=too-few-public-methods
 

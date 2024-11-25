@@ -23,7 +23,7 @@ from urllib3.exceptions import HTTPError, MaxRetryError
 from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry
 
-from etos_client.types.stream import Stream, Event
+from etos_client.shared.events import Event
 
 from .protocol import Shutdown, parse
 
@@ -58,16 +58,16 @@ class HTTPWrongContentType(HTTPError):
     """Wrong content type from the SSE server."""
 
 
-class SSEClient(Stream):
+class SSEClient:
     """A client for reading an event stream from ETOS."""
 
     logger = logging.getLogger(__name__)
     __connected = False
     __shutdown = False
 
-    def __init__(self, url: str, stream_id: str) -> None:
+    def __init__(self, url: str) -> None:
         """Set up a connection pool and retry strategy."""
-        super().__init__(url, stream_id)
+        self.url = url
         self.last_event_id = None
         self.__pool = PoolManager(retries=RETRIES)
         self.__release: Optional[Callable] = None
@@ -77,7 +77,7 @@ class SSEClient(Stream):
         """SSE protocol version."""
         return "v1"
 
-    def __connect(self, retry_not_found=False) -> Iterable[bytes]:
+    def __connect(self, stream_id: str, retry_not_found=False) -> Iterable[bytes]:
         """Connect to an event-stream server, retrying if necessary.
 
         Sets the attribute `__release` which must be closed before exiting.
@@ -92,7 +92,7 @@ class SSEClient(Stream):
             retries = RETRIES
             if retry_not_found:
                 retries = retries.new(status_forcelist={413, 429, 503, 404})
-            url = f"{self.url}/sse/{self.version()}/events/{self.id}"
+            url = f"{self.url}/sse/{self.version()}/events/{stream_id}"
             self.logger.info("Connecting to SSE server at %s", url)
             response = self.__pool.request(
                 "GET",
@@ -190,12 +190,12 @@ class SSEClient(Stream):
             return False
         return True
 
-    def event_stream(self) -> Iterable[Event]:
+    def event_stream(self, stream_id: str) -> Iterable[Event]:
         """Follow the ETOS SSE event stream."""
         stream = []
         while not self.__shutdown:
             while self.__connected is False:
-                stream = self.__connect(retry_not_found=not bool(stream))
+                stream = self.__connect(stream_id, retry_not_found=not bool(stream))
                 time.sleep(1)
                 if not stream:
                     self.logger.warning("Failed connecting to stream. Reconnecting")

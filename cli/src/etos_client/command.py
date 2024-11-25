@@ -30,6 +30,9 @@ class TestRun(Command):
 
     Usage: etosctl [-v|-vv] [options] testrun <command> [<args>...]
 
+    Command is optional and will be set to the default version if not set.
+    The default version can be seen using `etosctl testrun --version`
+
     Commands:
         v0            Version 0 of ETOS.
         v1alpha       Version v1alpha of ETOS.

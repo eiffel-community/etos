@@ -22,7 +22,8 @@ from typing import Iterator, Union
 from pathlib import Path
 
 from etos_client.sse.v1.protocol import Message, Report, Artifact
-from etos_client.types.stream import Stream, Event
+from etos_client.sse.v1.client import SSEClient
+from etos_client.shared.events import Event
 from etos_client.shared.downloader import Downloader, Downloadable
 from ..schema.response import ResponseSchema
 from ..events.collector import Collector
@@ -76,14 +77,14 @@ class TestRun:
         self.logger.info("Purl: %s", response.artifact_identity)
         self.logger.info("Event repository: %r", response.event_repository)
 
-    def track(self, sse: Stream, response: ResponseSchema, timeout: int) -> Events:
+    def track(self, sse_client: SSEClient, response: ResponseSchema, timeout: int) -> Events:
         """Track, and wait for, an ETOS test run."""
         end = time.time() + timeout
 
         self.__log_debug_information(response)
         last_log = time.time()
         timer = None
-        for event in self.__log_until_eof(sse, end):
+        for event in self.__log_until_eof(sse_client, str(response.tercc), end):
             if isinstance(event, (Report, Artifact)):
                 self.download(event)
             if last_log + self.log_interval >= time.time():
@@ -180,9 +181,11 @@ class TestRun:
             },
         )
 
-    def __log_until_eof(self, sse: Stream, endtime: float) -> Iterator[Event]:
+    def __log_until_eof(
+        self, sse_client: SSEClient, stream_id: str, endtime: float
+    ) -> Iterator[Event]:
         """Log from the ETOS log API until finished."""
-        for event in sse.event_stream():
+        for event in sse_client.event_stream(stream_id):
             if time.time() >= endtime:
                 raise TimeoutError("Timed out!")
             if isinstance(event, Message):

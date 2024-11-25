@@ -28,7 +28,7 @@ class ETOSv1alpha(SubCommand):
     Usage: etosctl testrun [-v|-vv] [options] v1alpha <command> [<args>...]
 
     Commands:
-        start         Start a new ETOSv0 testrun
+        start         Start a new ETOS testrun via the v1alpha API
 
     Options:
         -h, --help    Show this help message and exit
