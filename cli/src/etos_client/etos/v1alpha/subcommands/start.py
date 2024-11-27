@@ -31,7 +31,7 @@ class Start(SubCommand):
     """
     Client for executing test automation suites in ETOS.
 
-    Usage: etosctl testrun v1alpha start [-v|-vv] [-h] -i IDENTITY -s TEST_SUITE [-w WORKSPACE] [-a ARTIFACT_DIR] [-r REPORT_DIR] [--iut-provider IUT_PROVIDER] [--execution-space-provider EXECUTION_SPACE_PROVIDER] [--log-area-provider LOG_AREA_PROVIDER] [--dataset=DATASET]... [--version] <cluster>
+    Usage: etosctl testrun v1alpha start [-v|-vv] [options] -i IDENTITY -s TEST_SUITE <cluster>
 
     Options:
         -h, --help                                                Show this help message and exit
@@ -43,7 +43,8 @@ class Start(SubCommand):
         --iut-provider IUT_PROVIDER                               Which IUT provider to use.
         --execution-space-provider EXECUTION_SPACE_PROVIDER       Which execution space provider to use.
         --log-area-provider LOG_AREA_PROVIDER                     Which log area provider to use.
-        --dataset DATASET                                         Additional dataset information to the environment provider. Check with your provider which information can be supplied.
+        --dataset DATASET                                         Additional dataset information to the environment provider.
+                                                                  Check with your provider which information can be supplied.
         --version                                                 Show program's version number and exit
     """
 
