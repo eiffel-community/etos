@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Clean workspace
         run: |
-          rm -r dist
+          rm -r dist | true
       - name: Generate manifest file
         run: |
           make build-installer
