@@ -100,7 +100,8 @@ type Database struct {
 // ETOSAPI describes the deployment of the ETOS API.
 type ETOSAPI struct {
 	Image `json:",inline"`
-	// The provider secrets are necessary in order to run ETOS the old way and not using the controller.
+	// The provider secrets are necessary in order deploy and run ETOS without using the
+	// kubernetes controller.
 	// They can be removed from here when the suite starter is no longer in use.
 	// +optional
 	IUTProviderSecret string `json:"iutProviderSecret"`
@@ -149,7 +150,7 @@ type ETOSSuiteStarter struct {
 	Config ETOSSuiteStarterConfig `json:"config"`
 }
 
-// ETOSSSE describes th deployment of an ETOS SSE API.
+// ETOSSSE describes th deployment of an ETOS Server Sent Events API.
 type ETOSSSE struct {
 	Image `json:",inline"`
 }

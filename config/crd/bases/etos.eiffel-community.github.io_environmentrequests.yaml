@@ -57,7 +57,8 @@ spec:
                 x-kubernetes-preserve-unknown-fields: true
               id:
                 description: ID is the ID for the environments generated. Will be
-                  generated if nil
+                  generated if nil. The ID is a UUID, any version, and regex matches
+                  that.
                 pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                 type: string
               identifier:

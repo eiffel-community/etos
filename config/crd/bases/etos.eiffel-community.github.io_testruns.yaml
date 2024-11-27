@@ -62,7 +62,8 @@ spec:
             description: TestRunSpec defines the desired state of TestRun
             properties:
               artifact:
-                description: Artifact is the ID of the software under test.
+                description: Artifact is the ID of the software under test. The ID
+                  is a UUID, any version, and regex matches that.
                 pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                 type: string
               cluster:
@@ -82,7 +83,7 @@ spec:
                 type: object
               id:
                 description: ID is the test suite ID for this execution. Will be generated
-                  if nil
+                  if nil. The ID is a UUID, any version, and regex matches that.
                 pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                 type: string
               identity:

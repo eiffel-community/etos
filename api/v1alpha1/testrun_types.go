@@ -103,11 +103,11 @@ type TestRunSpec struct {
 	// Name of the ETOS cluster to execute the testrun in.
 	Cluster string `json:"cluster,omitempty"`
 
-	// ID is the test suite ID for this execution. Will be generated if nil
+	// ID is the test suite ID for this execution. Will be generated if nil. The ID is a UUID, any version, and regex matches that.
 	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 	ID string `json:"id,omitempty"`
 
-	// Artifact is the ID of the software under test.
+	// Artifact is the ID of the software under test. The ID is a UUID, any version, and regex matches that.
 	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 	Artifact string `json:"artifact"`
 

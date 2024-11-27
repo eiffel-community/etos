@@ -87,7 +87,8 @@ spec:
                         type: string
                       iutProviderSecret:
                         description: |-
-                          The provider secrets are necessary in order to run ETOS the old way and not using the controller.
+                          The provider secrets are necessary in order deploy and run ETOS without using the
+                          kubernetes controller.
                           They can be removed from here when the suite starter is no longer in use.
                         type: string
                       logAreaProviderSecret:
@@ -254,7 +255,8 @@ spec:
                   sse:
                     default:
                       image: registry.nordix.org/eiffel/etos-sse:latest
-                    description: ETOSSSE describes th deployment of an ETOS SSE API.
+                    description: ETOSSSE describes th deployment of an ETOS Server
+                      Sent Events API.
                     properties:
                       image:
                         type: string
