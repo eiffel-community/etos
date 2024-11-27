@@ -1,0 +1,20 @@
+name: Copy Manifest File on Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  copy-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy installer to release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          gh release upload
+          '${{ github.ref_name }}' dist/**
+          --repo '${{ github.repository }}'

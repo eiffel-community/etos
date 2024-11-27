@@ -1,0 +1,26 @@
+name: Generate Manifest File
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Clean workspace
+        run: |
+          rm -r dist
+      - name: Generate manifest file
+        run: |
+          make build-installer
+      - name: Commit changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m "Update install manifest"
+          git push origin main
