@@ -4,5 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: registry.nordix.org/eiffel/etos-controller
-  newTag: aa5f76a1
+  newName: docker-sandbox.se.axis.com/nemesis/etos/controller
+  newTag: e751456

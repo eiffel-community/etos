@@ -219,13 +219,14 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				"etos.eiffel-community.github.io/id":      environmentrequest.Spec.Identifier, // TODO: omitempty
+				"etos.eiffel-community.github.io/name":    environmentrequest.Name,
 				"etos.eiffel-community.github.io/cluster": cluster,
 				"app.kubernetes.io/name":                  "environment-provider",
 				"app.kubernetes.io/part-of":               "etos",
 			},
-			Annotations: make(map[string]string),
-			Name:        environmentrequest.Name,
-			Namespace:   environmentrequest.Namespace,
+			Annotations:  make(map[string]string),
+			GenerateName: "environment-provider-",
+			Namespace:    environmentrequest.Namespace,
 		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: &ttl,

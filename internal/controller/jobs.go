@@ -140,7 +140,7 @@ func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job) (*Re
 	pod := pods.Items[0]
 
 	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == job.Name {
+		if status.Name == job.Name || status.Name == job.Labels["etos.eiffel-community.github.io/name"] {
 			if status.State.Terminated == nil {
 				return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
 			}
