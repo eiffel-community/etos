@@ -1,0 +1,3066 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+    control-plane: controller-manager
+  name: etos-system
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
+    controller-gen.kubebuilder.io/version: v0.15.0
+  name: clusters.etos.eiffel-community.github.io
+spec:
+  group: etos.eiffel-community.github.io
+  names:
+    kind: Cluster
+    listKind: ClusterList
+    plural: clusters
+    singular: cluster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Message
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Cluster is the Schema for the clusters API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterSpec defines the desired state of Cluster
+            properties:
+              database:
+                default: {}
+                properties:
+                  deploy:
+                    default: true
+                    type: boolean
+                  etcd:
+                    default: {}
+                    properties:
+                      host:
+                        default: etcd-client
+                        description: Parameter is ignored if Deploy is set to true.
+                        type: string
+                      port:
+                        default: "2379"
+                        description: Parameter is ignored if Deploy is set to true.
+                        type: string
+                    type: object
+                type: object
+              etos:
+                default: {}
+                properties:
+                  api:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-api:latest
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                    required:
+                    - image
+                    type: object
+                  config:
+                    default:
+                      encryptionKey:
+                        value: ""
+                    properties:
+                      dev:
+                        default: "true"
+                        type: string
+                      encryptionKey:
+                        default:
+                          value: ""
+                        description: Var describes either a string value or a value
+                          from a VarSource.
+                        properties:
+                          value:
+                            type: string
+                          valueFrom:
+                            description: VarSource describes a value from either a
+                              secretmap or configmap.
+                            properties:
+                              configMapKeyRef:
+                                description: Selects a key from a ConfigMap.
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or
+                                      its key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              secretKeyRef:
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            type: object
+                        type: object
+                      environmentTimeout:
+                        default: "3600"
+                        type: string
+                      etosApiURL:
+                        type: string
+                      etosEventRepositoryURL:
+                        type: string
+                      eventDataTimeout:
+                        default: "60"
+                        type: string
+                      routingKeyTag:
+                        default: etos
+                        type: string
+                      source:
+                        default: ETOS
+                        type: string
+                      testSuiteTimeout:
+                        default: "10"
+                        type: string
+                      testrunRetention:
+                        description: Retention describes the failure and success retentions
+                          for testruns.
+                        properties:
+                          failure:
+                            type: string
+                          success:
+                            type: string
+                        type: object
+                      timezone:
+                        type: string
+                    required:
+                    - encryptionKey
+                    type: object
+                  environmentProvider:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-environment-provider:latest
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                    required:
+                    - image
+                    type: object
+                  ingress:
+                    description: Ingress configuration.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        default: false
+                        type: boolean
+                      host:
+                        default: ""
+                        type: string
+                      ingressClass:
+                        type: string
+                    type: object
+                  logArea:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-log-area:latest
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                    required:
+                    - image
+                    type: object
+                  sse:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-sse:latest
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                    required:
+                    - image
+                    type: object
+                  suiteRunner:
+                    default:
+                      image: registry.nordix.org/eiffel/etos-suite-runner:latest
+                      logListener:
+                        image: registry.nordix.org/eiffel/etos-log-listener:latest
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                      logListener:
+                        description: Image configuration.
+                        properties:
+                          image:
+                            type: string
+                          imagePullPolicy:
+                            default: IfNotPresent
+                            description: PullPolicy describes a policy for if/when
+                              to pull a container image
+                            type: string
+                        required:
+                        - image
+                        type: object
+                    required:
+                    - image
+                    - logListener
+                    type: object
+                  testRunner:
+                    default:
+                      version: latest
+                    properties:
+                      version:
+                        type: string
+                    required:
+                    - version
+                    type: object
+                type: object
+              eventRepository:
+                default: {}
+                properties:
+                  api:
+                    default:
+                      image: registry.nordix.org/eiffel/eiffel-graphql-api:latest
+                    description: |-
+                      We do not build the GraphQL API automatically nor publish it remotely.
+                      This will need to be provided to work.
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                    required:
+                    - image
+                    type: object
+                  deploy:
+                    default: false
+                    description: Deploy a local event repository for a cluster.
+                    type: boolean
+                  host:
+                    default: eventrepository
+                    type: string
+                  ingress:
+                    default: {}
+                    description: Ingress configuration.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        default: false
+                        type: boolean
+                      host:
+                        default: ""
+                        type: string
+                      ingressClass:
+                        type: string
+                    type: object
+                  mongo:
+                    default: {}
+                    properties:
+                      deploy:
+                        default: false
+                        type: boolean
+                      uri:
+                        default:
+                          value: mongodb://root:password@mongodb:27017/admin
+                        description: Ignored if deploy is true
+                        properties:
+                          value:
+                            type: string
+                          valueFrom:
+                            description: VarSource describes a value from either a
+                              secretmap or configmap.
+                            properties:
+                              configMapKeyRef:
+                                description: Selects a key from a ConfigMap.
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or
+                                      its key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              secretKeyRef:
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            type: object
+                        type: object
+                    type: object
+                  storage:
+                    default:
+                      image: registry.nordix.org/eiffel/eiffel-graphql-storage:latest
+                    description: |-
+                      We do not build the GraphQL API automatically nor publish it remotely.
+                      This will need to be provided to work.
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
+                        type: string
+                    required:
+                    - image
+                    type: object
+                type: object
+              messageBus:
+                default: {}
+                properties:
+                  eiffel:
+                    default:
+                      queueName: etos
+                    description: RabbitMQ configuration.
+                    properties:
+                      deploy:
+                        default: false
+                        type: boolean
+                      exchange:
+                        default: amq.topic
+                        type: string
+                      host:
+                        default: rabbitmq
+                        type: string
+                      password:
+                        default:
+                          value: guest
+                        description: Var describes either a string value or a value
+                          from a VarSource.
+                        properties:
+                          value:
+                            type: string
+                          valueFrom:
+                            description: VarSource describes a value from either a
+                              secretmap or configmap.
+                            properties:
+                              configMapKeyRef:
+                                description: Selects a key from a ConfigMap.
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or
+                                      its key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              secretKeyRef:
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            type: object
+                        type: object
+                      port:
+                        default: "5672"
+                        type: string
+                      queueName:
+                        type: string
+                      queueParams:
+                        type: string
+                      ssl:
+                        default: "false"
+                        type: string
+                      username:
+                        default: guest
+                        type: string
+                      vhost:
+                        default: /
+                        type: string
+                    type: object
+                  logs:
+                    default:
+                      queueName: etos-*-temp
+                    description: RabbitMQ configuration.
+                    properties:
+                      deploy:
+                        default: false
+                        type: boolean
+                      exchange:
+                        default: amq.topic
+                        type: string
+                      host:
+                        default: rabbitmq
+                        type: string
+                      password:
+                        default:
+                          value: guest
+                        description: Var describes either a string value or a value
+                          from a VarSource.
+                        properties:
+                          value:
+                            type: string
+                          valueFrom:
+                            description: VarSource describes a value from either a
+                              secretmap or configmap.
+                            properties:
+                              configMapKeyRef:
+                                description: Selects a key from a ConfigMap.
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or
+                                      its key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              secretKeyRef:
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            type: object
+                        type: object
+                      port:
+                        default: "5672"
+                        type: string
+                      queueName:
+                        type: string
+                      queueParams:
+                        type: string
+                      ssl:
+                        default: "false"
+                        type: string
+                      username:
+                        default: guest
+                        type: string
+                      vhost:
+                        default: /
+                        type: string
+                    type: object
+                type: object
+            required:
+            - database
+            - etos
+            - eventRepository
+            - messageBus
+            type: object
+          status:
+            description: ClusterStatus defines the observed state of Cluster
+            properties:
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
+    controller-gen.kubebuilder.io/version: v0.15.0
+  name: environmentrequests.etos.eiffel-community.github.io
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: etos-webhook-service
+          namespace: etos-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: etos.eiffel-community.github.io
+  names:
+    kind: EnvironmentRequest
+    listKind: EnvironmentRequestList
+    plural: environmentrequests
+    singular: environmentrequest
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Message
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: EnvironmentRequest is the Schema for the environmentrequests
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: EnvironmentRequestSpec defines the desired state of EnvironmentRequest
+            properties:
+              artifact:
+                type: string
+              dataset:
+                description: 'TODO: Dataset per provider?'
+                x-kubernetes-preserve-unknown-fields: true
+              id:
+                description: ID is the ID for the environments generated. Will be
+                  generated if nil
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              identifier:
+                type: string
+              identity:
+                type: string
+              image:
+                type: string
+              imagePullPolicy:
+                default: IfNotPresent
+                description: PullPolicy describes a policy for if/when to pull a container
+                  image
+                type: string
+              maximumAmount:
+                type: integer
+              minimumAmount:
+                type: integer
+              name:
+                type: string
+              providers:
+                properties:
+                  executionSpace:
+                    properties:
+                      id:
+                        type: string
+                      testRunner:
+                        type: string
+                    required:
+                    - id
+                    - testRunner
+                    type: object
+                  iut:
+                    properties:
+                      id:
+                        type: string
+                    required:
+                    - id
+                    type: object
+                  logArea:
+                    properties:
+                      id:
+                        type: string
+                    required:
+                    - id
+                    type: object
+                type: object
+              splitter:
+                properties:
+                  tests:
+                    items:
+                      properties:
+                        environment:
+                          description: TestEnvironment to run tests within.
+                          type: object
+                        execution:
+                          description: Execution describes how to execute a testCase.
+                          properties:
+                            checkout:
+                              items:
+                                type: string
+                              type: array
+                            command:
+                              type: string
+                            environment:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            execute:
+                              items:
+                                type: string
+                              type: array
+                            parameters:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            testRunner:
+                              type: string
+                          required:
+                          - checkout
+                          - command
+                          - environment
+                          - parameters
+                          - testRunner
+                          type: object
+                        id:
+                          type: string
+                        testCase:
+                          description: TestCase metadata.
+                          properties:
+                            id:
+                              type: string
+                            tracker:
+                              type: string
+                            uri:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - id
+                          type: object
+                      required:
+                      - environment
+                      - execution
+                      - id
+                      - testCase
+                      type: object
+                    type: array
+                required:
+                - tests
+                type: object
+            required:
+            - image
+            - maximumAmount
+            - minimumAmount
+            - providers
+            - splitter
+            type: object
+          status:
+            description: EnvironmentRequestStatus defines the observed state of EnvironmentRequest
+            properties:
+              completionTime:
+                format: date-time
+                type: string
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              environmentProviders:
+                items:
+                  description: |-
+                    ObjectReference contains enough information to let you inspect or modify the referred object.
+                    ---
+                    New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
+                     1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.
+                     2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
+                        restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
+                        Those cannot be well described when embedded.
+                     3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
+                     4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
+                        during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
+                        and the version of the actual struct is irrelevant.
+                     5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
+                        will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
+
+
+                    Instead of using this type, create a locally provided and used type that is well-focused on your reference.
+                    For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
+                  properties:
+                    apiVersion:
+                      description: API version of the referent.
+                      type: string
+                    fieldPath:
+                      description: |-
+                        If referring to a piece of an object instead of an entire object, this string
+                        should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                        For example, if the object reference is to a container within a pod, this would take on a value like:
+                        "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                        the event) or if no container name is specified "spec.containers[2]" (container with
+                        index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                        referencing a part of an object.
+                        TODO: this design is not final and this field is subject to change in the future.
+                      type: string
+                    kind:
+                      description: |-
+                        Kind of the referent.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                      type: string
+                    resourceVersion:
+                      description: |-
+                        Specific resourceVersion to which this reference is made, if any.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                      type: string
+                    uid:
+                      description: |-
+                        UID of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              startTime:
+                format: date-time
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
+    controller-gen.kubebuilder.io/version: v0.15.0
+  name: environments.etos.eiffel-community.github.io
+spec:
+  group: etos.eiffel-community.github.io
+  names:
+    kind: Environment
+    listKind: EnvironmentList
+    plural: environments
+    singular: environment
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Active")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].reason
+      name: Reason
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Environment is the Schema for the environments API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: EnvironmentSpec defines the desired state of Environment
+            properties:
+              artifact:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              context:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              executor:
+                x-kubernetes-preserve-unknown-fields: true
+              iut:
+                x-kubernetes-preserve-unknown-fields: true
+              log_area:
+                x-kubernetes-preserve-unknown-fields: true
+              name:
+                type: string
+              priority:
+                type: integer
+              recipes:
+                items:
+                  properties:
+                    environment:
+                      description: TestEnvironment to run tests within.
+                      type: object
+                    execution:
+                      description: Execution describes how to execute a testCase.
+                      properties:
+                        checkout:
+                          items:
+                            type: string
+                          type: array
+                        command:
+                          type: string
+                        environment:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        execute:
+                          items:
+                            type: string
+                          type: array
+                        parameters:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        testRunner:
+                          type: string
+                      required:
+                      - checkout
+                      - command
+                      - environment
+                      - parameters
+                      - testRunner
+                      type: object
+                    id:
+                      type: string
+                    testCase:
+                      description: TestCase metadata.
+                      properties:
+                        id:
+                          type: string
+                        tracker:
+                          type: string
+                        uri:
+                          type: string
+                        version:
+                          type: string
+                      required:
+                      - id
+                      type: object
+                  required:
+                  - environment
+                  - execution
+                  - id
+                  - testCase
+                  type: object
+                type: array
+              sub_suite_id:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              suite_id:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              test_runner:
+                type: string
+              test_suite_started_id:
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+            required:
+            - artifact
+            - context
+            - executor
+            - iut
+            - log_area
+            - name
+            - priority
+            - recipes
+            - sub_suite_id
+            - suite_id
+            - test_runner
+            - test_suite_started_id
+            type: object
+          status:
+            description: EnvironmentStatus defines the observed state of Environment
+            properties:
+              completionTime:
+                format: date-time
+                type: string
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              environmentReleasers:
+                items:
+                  description: |-
+                    ObjectReference contains enough information to let you inspect or modify the referred object.
+                    ---
+                    New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
+                     1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.
+                     2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
+                        restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
+                        Those cannot be well described when embedded.
+                     3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
+                     4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
+                        during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
+                        and the version of the actual struct is irrelevant.
+                     5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
+                        will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
+
+
+                    Instead of using this type, create a locally provided and used type that is well-focused on your reference.
+                    For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
+                  properties:
+                    apiVersion:
+                      description: API version of the referent.
+                      type: string
+                    fieldPath:
+                      description: |-
+                        If referring to a piece of an object instead of an entire object, this string
+                        should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                        For example, if the object reference is to a container within a pod, this would take on a value like:
+                        "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                        the event) or if no container name is specified "spec.containers[2]" (container with
+                        index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                        referencing a part of an object.
+                        TODO: this design is not final and this field is subject to change in the future.
+                      type: string
+                    kind:
+                      description: |-
+                        Kind of the referent.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                      type: string
+                    resourceVersion:
+                      description: |-
+                        Specific resourceVersion to which this reference is made, if any.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                      type: string
+                    uid:
+                      description: |-
+                        UID of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
+    controller-gen.kubebuilder.io/version: v0.15.0
+  name: providers.etos.eiffel-community.github.io
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: etos-webhook-service
+          namespace: etos-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: etos.eiffel-community.github.io
+  names:
+    kind: Provider
+    listKind: ProviderList
+    plural: providers
+    singular: provider
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Available")].status
+      name: Available
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Available")].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Available")].message
+      name: Message
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Provider is the Schema for the providers API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ProviderSpec defines the desired state of Provider
+            properties:
+              healthCheck:
+                default: {}
+                description: |-
+                  Healthcheck defines the health check endpoint and interval for providers.
+                  The defaults of this should work most of the time.
+                properties:
+                  endpoint:
+                    default: /v1alpha1/selftest/ping
+                    type: string
+                  intervalSeconds:
+                    default: 30
+                    type: integer
+                type: object
+              host:
+                type: string
+              jsontas:
+                description: |-
+                  These are pointers so that they become nil in the Provider object in Kubernetes
+                  and don't muddle up the yaml with empty data.
+                properties:
+                  execution_space:
+                    description: JSONTasExecutionSpace is the execution space provider
+                      definition for the JSONTas provider
+                    properties:
+                      checkin:
+                        x-kubernetes-preserve-unknown-fields: true
+                      checkout:
+                        x-kubernetes-preserve-unknown-fields: true
+                      id:
+                        type: string
+                      list:
+                        description: JSONTasList is the List command in the JSONTas
+                          provider.
+                        properties:
+                          available:
+                            x-kubernetes-preserve-unknown-fields: true
+                          possible:
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - available
+                        - possible
+                        type: object
+                    required:
+                    - id
+                    - list
+                    type: object
+                  image:
+                    type: string
+                  iut:
+                    description: |-
+                      These are pointers so that they become nil in the Provider object in Kubernetes
+                      and don't muddle up the yaml with empty data.
+                    properties:
+                      checkin:
+                        x-kubernetes-preserve-unknown-fields: true
+                      checkout:
+                        x-kubernetes-preserve-unknown-fields: true
+                      id:
+                        type: string
+                      list:
+                        description: JSONTasList is the List command in the JSONTas
+                          provider.
+                        properties:
+                          available:
+                            x-kubernetes-preserve-unknown-fields: true
+                          possible:
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - available
+                        - possible
+                        type: object
+                      prepare:
+                        description: JSONTasIUTPrepare defines the preparation required
+                          for an IUT.
+                        properties:
+                          stages:
+                            description: JSONTasIUTPrepareStages defines the preparation
+                              stages required for an IUT.
+                            properties:
+                              environment_provider:
+                                description: Underscore used in these due to backwards
+                                  compatibility
+                                properties:
+                                  steps:
+                                    default: {}
+                                    x-kubernetes-preserve-unknown-fields: true
+                                type: object
+                              suite_runner:
+                                description: Stage is the definition of a stage where
+                                  to execute steps.
+                                properties:
+                                  steps:
+                                    default: {}
+                                    x-kubernetes-preserve-unknown-fields: true
+                                type: object
+                              test_runner:
+                                description: Stage is the definition of a stage where
+                                  to execute steps.
+                                properties:
+                                  steps:
+                                    default: {}
+                                    x-kubernetes-preserve-unknown-fields: true
+                                type: object
+                            required:
+                            - environment_provider
+                            - suite_runner
+                            - test_runner
+                            type: object
+                        required:
+                        - stages
+                        type: object
+                    required:
+                    - id
+                    - list
+                    type: object
+                  log:
+                    description: JSONTasLogArea is the log area provider definition
+                      for the JSONTas provider
+                    properties:
+                      checkin:
+                        x-kubernetes-preserve-unknown-fields: true
+                      checkout:
+                        x-kubernetes-preserve-unknown-fields: true
+                      id:
+                        type: string
+                      list:
+                        description: JSONTasList is the List command in the JSONTas
+                          provider.
+                        properties:
+                          available:
+                            x-kubernetes-preserve-unknown-fields: true
+                          possible:
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - available
+                        - possible
+                        type: object
+                    required:
+                    - id
+                    - list
+                    type: object
+                type: object
+              jsontasSource:
+                description: VarSource describes a value from either a secretmap or
+                  configmap.
+                properties:
+                  configMapKeyRef:
+                    description: Selects a key from a ConfigMap.
+                    properties:
+                      key:
+                        description: The key to select.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          TODO: Add other useful fields. apiVersion, kind, uid?
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                        type: string
+                      optional:
+                        description: Specify whether the ConfigMap or its key must
+                          be defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  secretKeyRef:
+                    description: SecretKeySelector selects a key of a Secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          TODO: Add other useful fields. apiVersion, kind, uid?
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+              type:
+                enum:
+                - execution-space
+                - iut
+                - log-area
+                type: string
+            required:
+            - type
+            type: object
+          status:
+            description: ProviderStatus defines the observed state of Provider
+            properties:
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
+    controller-gen.kubebuilder.io/version: v0.15.0
+  name: testruns.etos.eiffel-community.github.io
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: etos-webhook-service
+          namespace: etos-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: etos.eiffel-community.github.io
+  names:
+    kind: TestRun
+    listKind: TestRunList
+    plural: testruns
+    singular: testrun
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.conditions[?(@.type=="Environment")].reason
+      name: Environment
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="SuiteRunner")].reason
+      name: Suiterunner
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].status
+      name: Active
+      type: string
+    - jsonPath: .status.verdict
+      name: Verdict
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].message
+      name: Message
+      type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/id
+      name: ID
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: TestRun is the Schema for the testruns API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: TestRunSpec defines the desired state of TestRun
+            properties:
+              artifact:
+                description: Artifact is the ID of the software under test.
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              cluster:
+                description: Name of the ETOS cluster to execute the testrun in.
+                type: string
+              environmentProvider:
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    default: IfNotPresent
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                required:
+                - image
+                type: object
+              id:
+                description: ID is the test suite ID for this execution. Will be generated
+                  if nil
+                pattern: '[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}'
+                type: string
+              identity:
+                type: string
+              logListener:
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    default: IfNotPresent
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                required:
+                - image
+                type: object
+              providers:
+                description: |-
+                  Providers to use for test execution. These names must correspond to existing
+                  Provider kinds in the namespace where a testrun is created.
+                properties:
+                  executionSpace:
+                    type: string
+                  iut:
+                    type: string
+                  logArea:
+                    type: string
+                required:
+                - executionSpace
+                - iut
+                - logArea
+                type: object
+              retention:
+                description: Retention describes the failure and success retentions
+                  for testruns.
+                properties:
+                  failure:
+                    type: string
+                  success:
+                    type: string
+                type: object
+              suiteRunner:
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    default: IfNotPresent
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                required:
+                - image
+                type: object
+              suites:
+                items:
+                  description: Suite to execute.
+                  properties:
+                    dataset:
+                      description: Dataset for this suite.
+                      x-kubernetes-preserve-unknown-fields: true
+                    name:
+                      description: Name of the test suite.
+                      type: string
+                    priority:
+                      default: 1
+                      description: Priority to execute the test suite.
+                      type: integer
+                    tests:
+                      description: Tests to execute as part of this suite.
+                      items:
+                        properties:
+                          environment:
+                            description: TestEnvironment to run tests within.
+                            type: object
+                          execution:
+                            description: Execution describes how to execute a testCase.
+                            properties:
+                              checkout:
+                                items:
+                                  type: string
+                                type: array
+                              command:
+                                type: string
+                              environment:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              execute:
+                                items:
+                                  type: string
+                                type: array
+                              parameters:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              testRunner:
+                                type: string
+                            required:
+                            - checkout
+                            - command
+                            - environment
+                            - parameters
+                            - testRunner
+                            type: object
+                          id:
+                            type: string
+                          testCase:
+                            description: TestCase metadata.
+                            properties:
+                              id:
+                                type: string
+                              tracker:
+                                type: string
+                              uri:
+                                type: string
+                              version:
+                                type: string
+                            required:
+                            - id
+                            type: object
+                        required:
+                        - environment
+                        - execution
+                        - id
+                        - testCase
+                        type: object
+                      type: array
+                  required:
+                  - dataset
+                  - name
+                  - priority
+                  - tests
+                  type: object
+                type: array
+              testRunner:
+                properties:
+                  version:
+                    type: string
+                required:
+                - version
+                type: object
+            required:
+            - artifact
+            - identity
+            - providers
+            - suites
+            type: object
+          status:
+            description: TestRunStatus defines the observed state of TestRun
+            properties:
+              completionTime:
+                format: date-time
+                type: string
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              environmentRequests:
+                items:
+                  description: |-
+                    ObjectReference contains enough information to let you inspect or modify the referred object.
+                    ---
+                    New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
+                     1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.
+                     2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
+                        restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
+                        Those cannot be well described when embedded.
+                     3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
+                     4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
+                        during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
+                        and the version of the actual struct is irrelevant.
+                     5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
+                        will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
+
+
+                    Instead of using this type, create a locally provided and used type that is well-focused on your reference.
+                    For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
+                  properties:
+                    apiVersion:
+                      description: API version of the referent.
+                      type: string
+                    fieldPath:
+                      description: |-
+                        If referring to a piece of an object instead of an entire object, this string
+                        should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                        For example, if the object reference is to a container within a pod, this would take on a value like:
+                        "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                        the event) or if no container name is specified "spec.containers[2]" (container with
+                        index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                        referencing a part of an object.
+                        TODO: this design is not final and this field is subject to change in the future.
+                      type: string
+                    kind:
+                      description: |-
+                        Kind of the referent.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                      type: string
+                    resourceVersion:
+                      description: |-
+                        Specific resourceVersion to which this reference is made, if any.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                      type: string
+                    uid:
+                      description: |-
+                        UID of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              startTime:
+                format: date-time
+                type: string
+              suiteRunners:
+                items:
+                  description: |-
+                    ObjectReference contains enough information to let you inspect or modify the referred object.
+                    ---
+                    New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
+                     1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.
+                     2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
+                        restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
+                        Those cannot be well described when embedded.
+                     3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
+                     4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
+                        during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
+                        and the version of the actual struct is irrelevant.
+                     5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
+                        will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
+
+
+                    Instead of using this type, create a locally provided and used type that is well-focused on your reference.
+                    For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
+                  properties:
+                    apiVersion:
+                      description: API version of the referent.
+                      type: string
+                    fieldPath:
+                      description: |-
+                        If referring to a piece of an object instead of an entire object, this string
+                        should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                        For example, if the object reference is to a container within a pod, this would take on a value like:
+                        "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                        the event) or if no container name is specified "spec.containers[2]" (container with
+                        index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                        referencing a part of an object.
+                        TODO: this design is not final and this field is subject to change in the future.
+                      type: string
+                    kind:
+                      description: |-
+                        Kind of the referent.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                      type: string
+                    resourceVersion:
+                      description: |-
+                        Specific resourceVersion to which this reference is made, if any.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                      type: string
+                    uid:
+                      description: |-
+                        UID of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              verdict:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-controller-manager
+  namespace: etos-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-leader-election-role
+  namespace: etos-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-cluster-editor-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - clusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - clusters/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-cluster-viewer-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - clusters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - clusters/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-environment-editor-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-environment-viewer-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-environmentrequest-editor-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-environmentrequest-viewer-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etos-manager-role
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - jobs
+  verbs:
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - clusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - clusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - clusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentsrequests/status
+  verbs:
+  - get
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etos-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etos-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-provider-editor-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-provider-viewer-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-testrun-editor-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-testrun-viewer-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-leader-election-rolebinding
+  namespace: etos-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: etos-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: etos-controller-manager
+  namespace: etos-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: etos-manager-role
+subjects:
+- kind: ServiceAccount
+  name: etos-controller-manager
+  namespace: etos-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: etos-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: etos-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: etos-controller-manager
+  namespace: etos-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+    control-plane: controller-manager
+  name: etos-controller-manager-metrics-service
+  namespace: etos-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-webhook-service
+  namespace: etos-system
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+    control-plane: controller-manager
+  name: etos-controller-manager
+  namespace: etos-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        command:
+        - /manager
+        image: registry.nordix.org/eiffel/etos-controller:2ed2ab72
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: etos-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/created-by: etos
+    app.kubernetes.io/instance: serving-cert
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: certificate
+    app.kubernetes.io/part-of: etos
+  name: etos-serving-cert
+  namespace: etos-system
+spec:
+  dnsNames:
+  - etos-webhook-service.etos-system.svc
+  - etos-webhook-service.etos-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: etos-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-selfsigned-issuer
+  namespace: etos-system
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: etos-webhook-service
+      namespace: etos-system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha1-environmentrequest
+  failurePolicy: Fail
+  name: menvironmentrequest.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - environmentrequests
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: etos-webhook-service
+      namespace: etos-system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha1-provider
+  failurePolicy: Fail
+  name: mprovider.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - providers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: etos-webhook-service
+      namespace: etos-system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha1-testrun
+  failurePolicy: Fail
+  name: mtestrun.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - testruns
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
+  labels:
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/created-by: etos
+    app.kubernetes.io/instance: validating-webhook-configuration
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: validatingwebhookconfiguration
+    app.kubernetes.io/part-of: etos
+  name: etos-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: etos-webhook-service
+      namespace: etos-system
+      path: /validate-etos-eiffel-community-github-io-v1alpha1-provider
+  failurePolicy: Fail
+  name: mprovider.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - providers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: etos-webhook-service
+      namespace: etos-system
+      path: /validate-etos-eiffel-community-github-io-v1alpha1-testrun
+  failurePolicy: Fail
+  name: mtestrun.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - testruns
+  sideEffects: None
