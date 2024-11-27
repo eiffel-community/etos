@@ -18,9 +18,11 @@ package extras
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -32,6 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var graphqlPort int32 = 5000
@@ -53,18 +56,34 @@ func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *ru
 // Reconcile will reconcile the event repository to its expected state.
 func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
 	name := fmt.Sprintf("%s-graphql", cluster.Name)
+	logger := log.FromContext(ctx, "Reconciler", "EventRepository", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-	_, err := r.reconcileDeployment(ctx, namespacedName, cluster)
+	cfg, err := r.reconcileConfig(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the EventRepository configuration")
 		return err
 	}
-	_, err = r.reconcileService(ctx, namespacedName, cluster)
+	var configName string
+	if cfg != nil {
+		configName = cfg.ObjectMeta.Name
+	} else {
+		configName = namespacedName.Name
+	}
+
+	_, err = r.reconcileDeployment(ctx, logger, namespacedName, configName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the EventRepository deployment")
 		return err
 	}
-	_, err = r.reconcileIngress(ctx, namespacedName, cluster)
+	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the EventRepository service")
+		return err
+	}
+	_, err = r.reconcileIngress(ctx, logger, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the EventRepository ingress")
 		return err
 	}
 	if r.Ingress.Enabled {
@@ -73,13 +92,47 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 			host = r.Ingress.Host
 		}
 		r.Host = fmt.Sprintf("http://%s/graphql", host)
+		logger.Info("Host for the EventRepository", "host", r.Host)
 	}
 	return nil
 }
 
+// reconcileConfig will reconcile the secret to use as configuration for the event repository.
+func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	var err error
+	var target *corev1.Secret
+	if r.Deploy {
+		target, err = r.config(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		if err = ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+			return target, err
+		}
+	}
+
+	secret := &corev1.Secret{}
+	if err = r.Get(ctx, name, secret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return secret, err
+		}
+		if r.Deploy {
+			logger.Info("Creating the configuration for an EventRepository")
+			if err = r.Create(ctx, target); err != nil {
+				return target, err
+			}
+		}
+		return target, nil
+	} else if !r.Deploy {
+		logger.Info("Removing the configuration for EventRepository")
+		return nil, r.Delete(ctx, secret)
+	}
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
+}
+
 // reconcileDeployment will reconcile the event repository deployment to its expected state.
-func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
-	target := r.deployment(name)
+func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+	target := r.deployment(name, secretName)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -91,12 +144,14 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, nam
 			return deployment, err
 		}
 		if r.Deploy {
+			logger.Info("Creating a new EventRepository deployment")
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
 		}
 		return target, nil
 	} else if !r.Deploy {
+		logger.Info("Removing the deployment for EventRepository")
 		return nil, r.Delete(ctx, deployment)
 	}
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
@@ -106,7 +161,7 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, nam
 }
 
 // reconcileService will reconcile the event repository service to its expected state.
-func (r *EventRepositoryDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *EventRepositoryDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
 	target := r.service(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -118,19 +173,21 @@ func (r *EventRepositoryDeployment) reconcileService(ctx context.Context, name t
 			return service, err
 		}
 		if r.Deploy {
+			logger.Info("Creating a new EventRepository kubernetes service")
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
 		}
 		return target, nil
 	} else if !r.Deploy {
+		logger.Info("Removing the kubernetes service for EventRepository")
 		return nil, r.Delete(ctx, service)
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
 // reconcileIngress will reconcile the event repository ingress to its expected state.
-func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*networkingv1.Ingress, error) {
+func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*networkingv1.Ingress, error) {
 	target := r.ingress(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -143,12 +200,14 @@ func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, name t
 			return ingress, err
 		}
 		if r.Ingress.Enabled {
+			logger.Info("Ingress enabled, creating a new ingress for the EventRepository")
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
 		}
 		return target, nil
 	} else if !r.Ingress.Enabled {
+		logger.Info("Ingress disabled, removing ingress for the EventRepository")
 		return nil, r.Delete(ctx, ingress)
 	}
 
@@ -158,8 +217,29 @@ func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, name t
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(ingress))
 }
 
+// config creates a new Secret to be used as configuration for the event repository.
+func (r *EventRepositoryDeployment) config(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+	eiffel := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
+		return nil, err
+	}
+	etos := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.mongodbSecret, Namespace: name.Namespace}, etos); err != nil {
+		return nil, err
+	}
+	data := map[string][]byte{}
+	maps.Copy(data, eiffel.Data)
+	maps.Copy(data, etos.Data)
+	data["RABBITMQ_QUEUE"] = []byte(r.EventRepository.EiffelQueueName)
+	data["RABBITMQ_QUEUE_PARAMS"] = []byte(r.EventRepository.EiffelQueueParams)
+	return &corev1.Secret{
+		ObjectMeta: r.meta(name),
+		Data:       data,
+	}, nil
+}
+
 // deployment will create a deployment resource definition for the event repository.
-func (r *EventRepositoryDeployment) deployment(name types.NamespacedName) *appsv1.Deployment {
+func (r *EventRepositoryDeployment) deployment(name types.NamespacedName, secretName string) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: r.meta(name),
 		Spec: appsv1.DeploymentSpec{
@@ -169,7 +249,7 @@ func (r *EventRepositoryDeployment) deployment(name types.NamespacedName) *appsv
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: r.meta(name),
 				Spec: corev1.PodSpec{
-					Containers: r.containers(name),
+					Containers: r.containers(name, secretName),
 				},
 			},
 		},
@@ -214,7 +294,7 @@ func (r *EventRepositoryDeployment) meta(name types.NamespacedName) metav1.Objec
 }
 
 // containers will create a container resource definition for the event repository deployment.
-func (r *EventRepositoryDeployment) containers(name types.NamespacedName) []corev1.Container {
+func (r *EventRepositoryDeployment) containers(name types.NamespacedName, secretName string) []corev1.Container {
 	return []corev1.Container{
 		{
 			Name:            fmt.Sprintf("%s-api", name.Name),
@@ -227,7 +307,15 @@ func (r *EventRepositoryDeployment) containers(name types.NamespacedName) []core
 					Protocol:      "TCP",
 				},
 			},
-			EnvFrom: r.environment(),
+			EnvFrom: []corev1.EnvFromSource{
+				{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secretName,
+						},
+					},
+				},
+			},
 		}, {
 			Name:            fmt.Sprintf("%s-storage", name.Name),
 			Image:           r.Storage.Image,
@@ -237,25 +325,13 @@ func (r *EventRepositoryDeployment) containers(name types.NamespacedName) []core
 				"-m",
 				"eiffel_graphql_api.storage",
 			},
-			EnvFrom: r.environment(),
-		},
-	}
-}
-
-// environment will create an environment resource definition for the event repository deployment.
-func (r *EventRepositoryDeployment) environment() []corev1.EnvFromSource {
-	return []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.mongodbSecret,
-				},
-			},
-		},
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.rabbitmqSecret,
+			EnvFrom: []corev1.EnvFromSource{
+				{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secretName,
+						},
+					},
 				},
 			},
 		},

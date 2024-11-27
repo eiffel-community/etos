@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -37,21 +38,19 @@ import (
 type MessageBusDeployment struct {
 	etosv1alpha1.RabbitMQ
 	client.Client
-	ctx        context.Context
 	Scheme     *runtime.Scheme
 	SecretName string
 }
 
 // NewMessageBusDeployment will create a new messagebus reconciler.
 func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) *MessageBusDeployment {
-	return &MessageBusDeployment{spec, client, nil, scheme, ""}
+	return &MessageBusDeployment{spec, client, scheme, ""}
 }
 
 // Reconcile will reconcile the messagebus to its expected state.
 func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
-	logger := log.FromContext(ctx)
-	r.ctx = ctx
 	name := fmt.Sprintf("%s-messagebus", cluster.Name)
+	logger := log.FromContext(ctx, "Reconciler", "MessageBus", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 	if r.Deploy {
 		logger.Info("Patching host & port when deploying RabbitMQ", "host", name, "port", rabbitmqPort)
@@ -59,26 +58,29 @@ func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alp
 		r.Port = fmt.Sprintf("%d", rabbitmqPort)
 	}
 
-	secret, err := r.reconcileSecret(namespacedName, cluster)
+	secret, err := r.reconcileSecret(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the MessageBus secret")
 		return err
 	}
 	r.SecretName = secret.Name
 
-	_, err = r.reconcileStatefulset(namespacedName, cluster)
+	_, err = r.reconcileStatefulset(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the MessageBus statefulset")
 		return err
 	}
-	_, err = r.reconcileService(namespacedName, cluster)
+	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
 	if err != nil {
+		logger.Error(err, "Failed to reconcile the MessageBus service")
 		return err
 	}
 	return nil
 }
 
 // reconcileSecret will reconcile the messagebus secret to its expected state.
-func (r *MessageBusDeployment) reconcileSecret(name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	target, err := r.secret(name)
+func (r *MessageBusDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	target, err := r.secret(ctx, name)
 	if err != nil {
 		return target, err
 	}
@@ -88,11 +90,12 @@ func (r *MessageBusDeployment) reconcileSecret(name types.NamespacedName, owner 
 	scheme.Scheme.Default(target)
 
 	secret := &corev1.Secret{}
-	if err := r.Get(r.ctx, name, secret); err != nil {
+	if err := r.Get(ctx, name, secret); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return secret, err
 		}
-		if err := r.Create(r.ctx, target); err != nil {
+		logger.Info("Secret not found. Creating")
+		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
 		return target, nil
@@ -100,60 +103,64 @@ func (r *MessageBusDeployment) reconcileSecret(name types.NamespacedName, owner 
 	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
 		return secret, nil
 	}
-	return target, r.Patch(r.ctx, target, client.StrategicMergeFrom(secret))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
 // reconcileStatefulset will reconcile the messagebus statefulset to its expected state.
-func (r *MessageBusDeployment) reconcileStatefulset(name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
+func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
 	target := r.statefulset(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
 
 	rabbitmq := &appsv1.StatefulSet{}
-	if err := r.Get(r.ctx, name, rabbitmq); err != nil {
+	if err := r.Get(ctx, name, rabbitmq); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return rabbitmq, err
 		}
 		if r.Deploy {
-			if err := r.Create(r.ctx, target); err != nil {
+			logger.Info("Creating a new MessageBus statefulset")
+			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
 		}
 		return target, nil
 	} else if !r.Deploy {
-		return nil, r.Delete(r.ctx, rabbitmq)
+		logger.Info("Removing the statefulset for MessageBus")
+		return nil, r.Delete(ctx, rabbitmq)
 	}
-	return target, r.Patch(r.ctx, target, client.StrategicMergeFrom(rabbitmq))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq))
 }
 
 // reconcileService will reconcile the messagebus service to its expected state.
-func (r *MessageBusDeployment) reconcileService(name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *MessageBusDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
 	target := r.service(name)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
 
 	service := &corev1.Service{}
-	if err := r.Get(r.ctx, name, service); err != nil {
+	if err := r.Get(ctx, name, service); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return service, err
 		}
 		if r.Deploy {
-			if err := r.Create(r.ctx, target); err != nil {
+			logger.Info("Creating a new MessageBus kubernetes service")
+			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
 		}
 		return target, nil
 	} else if !r.Deploy {
-		return nil, r.Delete(r.ctx, service)
+		logger.Info("Removing the kubernetes service for MessageBus")
+		return nil, r.Delete(ctx, service)
 	}
-	return target, r.Patch(r.ctx, target, client.StrategicMergeFrom(service))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
 // secret will create a secret resource definition for the messagebus.
-func (r *MessageBusDeployment) secret(name types.NamespacedName) (*corev1.Secret, error) {
-	data, err := r.secretData(name.Namespace)
+func (r *MessageBusDeployment) secret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+	data, err := r.secretData(ctx, name.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +202,7 @@ func (r *MessageBusDeployment) service(name types.NamespacedName) *corev1.Servic
 }
 
 // secretData will create a map of secrets for the messagebus secret.
-func (r *MessageBusDeployment) secretData(namespace string) (map[string][]byte, error) {
+func (r *MessageBusDeployment) secretData(ctx context.Context, namespace string) (map[string][]byte, error) {
 	data := map[string][]byte{
 		"ETOS_RABBITMQ_HOST":     []byte(r.Host),
 		"ETOS_RABBITMQ_EXCHANGE": []byte(r.Exchange),
@@ -205,7 +212,7 @@ func (r *MessageBusDeployment) secretData(namespace string) (map[string][]byte, 
 	}
 
 	if r.Password != nil {
-		password, err := r.Password.Get(r.ctx, r.Client, namespace)
+		password, err := r.Password.Get(ctx, r.Client, namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -213,12 +220,6 @@ func (r *MessageBusDeployment) secretData(namespace string) (map[string][]byte, 
 	}
 	if r.Username != "" {
 		data["ETOS_RABBITMQ_USERNAME"] = []byte(r.Username)
-	}
-	if r.QueueName != "" {
-		data["ETOS_RABBITMQ_QUEUE_NAME"] = []byte(r.QueueName)
-	}
-	if r.QueueParams != "" {
-		data["ETOS_RABBITMQ_QUEUE_PARAMS"] = []byte(r.QueueParams)
 	}
 	return data, nil
 }

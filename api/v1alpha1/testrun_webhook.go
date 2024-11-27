@@ -70,7 +70,7 @@ func (r *TestRun) Default() {
 		r.Spec.SuiteRunner = &SuiteRunner{&cluster.Spec.ETOS.SuiteRunner.Image}
 	}
 	if r.Spec.LogListener == nil && cluster != nil {
-		r.Spec.LogListener = &LogListener{&cluster.Spec.ETOS.SuiteRunner.LogListener}
+		r.Spec.LogListener = &LogListener{&cluster.Spec.ETOS.SuiteRunner.LogListener.Image}
 	}
 	if r.Spec.EnvironmentProvider == nil && cluster != nil {
 		r.Spec.EnvironmentProvider = &EnvironmentProvider{&cluster.Spec.ETOS.EnvironmentProvider.Image}

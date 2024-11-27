@@ -47,8 +47,8 @@ type Splitter struct {
 
 // EnvironmentRequestSpec defines the desired state of EnvironmentRequest
 type EnvironmentRequestSpec struct {
-	// ID is the ID for the environments generated. Will be generated if nil
-	// +kubebuilder:validation:Pattern="[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}"
+	// ID is the ID for the environments generated. Will be generated if nil. The ID is a UUID, any version, and regex matches that.
+	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
 
