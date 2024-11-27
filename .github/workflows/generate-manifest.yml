@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build-and-commit:
@@ -11,12 +12,25 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Log into registry
+        run: echo "${{ secrets.REGISTRYPASSWORD }}" | docker login registry.nordix.org -u ${{ secrets.REGISTRYUSERNAME }} --password-stdin
       - name: Clean workspace
         run: |
           rm -r dist | true
       - name: Generate manifest file
         run: |
-          make build-installer
+          IMAGE_ID=registry.nordix.org/eiffel/etos-controller
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # Use Docker `latest` tag convention
+          [ "$VERSION" == "main" ] && VERSION=$(echo ${{ github.sha }} | cut -c1-8)
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+          make docker-build docker-push build-installer IMG=$IMAGE_ID:$VERSION
+          mkdir -p manifests/controller
+          cp dist/* manifests/controller/
       - name: Commit changes
         run: |
           git config --global user.name 'github-actions[bot]'
