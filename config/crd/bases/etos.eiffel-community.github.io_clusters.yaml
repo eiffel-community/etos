@@ -176,6 +176,8 @@ spec:
                         default: "10"
                         type: string
                       testrunRetention:
+                        description: Retention describes the failure and success retentions
+                          for testruns.
                         properties:
                           failure:
                             type: string
