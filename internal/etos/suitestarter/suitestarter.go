@@ -187,9 +187,9 @@ func (r *ETOSSuiteStarterDeployment) reconcileConfig(ctx context.Context, logger
 }
 
 // reconcileTemplate will reconcile the ETOS SuiteRunner template to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	name = types.NamespacedName{Name: fmt.Sprintf("%s-template", name.Name), Namespace: name.Namespace}
-	target := r.suiteRunnerTemplate(name)
+func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, logger logr.Logger, saName types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	name := types.NamespacedName{Name: fmt.Sprintf("%s-template", saName.Name), Namespace: saName.Namespace}
+	target := r.suiteRunnerTemplate(name, saName)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -532,7 +532,7 @@ func (r *ETOSSuiteStarterDeployment) container(name types.NamespacedName, secret
 }
 
 // suiteRunnerTemplate creates a secret resource for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedName) *corev1.Secret {
+func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.NamespacedName, saName types.NamespacedName) *corev1.Secret {
 	data := map[string][]byte{
 		"suite_runner_template.yaml": []byte(fmt.Sprintf(`
       apiVersion: batch/v1
@@ -631,10 +631,10 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(name types.NamespacedNa
                 mountPath: /kubexit
             restartPolicy: Never
         backoffLimit: 0
-    `, name.Name)),
+    `, saName.Name)),
 	}
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(templateName),
 		Data:       data,
 	}
 }
