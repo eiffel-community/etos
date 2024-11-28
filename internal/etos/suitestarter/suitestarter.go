@@ -341,7 +341,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, l
 		if !apierrors.IsNotFound(err) {
 			return rolebinding, err
 		}
-		logger.Info(fmt.Sprintf("Creating a new role binding for the suite starter: %s", roleName))
+		logger.Info("Creating a new role binding for the suite starter", "roleName", roleName)
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
