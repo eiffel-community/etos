@@ -254,10 +254,6 @@ func (r *ETOSLogAreaDeployment) environment(cluster *etosv1alpha1.Cluster) []cor
 			Name:  "ETOS_ETCD_PORT",
 			Value: cluster.Spec.Database.Etcd.Port,
 		},
-		{
-			Name:  "STRIP_PREFIX",
-			Value: "/logarea",
-		},
 	}
 }
 

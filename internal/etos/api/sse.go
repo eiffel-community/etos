@@ -345,10 +345,6 @@ func (r *ETOSSSEDeployment) environment() []corev1.EnvVar {
 			Name:  "SERVICE_HOST",
 			Value: "0.0.0.0",
 		},
-		{
-			Name:  "STRIP_PREFIX",
-			Value: "/sse",
-		},
 	}
 }
 
