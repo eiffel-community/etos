@@ -155,7 +155,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	// Environment provider failed, setting status.
 	if providers.failed() {
 		environmentProvider := providers.failedJobs[0] // TODO: We should support multiple providers in the future
-		result, err := terminationLog(ctx, r, environmentProvider)
+		result, err := terminationLog(ctx, r, environmentProvider, environmentrequest.Name)
 		if err != nil {
 			result.Description = err.Error()
 		}
@@ -169,7 +169,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	// Environment provider successful, setting status.
 	if providers.successful() {
 		environmentProvider := providers.successfulJobs[0] // TODO: We should support multiple providers in the future
-		result, err := terminationLog(ctx, r, environmentProvider)
+		result, err := terminationLog(ctx, r, environmentProvider, environmentrequest.Name)
 		if err != nil {
 			result.Description = err.Error()
 		}
@@ -223,9 +223,9 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 				"app.kubernetes.io/name":                  "environment-provider",
 				"app.kubernetes.io/part-of":               "etos",
 			},
-			Annotations: make(map[string]string),
-			Name:        environmentrequest.Name,
-			Namespace:   environmentrequest.Namespace,
+			Annotations:  make(map[string]string),
+			GenerateName: "environment-provider-", // unique names to allow multiple environment provider jobs
+			Namespace:    environmentrequest.Namespace,
 		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: &ttl,

@@ -123,7 +123,7 @@ type Result struct {
 }
 
 // terminationLog reads the termination-log part of the ESR pod and returns it.
-func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job) (*Result, error) {
+func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, containerName string) (*Result, error) {
 	logger := log.FromContext(ctx)
 	var pods corev1.PodList
 	if err := c.List(ctx, &pods, client.InNamespace(job.Namespace), client.MatchingLabels{"job-name": job.Name}); err != nil {
@@ -140,7 +140,7 @@ func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job) (*Re
 	pod := pods.Items[0]
 
 	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == job.Name {
+		if status.Name == containerName {
 			if status.State.Terminated == nil {
 				return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
 			}
