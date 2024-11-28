@@ -419,7 +419,7 @@ func (r *ETOSApiDeployment) container(name types.NamespacedName, secretName stri
 	probe := &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path:   "/selftest/ping",
+				Path:   "/api/ping",
 				Port:   intstr.FromString("http"),
 				Scheme: "HTTP",
 			},
