@@ -56,31 +56,27 @@ func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, scheme *r
 // Reconcile will reconcile the ETOS suite starter to its expected state.
 func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
 	var err error
-	suiteStarterName := fmt.Sprintf("%s-etos-suite-starter", cluster.Name)
-	suiteRunnerName := fmt.Sprintf("%s-etos-suite-runner", cluster.Name)
+	suiteStarterName := types.NamespacedName{Name: fmt.Sprintf("%s-etos-suite-starter", cluster.Name), Namespace: cluster.Namespace}
+	suiteRunnerName := types.NamespacedName{Name: fmt.Sprintf("%s-etos-suite-runner", cluster.Name), Namespace: cluster.Namespace}
 
-	logger := log.FromContext(ctx, "Reconciler", "ETOSSuiteStarter", "BaseName", suiteStarterName)
-
-	nsSuiteStarterName := types.NamespacedName{Name: suiteStarterName, Namespace: cluster.Namespace}
-	nsSuiteRunnerName := types.NamespacedName{Name: suiteRunnerName, Namespace: cluster.Namespace}
-
-	_, err = r.reconcileServiceAccount(ctx, logger, nsSuiteRunnerName, cluster)
+	logger := log.FromContext(ctx, "Reconciler", "ETOSSuiteStarter", "BaseName", suiteStarterName.Name)
+	_, err = r.reconcileServiceAccount(ctx, logger, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite runner service account")
 		return err
 	}
 	// This secret is in use when running the TestRun controller. When the suite starter is removed, this MUST still be created.
-	secret, err := r.reconcileSuiteRunnerSecret(ctx, logger, nsSuiteRunnerName, cluster)
+	secret, err := r.reconcileSuiteRunnerSecret(ctx, logger, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite runner secret")
 		return err
 	}
-	cfg, err := r.reconcileConfig(ctx, logger, secret.ObjectMeta.Name, nsSuiteStarterName, cluster)
+	cfg, err := r.reconcileConfig(ctx, logger, secret.ObjectMeta.Name, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite starter config")
 		return err
 	}
-	template, err := r.reconcileTemplate(ctx, logger, nsSuiteRunnerName, cluster)
+	template, err := r.reconcileTemplate(ctx, logger, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite runner template")
 		return err
@@ -92,45 +88,45 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 		suiteRunnerTemplateName = r.SuiteRunnerTemplateSecretName
 	}
 	logger.Info("Suite runner template", "suiteRunnerTemplateName", suiteRunnerTemplateName)
-	_, err = r.reconcileDeployment(ctx, logger, cfg.ObjectMeta.Name, suiteRunnerTemplateName, nsSuiteStarterName, cluster)
+	_, err = r.reconcileDeployment(ctx, logger, cfg.ObjectMeta.Name, suiteRunnerTemplateName, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the deployment for the ETOS Suite Starter")
 		return err
 	}
-	_, err = r.reconcileSecret(ctx, logger, nsSuiteStarterName, cluster)
+	_, err = r.reconcileSecret(ctx, logger, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the secret for the ETOS Suite Starter")
 		return err
 	}
-	_, err = r.reconcileRole(ctx, logger, nsSuiteStarterName, cluster)
+	_, err = r.reconcileRole(ctx, logger, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role for the ETOS Suite Starter")
 		return err
 	}
-	_, err = r.reconcileServiceAccount(ctx, logger, nsSuiteStarterName, cluster)
+	_, err = r.reconcileServiceAccount(ctx, logger, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service account for the ETOS Suite Starter")
 		return err
 	}
-	_, err = r.reconcileRolebinding(ctx, logger, nsSuiteStarterName, "esr-handler", cluster)
+	_, err = r.reconcileRolebinding(ctx, logger, suiteStarterName, "esr-handler", cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role binding for the ETOS Suite Starter")
 		return err
 	}
 
-	_, err = r.reconcileSuiteRunnerRole(ctx, logger, nsSuiteRunnerName, cluster)
+	_, err = r.reconcileSuiteRunnerRole(ctx, logger, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite Runner role")
 		return err
 	}
 
-	_, err = r.reconcileServiceAccount(ctx, logger, nsSuiteRunnerName, cluster)
+	_, err = r.reconcileServiceAccount(ctx, logger, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite Runner service account")
 		return err
 	}
 
-	_, err = r.reconcileRolebinding(ctx, logger, nsSuiteRunnerName, "testrun-reader", cluster)
+	_, err = r.reconcileRolebinding(ctx, logger, suiteRunnerName, "testrun-reader", cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite Runner role binding")
 		return err
@@ -138,12 +134,12 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 	return err
 }
 
-// reconcileSuiteRunnerRole will reconcile the ETOS SuiteStarter role to its expected state.
+// reconcileSuiteRunnerRole will reconcile the ETOS Suite Runner role to its expected state.
 func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerRole(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s:sa:testrun-reader", name.Name)
 
-	target := r.testReaderRole(name, labelName)
+	target := r.testRunReaderRole(name, labelName)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -465,8 +461,8 @@ func (r *ETOSSuiteStarterDeployment) role(name types.NamespacedName, labelName s
 	}
 }
 
-// testReader creates a role resource definition giving read permissions for testrun resource
-func (r *ETOSSuiteStarterDeployment) testReaderRole(name types.NamespacedName, labelName string) *rbacv1.Role {
+// testRunReader creates a role resource definition giving read permissions for testrun resource
+func (r *ETOSSuiteStarterDeployment) testRunReaderRole(name types.NamespacedName, labelName string) *rbacv1.Role {
 	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace})
 	meta.Name = name.Name
 	meta.Annotations["rbac.authorization.kubernetes.io/autoupdate"] = "true"
