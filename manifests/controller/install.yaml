@@ -2947,7 +2947,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: registry.nordix.org/eiffel/etos-controller:de9e306a
+        image: registry.nordix.org/eiffel/etos-controller:efd01bdb
         livenessProbe:
           httpGet:
             path: /healthz
