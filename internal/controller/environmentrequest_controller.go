@@ -122,20 +122,28 @@ func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmen
 		LogArea:        environmentrequest.Spec.Providers.LogArea.ID,
 	}
 	if err := checkProviders(ctx, r, environmentrequest.Namespace, providers); err != nil {
-		meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Status: metav1.ConditionTrue, Type: StatusFailed, Message: "Provider check failed", Reason: err.Error()})
-		if _err := r.Status().Update(ctx, environmentrequest); _err != nil {
-			return _err
-		}
-		return err
+		meta.SetStatusCondition(&environmentrequest.Status.Conditions,
+			metav1.Condition{
+				Status:  metav1.ConditionFalse,
+				Type:    StatusReady,
+				Message: fmt.Sprintf("Provider check failed: %s", err.Error()),
+				Reason:  "Failed",
+			})
+		logger.Error(err, "Error occurred while checking provider status")
+		return r.Status().Update(ctx, environmentrequest)
 	}
 
 	// Reconcile environment provider
 	if err := r.reconcileEnvironmentProvider(ctx, environmentProviders, environmentrequest); err != nil {
-		meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Status: metav1.ConditionTrue, Type: StatusFailed, Message: "Environment provider reconciliation failed", Reason: err.Error()})
-		if _err := r.Status().Update(ctx, environmentrequest); _err != nil {
-			return _err
-		}
-		return err
+		meta.SetStatusCondition(&environmentrequest.Status.Conditions,
+			metav1.Condition{
+				Status:  metav1.ConditionFalse,
+				Type:    StatusReady,
+				Message: fmt.Sprintf("Environment provider reconciliation failed: %s", err.Error()),
+				Reason:  "Failed",
+			})
+		logger.Error(err, "Error occurred while reconciling environment provider")
+		return r.Status().Update(ctx, environmentrequest)
 	}
 
 	if environmentProviders.failed() {
