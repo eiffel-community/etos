@@ -56,26 +56,27 @@ func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, scheme *r
 // Reconcile will reconcile the ETOS suite starter to its expected state.
 func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
 	var err error
-	name := fmt.Sprintf("%s-etos-suite-starter", cluster.Name)
-	logger := log.FromContext(ctx, "Reconciler", "ETOSSuiteStarter", "BaseName", name)
-	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
-	_, err = r.reconcileSuiteRunnerServiceAccount(ctx, logger, namespacedName, cluster)
+	suiteStarterName := types.NamespacedName{Name: fmt.Sprintf("%s-etos-suite-starter", cluster.Name), Namespace: cluster.Namespace}
+	suiteRunnerName := types.NamespacedName{Name: fmt.Sprintf("%s-etos-suite-runner", cluster.Name), Namespace: cluster.Namespace}
+
+	logger := log.FromContext(ctx, "Reconciler", "ETOSSuiteStarter", "BaseName", suiteStarterName.Name)
+	_, err = r.reconcileServiceAccount(ctx, logger, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite runner service account")
 		return err
 	}
 	// This secret is in use when running the TestRun controller. When the suite starter is removed, this MUST still be created.
-	secret, err := r.reconcileSuiteRunnerSecret(ctx, logger, namespacedName, cluster)
+	secret, err := r.reconcileSuiteRunnerSecret(ctx, logger, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite runner secret")
 		return err
 	}
-	cfg, err := r.reconcileConfig(ctx, logger, secret.ObjectMeta.Name, namespacedName, cluster)
+	cfg, err := r.reconcileConfig(ctx, logger, secret.ObjectMeta.Name, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite starter config")
 		return err
 	}
-	template, err := r.reconcileTemplate(ctx, logger, namespacedName, cluster)
+	template, err := r.reconcileTemplate(ctx, logger, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite runner template")
 		return err
@@ -87,53 +88,73 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 		suiteRunnerTemplateName = r.SuiteRunnerTemplateSecretName
 	}
 	logger.Info("Suite runner template", "suiteRunnerTemplateName", suiteRunnerTemplateName)
-	_, err = r.reconcileDeployment(ctx, logger, cfg.ObjectMeta.Name, suiteRunnerTemplateName, namespacedName, cluster)
+	_, err = r.reconcileDeployment(ctx, logger, cfg.ObjectMeta.Name, suiteRunnerTemplateName, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the deployment for the ETOS Suite Starter")
 		return err
 	}
-	_, err = r.reconcileSecret(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileSecret(ctx, logger, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the secret for the ETOS Suite Starter")
 		return err
 	}
-	_, err = r.reconcileRole(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileRole(ctx, logger, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role for the ETOS Suite Starter")
 		return err
 	}
-	_, err = r.reconcileServiceAccount(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileServiceAccount(ctx, logger, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service account for the ETOS Suite Starter")
 		return err
 	}
-	_, err = r.reconcileRolebinding(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileRolebinding(ctx, logger, suiteStarterName, "esr-handler", cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role binding for the ETOS Suite Starter")
+		return err
+	}
+
+	_, err = r.reconcileSuiteRunnerRole(ctx, logger, suiteRunnerName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the Suite Runner role")
+		return err
+	}
+
+	_, err = r.reconcileServiceAccount(ctx, logger, suiteRunnerName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the Suite Runner service account")
+		return err
+	}
+
+	_, err = r.reconcileRolebinding(ctx, logger, suiteRunnerName, "testrun-reader", cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the Suite Runner role binding")
 		return err
 	}
 	return err
 }
 
-// reconcileSuiteRunnerServiceAccount will reconcile the ETOS SuiteStarter service account to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
-	target := r.serviceaccount(name)
+// reconcileSuiteRunnerRole will reconcile the ETOS Suite Runner role to its expected state.
+func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerRole(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
+	labelName := name.Name
+	name.Name = fmt.Sprintf("%s:sa:testrun-reader", name.Name)
+
+	target := r.testRunReaderRole(name, labelName)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
 
-	serviceaccount := &corev1.ServiceAccount{}
-	if err := r.Get(ctx, name, serviceaccount); err != nil {
+	role := &rbacv1.Role{}
+	if err := r.Get(ctx, name, role); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return serviceaccount, err
+			return role, err
 		}
-		logger.Info("Creating a new service account for the suite runner")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
 		return target, nil
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(serviceaccount))
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(role))
 }
 
 // reconcileSuiteRunnerSecret will reconcile the ETOS suite runner secret to its expected state.
@@ -309,8 +330,8 @@ func (r *ETOSSuiteStarterDeployment) reconcileServiceAccount(ctx context.Context
 }
 
 // reconcileRolebinding will reconcile the ETOS SuiteStarter service account role binding to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
-	target := r.rolebinding(name)
+func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, logger logr.Logger, name types.NamespacedName, roleName string, owner metav1.Object) (*rbacv1.RoleBinding, error) {
+	target := r.rolebinding(name, roleName)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -320,7 +341,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, l
 		if !apierrors.IsNotFound(err) {
 			return rolebinding, err
 		}
-		logger.Info("Creating a new role binding for the suite starter")
+		logger.Info("Creating a new role binding for the suite starter", "roleName", roleName)
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
@@ -440,6 +461,27 @@ func (r *ETOSSuiteStarterDeployment) role(name types.NamespacedName, labelName s
 	}
 }
 
+// testRunReader creates a role resource definition giving read permissions for testrun resource
+func (r *ETOSSuiteStarterDeployment) testRunReaderRole(name types.NamespacedName, labelName string) *rbacv1.Role {
+	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace})
+	meta.Name = name.Name
+	meta.Annotations["rbac.authorization.kubernetes.io/autoupdate"] = "true"
+	return &rbacv1.Role{
+		ObjectMeta: meta,
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"etos.eiffel-community.github.io"},
+				Resources: []string{
+					"testruns",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
+		},
+	}
+}
+
 // serviceaccount creates a service account resource definition for the ETOS SuiteStarter.
 func (r *ETOSSuiteStarterDeployment) serviceaccount(name types.NamespacedName) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
@@ -448,13 +490,13 @@ func (r *ETOSSuiteStarterDeployment) serviceaccount(name types.NamespacedName) *
 }
 
 // rolebinding creates a rolebinding resource definition for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) rolebinding(name types.NamespacedName) *rbacv1.RoleBinding {
+func (r *ETOSSuiteStarterDeployment) rolebinding(name types.NamespacedName, roleName string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: r.meta(name),
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.SchemeGroupVersion.Group,
 			Kind:     "Role",
-			Name:     fmt.Sprintf("%s:sa:esr-handler", name.Name),
+			Name:     fmt.Sprintf("%s:sa:%s", name.Name, roleName),
 		},
 		Subjects: []rbacv1.Subject{
 			{
