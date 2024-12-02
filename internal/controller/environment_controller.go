@@ -155,7 +155,7 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 	// Environment releaser failed, setting status.
 	if releasers.failed() {
 		releaser := releasers.failedJobs[0] // TODO: We should allow multiple releaser jobs in the future
-		result, err := terminationLog(ctx, r, releaser)
+		result, err := terminationLog(ctx, r, releaser, environment.Name)
 		if err != nil {
 			result.Description = err.Error()
 		}
@@ -169,7 +169,7 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 	// Environment releaser successful, setting status.
 	if releasers.successful() {
 		releaser := releasers.successfulJobs[0] // TODO: We should allow multiple releaser jobs in the future
-		result, err := terminationLog(ctx, r, releaser)
+		result, err := terminationLog(ctx, r, releaser, environment.Name)
 		if err != nil {
 			result.Description = err.Error()
 		}
