@@ -116,19 +116,25 @@ func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmen
 	logger.V(1).Info("environment provider count", "active", len(environmentProviders.activeJobs), "successful", len(environmentProviders.successfulJobs), "failed", len(environmentProviders.failedJobs))
 
 	// Check providers availability
-	// TODO: Update status
 	providers := etosv1alpha1.Providers{
 		IUT:            environmentrequest.Spec.Providers.IUT.ID,
 		ExecutionSpace: environmentrequest.Spec.Providers.ExecutionSpace.ID,
 		LogArea:        environmentrequest.Spec.Providers.LogArea.ID,
 	}
 	if err := checkProviders(ctx, r, environmentrequest.Namespace, providers); err != nil {
+		meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Status: metav1.ConditionTrue, Type: StatusFailed, Message: "Provider check failed", Reason: err.Error()})
+		if _err := r.Status().Update(ctx, environmentrequest); _err != nil {
+			return _err
+		}
 		return err
 	}
 
 	// Reconcile environment provider
-	// TODO Update status
 	if err := r.reconcileEnvironmentProvider(ctx, environmentProviders, environmentrequest); err != nil {
+		meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Status: metav1.ConditionTrue, Type: StatusFailed, Message: "Environment provider reconciliation failed", Reason: err.Error()})
+		if _err := r.Status().Update(ctx, environmentrequest); _err != nil {
+			return _err
+		}
 		return err
 	}
 
