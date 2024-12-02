@@ -61,8 +61,10 @@ type EnvironmentRequestSpec struct {
 	// TODO: Dataset per provider?
 	Dataset *apiextensionsv1.JSON `json:"dataset,omitempty"`
 
-	Providers EnvironmentProviders `json:"providers"`
-	Splitter  Splitter             `json:"splitter"`
+	Providers          EnvironmentProviders `json:"providers"`
+	Splitter           Splitter             `json:"splitter"`
+	ServiceAccountName string               `json:"serviceaccountname,omitempty"`
+	SecretRefName      string               `json:"secretrefname,omitempty"`
 }
 
 // EnvironmentRequestStatus defines the observed state of EnvironmentRequest

@@ -227,15 +227,13 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
-	// TODO: Cluster might not be a part of the environment request.
-	cluster := environmentrequest.Labels["etos.eiffel-community.github.io/cluster"]
-	return &batchv1.Job{
+
+	jobRef := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"etos.eiffel-community.github.io/id":      environmentrequest.Spec.Identifier, // TODO: omitempty
-				"etos.eiffel-community.github.io/cluster": cluster,
-				"app.kubernetes.io/name":                  "environment-provider",
-				"app.kubernetes.io/part-of":               "etos",
+				"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier, // TODO: omitempty
+				"app.kubernetes.io/name":             "environment-provider",
+				"app.kubernetes.io/part-of":          "etos",
 			},
 			Annotations:  make(map[string]string),
 			GenerateName: "environment-provider-", // unique names to allow multiple environment provider jobs
@@ -250,7 +248,6 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 				},
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: &grace,
-					ServiceAccountName:            fmt.Sprintf("%s-provider", cluster),
 					RestartPolicy:                 "Never",
 					Containers: []corev1.Container{
 						{
@@ -271,7 +268,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 								{
 									SecretRef: &corev1.SecretEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: fmt.Sprintf("%s-environment-provider-cfg", cluster),
+											Name: "",
 										},
 									},
 								},
@@ -288,6 +285,24 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 			},
 		},
 	}
+	clusterLabelName := "etos.eiffel-community.github.io/cluster"
+	if environmentrequest.Labels[clusterLabelName] != "" {
+		cluster := environmentrequest.Labels[clusterLabelName]
+		jobRef.ObjectMeta.Labels[clusterLabelName] = cluster
+		jobRef.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("%s-provider", cluster)
+		jobRef.Spec.Template.Spec.Containers[0].EnvFrom[0].SecretRef.LocalObjectReference.Name = fmt.Sprintf("%s-environment-provider-cfg", cluster)
+	} else {
+		// this allows environment requests for services not bound to a cluster
+		saName := environmentrequest.Spec.ServiceAccountName
+		if saName != "" {
+			jobRef.Spec.Template.Spec.ServiceAccountName = saName
+		}
+		srName := environmentrequest.Spec.SecretRefName
+		if srName != "" {
+			jobRef.Spec.Template.Spec.Containers[0].EnvFrom[0].SecretRef.LocalObjectReference.Name = srName
+		}
+	}
+	return jobRef
 }
 
 // registerOwnerIndexForJob will set an index of the jobs that an environment request owns.
