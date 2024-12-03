@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: registry.nordix.org/eiffel/etos-controller
-  newTag: 556be51e
+  newTag: c07b4bd3
