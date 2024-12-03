@@ -199,12 +199,17 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 	if releasers.empty() && !environment.ObjectMeta.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(environment, releaseFinalizer) {
 			logger.Info("Environment is being deleted, release it")
-			environmentRequest, err := r.environmentRequest(ctx, environment)
-			if err != nil {
-				return err
+			var image *etosv1alpha1.Image
+			if environment.Spec.Releaser != nil {
+				image = environment.Spec.Releaser
+			} else {
+				environmentRequest, err := r.environmentRequest(ctx, environment)
+				if err != nil {
+					return err
+				}
+				image = environmentRequest.Spec.Image
 			}
-			releaser := r.releaseJob(environment, environmentRequest)
-			fmt.Println(releaser)
+			releaser := r.releaseJob(environment, *image)
 			if err := ctrl.SetControllerReference(environment, releaser, r.Scheme); err != nil {
 				return err
 			}
@@ -236,7 +241,7 @@ func (r *EnvironmentReconciler) environmentRequest(ctx context.Context, environm
 }
 
 // releaseJob is the job definition for an environment releaser.
-func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment, environmentRequest *etosv1alpha1.EnvironmentRequest) *batchv1.Job {
+func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment, image etosv1alpha1.Image) *batchv1.Job {
 	id := environment.Labels["etos.eiffel-community.github.io/id"]
 	cluster := environment.Labels["etos.eiffel-community.github.io/cluster"]
 	ttl := int32(300)
@@ -269,8 +274,8 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment,
 					Containers: []corev1.Container{
 						{
 							Name:            environment.Name,
-							Image:           environmentRequest.Spec.Image.Image,
-							ImagePullPolicy: environmentRequest.Spec.ImagePullPolicy,
+							Image:           image.Image,
+							ImagePullPolicy: image.ImagePullPolicy,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),
