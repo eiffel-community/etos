@@ -1254,19 +1254,6 @@ spec:
                   - testCase
                   type: object
                 type: array
-              releaser:
-                description: Image configuration.
-                properties:
-                  image:
-                    type: string
-                  imagePullPolicy:
-                    default: IfNotPresent
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
-                    type: string
-                required:
-                - image
-                type: object
               sub_suite_id:
                 pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                 type: string
@@ -2960,7 +2947,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: registry.nordix.org/eiffel/etos-controller:bbeecce0
+        image: registry.nordix.org/eiffel/etos-controller:61d5b687
         livenessProbe:
           httpGet:
             path: /healthz
