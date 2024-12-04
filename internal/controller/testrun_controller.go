@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -351,11 +350,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	}
 	// No suite runners, create suite runner
 	if suiteRunners.empty() {
-		tercc, err := json.Marshal(testrun.Spec.Suites)
-		if err != nil {
-			return err
-		}
-		suiteRunner := r.suiteRunnerJob(tercc, testrun)
+		suiteRunner := r.suiteRunnerJob(testrun)
 		if err := ctrl.SetControllerReference(testrun, suiteRunner, r.Scheme); err != nil {
 			return err
 		}
@@ -462,7 +457,7 @@ func (r TestRunReconciler) environmentRequest(testrun *etosv1alpha1.TestRun, sui
 }
 
 // suiteRunnerJob is the job definition for an etos suite runner.
-func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.TestRun) *batchv1.Job {
+func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv1.Job {
 	grace := int64(30)
 	backoff := int32(0)
 	return &batchv1.Job{
@@ -564,10 +559,6 @@ func (r TestRunReconciler) suiteRunnerJob(tercc []byte, testrun *etosv1alpha1.Te
 								},
 							},
 							Env: []corev1.EnvVar{
-								{
-									Name:  "TERCC",
-									Value: string(tercc),
-								},
 								{
 									Name:  "ARTIFACT",
 									Value: testrun.Spec.Artifact,
