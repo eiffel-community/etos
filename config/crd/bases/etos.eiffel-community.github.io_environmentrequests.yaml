@@ -105,6 +105,10 @@ spec:
                     - id
                     type: object
                 type: object
+              secretrefname:
+                type: string
+              serviceaccountname:
+                type: string
               splitter:
                 properties:
                   tests:

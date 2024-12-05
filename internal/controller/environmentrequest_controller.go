@@ -292,14 +292,13 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 		jobRef.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("%s-provider", cluster)
 		jobRef.Spec.Template.Spec.Containers[0].EnvFrom[0].SecretRef.LocalObjectReference.Name = fmt.Sprintf("%s-environment-provider-cfg", cluster)
 	} else {
-		// this allows environment requests for services not bound to a cluster
-		saName := environmentrequest.Spec.ServiceAccountName
-		if saName != "" {
-			jobRef.Spec.Template.Spec.ServiceAccountName = saName
-		}
+		// ServiceAccountName is optional in environment request. If not given it will be set to empty string/omitted in jobRef.
+		jobRef.Spec.Template.Spec.ServiceAccountName = environmentrequest.Spec.ServiceAccountName
+
+		// SecretRefName is optional in environment request. If not given there, it will be set to empty string/omitted in jobRef
 		srName := environmentrequest.Spec.SecretRefName
-		if srName != "" {
-			jobRef.Spec.Template.Spec.Containers[0].EnvFrom[0].SecretRef.LocalObjectReference.Name = srName
+		if srName == "" {
+			jobRef.Spec.Template.Spec.Containers[0].EnvFrom = []corev1.EnvFromSource{}
 		}
 	}
 	return jobRef
