@@ -264,15 +264,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
-							EnvFrom: []corev1.EnvFromSource{
-								{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "",
-										},
-									},
-								},
-							},
+							EnvFrom: []corev1.EnvFromSource{},
 							Env: []corev1.EnvVar{
 								{
 									Name:  "REQUEST",
@@ -290,15 +282,34 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 		cluster := environmentrequest.Labels[clusterLabelName]
 		jobRef.ObjectMeta.Labels[clusterLabelName] = cluster
 		jobRef.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("%s-provider", cluster)
-		jobRef.Spec.Template.Spec.Containers[0].EnvFrom[0].SecretRef.LocalObjectReference.Name = fmt.Sprintf("%s-environment-provider-cfg", cluster)
+
+		envFrom := corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-environment-provider-cfg", cluster),
+				},
+			},
+		}
+		container := &jobRef.Spec.Template.Spec.Containers[0]
+		container.EnvFrom = append(container.EnvFrom, envFrom)
 	} else {
 		// ServiceAccountName is optional in environment request. If not given it will be set to empty string/omitted in jobRef.
 		jobRef.Spec.Template.Spec.ServiceAccountName = environmentrequest.Spec.ServiceAccountName
 
 		// SecretRefName is optional in environment request. If not given there, it will be set to empty string/omitted in jobRef
 		srName := environmentrequest.Spec.SecretRefName
-		if srName == "" {
-			jobRef.Spec.Template.Spec.Containers[0].EnvFrom = []corev1.EnvFromSource{}
+
+		container := &jobRef.Spec.Template.Spec.Containers[0]
+		container.EnvFrom = []corev1.EnvFromSource{}
+		if srName != "" {
+			envFrom := corev1.EnvFromSource{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: srName,
+					},
+				},
+			}
+			container.EnvFrom = append(container.EnvFrom, envFrom)
 		}
 	}
 	return jobRef
