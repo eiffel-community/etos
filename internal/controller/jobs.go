@@ -145,6 +145,7 @@ func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, cont
 				return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
 			}
 			var result Result
+
 			if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
 				logger.Error(err, "failed to unmarshal termination log to a result struct")
 				return &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message}, nil

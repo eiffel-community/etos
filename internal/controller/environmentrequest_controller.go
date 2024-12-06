@@ -222,28 +222,28 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	return nil
 }
 
+// envFrom creates list of corev1.EnvFromSource instances from an environment request
+func envFrom(environmentrequest *etosv1alpha1.EnvironmentRequest) []corev1.EnvFromSource {
+	result := []corev1.EnvFromSource{}
+	if environmentrequest.Spec.SecretRefName == "" {
+		return result
+	}
+	item := corev1.EnvFromSource{
+		SecretRef: &corev1.SecretEnvSource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: environmentrequest.Spec.SecretRefName,
+			},
+		},
+	}
+	result = append(result, item)
+	return result
+}
+
 // environmentProviderJob is the job definition for an etos environment provider.
 func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest *etosv1alpha1.EnvironmentRequest) *batchv1.Job {
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
-
-	envFrom := func(er *etosv1alpha1.EnvironmentRequest) []corev1.EnvFromSource {
-		result := []corev1.EnvFromSource{}
-		if er.Spec.SecretRefName == "" {
-			return result
-		}
-		item := corev1.EnvFromSource{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: er.Spec.SecretRefName,
-				},
-			},
-		}
-		result = append(result, item)
-		return result
-	}
-
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
