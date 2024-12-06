@@ -228,7 +228,23 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 	grace := int64(30)
 	backoff := int32(0)
 
-	jobRef := &batchv1.Job{
+	envFrom := func(er *etosv1alpha1.EnvironmentRequest) []corev1.EnvFromSource {
+		result := []corev1.EnvFromSource{}
+		if er.Spec.SecretRefName == "" {
+			return result
+		}
+		item := corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: er.Spec.SecretRefName,
+				},
+			},
+		}
+		result = append(result, item)
+		return result
+	}
+
+	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier, // TODO: omitempty
@@ -247,6 +263,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 					Name: environmentrequest.Name,
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            environmentrequest.Spec.ServiceAccountName,
 					TerminationGracePeriodSeconds: &grace,
 					RestartPolicy:                 "Never",
 					Containers: []corev1.Container{
@@ -264,7 +281,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
-							EnvFrom: []corev1.EnvFromSource{},
+							EnvFrom: envFrom(environmentrequest),
 							Env: []corev1.EnvVar{
 								{
 									Name:  "REQUEST",
@@ -277,42 +294,6 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 			},
 		},
 	}
-	clusterLabelName := "etos.eiffel-community.github.io/cluster"
-	if environmentrequest.Labels[clusterLabelName] != "" {
-		cluster := environmentrequest.Labels[clusterLabelName]
-		jobRef.ObjectMeta.Labels[clusterLabelName] = cluster
-		jobRef.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("%s-provider", cluster)
-
-		envFrom := corev1.EnvFromSource{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-environment-provider-cfg", cluster),
-				},
-			},
-		}
-		container := &jobRef.Spec.Template.Spec.Containers[0]
-		container.EnvFrom = append(container.EnvFrom, envFrom)
-	} else {
-		// ServiceAccountName is optional in environment request. If not given it will be set to empty string/omitted in jobRef.
-		jobRef.Spec.Template.Spec.ServiceAccountName = environmentrequest.Spec.ServiceAccountName
-
-		// SecretRefName is optional in environment request. If not given there, it will be set to empty string/omitted in jobRef
-		srName := environmentrequest.Spec.SecretRefName
-
-		container := &jobRef.Spec.Template.Spec.Containers[0]
-		container.EnvFrom = []corev1.EnvFromSource{}
-		if srName != "" {
-			envFrom := corev1.EnvFromSource{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: srName,
-					},
-				},
-			}
-			container.EnvFrom = append(container.EnvFrom, envFrom)
-		}
-	}
-	return jobRef
 }
 
 // registerOwnerIndexForJob will set an index of the jobs that an environment request owns.
