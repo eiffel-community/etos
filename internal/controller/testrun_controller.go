@@ -451,7 +451,9 @@ func (r TestRunReconciler) environmentRequest(testrun *etosv1alpha1.TestRun, sui
 			Splitter: etosv1alpha1.Splitter{
 				Tests: suite.Tests,
 			},
-			Image: testrun.Spec.EnvironmentProvider.Image,
+			Image:              testrun.Spec.EnvironmentProvider.Image,
+			ServiceAccountName: fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
+			SecretRefName:      fmt.Sprintf("%s-environment-provider-cfg", testrun.Spec.Cluster),
 		},
 	}
 }
