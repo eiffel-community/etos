@@ -15,7 +15,7 @@
 # limitations under the License.
 """ETOS client module."""
 from pkg_resources import get_distribution, DistributionNotFound
-from .test import TestRun
+from .command import TestRun
 
 # pylint:disable=invalid-name
 try:

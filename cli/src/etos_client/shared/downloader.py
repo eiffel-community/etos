@@ -19,7 +19,6 @@ import time
 import traceback
 import hashlib
 from pathlib import Path
-from typing import Union
 from threading import Thread, Lock
 from multiprocessing.pool import ThreadPool
 from queue import Queue, Empty
@@ -32,7 +31,6 @@ import requests
 from requests.exceptions import HTTPError
 
 from etos_lib.lib.http import Http
-from etos_client.sse.protocol import Report, Artifact
 
 
 HTTP_RETRY_PARAMETERS = Retry(
@@ -84,7 +82,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
     logger = logging.getLogger(__name__)
     started = False
 
-    def __init__(self, report_dir: Path, artifact_dir: Path) -> None:
+    def __init__(self) -> None:
         """Init."""
         super().__init__()
         self.__download_queue = Queue()
@@ -94,10 +92,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         self.__lock = Lock()
         self.__http = Http(retry=HTTP_RETRY_PARAMETERS)
         self.failed: bool = False
-        self.downloads: {str} = set()
-
-        self.__report_dir = report_dir
-        self.__artifact_dir = artifact_dir
+        self.downloads: set[str] = set()
 
     def __download(self, item: Downloadable) -> None:
         """Download files."""
@@ -212,7 +207,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             item = self.__download_queue.get_nowait()
             pool.apply_async(
                 self.__download,
-                error_callback=self.__print_traceback,
+                error_callback=self.__print_traceback,  # type:ignore
                 args=(item,),
             )
             return True
@@ -251,43 +246,8 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         self.__exit = True
         self.__clear_queue = clear_queue
 
-    def __queue_download(self, item: Downloadable) -> None:
+    def queue_download(self, item: Downloadable) -> None:
         """Queue a downloadable for download."""
         if item.url not in self.__queued:
             self.__download_queue.put_nowait(item)
             self.__queued.append(item.url)
-
-    def download_report(self, report: Report):
-        """Download an report to the report directory."""
-        reports = self.__report_dir.relative_to(Path.cwd()).joinpath(
-            report.file.get("directory", "")
-        )
-        self.__queue_download(
-            Downloadable(
-                url=report.file.get("url"),
-                name=report.file.get("name"),
-                checksums=report.file.get("checksums", {}),
-                path=reports,
-            )
-        )
-
-    def download_artifact(self, artifact: Artifact):
-        """Download an artifact to the artifact directory."""
-        artifacts = self.__artifact_dir.relative_to(Path.cwd()).joinpath(
-            artifact.file.get("directory", "")
-        )
-        self.__queue_download(
-            Downloadable(
-                url=artifact.file.get("url"),
-                name=artifact.file.get("name"),
-                checksums=artifact.file.get("checksums", {}),
-                path=artifacts,
-            )
-        )
-
-    def download(self, file: Union[Report, Artifact]):
-        """Download a file from either a Report or Artifact event."""
-        if isinstance(file, Report):
-            self.download_report(file)
-        elif isinstance(file, Artifact):
-            self.download_artifact(file)
