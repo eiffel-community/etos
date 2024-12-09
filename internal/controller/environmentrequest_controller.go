@@ -222,20 +222,34 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	return nil
 }
 
+// envFrom creates list of corev1.EnvFromSource instances from an environment request
+func envFrom(environmentrequest *etosv1alpha1.EnvironmentRequest) []corev1.EnvFromSource {
+	result := []corev1.EnvFromSource{}
+	if environmentrequest.Spec.SecretRefName == "" {
+		return result
+	}
+	item := corev1.EnvFromSource{
+		SecretRef: &corev1.SecretEnvSource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: environmentrequest.Spec.SecretRefName,
+			},
+		},
+	}
+	result = append(result, item)
+	return result
+}
+
 // environmentProviderJob is the job definition for an etos environment provider.
 func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest *etosv1alpha1.EnvironmentRequest) *batchv1.Job {
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
-	// TODO: Cluster might not be a part of the environment request.
-	cluster := environmentrequest.Labels["etos.eiffel-community.github.io/cluster"]
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"etos.eiffel-community.github.io/id":      environmentrequest.Spec.Identifier, // TODO: omitempty
-				"etos.eiffel-community.github.io/cluster": cluster,
-				"app.kubernetes.io/name":                  "environment-provider",
-				"app.kubernetes.io/part-of":               "etos",
+				"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier, // TODO: omitempty
+				"app.kubernetes.io/name":             "environment-provider",
+				"app.kubernetes.io/part-of":          "etos",
 			},
 			Annotations:  make(map[string]string),
 			GenerateName: "environment-provider-", // unique names to allow multiple environment provider jobs
@@ -249,8 +263,8 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 					Name: environmentrequest.Name,
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            environmentrequest.Spec.ServiceAccountName,
 					TerminationGracePeriodSeconds: &grace,
-					ServiceAccountName:            fmt.Sprintf("%s-provider", cluster),
 					RestartPolicy:                 "Never",
 					Containers: []corev1.Container{
 						{
@@ -267,15 +281,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
-							EnvFrom: []corev1.EnvFromSource{
-								{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: fmt.Sprintf("%s-environment-provider-cfg", cluster),
-										},
-									},
-								},
-							},
+							EnvFrom: envFrom(environmentrequest),
 							Env: []corev1.EnvVar{
 								{
 									Name:  "REQUEST",
