@@ -2947,7 +2947,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: registry.nordix.org/eiffel/etos-controller:61d5b687
+        image: registry.nordix.org/eiffel/etos-controller:f5d42ddf
         livenessProbe:
           httpGet:
             path: /healthz
@@ -2968,7 +2968,7 @@ spec:
         resources:
           limits:
             cpu: 500m
-            memory: 128Mi
+            memory: 1024Mi
           requests:
             cpu: 10m
             memory: 64Mi
