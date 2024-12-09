@@ -222,21 +222,70 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	return nil
 }
 
-// envFrom creates list of corev1.EnvFromSource instances from an environment request
-func envFrom(environmentrequest *etosv1alpha1.EnvironmentRequest) []corev1.EnvFromSource {
-	result := []corev1.EnvFromSource{}
-	if environmentrequest.Spec.SecretRefName == "" {
-		return result
-	}
-	item := corev1.EnvFromSource{
-		SecretRef: &corev1.SecretEnvSource{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: environmentrequest.Spec.SecretRefName,
-			},
+func envVarListFrom(environmentrequest *etosv1alpha1.EnvironmentRequest) []corev1.EnvVar {
+	envList := []corev1.EnvVar{
+		{
+			Name:  "REQUEST",
+			Value: environmentrequest.Name,
+		},
+		{
+			Name:  "ETOS_API",
+			Value: environmentrequest.Spec.JobConfig.EtosApi,
+		},
+		{
+			Name:  "ETOS_GRAPHQL_SERVER",
+			Value: environmentrequest.Spec.JobConfig.EtosGraphQlServer,
+		},
+		{
+			Name:  "ETOS_ETCD_HOST",
+			Value: environmentrequest.Spec.JobConfig.EtosEtcdHost,
+		},
+		{
+			Name:  "ETOS_ETCD_PORT",
+			Value: environmentrequest.Spec.JobConfig.EtosEtcdPort,
 		},
 	}
-	result = append(result, item)
-	return result
+
+	var bus etosv1alpha1.RabbitMQ
+	for _, prefix := range []string{"", "ETOS_"} {
+		if prefix == "" {
+			bus = environmentrequest.Spec.JobConfig.EiffelMessageBus
+		} else if prefix == "ETOS_" {
+			bus = environmentrequest.Spec.JobConfig.EtosMessageBus
+		}
+		envVars := []corev1.EnvVar{
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_HOST", prefix),
+				Value: bus.Host,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_VHOST", prefix),
+				Value: bus.Vhost,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_PORT", prefix),
+				Value: bus.Port,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_SSL", prefix),
+				Value: bus.SSL,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_EXCHANGE", prefix),
+				Value: bus.Exchange,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_USERNAME", prefix),
+				Value: bus.Username,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_PASSWORD", prefix),
+				Value: bus.Password.Value,
+			},
+		}
+		envList = append(envList, envVars...)
+	}
+	return envList
 }
 
 // environmentProviderJob is the job definition for an etos environment provider.
@@ -281,13 +330,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
-							EnvFrom: envFrom(environmentrequest),
-							Env: []corev1.EnvVar{
-								{
-									Name:  "REQUEST",
-									Value: environmentrequest.Name,
-								},
-							},
+							Env: envVarListFrom(environmentrequest),
 						},
 					},
 				},

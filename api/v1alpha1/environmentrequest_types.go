@@ -45,6 +45,25 @@ type Splitter struct {
 	Tests []Test `json:"tests"`
 }
 
+// EnvironmentRequestJobConfig defines parameters required by
+type EnvironmentRequestJobConfig struct {
+	EiffelMessageBus     RabbitMQ `json:"eiffelMessageBus"`
+	EtosMessageBus       RabbitMQ `json:"etosMessageBus"`
+	EtosApi              string   `json:"etosApi"`
+	EtosEtcdHost         string   `json:"etosEtcdHost"`
+	EtosEtcdPort         string   `json:"etosEtcdPort"`
+	EtosEventDataTimeout string   `json:"etosEventDataTimeout"`
+	EtosGraphQlServer    string   `json:"etosGraphQlServer"`
+	EtosRoutingKeyTag    string   `json:"etosRoutingKeyTag"`
+	EtosWaitForTimeout   string   `json:"etosWaitForTimeout"`
+
+	EnvironmentProviderEventDataTimeout string            `json:"environmentProviderEventDataTimeout"`
+	EnvironmentProviderImage            string            `json:"environmentProviderImage"`
+	EnvironmentProviderImagePullPolicy  corev1.PullPolicy `json:"environmentProviderImagePullPolicy"`
+	EnvironmentProviderServiceAccount   string            `json:"environmentProviderServiceAccount"`
+	EnvironmentProviderTestSuiteTimeout string            `json:"environmentProviderTestSuiteTimeout"`
+}
+
 // EnvironmentRequestSpec defines the desired state of EnvironmentRequest
 type EnvironmentRequestSpec struct {
 	// ID is the ID for the environments generated. Will be generated if nil. The ID is a UUID, any version, and regex matches that.
@@ -61,10 +80,10 @@ type EnvironmentRequestSpec struct {
 	// TODO: Dataset per provider?
 	Dataset *apiextensionsv1.JSON `json:"dataset,omitempty"`
 
-	Providers          EnvironmentProviders `json:"providers"`
-	Splitter           Splitter             `json:"splitter"`
-	ServiceAccountName string               `json:"serviceaccountname,omitempty"`
-	SecretRefName      string               `json:"secretrefname,omitempty"`
+	Providers          EnvironmentProviders        `json:"providers"`
+	Splitter           Splitter                    `json:"splitter"`
+	ServiceAccountName string                      `json:"serviceaccountname,omitempty"`
+	JobConfig          EnvironmentRequestJobConfig `json:"jobConfig,omitempty"`
 }
 
 // EnvironmentRequestStatus defines the observed state of EnvironmentRequest
