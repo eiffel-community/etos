@@ -282,7 +282,7 @@ func (r *ETOSDeployment) reconcileSecret(ctx context.Context, logger logr.Logger
 // reconcileEnvironmentProviderConfig will reconcile the secret to use as configuration for the ETOS environment provider.
 func (r *ETOSDeployment) reconcileEnvironmentProviderConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, encryptionKeyName, configmapName string, owner metav1.Object) (*corev1.Secret, error) {
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-environment-provider-cfg", name.Name), Namespace: name.Namespace}
-	target, err := r.environmentProviderConfig(ctx, name, encryptionKeyName, configmapName)
+	target, err := r.environmentProviderConfig(ctx, logger, name, encryptionKeyName, configmapName)
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +305,7 @@ func (r *ETOSDeployment) reconcileEnvironmentProviderConfig(ctx context.Context,
 }
 
 // config creates a new Secret to be used as configuration for the ETOS API.
-func (r *ETOSDeployment) environmentProviderConfig(ctx context.Context, name types.NamespacedName, encryptionKeyName, configmapName string) (*corev1.Secret, error) {
+func (r *ETOSDeployment) environmentProviderConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, encryptionKeyName, configmapName string) (*corev1.Secret, error) {
 	eiffel := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
 		return nil, err
@@ -324,13 +324,19 @@ func (r *ETOSDeployment) environmentProviderConfig(ctx context.Context, name typ
 	}
 	data := map[string][]byte{}
 	maps.Copy(data, eiffel.Data)
+	logger.Info("environmentProviderConfig eiffel data", "data", eiffel.Data)
 	maps.Copy(data, etos.Data)
+	logger.Info("environmentProviderConfig etos data", "data", etos.Data)
 	maps.Copy(data, encryption.Data)
+	logger.Info("environmentProviderConfig encryption data", "data", encryption.Data)
 	maps.Copy(data, config.Data)
-	return &corev1.Secret{
+	logger.Info("environmentProviderConfig config data", "data", config.Data)
+	secret := &corev1.Secret{
 		ObjectMeta: r.meta(name),
 		Data:       data,
-	}, nil
+	}
+	logger.Info("environmentProviderConfig secret", "secret", secret)
+	return secret, nil
 }
 
 // ingress creates an ingress resource definition for ETOS.
