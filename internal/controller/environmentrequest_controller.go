@@ -222,20 +222,83 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	return nil
 }
 
+func envVarListFrom(environmentrequest *etosv1alpha1.EnvironmentRequest) []corev1.EnvVar {
+	envList := []corev1.EnvVar{
+		{
+			Name:  "REQUEST",
+			Value: environmentrequest.Name,
+		},
+		{
+			Name:  "ETOS_API",
+			Value: environmentrequest.Spec.JobConfig.EtosApi,
+		},
+		{
+			Name:  "ETOS_GRAPHQL_SERVER",
+			Value: environmentrequest.Spec.JobConfig.EtosGraphQlServer,
+		},
+		{
+			Name:  "ETOS_ETCD_HOST",
+			Value: environmentrequest.Spec.JobConfig.EtosEtcdHost,
+		},
+		{
+			Name:  "ETOS_ETCD_PORT",
+			Value: environmentrequest.Spec.JobConfig.EtosEtcdPort,
+		},
+	}
+
+	var bus etosv1alpha1.RabbitMQ
+	for _, prefix := range []string{"", "ETOS_"} {
+		if prefix == "" {
+			bus = environmentrequest.Spec.JobConfig.EiffelMessageBus
+		} else if prefix == "ETOS_" {
+			bus = environmentrequest.Spec.JobConfig.EtosMessageBus
+		}
+		envVars := []corev1.EnvVar{
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_HOST", prefix),
+				Value: bus.Host,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_VHOST", prefix),
+				Value: bus.Vhost,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_PORT", prefix),
+				Value: bus.Port,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_SSL", prefix),
+				Value: bus.SSL,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_EXCHANGE", prefix),
+				Value: bus.Exchange,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_USERNAME", prefix),
+				Value: bus.Username,
+			},
+			{
+				Name:  fmt.Sprintf("%sRABBITMQ_PASSWORD", prefix),
+				Value: bus.Password.Value,
+			},
+		}
+		envList = append(envList, envVars...)
+	}
+	return envList
+}
+
 // environmentProviderJob is the job definition for an etos environment provider.
 func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest *etosv1alpha1.EnvironmentRequest) *batchv1.Job {
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
-	// TODO: Cluster might not be a part of the environment request.
-	cluster := environmentrequest.Labels["etos.eiffel-community.github.io/cluster"]
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"etos.eiffel-community.github.io/id":      environmentrequest.Spec.Identifier, // TODO: omitempty
-				"etos.eiffel-community.github.io/cluster": cluster,
-				"app.kubernetes.io/name":                  "environment-provider",
-				"app.kubernetes.io/part-of":               "etos",
+				"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier, // TODO: omitempty
+				"app.kubernetes.io/name":             "environment-provider",
+				"app.kubernetes.io/part-of":          "etos",
 			},
 			Annotations:  make(map[string]string),
 			GenerateName: "environment-provider-", // unique names to allow multiple environment provider jobs
@@ -249,8 +312,8 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 					Name: environmentrequest.Name,
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            environmentrequest.Spec.ServiceAccountName,
 					TerminationGracePeriodSeconds: &grace,
-					ServiceAccountName:            fmt.Sprintf("%s-provider", cluster),
 					RestartPolicy:                 "Never",
 					Containers: []corev1.Container{
 						{
@@ -267,21 +330,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
-							EnvFrom: []corev1.EnvFromSource{
-								{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: fmt.Sprintf("%s-environment-provider-cfg", cluster),
-										},
-									},
-								},
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "REQUEST",
-									Value: environmentrequest.Name,
-								},
-							},
+							Env: envVarListFrom(environmentrequest),
 						},
 					},
 				},
