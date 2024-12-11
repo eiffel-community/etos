@@ -211,7 +211,10 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	}
 	// No environment providers, create environment provider
 	if providers.empty() {
-		environmentProvider := r.environmentProviderJob(environmentrequest)
+		environmentProvider, _err := r.environmentProviderJob(ctx, environmentrequest)
+		if _err != nil {
+			return _err
+		}
 		if err := ctrl.SetControllerReference(environmentrequest, environmentProvider, r.Scheme); err != nil {
 			return err
 		}
@@ -222,7 +225,11 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	return nil
 }
 
-func envVarListFrom(environmentrequest *etosv1alpha1.EnvironmentRequest) []corev1.EnvVar {
+func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) ([]corev1.EnvVar, error) {
+	etosEncryptionKey, err := environmentrequest.Spec.JobConfig.EtosEncryptionKey.Get(ctx, r.Client, environmentrequest.Namespace)
+	if err != nil {
+		return nil, err
+	}
 	envList := []corev1.EnvVar{
 		{
 			Name:  "REQUEST",
@@ -237,12 +244,23 @@ func envVarListFrom(environmentrequest *etosv1alpha1.EnvironmentRequest) []corev
 			Value: environmentrequest.Spec.JobConfig.EtosGraphQlServer,
 		},
 		{
+			Name:  "ETOS_ENCRYPTION_KEY",
+			Value: string(etosEncryptionKey),
+		},
+		{
 			Name:  "ETOS_ETCD_HOST",
 			Value: environmentrequest.Spec.JobConfig.EtosEtcdHost,
 		},
 		{
 			Name:  "ETOS_ETCD_PORT",
 			Value: environmentrequest.Spec.JobConfig.EtosEtcdPort,
+		},
+		{
+			// Optional when environmentrequest is not issued by testrun, i. e. created separately.
+			// When the environment request is issued by a testrun, this variable is propagated
+			// further from environment provider to test runner.
+			Name:  "ETR_VERSION",
+			Value: environmentrequest.Spec.JobConfig.EtosTestRunnerVersion,
 		},
 	}
 
@@ -285,14 +303,20 @@ func envVarListFrom(environmentrequest *etosv1alpha1.EnvironmentRequest) []corev
 		}
 		envList = append(envList, envVars...)
 	}
-	return envList
+	return envList, nil
 }
 
 // environmentProviderJob is the job definition for an etos environment provider.
-func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest *etosv1alpha1.EnvironmentRequest) *batchv1.Job {
+func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) (*batchv1.Job, error) {
+	logger := log.FromContext(ctx)
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
+	envVarList, err := r.envVarListFrom(ctx, environmentrequest)
+	if err != nil {
+		logger.Error(err, "Failed to create environment variable list for environment provider")
+		return nil, err
+	}
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -330,13 +354,13 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(environmentrequest 
 									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
-							Env: envVarListFrom(environmentrequest),
+							Env: envVarList,
 						},
 					},
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 // registerOwnerIndexForJob will set an index of the jobs that an environment request owns.

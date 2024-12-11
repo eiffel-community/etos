@@ -324,18 +324,13 @@ func (r *ETOSDeployment) environmentProviderConfig(ctx context.Context, logger l
 	}
 	data := map[string][]byte{}
 	maps.Copy(data, eiffel.Data)
-	logger.Info("environmentProviderConfig eiffel data", "data", eiffel.Data)
 	maps.Copy(data, etos.Data)
-	logger.Info("environmentProviderConfig etos data", "data", etos.Data)
 	maps.Copy(data, encryption.Data)
-	logger.Info("environmentProviderConfig encryption data", "data", encryption.Data)
 	maps.Copy(data, config.Data)
-	logger.Info("environmentProviderConfig config data", "data", config.Data)
 	secret := &corev1.Secret{
 		ObjectMeta: r.meta(name),
 		Data:       data,
 	}
-	logger.Info("environmentProviderConfig secret", "secret", secret)
 	return secret, nil
 }
 

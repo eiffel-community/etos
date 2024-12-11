@@ -47,15 +47,17 @@ type Splitter struct {
 
 // EnvironmentRequestJobConfig defines parameters required by
 type EnvironmentRequestJobConfig struct {
-	EiffelMessageBus     RabbitMQ `json:"eiffelMessageBus"`
-	EtosMessageBus       RabbitMQ `json:"etosMessageBus"`
-	EtosApi              string   `json:"etosApi"`
-	EtosEtcdHost         string   `json:"etosEtcdHost"`
-	EtosEtcdPort         string   `json:"etosEtcdPort"`
-	EtosEventDataTimeout string   `json:"etosEventDataTimeout"`
-	EtosGraphQlServer    string   `json:"etosGraphQlServer"`
-	EtosRoutingKeyTag    string   `json:"etosRoutingKeyTag"`
-	EtosWaitForTimeout   string   `json:"etosWaitForTimeout"`
+	EiffelMessageBus      RabbitMQ `json:"eiffelMessageBus"`
+	EtosMessageBus        RabbitMQ `json:"etosMessageBus"`
+	EtosApi               string   `json:"etosApi"`
+	EtosEncryptionKey     Var      `json:"etosEncryptionKeySecretRef"`
+	EtosEtcdHost          string   `json:"etosEtcdHost"`
+	EtosEtcdPort          string   `json:"etosEtcdPort"`
+	EtosEventDataTimeout  string   `json:"etosEventDataTimeout"`
+	EtosGraphQlServer     string   `json:"etosGraphQlServer"`
+	EtosRoutingKeyTag     string   `json:"etosRoutingKeyTag"`
+	EtosWaitForTimeout    string   `json:"etosWaitForTimeout"`
+	EtosTestRunnerVersion string   `json:"etosTestRunnerVersion"`
 
 	EnvironmentProviderEventDataTimeout string            `json:"environmentProviderEventDataTimeout"`
 	EnvironmentProviderImage            string            `json:"environmentProviderImage"`
