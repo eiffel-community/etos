@@ -137,15 +137,11 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Name:      testrun.Spec.Cluster,
 		Namespace: req.NamespacedName.Namespace,
 	}
-	msg := fmt.Sprintf("Getting CL by name: %s@%s |||", clusterNamespacedName.Name, clusterNamespacedName.Namespace)
-	logger.Info(msg)
 	cluster := &etosv1alpha1.Cluster{}
 	if err := r.Get(ctx, clusterNamespacedName, cluster); err != nil {
 		logger.Info("Failed to get cluster resource!")
 		return ctrl.Result{}, nil
 	}
-	msg = fmt.Sprint("Got CL: %s", cluster)
-	logger.Info(msg)
 
 	if err := r.reconcile(ctx, cluster, testrun); err != nil {
 		if apierrors.IsConflict(err) {
@@ -441,8 +437,6 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 	etosMessageBus := cluster.Spec.MessageBus.ETOSMessageBus
 	etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, etosMessageBus.Host)
 
-	etosApi := fmt.Sprintf("%s-api", cluster.Name)
-
 	return &etosv1alpha1.EnvironmentRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -482,10 +476,10 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 			Image:              testrun.Spec.EnvironmentProvider.Image,
 			ServiceAccountName: fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
 			JobConfig: etosv1alpha1.EnvironmentRequestJobConfig{
-				EiffelMessageBus: eiffelMessageBus,
-				EtosMessageBus:   etosMessageBus,
-				EtosApi:          etosApi,
-
+				EiffelMessageBus:                    eiffelMessageBus,
+				EtosMessageBus:                      etosMessageBus,
+				EtosApi:                             cluster.Spec.ETOS.Config.ETOSApiURL,
+				EtosEncryptionKey:                   cluster.Spec.ETOS.Config.EncryptionKey,
 				EtosRoutingKeyTag:                   cluster.Spec.ETOS.Config.RoutingKeyTag,
 				EtosGraphQlServer:                   eventRepository,
 				EtosEtcdHost:                        fmt.Sprintf("%s-etcd", cluster.Name),
@@ -497,6 +491,7 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 				EnvironmentProviderImagePullPolicy:  cluster.Spec.ETOS.EnvironmentProvider.ImagePullPolicy,
 				EnvironmentProviderServiceAccount:   fmt.Sprintf("%s-provider", cluster.Name),
 				EnvironmentProviderTestSuiteTimeout: cluster.Spec.ETOS.Config.TestSuiteTimeout,
+				EtosTestRunnerVersion:               cluster.Spec.ETOS.TestRunner.Version,
 			},
 		},
 	}
