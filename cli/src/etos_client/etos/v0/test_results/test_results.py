@@ -17,7 +17,7 @@
 import logging
 from typing import Optional
 
-from etos_client.events.events import Events, TestSuite
+from ..events.events import Events, TestSuite
 
 # pylint:disable=too-few-public-methods
 
