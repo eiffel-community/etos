@@ -182,6 +182,7 @@ func (phc *ProviderHealthChecker) Check(ctx context.Context) error {
 				logger.Error(err, "failed to update provider status")
 			}
 			logger.Info("Provider did not respond", "provider", provider.Name)
+			return nil
 		}
 		if resp.StatusCode != 204 {
 			meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionFalse, Reason: "Error", Message: fmt.Sprintf("Wrong status code (%d) from health check endpoint", resp.StatusCode)})
@@ -189,6 +190,7 @@ func (phc *ProviderHealthChecker) Check(ctx context.Context) error {
 				logger.Error(err, "failed to update provider status")
 			}
 			logger.Info("Provider responded with a bad status code", "provider", provider.Name, "status", resp.StatusCode)
+			return nil
 		}
 	}
 	meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionTrue, Reason: "OK", Message: "Provider is up and running"})
