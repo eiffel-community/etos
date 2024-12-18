@@ -112,7 +112,8 @@ type ProviderSpec struct {
 
 // ProviderStatus defines the observed state of Provider
 type ProviderStatus struct {
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	Conditions          []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	LastHealthCheckTime string             `json:"lastHealthCheckTime,omitempty"` // RFC3339 timestamp
 }
 
 // +kubebuilder:object:root=true
