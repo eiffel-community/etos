@@ -250,6 +250,11 @@ type ETOS struct {
 	Config ETOSConfig `json:"config"`
 }
 
+// ClusterController describes the deployment of the cluster controller
+type ClusterController struct {
+	LogstashEndpoint string `json:"logstashEndpoint,omitempty"`
+}
+
 // ClusterSpec defines the desired state of Cluster
 type ClusterSpec struct {
 	// +kubebuilder:default={}
@@ -260,6 +265,8 @@ type ClusterSpec struct {
 	MessageBus MessageBus `json:"messageBus"`
 	// +kubebuilder:default={}
 	EventRepository EventRepository `json:"eventRepository"`
+	// +kubebuilder:default={}
+	ClusterController ClusterController `json:"controller"`
 }
 
 // ClusterStatus defines the observed state of Cluster

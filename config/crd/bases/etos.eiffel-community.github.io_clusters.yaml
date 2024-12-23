@@ -46,6 +46,14 @@ spec:
           spec:
             description: ClusterSpec defines the desired state of Cluster
             properties:
+              controller:
+                default: {}
+                description: ClusterController describes the deployment of the cluster
+                  controller
+                properties:
+                  logstashEndpoint:
+                    type: string
+                type: object
               database:
                 default: {}
                 description: Database describes the deployment of a database for ETOS.
@@ -702,6 +710,7 @@ spec:
                     type: object
                 type: object
             required:
+            - controller
             - database
             - etos
             - eventRepository

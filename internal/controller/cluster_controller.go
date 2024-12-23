@@ -66,10 +66,10 @@ type ClusterReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
+	logrLogger := log.FromContext(ctx)
+	logrLogger = logrLogger.WithValues("namespace", req.Namespace, "name", req.Name)
 
-	// TODO: Logstash
+	logger := NewLogstashLogger(logrLogger, "")
 
 	cluster := &etosv1alpha1.Cluster{}
 	err := r.Get(ctx, req.NamespacedName, cluster)
