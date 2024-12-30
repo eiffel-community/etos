@@ -29,11 +29,11 @@ type EnvironmentSpec struct {
 	// Regexes match any UUID version.
 
 	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-	SuiteID string `json:"suite_id"`
+	SuiteID string `json:"suite_id,omitempty"`
 	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-	SubSuiteID string `json:"sub_suite_id"`
+	SubSuiteID string `json:"sub_suite_id,omitempty"`
 	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-	MainSuiteID string `json:"test_suite_started_id"`
+	MainSuiteID string `json:"test_suite_started_id,omitempty"`
 	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 	Artifact string `json:"artifact"`
 	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
