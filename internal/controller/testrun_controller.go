@@ -306,7 +306,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	// Suite runners failed, setting status.
 	if suiteRunners.failed() {
 		suiteRunner := suiteRunners.failedJobs[0] // TODO
-		result, err := terminationLog(ctx, r, suiteRunner, testrun.Name)
+		result, err := terminationLog(ctx, r, suiteRunner, suiteRunner.Name, testrun.Name)
 		if err != nil {
 			result.Description = err.Error()
 		}
@@ -322,7 +322,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	// Suite runners successful, setting status.
 	if suiteRunners.successful() {
 		suiteRunner := suiteRunners.successfulJobs[0] // TODO
-		result, err := terminationLog(ctx, r, suiteRunner, testrun.Name)
+		result, err := terminationLog(ctx, r, suiteRunner, suiteRunner.Name, testrun.Name)
 		if err != nil {
 			result.Description = err.Error()
 		}

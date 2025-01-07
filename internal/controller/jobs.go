@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -122,8 +123,8 @@ type Result struct {
 	Description string     `json:"description,omitempty"`
 }
 
-// terminationLog reads the termination-log part of the ESR pod and returns it.
-func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, containerName string) (*Result, error) {
+// terminationLog reads the termination-log from the container inside the pod given by prefix
+func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, podNamePrefix string, containerName string) (*Result, error) {
 	logger := log.FromContext(ctx)
 	var pods corev1.PodList
 	if err := c.List(ctx, &pods, client.InNamespace(job.Namespace), client.MatchingLabels{"job-name": job.Name}); err != nil {
@@ -133,25 +134,66 @@ func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, cont
 	if len(pods.Items) == 0 {
 		return &Result{Conclusion: ConclusionFailed}, fmt.Errorf("no pods found for job %s", job.Name)
 	}
-	if len(pods.Items) > 1 {
-		// TODO: check specific
-		logger.Info("found more than 1 pod active. Will only check termination-log for the first one", "pod", pods.Items[0])
-	}
-	pod := pods.Items[0]
-
-	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == containerName {
-			if status.State.Terminated == nil {
-				return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
+	for _, pod := range pods.Items {
+		if !strings.HasPrefix(pod.Name, podNamePrefix) {
+			continue
+		}
+		for _, status := range pod.Status.ContainerStatuses {
+			if status.Name == containerName {
+				if status.State.Terminated == nil {
+					return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
+				}
+				var result Result
+				if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
+					logger.Error(err, "failed to unmarshal termination log to a result struct")
+					return &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message}, nil
+				}
+				return &result, nil
 			}
+		}
+		return &Result{Conclusion: ConclusionFailed}, errors.New("found no container status for pod")
+	}
+	return &Result{Conclusion: ConclusionFailed}, errors.New("found no pod with the given name")
+}
+
+// TODO: determine whether terminationLog() or terminationLogs() fits future use-cases better
+// terminationLogs reads termination-log for each pod/container of the given job returning it as a map (keys: pod names, values: Result instances)
+func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (map[string][]*Result, error) {
+	logger := log.FromContext(ctx)
+	results := make(map[string][]*Result)
+
+	var pods corev1.PodList
+	if err := c.List(ctx, &pods, client.InNamespace(job.Namespace), client.MatchingLabels{"job-name": job.Name}); err != nil {
+		logger.Error(err, fmt.Sprintf("could not list pods for job %s", job.Name))
+		return results, err
+	}
+
+	if len(pods.Items) == 0 {
+		return results, fmt.Errorf("no pods found for job %s", job.Name)
+	}
+
+	for _, pod := range pods.Items {
+
+		podResults := []*Result{}
+		for _, status := range pod.Status.ContainerStatuses {
+			if status.State.Terminated == nil {
+				podResults = append(podResults, &Result{Conclusion: ConclusionFailed})
+				continue
+			}
+
 			var result Result
 
 			if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
 				logger.Error(err, "failed to unmarshal termination log to a result struct")
-				return &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message}, nil
+				podResults = append(podResults, &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message})
+				continue
 			}
-			return &result, nil
+
+			podResults = append(podResults, &result)
 		}
+
+		results[pod.Name] = podResults
 	}
-	return &Result{Conclusion: ConclusionFailed}, errors.New("found no container status for pod")
+
+	return results, nil
 }
