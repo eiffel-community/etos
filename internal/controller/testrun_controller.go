@@ -463,9 +463,6 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				// TODO: remove these two first ones
-				"id":                                 testrun.Spec.ID,
-				"app":                                "suite-runner",
 				"etos.eiffel-community.github.io/id": testrun.Spec.ID,
 				"app.kubernetes.io/name":             "suite-runner",
 				"app.kubernetes.io/part-of":          "etos",
