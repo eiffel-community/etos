@@ -211,9 +211,9 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	}
 	// No environment providers, create environment provider
 	if providers.empty() {
-		environmentProvider, _err := r.environmentProviderJob(ctx, environmentrequest)
-		if _err != nil {
-			return _err
+		environmentProvider, err := r.environmentProviderJob(ctx, environmentrequest)
+		if err != nil {
+			return err
 		}
 		if err := ctrl.SetControllerReference(environmentrequest, environmentProvider, r.Scheme); err != nil {
 			return err
@@ -225,8 +225,9 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	return nil
 }
 
+// envVarListFrom creates a list of EnvVar key-value pairs from an EnvironmentRequest instance
 func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) ([]corev1.EnvVar, error) {
-	etosEncryptionKey, err := environmentrequest.Spec.JobConfig.EtosEncryptionKey.Get(ctx, r.Client, environmentrequest.Namespace)
+	etosEncryptionKey, err := environmentrequest.Spec.Config.EncryptionKey.Get(ctx, r.Client, environmentrequest.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -237,11 +238,11 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 		},
 		{
 			Name:  "ETOS_API",
-			Value: environmentrequest.Spec.JobConfig.EtosApi,
+			Value: environmentrequest.Spec.Config.EtosApi,
 		},
 		{
 			Name:  "ETOS_GRAPHQL_SERVER",
-			Value: environmentrequest.Spec.JobConfig.EtosGraphQlServer,
+			Value: environmentrequest.Spec.Config.GraphQlServer,
 		},
 		{
 			Name:  "ETOS_ENCRYPTION_KEY",
@@ -249,59 +250,79 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 		},
 		{
 			Name:  "ETOS_ETCD_HOST",
-			Value: environmentrequest.Spec.JobConfig.EtosEtcdHost,
+			Value: environmentrequest.Spec.Config.EtcdHost,
 		},
 		{
 			Name:  "ETOS_ETCD_PORT",
-			Value: environmentrequest.Spec.JobConfig.EtosEtcdPort,
+			Value: environmentrequest.Spec.Config.EtcdPort,
 		},
 		{
 			// Optional when environmentrequest is not issued by testrun, i. e. created separately.
 			// When the environment request is issued by a testrun, this variable is propagated
 			// further from environment provider to test runner.
 			Name:  "ETR_VERSION",
-			Value: environmentrequest.Spec.JobConfig.EtosTestRunnerVersion,
+			Value: environmentrequest.Spec.Config.TestRunnerVersion,
 		},
-	}
 
-	var bus etosv1alpha1.RabbitMQ
-	for _, prefix := range []string{"", "ETOS_"} {
-		if prefix == "" {
-			bus = environmentrequest.Spec.JobConfig.EiffelMessageBus
-		} else if prefix == "ETOS_" {
-			bus = environmentrequest.Spec.JobConfig.EtosMessageBus
-		}
-		envVars := []corev1.EnvVar{
-			{
-				Name:  fmt.Sprintf("%sRABBITMQ_HOST", prefix),
-				Value: bus.Host,
-			},
-			{
-				Name:  fmt.Sprintf("%sRABBITMQ_VHOST", prefix),
-				Value: bus.Vhost,
-			},
-			{
-				Name:  fmt.Sprintf("%sRABBITMQ_PORT", prefix),
-				Value: bus.Port,
-			},
-			{
-				Name:  fmt.Sprintf("%sRABBITMQ_SSL", prefix),
-				Value: bus.SSL,
-			},
-			{
-				Name:  fmt.Sprintf("%sRABBITMQ_EXCHANGE", prefix),
-				Value: bus.Exchange,
-			},
-			{
-				Name:  fmt.Sprintf("%sRABBITMQ_USERNAME", prefix),
-				Value: bus.Username,
-			},
-			{
-				Name:  fmt.Sprintf("%sRABBITMQ_PASSWORD", prefix),
-				Value: bus.Password.Value,
-			},
-		}
-		envList = append(envList, envVars...)
+		// Eiffel Message Bus variables
+		{
+			Name:  "RABBITMQ_HOST",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Host,
+		},
+		{
+			Name:  "RABBITMQ_VHOST",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Vhost,
+		},
+		{
+			Name:  "RABBITMQ_PORT",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Port,
+		},
+		{
+			Name:  "RABBITMQ_SSL",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.SSL,
+		},
+		{
+			Name:  "RABBITMQ_EXCHANGE",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Exchange,
+		},
+		{
+			Name:  "RABBITMQ_USERNAME",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Username,
+		},
+		{
+			Name:  "RABBITMQ_PASSWORD",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Password.Value,
+		},
+
+		// ETOS Message Bus variables
+		{
+			Name:  "ETOS_RABBITMQ_HOST",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Host,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_VHOST",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Vhost,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_PORT",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Port,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_SSL",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.SSL,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_EXCHANGE",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Exchange,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_USERNAME",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Username,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_PASSWORD",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Password.Value,
+		},
 	}
 	return envList, nil
 }

@@ -45,19 +45,19 @@ type Splitter struct {
 	Tests []Test `json:"tests"`
 }
 
-// EnvironmentRequestJobConfig defines parameters required by
-type EnvironmentRequestJobConfig struct {
-	EiffelMessageBus      RabbitMQ `json:"eiffelMessageBus"`
-	EtosMessageBus        RabbitMQ `json:"etosMessageBus"`
-	EtosApi               string   `json:"etosApi"`
-	EtosEncryptionKey     Var      `json:"etosEncryptionKeySecretRef"`
-	EtosEtcdHost          string   `json:"etosEtcdHost"`
-	EtosEtcdPort          string   `json:"etosEtcdPort"`
-	EtosEventDataTimeout  string   `json:"etosEventDataTimeout"`
-	EtosGraphQlServer     string   `json:"etosGraphQlServer"`
-	EtosRoutingKeyTag     string   `json:"etosRoutingKeyTag"`
-	EtosWaitForTimeout    string   `json:"etosWaitForTimeout"`
-	EtosTestRunnerVersion string   `json:"etosTestRunnerVersion"`
+// EnvironmentProviderJobConfig defines parameters required by environment provider job
+type EnvironmentProviderJobConfig struct {
+	EiffelMessageBus  RabbitMQ `json:"eiffelMessageBus"`
+	EtosMessageBus    RabbitMQ `json:"etosMessageBus"`
+	EtosApi           string   `json:"etosApi"`
+	EncryptionKey     Var      `json:"encryptionKeySecretRef"`
+	EtcdHost          string   `json:"etcdHost"`
+	EtcdPort          string   `json:"etcdPort"`
+	EventDataTimeout  string   `json:"eventDataTimeout"`
+	GraphQlServer     string   `json:"graphQlServer"`
+	RoutingKeyTag     string   `json:"routingKeyTag"`
+	WaitForTimeout    string   `json:"waitForTimeout"`
+	TestRunnerVersion string   `json:"testRunnerVersion"`
 
 	EnvironmentProviderEventDataTimeout string            `json:"environmentProviderEventDataTimeout"`
 	EnvironmentProviderImage            string            `json:"environmentProviderImage"`
@@ -82,10 +82,10 @@ type EnvironmentRequestSpec struct {
 	// TODO: Dataset per provider?
 	Dataset *apiextensionsv1.JSON `json:"dataset,omitempty"`
 
-	Providers          EnvironmentProviders        `json:"providers"`
-	Splitter           Splitter                    `json:"splitter"`
-	ServiceAccountName string                      `json:"serviceaccountname,omitempty"`
-	JobConfig          EnvironmentRequestJobConfig `json:"jobConfig,omitempty"`
+	Providers          EnvironmentProviders         `json:"providers"`
+	Splitter           Splitter                     `json:"splitter"`
+	ServiceAccountName string                       `json:"serviceaccountname,omitempty"`
+	Config             EnvironmentProviderJobConfig `json:"Config,omitempty"`
 }
 
 // EnvironmentRequestStatus defines the observed state of EnvironmentRequest

@@ -50,31 +50,9 @@ spec:
           spec:
             description: EnvironmentRequestSpec defines the desired state of EnvironmentRequest
             properties:
-              artifact:
-                type: string
-              dataset:
-                description: 'TODO: Dataset per provider?'
-                x-kubernetes-preserve-unknown-fields: true
-              id:
-                description: ID is the ID for the environments generated. Will be
-                  generated if nil. The ID is a UUID, any version, and regex matches
-                  that.
-                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
-                type: string
-              identifier:
-                type: string
-              identity:
-                type: string
-              image:
-                type: string
-              imagePullPolicy:
-                default: IfNotPresent
-                description: PullPolicy describes a policy for if/when to pull a container
-                  image
-                type: string
-              jobConfig:
-                description: EnvironmentRequestJobConfig defines parameters required
-                  by
+              Config:
+                description: EnvironmentProviderJobConfig defines parameters required
+                  by environment provider job
                 properties:
                   eiffelMessageBus:
                     description: RabbitMQ configuration.
@@ -167,21 +145,7 @@ spec:
                         default: /
                         type: string
                     type: object
-                  environmentProviderEventDataTimeout:
-                    type: string
-                  environmentProviderImage:
-                    type: string
-                  environmentProviderImagePullPolicy:
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
-                    type: string
-                  environmentProviderServiceAccount:
-                    type: string
-                  environmentProviderTestSuiteTimeout:
-                    type: string
-                  etosApi:
-                    type: string
-                  etosEncryptionKeySecretRef:
+                  encryptionKeySecretRef:
                     description: Var describes either a string value or a value from
                       a VarSource.
                     properties:
@@ -244,13 +208,23 @@ spec:
                             x-kubernetes-map-type: atomic
                         type: object
                     type: object
-                  etosEtcdHost:
+                  environmentProviderEventDataTimeout:
                     type: string
-                  etosEtcdPort:
+                  environmentProviderImage:
                     type: string
-                  etosEventDataTimeout:
+                  environmentProviderImagePullPolicy:
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
                     type: string
-                  etosGraphQlServer:
+                  environmentProviderServiceAccount:
+                    type: string
+                  environmentProviderTestSuiteTimeout:
+                    type: string
+                  etcdHost:
+                    type: string
+                  etcdPort:
+                    type: string
+                  etosApi:
                     type: string
                   etosMessageBus:
                     description: RabbitMQ configuration.
@@ -343,30 +317,56 @@ spec:
                         default: /
                         type: string
                     type: object
-                  etosRoutingKeyTag:
+                  eventDataTimeout:
                     type: string
-                  etosTestRunnerVersion:
+                  graphQlServer:
                     type: string
-                  etosWaitForTimeout:
+                  routingKeyTag:
+                    type: string
+                  testRunnerVersion:
+                    type: string
+                  waitForTimeout:
                     type: string
                 required:
                 - eiffelMessageBus
+                - encryptionKeySecretRef
                 - environmentProviderEventDataTimeout
                 - environmentProviderImage
                 - environmentProviderImagePullPolicy
                 - environmentProviderServiceAccount
                 - environmentProviderTestSuiteTimeout
+                - etcdHost
+                - etcdPort
                 - etosApi
-                - etosEncryptionKeySecretRef
-                - etosEtcdHost
-                - etosEtcdPort
-                - etosEventDataTimeout
-                - etosGraphQlServer
                 - etosMessageBus
-                - etosRoutingKeyTag
-                - etosTestRunnerVersion
-                - etosWaitForTimeout
+                - eventDataTimeout
+                - graphQlServer
+                - routingKeyTag
+                - testRunnerVersion
+                - waitForTimeout
                 type: object
+              artifact:
+                type: string
+              dataset:
+                description: 'TODO: Dataset per provider?'
+                x-kubernetes-preserve-unknown-fields: true
+              id:
+                description: ID is the ID for the environments generated. Will be
+                  generated if nil. The ID is a UUID, any version, and regex matches
+                  that.
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+                type: string
+              identifier:
+                type: string
+              identity:
+                type: string
+              image:
+                type: string
+              imagePullPolicy:
+                default: IfNotPresent
+                description: PullPolicy describes a policy for if/when to pull a container
+                  image
+                type: string
               maximumAmount:
                 type: integer
               minimumAmount:
