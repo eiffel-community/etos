@@ -62,38 +62,24 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	intervalNoError := time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second
-
-	// force initial health check:
-	if provider.Status.LastHealthCheckTime == "" {
-		provider.Status.LastHealthCheckTime = time.Now().Format(time.RFC3339)
-		if err = r.Status().Update(ctx, provider); err != nil {
-			logger.Error(err, "failed to update provider status")
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{RequeueAfter: time.Duration(1) * time.Second}, nil
+	interval := time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second
+	var next time.Time
+	if provider.Status.LastHealthCheckTime != nil {
+		next = provider.Status.LastHealthCheckTime.Time.Add(interval)
+	} else {
+		next = provider.ObjectMeta.CreationTimestamp.Time
 	}
-
-	lastHealthCheckTime, err := time.Parse(time.RFC3339, provider.Status.LastHealthCheckTime)
-	if err != nil {
-		logger.Error(err, "failed to parse provider's last health check time")
-		return ctrl.Result{}, err
-	}
-
-	// Calculate intervalOnError as the difference since the last check
-	intervalOnError := intervalNoError - time.Since(lastHealthCheckTime)
-	if intervalOnError < 0 {
-		intervalOnError = time.Duration(10) * time.Second // fallback to a default value if the interval is negative
+	if time.Until(next) > 0 {
+		return ctrl.Result{RequeueAfter: time.Until(next)}, nil
 	}
 
 	logger.V(2).Info("Checking availability of provider", "provider", req.NamespacedName)
+	now := metav1.NewTime(time.Now())
 	// We don't check the availability of JSONTas as it is not yet running as a service we can check.
 	if provider.Spec.JSONTas == nil {
 		logger.V(2).Info("Healthcheck", "endpoint", fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
 		resp, err := http.Get(fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
-		now := time.Now()
-		provider.Status.LastHealthCheckTime = now.Format(time.RFC3339)
-
+		provider.Status.LastHealthCheckTime = &now
 		if err != nil {
 			meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionFalse, Reason: "Error", Message: "Could not communicate with host"})
 			if err = r.Status().Update(ctx, provider); err != nil {
@@ -101,7 +87,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				return ctrl.Result{}, err
 			}
 			logger.Info("Provider did not respond", "provider", req.NamespacedName)
-			return ctrl.Result{RequeueAfter: intervalOnError}, nil
+			return ctrl.Result{RequeueAfter: interval}, nil
 		}
 		if resp.StatusCode != 204 {
 			meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionFalse, Reason: "Error", Message: fmt.Sprintf("Wrong status code (%d) from health check endpoint", resp.StatusCode)})
@@ -110,16 +96,11 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				return ctrl.Result{}, err
 			}
 			logger.Info("Provider responded with a bad status code", "provider", req.NamespacedName, "status", resp.StatusCode)
-			return ctrl.Result{RequeueAfter: intervalOnError}, nil
+			return ctrl.Result{RequeueAfter: interval}, nil
 		}
 	}
 	meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionTrue, Reason: "OK", Message: "Provider is up and running"})
-	if err = r.Status().Update(ctx, provider); err != nil {
-		logger.Error(err, "failed to update provider status")
-		return ctrl.Result{}, err
-	}
-	logger.V(2).Info("Provider is available", "provider", req.NamespacedName)
-	return ctrl.Result{RequeueAfter: intervalNoError}, nil
+	return ctrl.Result{RequeueAfter: interval}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
