@@ -195,7 +195,6 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			if result.Conclusion == ConclusionFailed {
 				if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 					statusUpdated = true
-					//return r.Status().Update(ctx, environmentrequest)
 				}
 			}
 			if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionTrue, Reason: "Done", Message: result.Description}) {
