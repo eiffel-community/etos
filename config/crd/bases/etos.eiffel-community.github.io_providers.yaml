@@ -329,6 +329,7 @@ spec:
                   type: object
                 type: array
               lastHealthCheckTime:
+                format: date-time
                 type: string
             type: object
         type: object
