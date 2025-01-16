@@ -74,7 +74,6 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{RequeueAfter: time.Until(next)}, nil
 	}
 
-	logger.V(2).Info("Checking availability of provider", "provider", req.NamespacedName)
 	// We don't check the availability of JSONTas as it is not yet running as a service we can check.
 	if provider.Spec.JSONTas == nil {
 		logger.V(2).Info("Healthcheck", "endpoint", fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
@@ -101,11 +100,12 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	lastHealthCheckTime := metav1.NewTime(time.Now())
 	provider.Status.LastHealthCheckTime = &lastHealthCheckTime
 	if err = r.Status().Update(ctx, provider); err != nil {
-		logger.Error(err, "failed to update last health check time")
-		return ctrl.Result{}, nil
+		logger.Error(err, "failed to update provider status")
+		return ctrl.Result{}, err
 	}
 
 	meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionTrue, Reason: "OK", Message: "Provider is up and running"})
+	logger.V(2).Info("Provider is available", "provider", req.NamespacedName)
 	return ctrl.Result{RequeueAfter: interval}, nil
 }
 
