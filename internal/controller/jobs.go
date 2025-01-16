@@ -156,7 +156,6 @@ func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, podN
 	return &Result{Conclusion: ConclusionFailed}, errors.New("found no pod with the given name")
 }
 
-// TODO: determine whether terminationLog() or terminationLogs() fits future use-cases better
 // terminationLogs reads termination-log for each pod/container of the given job returning it as a map (keys: pod names, values: Result instances)
 func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (map[string][]*Result, error) {
 	logger := log.FromContext(ctx)
