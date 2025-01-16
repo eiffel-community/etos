@@ -333,18 +333,25 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
+
 	envVarList, err := r.envVarListFrom(ctx, environmentrequest)
 	if err != nil {
 		logger.Error(err, "Failed to create environment variable list for environment provider")
 		return nil, err
 	}
+
+	labels := map[string]string{
+		"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier, // TODO: omitempty
+		"app.kubernetes.io/name":             "environment-provider",
+		"app.kubernetes.io/part-of":          "etos",
+	}
+	if cluster := environmentrequest.Labels["etos.eiffel-community.github.io/cluster"]; cluster != "" {
+		labels["etos.eiffel-community.github.io/cluster"] = cluster
+	}
+
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier, // TODO: omitempty
-				"app.kubernetes.io/name":             "environment-provider",
-				"app.kubernetes.io/part-of":          "etos",
-			},
+			Labels:       labels,
 			Annotations:  make(map[string]string),
 			GenerateName: "environment-provider-", // unique names to allow multiple environment provider jobs
 			Namespace:    environmentrequest.Namespace,
