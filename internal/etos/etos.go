@@ -516,6 +516,24 @@ func (r *ETOSDeployment) role(name types.NamespacedName, labelName string) *rbac
 					"create", "get", "list", "watch", "delete",
 				},
 			},
+			{
+				APIGroups: []string{"batch"},
+				Resources: []string{
+					"jobs",
+				},
+				Verbs: []string{
+					"create", "get", "list", "watch", "delete",
+				},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{
+					"pods",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
 		},
 	}
 }
