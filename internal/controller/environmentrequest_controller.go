@@ -169,6 +169,7 @@ func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmen
 func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.Context, providers *jobs, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
 	// Environment provider failed, setting status.
 	if providers.failed() {
+		description := ""
 		for _, environmentProvider := range providers.failedJobs {
 			result, err := terminationLog(ctx, r, environmentProvider, environmentrequest.Name)
 			if err != nil {
@@ -177,11 +178,11 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			if result.Description == "" {
 				result.Description = "Failed to provision an environment - Unknown error"
 			}
-			condition := metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}
-			environmentrequest.Status.Conditions = append(environmentrequest.Status.Conditions, condition)
-
+			description = fmt.Sprintf("%s; %s: %s", description, environmentProvider.Name, result.Description)
 		}
-		return r.Status().Update(ctx, environmentrequest)
+		if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
+			return r.Status().Update(ctx, environmentrequest)
+		}
 	}
 
 	// Environment provider successful, setting status.
