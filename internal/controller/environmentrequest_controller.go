@@ -395,7 +395,6 @@ func (r EnvironmentRequestReconciler) reconcileDeletion(ctx context.Context, env
 		}
 	}
 	var environments etosv1alpha1.EnvironmentList
-	logger := log.FromContext(ctx)
 	if err := r.List(ctx, &environments, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier}); err != nil {
 		logger.Error(err, fmt.Sprintf("could not list pods for job %s", environmentrequest.Name))
 		return ctrl.Result{Requeue: true}, err
