@@ -196,26 +196,28 @@ func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, podN
 }
 
 // terminationLogs reads termination-log for each pod/container of the given job returning it as a map (keys: pod names, values: Result instances)
-func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (map[string][]*Result, error) {
+func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (JobResults, error) {
 	logger := log.FromContext(ctx)
-	results := make(map[string][]*Result)
 
 	var pods corev1.PodList
 	if err := c.List(ctx, &pods, client.InNamespace(job.Namespace), client.MatchingLabels{"job-name": job.Name}); err != nil {
 		logger.Error(err, fmt.Sprintf("could not list pods for job %s", job.Name))
-		return results, err
+		return JobResults{}, err
 	}
 
 	if len(pods.Items) == 0 {
-		return results, fmt.Errorf("no pods found for job %s", job.Name)
+		return JobResults{}, fmt.Errorf("no pods found for job %s", job.Name)
 	}
 
+	var jobResults JobResults
 	for _, pod := range pods.Items {
 
-		podResults := []*Result{}
+		podResults := PodResults{}
+		podResults.Name = pod.Name
+
 		for _, status := range pod.Status.ContainerStatuses {
 			if status.State.Terminated == nil {
-				podResults = append(podResults, &Result{Conclusion: ConclusionFailed})
+				podResults.ContainerResults = append(podResults.ContainerResults, Result{Conclusion: ConclusionFailed})
 				continue
 			}
 
@@ -223,15 +225,14 @@ func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (ma
 
 			if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
 				logger.Error(err, "failed to unmarshal termination log to a result struct")
-				podResults = append(podResults, &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message})
+				podResults.ContainerResults = append(podResults.ContainerResults, Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message})
 				continue
 			}
 
-			podResults = append(podResults, &result)
+			podResults.ContainerResults = append(podResults.ContainerResults, result)
 		}
-
-		results[pod.Name] = podResults
+		jobResults.PodResults = append(jobResults.PodResults, podResults)
 	}
 
-	return results, nil
+	return jobResults, nil
 }
