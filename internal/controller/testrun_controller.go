@@ -59,6 +59,7 @@ type TestRunReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Clock
+	Cluster *etosv1alpha1.Cluster
 }
 
 /*
@@ -130,9 +131,19 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{RequeueAfter: next}, nil
 		}
 		return ctrl.Result{}, nil
+
+	}
+	clusterNamespacedName := types.NamespacedName{
+		Name:      testrun.Spec.Cluster,
+		Namespace: req.NamespacedName.Namespace,
+	}
+	cluster := &etosv1alpha1.Cluster{}
+	if err := r.Get(ctx, clusterNamespacedName, cluster); err != nil {
+		logger.Info("Failed to get cluster resource!")
+		return ctrl.Result{}, nil
 	}
 
-	if err := r.reconcile(ctx, testrun); err != nil {
+	if err := r.reconcile(ctx, cluster, testrun); err != nil {
 		if apierrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -143,7 +154,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
+func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun) error {
 	logger := log.FromContext(ctx)
 
 	// Set initial statuses if not set.
@@ -187,7 +198,7 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, testrun *etosv1alpha1
 	}
 
 	// Create environment request
-	err, exit := r.reconcileEnvironmentRequest(ctx, testrun)
+	err, exit := r.reconcileEnvironmentRequest(ctx, cluster, testrun)
 	if err != nil {
 		return err
 	}
@@ -236,7 +247,7 @@ func (r *TestRunReconciler) complete(ctx context.Context, testrun *etosv1alpha1.
 }
 
 // reconcileEnvironmentRequest will check the status of environment requests, create new ones if necessary.
-func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, testrun *etosv1alpha1.TestRun) (error, bool) {
+func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun) (error, bool) {
 	logger := log.FromContext(ctx)
 	var environmentRequestList etosv1alpha1.EnvironmentRequestList
 	if err := r.List(ctx, &environmentRequestList, client.InNamespace(testrun.Namespace), client.MatchingFields{TestRunOwnerKey: testrun.Name}); err != nil {
@@ -261,7 +272,7 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, tes
 			}
 		}
 		if !found {
-			request := r.environmentRequest(testrun, suite)
+			request := r.environmentRequest(cluster, testrun, suite)
 			if err := ctrl.SetControllerReference(testrun, request, r.Scheme); err != nil {
 				return err, true
 			}
@@ -414,7 +425,18 @@ func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv
 }
 
 // environmentRequest is the definition for an environment request.
-func (r TestRunReconciler) environmentRequest(testrun *etosv1alpha1.TestRun, suite etosv1alpha1.Suite) *etosv1alpha1.EnvironmentRequest {
+func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, suite etosv1alpha1.Suite) *etosv1alpha1.EnvironmentRequest {
+	eventRepository := cluster.Spec.EventRepository.Host
+	if cluster.Spec.ETOS.Config.ETOSEventRepositoryURL != "" {
+		eventRepository = cluster.Spec.ETOS.Config.ETOSEventRepositoryURL
+	}
+
+	eiffelMessageBus := cluster.Spec.MessageBus.EiffelMessageBus
+	eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, eiffelMessageBus.Host)
+
+	etosMessageBus := cluster.Spec.MessageBus.ETOSMessageBus
+	etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, etosMessageBus.Host)
+
 	return &etosv1alpha1.EnvironmentRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -451,7 +473,26 @@ func (r TestRunReconciler) environmentRequest(testrun *etosv1alpha1.TestRun, sui
 			Splitter: etosv1alpha1.Splitter{
 				Tests: suite.Tests,
 			},
-			Image: testrun.Spec.EnvironmentProvider.Image,
+			Image:              testrun.Spec.EnvironmentProvider.Image,
+			ServiceAccountName: fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
+			Config: etosv1alpha1.EnvironmentProviderJobConfig{
+				EiffelMessageBus:                    eiffelMessageBus,
+				EtosMessageBus:                      etosMessageBus,
+				EtosApi:                             cluster.Spec.ETOS.Config.ETOSApiURL,
+				EncryptionKey:                       cluster.Spec.ETOS.Config.EncryptionKey,
+				RoutingKeyTag:                       cluster.Spec.ETOS.Config.RoutingKeyTag,
+				GraphQlServer:                       eventRepository,
+				EtcdHost:                            fmt.Sprintf("%s-etcd", cluster.Name),
+				EtcdPort:                            cluster.Spec.Database.Etcd.Port,
+				EventDataTimeout:                    cluster.Spec.ETOS.Config.EventDataTimeout,
+				WaitForTimeout:                      cluster.Spec.ETOS.Config.EnvironmentTimeout,
+				EnvironmentProviderEventDataTimeout: cluster.Spec.ETOS.Config.EventDataTimeout,
+				EnvironmentProviderImage:            cluster.Spec.ETOS.EnvironmentProvider.Image.Image,
+				EnvironmentProviderImagePullPolicy:  cluster.Spec.ETOS.EnvironmentProvider.ImagePullPolicy,
+				EnvironmentProviderServiceAccount:   fmt.Sprintf("%s-provider", cluster.Name),
+				EnvironmentProviderTestSuiteTimeout: cluster.Spec.ETOS.Config.TestSuiteTimeout,
+				TestRunnerVersion:                   cluster.Spec.ETOS.TestRunner.Version,
+			},
 		},
 	}
 }

@@ -45,6 +45,27 @@ type Splitter struct {
 	Tests []Test `json:"tests"`
 }
 
+// EnvironmentProviderJobConfig defines parameters required by environment provider job
+type EnvironmentProviderJobConfig struct {
+	EiffelMessageBus  RabbitMQ `json:"eiffelMessageBus"`
+	EtosMessageBus    RabbitMQ `json:"etosMessageBus"`
+	EtosApi           string   `json:"etosApi"`
+	EncryptionKey     Var      `json:"encryptionKeySecretRef"`
+	EtcdHost          string   `json:"etcdHost"`
+	EtcdPort          string   `json:"etcdPort"`
+	EventDataTimeout  string   `json:"eventDataTimeout"`
+	GraphQlServer     string   `json:"graphQlServer"`
+	RoutingKeyTag     string   `json:"routingKeyTag"`
+	WaitForTimeout    string   `json:"waitForTimeout"`
+	TestRunnerVersion string   `json:"testRunnerVersion"`
+
+	EnvironmentProviderEventDataTimeout string            `json:"environmentProviderEventDataTimeout"`
+	EnvironmentProviderImage            string            `json:"environmentProviderImage"`
+	EnvironmentProviderImagePullPolicy  corev1.PullPolicy `json:"environmentProviderImagePullPolicy"`
+	EnvironmentProviderServiceAccount   string            `json:"environmentProviderServiceAccount"`
+	EnvironmentProviderTestSuiteTimeout string            `json:"environmentProviderTestSuiteTimeout"`
+}
+
 // EnvironmentRequestSpec defines the desired state of EnvironmentRequest
 type EnvironmentRequestSpec struct {
 	// ID is the ID for the environments generated. Will be generated if nil. The ID is a UUID, any version, and regex matches that.
@@ -61,8 +82,10 @@ type EnvironmentRequestSpec struct {
 	// TODO: Dataset per provider?
 	Dataset *apiextensionsv1.JSON `json:"dataset,omitempty"`
 
-	Providers EnvironmentProviders `json:"providers"`
-	Splitter  Splitter             `json:"splitter"`
+	Providers          EnvironmentProviders         `json:"providers"`
+	Splitter           Splitter                     `json:"splitter"`
+	ServiceAccountName string                       `json:"serviceaccountname,omitempty"`
+	Config             EnvironmentProviderJobConfig `json:"Config,omitempty"`
 }
 
 // EnvironmentRequestStatus defines the observed state of EnvironmentRequest
