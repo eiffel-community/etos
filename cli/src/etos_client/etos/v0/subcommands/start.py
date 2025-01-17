@@ -32,7 +32,7 @@ class Start(SubCommand):
     """
     Client for executing test automation suites in ETOS.
 
-    Usage: etosctl testrun v0 start [-v|-vv] [options] -i IDENTITY -s TEST_SUITE <cluster>
+    Usage: etosctl testrun v0 start [-v|-vv] [options] [--dataset=DATASET]... -i IDENTITY -s TEST_SUITE <cluster>
 
     Options:
         -h, --help                                                Show this help message and exit
