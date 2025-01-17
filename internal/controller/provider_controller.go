@@ -62,6 +62,9 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	lastHealthCheckTime := metav1.NewTime(time.Now())
+	provider.Status.LastHealthCheckTime = &lastHealthCheckTime
+
 	interval := time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second
 	var next time.Time
 	if provider.Status.LastHealthCheckTime != nil {
@@ -97,14 +100,11 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{RequeueAfter: interval}, nil
 		}
 	}
-	lastHealthCheckTime := metav1.NewTime(time.Now())
-	provider.Status.LastHealthCheckTime = &lastHealthCheckTime
+	meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionTrue, Reason: "OK", Message: "Provider is up and running"})
 	if err = r.Status().Update(ctx, provider); err != nil {
 		logger.Error(err, "failed to update provider status")
 		return ctrl.Result{}, err
 	}
-
-	meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionTrue, Reason: "OK", Message: "Provider is up and running"})
 	logger.V(2).Info("Provider is available", "provider", req.NamespacedName)
 	return ctrl.Result{RequeueAfter: interval}, nil
 }
