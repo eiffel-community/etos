@@ -116,11 +116,50 @@ const (
 	VerdictNone         Verdict = "None"
 )
 
-// Result describes the status and result of an ETOS job
+// Result describes the status and result of a container inside a pod of an ETOS job
 type Result struct {
+	Name        string     `json:"name"`
 	Conclusion  Conclusion `json:"conclusion"`
 	Verdict     Verdict    `json:"verdict,omitempty"`
 	Description string     `json:"description,omitempty"`
+}
+
+// TODO: L127-163 This is a draft implementation of structs and functions to handle results from multiple pods/containers inside an ETOS job:
+// JobResults describes the status and result of an ETOS job which consists of one or more pods
+type JobResults struct {
+	PodResults []PodResults
+}
+
+// PodResults describes the status and result of a single pod of an ETOS job which consists of one or more containers
+type PodResults struct {
+	Name             string
+	ContainerResults []Result
+}
+
+// failed determines if the job has failed (at least one container has failed)
+func (jr JobResults) failed() bool {
+	for _, pod := range jr.PodResults {
+		for _, result := range pod.ContainerResults {
+			if result.Conclusion == ConclusionFailed {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// getContainerResults returns the result of a single container by pod name/name prefix and container name/name prefix (first found)
+func (jr JobResults) getContainerResults(podNamePrefix, containerNamePrefix string) (Result, error) {
+	for _, pod := range jr.PodResults {
+		if strings.HasPrefix(pod.Name, podNamePrefix) {
+			for _, result := range pod.ContainerResults {
+				if strings.HasPrefix(result.Name, containerNamePrefix) {
+					return result, nil
+				}
+			}
+		}
+	}
+	return Result{}, errors.New("pod or container not found with the given name prefix")
 }
 
 // terminationLog reads the termination-log from the container inside the pod given by prefix
