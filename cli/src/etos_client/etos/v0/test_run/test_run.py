@@ -17,15 +17,17 @@
 import logging
 import sys
 import time
-from typing import Iterator
+from uuid import UUID
+from typing import Iterator, Union
+from pathlib import Path
 
-from etos_client.downloader import Downloader
-from etos_client.etos import ETOS
-from etos_client.etos.schema import ResponseSchema
-from etos_client.events.collector import Collector
-from etos_client.events.events import Events
-from etos_client.sse.client import SSEClient
-from etos_client.sse.protocol import Message, UserEvent, Report, Artifact
+from etos_client.sse.v1.protocol import Message, Report, Artifact
+from etos_client.sse.v1.client import SSEClient
+from etos_client.shared.events import Event
+from etos_client.shared.downloader import Downloader, Downloadable
+from ..schema.response import ResponseSchema
+from ..events.collector import Collector
+from ..events.events import Events
 
 
 class TestRun:
@@ -39,15 +41,25 @@ class TestRun:
     # interval.
     log_interval = 120
 
-    def __init__(self, collector: Collector, downloader: Downloader) -> None:
+    def __init__(
+        self, collector: Collector, downloader: Downloader, report_dir: Path, artifact_dir: Path
+    ) -> None:
         """Initialize."""
         assert downloader.started, "Downloader must be started before it can be used in TestRun"
 
         self.__collector = collector
         self.__downloader = downloader
+        self.__report_dir = report_dir
+        self.__artifact_dir = artifact_dir
 
-    def setup_logging(self, loglevel: int) -> None:
+    def setup_logging(self, verbosity: int) -> None:
         """Set up logging for ETOS remote logs."""
+        if verbosity == 1:
+            loglevel = logging.INFO
+        elif verbosity == 2:
+            loglevel = logging.DEBUG
+        else:
+            loglevel = logging.WARNING
         rhandler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter(
             fmt="[%(rtime)s] %(levelname)s:%(rname)s: %(message)s",
@@ -65,18 +77,18 @@ class TestRun:
         self.logger.info("Purl: %s", response.artifact_identity)
         self.logger.info("Event repository: %r", response.event_repository)
 
-    def track(self, etos: ETOS, timeout: int) -> Events:
+    def track(self, sse_client: SSEClient, response: ResponseSchema, timeout: int) -> Events:
         """Track, and wait for, an ETOS test run."""
         end = time.time() + timeout
 
-        self.__log_debug_information(etos.response)
+        self.__log_debug_information(response)
         last_log = time.time()
         timer = None
-        for event in self.__log_until_eof(etos, end):
+        for event in self.__log_until_eof(sse_client, str(response.tercc), end):
             if isinstance(event, (Report, Artifact)):
-                self.__downloader.download(event)
+                self.download(event)
             if last_log + self.log_interval >= time.time():
-                events = self.__collector.collect_activity(etos.response.tercc)
+                events = self.__collector.collect_activity(response.tercc)
                 self.__status(events)
                 self.__announce(events)
                 last_log = time.time()
@@ -89,21 +101,56 @@ class TestRun:
                     "such as the number of tests executed or the number of downloaded logs"
                 )
                 break
-        self.__wait(etos, end)
-        events = self.__collector.collect(etos.response.tercc)
+        self.__wait(response.tercc, end)
+        events = self.__collector.collect(response.tercc)
         self.__announce(events)
         return events
 
-    def __wait(self, etos: ETOS, timeout: int) -> None:
+    def download_report(self, report: Report):
+        """Download a report to the report directory."""
+        reports = self.__report_dir.relative_to(Path.cwd()).joinpath(
+            report.file.get("directory", "")
+        )
+        self.__downloader.queue_download(
+            Downloadable(
+                url=report.file.get("url"),
+                name=report.file.get("name"),
+                checksums=report.file.get("checksums", {}),
+                path=reports,
+            )
+        )
+
+    def download_artifact(self, artifact: Artifact):
+        """Download an artifact to the artifact directory."""
+        artifacts = self.__artifact_dir.relative_to(Path.cwd()).joinpath(
+            artifact.file.get("directory", "")
+        )
+        self.__downloader.queue_download(
+            Downloadable(
+                url=artifact.file.get("url"),
+                name=artifact.file.get("name"),
+                checksums=artifact.file.get("checksums", {}),
+                path=artifacts,
+            )
+        )
+
+    def download(self, file: Union[Report, Artifact]):
+        """Download a file from either a Report or Artifact event."""
+        if isinstance(file, Report):
+            self.download_report(file)
+        elif isinstance(file, Artifact):
+            self.download_artifact(file)
+
+    def __wait(self, tercc: UUID, timeout: float) -> None:
         """Wait for ETOS to finish its activity."""
-        events = self.__collector.collect_activity(etos.response.tercc)
+        events = self.__collector.collect_activity(tercc)
         while not events.activity.finished:
             self.logger.info("Waiting for ETOS to finish")
             self.__status(events)
             time.sleep(5)
             if time.time() >= timeout:
                 raise TimeoutError("ETOS did not complete in 24 hours. Exiting")
-            events = self.__collector.collect_activity(etos.response.tercc)
+            events = self.__collector.collect_activity(tercc)
 
     def __status(self, events: Events) -> None:
         """Check if ETOS test run has been canceled."""
@@ -134,10 +181,11 @@ class TestRun:
             },
         )
 
-    def __log_until_eof(self, etos: ETOS, endtime: int) -> Iterator[UserEvent]:
+    def __log_until_eof(
+        self, sse_client: SSEClient, stream_id: str, endtime: float
+    ) -> Iterator[Event]:
         """Log from the ETOS log API until finished."""
-        client = SSEClient(etos)
-        for event in client.event_stream():
+        for event in sse_client.event_stream(stream_id):
             if time.time() >= endtime:
                 raise TimeoutError("Timed out!")
             if isinstance(event, Message):

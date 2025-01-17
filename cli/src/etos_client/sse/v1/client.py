@@ -23,8 +23,9 @@ from urllib3.exceptions import HTTPError, MaxRetryError
 from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry
 
-from ..etos import ETOS
-from .protocol import Event, Shutdown, parse
+from etos_client.shared.events import Event
+
+from .protocol import Shutdown, parse
 
 CHUNK_SIZE = 500
 RETRIES = Retry(
@@ -64,15 +65,19 @@ class SSEClient:
     __connected = False
     __shutdown = False
 
-    def __init__(self, etos: ETOS) -> None:
+    def __init__(self, url: str) -> None:
         """Set up a connection pool and retry strategy."""
+        self.url = url
         self.last_event_id = None
         self.__pool = PoolManager(retries=RETRIES)
-        self.__sse_server = f"{etos.cluster}/sse/v1"
-        self.__id = etos.response.tercc
         self.__release: Optional[Callable] = None
 
-    def __connect(self, retry_not_found=False) -> Iterable[bytes]:
+    @classmethod
+    def version(cls) -> str:
+        """SSE protocol version."""
+        return "v1"
+
+    def __connect(self, stream_id: str, retry_not_found=False) -> Iterable[bytes]:
         """Connect to an event-stream server, retrying if necessary.
 
         Sets the attribute `__release` which must be closed before exiting.
@@ -81,15 +86,17 @@ class SSEClient:
             "Cache-Control": "no-cache",
             "Accept": "text/event-stream",
         }
-        if self.last_event_id:
-            headers["Last-Event-ID"] = self.last_event_id
+        if self.last_event_id is not None:
+            headers["Last-Event-ID"] = str(self.last_event_id)
         try:
             retries = RETRIES
             if retry_not_found:
                 retries = retries.new(status_forcelist={413, 429, 503, 404})
+            url = f"{self.url}/sse/{self.version()}/events/{stream_id}"
+            self.logger.info("Connecting to SSE server at %s", url)
             response = self.__pool.request(
                 "GET",
-                f"{self.__sse_server}/events/{self.__id}",
+                url,
                 headers=headers,
                 preload_content=False,
                 retries=retries,
@@ -129,14 +136,14 @@ class SSEClient:
             self.__release()
         self.__connected = False
 
-    def __line_buffered(self, chunks: Iterable[bytes]) -> list[bytes]:
+    def __line_buffered(self, chunks: Iterable[bytes]) -> Iterable[bytes]:
         """Read chunks from a byte feed and split each chunk on line-break."""
         for chunk in chunks:
             if len(chunk) == 0:
                 continue
             yield from chunk.splitlines(keepends=True)
 
-    def __read(self, chunks: Iterable[bytes]) -> str:
+    def __read(self, chunks: Iterable[bytes]) -> Iterable[str]:
         """Read chunks from a byte feed and split them into SSE event blobs."""
         feed = b""
         for line in self.__line_buffered(chunks):
@@ -175,20 +182,25 @@ class SSEClient:
 
     def __out_of_sync(self, event: Event) -> bool:
         """Check if the eventstream is out of sync."""
-        if not self.last_event_id:
+        if self.last_event_id is None:
+            return False
+        if event.id is None:
             return False
         if event.id - self.last_event_id == 1:
             return False
         return True
 
-    def event_stream(self) -> Iterable[Event]:
+    def event_stream(self, stream_id: str) -> Iterable[Event]:
         """Follow the ETOS SSE event stream."""
-        stream = None
+        stream = []
         while not self.__shutdown:
             while self.__connected is False:
-                self.logger.info("Connecting to SSE server")
-                stream = self.__connect(retry_not_found=stream is None)
+                stream = self.__connect(stream_id, retry_not_found=not bool(stream))
                 time.sleep(1)
+                if not stream:
+                    self.logger.warning("Failed connecting to stream. Reconnecting")
+                    self.reset()
+                    continue
             try:
                 yield from self.__stream(stream)
             except (Desynced, JSONDecodeError):

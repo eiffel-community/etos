@@ -13,4 +13,34 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS SSE."""
+"""ETOS testrun result."""
+from pydantic import BaseModel
+from enum import Enum
+from typing import Optional
+
+
+class Verdict(Enum):
+    """Available verdicts for an ETOS testrun."""
+
+    PASSED = "PASSED"
+    FAILED = "FAILED"
+    INCONCLUSIVE = "INCONCLUSIVE"
+
+
+class Conclusion(Enum):
+    """Available conclusions for an ETOS testrun."""
+
+    SUCCESSFUL = "SUCCESSFUL"
+    FAILED = "FAILED"
+    ABORTED = "ABORTED"
+    TIMED_OUT = "TIMED_OUT"
+    INCONCLUSIVE = "INCONCLUSIVE"
+
+
+class Result(BaseModel):
+    """Result of an ETOS testrun."""
+
+    verdict: Verdict
+    conclusion: Conclusion
+    reason: str
+    downloads: Optional[int] = None
