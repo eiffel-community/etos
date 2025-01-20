@@ -61,9 +61,21 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		logger.Error(err, "failed to get provider")
 		return ctrl.Result{}, err
 	}
-	logger.V(2).Info("Checking availability of provider", "provider", req.NamespacedName)
 
-	// TODO: Schedule checks instead of doing it every time something happens
+	lastHealthCheckTime := metav1.NewTime(time.Now())
+	provider.Status.LastHealthCheckTime = &lastHealthCheckTime
+
+	interval := time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second
+	var next time.Time
+	if provider.Status.LastHealthCheckTime != nil {
+		next = provider.Status.LastHealthCheckTime.Time.Add(interval)
+	} else {
+		next = provider.ObjectMeta.CreationTimestamp.Time
+	}
+
+	if time.Until(next) > 0 {
+		return ctrl.Result{RequeueAfter: time.Until(next)}, nil
+	}
 
 	// We don't check the availability of JSONTas as it is not yet running as a service we can check.
 	if provider.Spec.JSONTas == nil {
@@ -76,7 +88,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				return ctrl.Result{}, err
 			}
 			logger.Info("Provider did not respond", "provider", req.NamespacedName)
-			return ctrl.Result{RequeueAfter: time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second}, nil
+			return ctrl.Result{RequeueAfter: interval}, nil
 		}
 		if resp.StatusCode != 204 {
 			meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionFalse, Reason: "Error", Message: fmt.Sprintf("Wrong status code (%d) from health check endpoint", resp.StatusCode)})
@@ -85,7 +97,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				return ctrl.Result{}, err
 			}
 			logger.Info("Provider responded with a bad status code", "provider", req.NamespacedName, "status", resp.StatusCode)
-			return ctrl.Result{RequeueAfter: time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second}, nil
+			return ctrl.Result{RequeueAfter: interval}, nil
 		}
 	}
 	meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionTrue, Reason: "OK", Message: "Provider is up and running"})
@@ -94,7 +106,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 	logger.V(2).Info("Provider is available", "provider", req.NamespacedName)
-	return ctrl.Result{RequeueAfter: time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second}, nil
+	return ctrl.Result{RequeueAfter: interval}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
