@@ -857,6 +857,301 @@ spec:
           spec:
             description: EnvironmentRequestSpec defines the desired state of EnvironmentRequest
             properties:
+              Config:
+                description: EnvironmentProviderJobConfig defines parameters required
+                  by environment provider job
+                properties:
+                  eiffelMessageBus:
+                    description: RabbitMQ configuration.
+                    properties:
+                      deploy:
+                        default: false
+                        type: boolean
+                      exchange:
+                        default: amq.topic
+                        type: string
+                      host:
+                        default: rabbitmq
+                        type: string
+                      password:
+                        default:
+                          value: guest
+                        description: Var describes either a string value or a value
+                          from a VarSource.
+                        properties:
+                          value:
+                            type: string
+                          valueFrom:
+                            description: VarSource describes a value from either a
+                              secretmap or configmap.
+                            properties:
+                              configMapKeyRef:
+                                description: Selects a key from a ConfigMap.
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or
+                                      its key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              secretKeyRef:
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            type: object
+                        type: object
+                      port:
+                        default: "5672"
+                        type: string
+                      ssl:
+                        default: "false"
+                        type: string
+                      username:
+                        default: guest
+                        type: string
+                      vhost:
+                        default: /
+                        type: string
+                    type: object
+                  encryptionKeySecretRef:
+                    description: Var describes either a string value or a value from
+                      a VarSource.
+                    properties:
+                      value:
+                        type: string
+                      valueFrom:
+                        description: VarSource describes a value from either a secretmap
+                          or configmap.
+                        properties:
+                          configMapKeyRef:
+                            description: Selects a key from a ConfigMap.
+                            properties:
+                              key:
+                                description: The key to select.
+                                type: string
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  TODO: Add other useful fields. apiVersion, kind, uid?
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                type: string
+                              optional:
+                                description: Specify whether the ConfigMap or its
+                                  key must be defined
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          secretKeyRef:
+                            description: SecretKeySelector selects a key of a Secret.
+                            properties:
+                              key:
+                                description: The key of the secret to select from.  Must
+                                  be a valid secret key.
+                                type: string
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  TODO: Add other useful fields. apiVersion, kind, uid?
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                type: string
+                              optional:
+                                description: Specify whether the Secret or its key
+                                  must be defined
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        type: object
+                    type: object
+                  environmentProviderEventDataTimeout:
+                    type: string
+                  environmentProviderImage:
+                    type: string
+                  environmentProviderImagePullPolicy:
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                  environmentProviderServiceAccount:
+                    type: string
+                  environmentProviderTestSuiteTimeout:
+                    type: string
+                  etcdHost:
+                    type: string
+                  etcdPort:
+                    type: string
+                  etosApi:
+                    type: string
+                  etosMessageBus:
+                    description: RabbitMQ configuration.
+                    properties:
+                      deploy:
+                        default: false
+                        type: boolean
+                      exchange:
+                        default: amq.topic
+                        type: string
+                      host:
+                        default: rabbitmq
+                        type: string
+                      password:
+                        default:
+                          value: guest
+                        description: Var describes either a string value or a value
+                          from a VarSource.
+                        properties:
+                          value:
+                            type: string
+                          valueFrom:
+                            description: VarSource describes a value from either a
+                              secretmap or configmap.
+                            properties:
+                              configMapKeyRef:
+                                description: Selects a key from a ConfigMap.
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or
+                                      its key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              secretKeyRef:
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      TODO: Add other useful fields. apiVersion, kind, uid?
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            type: object
+                        type: object
+                      port:
+                        default: "5672"
+                        type: string
+                      ssl:
+                        default: "false"
+                        type: string
+                      username:
+                        default: guest
+                        type: string
+                      vhost:
+                        default: /
+                        type: string
+                    type: object
+                  eventDataTimeout:
+                    type: string
+                  graphQlServer:
+                    type: string
+                  routingKeyTag:
+                    type: string
+                  testRunnerVersion:
+                    type: string
+                  waitForTimeout:
+                    type: string
+                required:
+                - eiffelMessageBus
+                - encryptionKeySecretRef
+                - environmentProviderEventDataTimeout
+                - environmentProviderImage
+                - environmentProviderImagePullPolicy
+                - environmentProviderServiceAccount
+                - environmentProviderTestSuiteTimeout
+                - etcdHost
+                - etcdPort
+                - etosApi
+                - etosMessageBus
+                - eventDataTimeout
+                - graphQlServer
+                - routingKeyTag
+                - testRunnerVersion
+                - waitForTimeout
+                type: object
               artifact:
                 type: string
               dataset:
@@ -912,6 +1207,8 @@ spec:
                     - id
                     type: object
                 type: object
+              serviceaccountname:
+                type: string
               splitter:
                 properties:
                   tests:
@@ -2947,7 +3244,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: registry.nordix.org/eiffel/etos-controller:f5d42ddf
+        image: registry.nordix.org/eiffel/etos-controller:c209a52d
         livenessProbe:
           httpGet:
             path: /healthz
