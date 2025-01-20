@@ -2061,6 +2061,9 @@ spec:
                   - type
                   type: object
                 type: array
+              lastHealthCheckTime:
+                format: date-time
+                type: string
             type: object
         type: object
     served: true
@@ -3244,7 +3247,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: registry.nordix.org/eiffel/etos-controller:c209a52d
+        image: registry.nordix.org/eiffel/etos-controller:bcc37476
         livenessProbe:
           httpGet:
             path: /healthz
