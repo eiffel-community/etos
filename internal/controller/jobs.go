@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -194,19 +193,18 @@ func (jr JobResults) getVerdict() Verdict {
 	return VerdictPassed
 }
 
-// TODO: should be possible to do by exact name matching, no need to have prefixes
 // getContainerResults returns the result of a single container by pod name/name prefix and container name/name prefix (first found)
-func (jr JobResults) getContainerResults(podNamePrefix, containerNamePrefix string) (Result, error) {
+func (jr JobResults) getContainerResults(podName, containerName string) (Result, error) {
 	for _, pod := range jr.PodResults {
-		if strings.HasPrefix(pod.Name, podNamePrefix) {
+		if pod.Name == podName {
 			for _, result := range pod.ContainerResults {
-				if strings.HasPrefix(result.Name, containerNamePrefix) {
+				if result.Name == containerName {
 					return result, nil
 				}
 			}
 		}
 	}
-	return Result{}, errors.New("pod or container not found with the given name prefix")
+	return Result{}, errors.New("pod or container not found with the given name")
 }
 
 // terminationLogs reads termination-log for each pod/container of the given job returning it as a map (keys: pod names, values: Result instances)
