@@ -148,6 +148,53 @@ func (jr JobResults) failed() bool {
 	return false
 }
 
+// successful determines if the job has been successful (all containers succeeded)
+func (jr JobResults) successful() bool {
+	for _, pod := range jr.PodResults {
+		for _, result := range pod.ContainerResults {
+			if result.Conclusion != ConclusionSuccessful {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// getConclusion returns the conclusion of a job based on individual container conclusions
+func (jr JobResults) getConclusion() Conclusion {
+	for _, pod := range jr.PodResults {
+		for _, result := range pod.ContainerResults {
+			if result.Conclusion == ConclusionFailed {
+				return ConclusionFailed
+			} else if result.Conclusion == ConclusionAborted {
+				return ConclusionAborted
+			} else if result.Conclusion == ConclusionInconclusive {
+				return ConclusionInconclusive
+			} else if result.Conclusion == ConclusionTimedOut {
+				return ConclusionInconclusive
+			}
+		}
+	}
+	return ConclusionSuccessful
+}
+
+// getVerdict returns the verdict of a job based on individual container verdicts
+func (jr JobResults) getVerdict() Verdict {
+	for _, pod := range jr.PodResults {
+		for _, result := range pod.ContainerResults {
+			if result.Verdict == VerdictFailed {
+				return VerdictFailed
+			} else if result.Verdict == VerdictInconclusive {
+				return VerdictInconclusive
+			} else if result.Verdict == VerdictNone {
+				return VerdictNone
+			}
+		}
+	}
+	return VerdictPassed
+}
+
+// TODO: should be possible to do by exact name matching, no need to have prefixes
 // getContainerResults returns the result of a single container by pod name/name prefix and container name/name prefix (first found)
 func (jr JobResults) getContainerResults(podNamePrefix, containerNamePrefix string) (Result, error) {
 	for _, pod := range jr.PodResults {
@@ -160,39 +207,6 @@ func (jr JobResults) getContainerResults(podNamePrefix, containerNamePrefix stri
 		}
 	}
 	return Result{}, errors.New("pod or container not found with the given name prefix")
-}
-
-// terminationLog reads the termination-log from the container inside the pod given by prefix
-func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, podNamePrefix string, containerName string) (*Result, error) {
-	logger := log.FromContext(ctx)
-	var pods corev1.PodList
-	if err := c.List(ctx, &pods, client.InNamespace(job.Namespace), client.MatchingLabels{"job-name": job.Name}); err != nil {
-		logger.Error(err, fmt.Sprintf("could not list pods for job %s", job.Name))
-		return &Result{Conclusion: ConclusionFailed}, err
-	}
-	if len(pods.Items) == 0 {
-		return &Result{Conclusion: ConclusionFailed}, fmt.Errorf("no pods found for job %s", job.Name)
-	}
-	for _, pod := range pods.Items {
-		if !strings.HasPrefix(pod.Name, podNamePrefix) {
-			continue
-		}
-		for _, status := range pod.Status.ContainerStatuses {
-			if status.Name == containerName {
-				if status.State.Terminated == nil {
-					return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
-				}
-				var result Result
-				if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
-					logger.Error(err, "failed to unmarshal termination log to a result struct")
-					return &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message}, nil
-				}
-				return &result, nil
-			}
-		}
-		return &Result{Conclusion: ConclusionFailed}, errors.New("found no container status for pod")
-	}
-	return &Result{Conclusion: ConclusionFailed}, errors.New("found no pod with the given name")
 }
 
 // terminationLogs reads termination-log for each pod/container of the given job returning it as a map (keys: pod names, values: Result instances)

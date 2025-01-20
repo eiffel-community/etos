@@ -154,36 +154,38 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 
 	// Environment releaser failed, setting status.
 	if releasers.failed() {
-		releaser := releasers.failedJobs[0] // TODO: We should allow multiple releaser jobs in the future
-		result, err := terminationLog(ctx, r, releaser, releaser.Name, environment.Name)
-		if err != nil {
-			result.Description = err.Error()
+		description := ""
+		for _, releaser := range releasers.failedJobs {
+			jobResult, err := terminationLogs(ctx, r, releaser)
+			if err != nil {
+				description = fmt.Sprintf("%s; %s: %s", description, releaser.Name, err.Error())
+			} else {
+				description = fmt.Sprintf("%s; %s: %s", description, releaser.Name, jobResult.getConclusion())
+			}
+			description = fmt.Sprintf("%s; %s: %s", description, releaser.Name, jobResult.getConclusion())
 		}
-		if result.Description == "" {
-			result.Description = "Failed to release an environment - Unknown error"
-		}
-		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
+		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 			return r.Status().Update(ctx, environment)
 		}
 	}
 
-	// TODO: L170-199: this is a draft partial implementation of result processing received from terminationLogs() which includes all pods/containers:
 	// Environment releaser successful, setting status.
 	if releasers.successful() {
-		// each releaser is a job that can have multiple pods and each pod can have multiple containers
+		reason := ""
+		description := ""
 		for _, releaser := range releasers.successfulJobs {
-			allPodsResults, err := terminationLogs(ctx, r, releaser)
+			jobResult, err := terminationLogs(ctx, r, releaser)
 			if err != nil {
 				return err
 			}
-			for _, allContainerResults := range allPodsResults {
-				for _, result := range allContainerResults {
-					if result.Conclusion == ConclusionFailed {
-						if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
-							return r.Status().Update(ctx, environment)
-						}
-					}
-				}
+			if jobResult.failed() {
+				reason = "Failed"
+				description = fmt.Sprintf("%s; %s: %s", description, releaser.Name, jobResult.getConclusion())
+			}
+		}
+		if reason == "Failed" {
+			if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
+				return r.Status().Update(ctx, environment)
 			}
 		}
 		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Released", Message: "All releaser jobs succeeded"}) {

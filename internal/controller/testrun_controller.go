@@ -300,39 +300,128 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 	return nil, false
 }
 
+// getVerdict determines the verdict based on a list of job results
+func getVerdict(jobResults []JobResults) Verdict {
+	hasInconclusive := false
+	hasFailed := false
+	hasNone := false
+
+	for _, jr := range jobResults {
+		switch jr.getVerdict() {
+		case VerdictInconclusive:
+			hasInconclusive = true
+		case VerdictNone:
+			hasNone = true
+		case VerdictFailed:
+			hasFailed = true
+		}
+	}
+
+	if hasInconclusive {
+		// at least one Inconclusive -> VerdictInconclusive
+		return VerdictInconclusive
+	} else if hasNone {
+		// at least one None and no Inconclusive -> VerdictNone
+		return VerdictNone
+	} else if hasFailed {
+		// at least one Failed and no Inconclusive/None -> VerdictFailed
+		return VerdictFailed
+	}
+	// no Inconclusive/None/Failed
+	return VerdictPassed
+}
+
+// TODO: move to a separate struct in jobs.go?
+// getConclusion determines the conclusion based on a list of job results
+func getConclusion(jobResults []JobResults) Conclusion {
+	hasAborted := false
+	hasTimedOut := false
+	hasInconclusive := false
+	hasFailed := false
+
+	for _, jr := range jobResults {
+		switch jr.getConclusion() {
+		case ConclusionAborted:
+			hasAborted = true
+		case ConclusionTimedOut:
+			hasTimedOut = true
+		case ConclusionInconclusive:
+			hasInconclusive = true
+		case ConclusionFailed:
+			hasFailed = true
+		}
+	}
+
+	if hasAborted {
+		// at least one Aborted -> ConclusionAborted
+		return ConclusionAborted
+	} else if hasTimedOut {
+		// at least one TimedOut and no Aborted -> ConclusionTimedOut
+		return ConclusionTimedOut
+	} else if hasInconclusive {
+		// at least one Inconclusive and no Aborted/TimedOut -> ConclusionAborted
+		return ConclusionInconclusive
+	} else if hasFailed {
+		// at least one Failed and no Aborted/TimedOut/Inconclusive -> ConclusionFailed
+		return ConclusionFailed
+	}
+	// no Aborted/TimedOut/Inconclusive/Failed
+	return ConclusionSuccessful
+}
+
+// TODO: move to a separate struct in jobs.go?
 // reconcileSuiteRunner will check the status of suite runners, create new ones if necessary.
 func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunners *jobs, testrun *etosv1alpha1.TestRun) error {
 	logger := log.FromContext(ctx)
 	// Suite runners failed, setting status.
 	if suiteRunners.failed() {
-		suiteRunner := suiteRunners.failedJobs[0] // TODO
-		result, err := terminationLog(ctx, r, suiteRunner, suiteRunner.Name, testrun.Name)
-		if err != nil {
-			result.Description = err.Error()
+		description := ""
+		jobResultList := []JobResults{}
+		for _, suiteRunner := range suiteRunners.failedJobs {
+			jobResult, err := terminationLogs(ctx, r, suiteRunner)
+			if err != nil {
+				// cannot proceed iterating suiteRunners, because conclusion/verdict will likely be incorrect if at least one jobResult is missing from the list
+				return err
+			}
+			containerResult, err := jobResult.getContainerResults(suiteRunner.Name, suiteRunner.Name)
+			if err != nil {
+				description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, err.Error())
+			} else {
+				description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, containerResult.Verdict)
+			}
+			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
+			description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, containerResult.Verdict)
+			jobResultList = append(jobResultList, jobResult)
 		}
-		logger.Info("Suite runner result", "verdict", result.Verdict, "conclusion", result.Conclusion, "message", result.Description)
-		if result.Verdict == "" {
-			result.Verdict = VerdictNone
-		}
-		testrun.Status.Verdict = string(result.Verdict)
-		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
+		testrun.Status.Verdict = string(getVerdict(jobResultList))
+		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", getConclusion(jobResultList), "message", description)
+		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 			return r.Status().Update(ctx, testrun)
 		}
 	}
 	// Suite runners successful, setting status.
 	if suiteRunners.successful() {
-		suiteRunner := suiteRunners.successfulJobs[0] // TODO
-		result, err := terminationLog(ctx, r, suiteRunner, suiteRunner.Name, testrun.Name)
-		if err != nil {
-			result.Description = err.Error()
+		description := ""
+		jobResultList := []JobResults{}
+		for _, suiteRunner := range suiteRunners.successfulJobs {
+			jobResult, err := terminationLogs(ctx, r, suiteRunner)
+			if err != nil {
+				// cannot proceed iterating suiteRunners, because conclusion/verdict will likely be incorrect if at least one jobResult is missing from the list
+				return err
+			}
+			containerResult, err := jobResult.getContainerResults(suiteRunner.Name, suiteRunner.Name)
+			if err != nil {
+				description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, err.Error())
+			} else {
+				description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, containerResult.Verdict)
+			}
+			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
+			jobResultList = append(jobResultList, jobResult)
 		}
-		logger.Info("Suite runner result", "verdict", result.Verdict, "conclusion", result.Conclusion, "message", result.Description)
-		if result.Verdict == "" {
-			result.Verdict = VerdictNone
-		}
-		testrun.Status.Verdict = string(result.Verdict)
-		if result.Conclusion == ConclusionFailed {
-			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
+		testrun.Status.Verdict = string(getVerdict(jobResultList))
+		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", getConclusion(jobResultList), "message", description)
+		if getConclusion(jobResultList) == ConclusionFailed {
+			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 				return r.Status().Update(ctx, testrun)
 			}
 		}
@@ -344,7 +433,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 						return err
 					}
 				}
-				if err = r.deleteEnvironmentRequests(ctx, testrun); err != nil {
+				if err := r.deleteEnvironmentRequests(ctx, testrun); err != nil {
 					return err
 				}
 			}
