@@ -286,7 +286,7 @@ type JobResults struct {
 	Items []JobResult
 }
 
-// terminationLogs reads termination-log for each pod/container of the given job returning it as a map (keys: pod names, values: Result instances)
+// terminationLogs reads termination-log for each pod/container of the given job returning it as a JobResult instance
 func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (JobResult, error) {
 	logger := log.FromContext(ctx)
 
