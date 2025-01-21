@@ -109,13 +109,6 @@ const (
 	ConclusionInconclusive Conclusion = "Inconclusive"
 )
 
-const (
-	VerdictPassed       Verdict = "Passed"
-	VerdictFailed       Verdict = "Failed"
-	VerdictInconclusive Verdict = "Inconclusive"
-	VerdictNone         Verdict = "None"
-)
-
 // HasConclusion describes a single atomic item that can have a conclusion, such as a single container result
 type HasConclusion struct {
 	Conclusion Conclusion `json:"conclusion"`
@@ -169,12 +162,19 @@ func (ihc IterableHasConclusion) getConclusion() Conclusion {
 	return ConclusionSuccessful
 }
 
+const (
+	VerdictPassed       Verdict = "Passed"
+	VerdictFailed       Verdict = "Failed"
+	VerdictInconclusive Verdict = "Inconclusive"
+	VerdictNone         Verdict = "None"
+)
+
 // HasVerdict describes a single atomic item that can have a verdict, such as a single container result
 type HasVerdict struct {
 	Verdict Verdict `json:"verdict"`
 }
 
-// getConclusion returns the conclusion
+// getVerdict returns the verdict
 func (hv HasVerdict) getVerdict() Verdict {
 	return hv.Verdict
 }
@@ -265,7 +265,7 @@ func (jr JobResult) successful() bool {
 	return true
 }
 
-// getContainerResults returns the result of a single container by pod name/name prefix and container name/name prefix (first found)
+// getContainerResults returns the result of a single container by pod/container name
 func (jr JobResult) getContainerResult(podName, containerName string) (ContainerResult, error) {
 	for _, pod := range jr.Items {
 		if pod.Name == podName {
@@ -279,7 +279,7 @@ func (jr JobResult) getContainerResult(podName, containerName string) (Container
 	return ContainerResult{}, errors.New("pod or container not found with the given name")
 }
 
-// JobResults contains methods to handle multiple JobResult instances (such as verdict, conclusion)
+// JobResults contains methods to handle multiple JobResult instances
 type JobResults struct {
 	HasConclusion
 	HasVerdict
