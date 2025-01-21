@@ -75,7 +75,7 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		logger.Error(err, "failed to get environmentrequest")
 		return ctrl.Result{}, err
 	}
-	if environmentrequest.ObjectMeta.DeletionTimestamp.IsZero() {
+	if environmentrequest.DeletionTimestamp.IsZero() {
 		// Add a finalizer if there is none, the finalizer will stop the Kubernetes garbage collector
 		// from removing the EnvironmentRequest until the finalizer is removed. Removal of the finalizer
 		// is done below, if DeletionTimestamp is set and all Environments related to this EnvironmentRequest
@@ -417,12 +417,13 @@ func (r EnvironmentRequestReconciler) reconcileDeletion(ctx context.Context, env
 		logger.Info("Waiting for Environments to get deleted", "stillAlive", len(environments.Items))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	controllerutil.RemoveFinalizer(environmentrequest, releaseFinalizer)
-	if err := r.Update(ctx, environmentrequest); err != nil {
-		if apierrors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
+	if controllerutil.RemoveFinalizer(environmentrequest, releaseFinalizer) {
+		if err := r.Update(ctx, environmentrequest); err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
