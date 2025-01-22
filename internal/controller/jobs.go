@@ -171,7 +171,7 @@ const (
 
 // HasVerdict describes a single atomic item that can have a verdict, such as a single container result
 type HasVerdict struct {
-	Verdict Verdict `json:"verdict"`
+	Verdict Verdict `json:"verdict,omitempty"`
 }
 
 // getVerdict returns the verdict
@@ -216,14 +216,12 @@ func (ihv IterableHasVerdict) getVerdict() Verdict {
 	return VerdictPassed
 }
 
-// Result describes a container inside a pod of an ETOS job
+// ContainerResult describes a container inside a pod of an ETOS job
 type ContainerResult struct {
 	HasConclusion
 	HasVerdict
-	Conclusion  Conclusion `json:"conclusion"`
-	Verdict     Verdict    `json:"verdict,omitempty"`
-	Description string     `json:"description,omitempty"`
-	Name        string     `json:"name"`
+	Description string `json:"description,omitempty"`
+	Name        string `json:"name"`
 }
 
 // PodResult describes a pod of an ETOS job which consists of one or more containers
@@ -308,14 +306,14 @@ func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (Jo
 
 		for _, status := range pod.Status.ContainerStatuses {
 			if status.State.Terminated == nil {
-				podResults.Items = append(podResults.Items, ContainerResult{Conclusion: ConclusionFailed})
+				podResults.Items = append(podResults.Items, ContainerResult{HasConclusion: HasConclusion{Conclusion: ConclusionFailed}})
 				continue
 			}
 
 			var result ContainerResult
 			if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
 				logger.Error(err, "failed to unmarshal termination log to a result struct")
-				podResults.Items = append(podResults.Items, ContainerResult{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message})
+				podResults.Items = append(podResults.Items, ContainerResult{HasConclusion: HasConclusion{Conclusion: ConclusionFailed}, Description: status.State.Terminated.Message})
 				continue
 			}
 
