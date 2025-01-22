@@ -311,13 +311,16 @@ func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (Jo
 			}
 
 			var result ContainerResult
-			if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
-				msg := fmt.Sprintf("failed to unmarshal termination log to a result struct: %s: '%s'", status.Name, status.State.Terminated.Message)
-				logger.Error(err, msg)
-				podResults.Items = append(podResults.Items, ContainerResult{HasConclusion: HasConclusion{Conclusion: ConclusionFailed}, Description: status.State.Terminated.Message})
-				continue
+			t_msg := status.State.Terminated.Message
+			// The termination message may not be available for some containers such as etos-log-listener, which are not included in the output.
+			if t_msg != "" {
+				if err := json.Unmarshal([]byte(t_msg), &result); err != nil {
+					msg := fmt.Sprintf("failed to unmarshal termination log to a result struct: %s: '%s'", status.Name, t_msg)
+					logger.Error(err, msg)
+					podResults.Items = append(podResults.Items, ContainerResult{HasConclusion: HasConclusion{Conclusion: ConclusionFailed}, Description: t_msg})
+					continue
+				}
 			}
-
 			podResults.Items = append(podResults.Items, result)
 		}
 		jobResult.Items = append(jobResult.Items, podResults)
