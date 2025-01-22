@@ -306,7 +306,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	// Suite runners failed, setting status.
 	if suiteRunners.failed() {
 		description := ""
-		jobResults := JobResults{}
+		result := JobGroupResult{}
 		for _, suiteRunner := range suiteRunners.failedJobs {
 			jobResult, err := terminationLogs(ctx, r, suiteRunner)
 			if err != nil {
@@ -321,10 +321,10 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 			}
 			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
 			description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, containerResult.Verdict)
-			jobResults.Items = append(jobResults.Items, jobResult)
+			result.Items = append(result.Items, jobResult)
 		}
-		testrun.Status.Verdict = string(jobResults.getVerdict())
-		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", jobResults.getConclusion(), "message", description)
+		testrun.Status.Verdict = string(result.getVerdict())
+		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", result.getConclusion(), "message", description)
 		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 			return r.Status().Update(ctx, testrun)
 		}
@@ -332,7 +332,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	// Suite runners successful, setting status.
 	if suiteRunners.successful() {
 		description := ""
-		jobResults := JobResults{}
+		result := JobGroupResult{}
 		for _, suiteRunner := range suiteRunners.successfulJobs {
 			jobResult, err := terminationLogs(ctx, r, suiteRunner)
 			if err != nil {
@@ -346,11 +346,11 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 				description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, containerResult.Verdict)
 			}
 			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
-			jobResults.Items = append(jobResults.Items, jobResult)
+			result.Items = append(result.Items, jobResult)
 		}
-		testrun.Status.Verdict = string(jobResults.getVerdict())
-		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", jobResults.getConclusion(), "message", description)
-		if jobResults.getConclusion() == ConclusionFailed {
+		testrun.Status.Verdict = string(result.getVerdict())
+		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", result.getConclusion(), "message", description)
+		if result.getConclusion() == ConclusionFailed {
 			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 				return r.Status().Update(ctx, testrun)
 			}

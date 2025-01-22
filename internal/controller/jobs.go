@@ -277,8 +277,8 @@ func (jr JobResult) getContainerResult(podName, containerName string) (Container
 	return ContainerResult{}, errors.New("pod or container not found with the given name")
 }
 
-// JobResults contains methods to handle multiple JobResult instances
-type JobResults struct {
+// JobGroupResult handles a group of JobResult instances that have a joint conclusion/verdict
+type JobGroupResult struct {
 	HasConclusion
 	HasVerdict
 	Items []JobResult
