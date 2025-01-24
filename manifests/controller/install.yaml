@@ -1451,6 +1451,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Active")].reason
       name: Reason
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].message
+      name: Description
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -3247,7 +3250,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: registry.nordix.org/eiffel/etos-controller:7982f2e8
+        image: registry.nordix.org/eiffel/etos-controller:e973069a
         livenessProbe:
           httpGet:
             path: /healthz
