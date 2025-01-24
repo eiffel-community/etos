@@ -306,7 +306,7 @@ func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (Jo
 
 		for _, status := range pod.Status.ContainerStatuses {
 			if status.State.Terminated == nil {
-				podResults.Items = append(podResults.Items, ContainerResult{HasConclusion: HasConclusion{Conclusion: ConclusionFailed}})
+				podResults.Items = append(podResults.Items, ContainerResult{Name: status.Name, HasConclusion: HasConclusion{Conclusion: ConclusionFailed}})
 				continue
 			}
 
@@ -317,10 +317,11 @@ func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (Jo
 				if err := json.Unmarshal([]byte(t_msg), &result); err != nil {
 					msg := fmt.Sprintf("failed to unmarshal termination log to a result struct: %s: '%s'", status.Name, t_msg)
 					logger.Error(err, msg)
-					podResults.Items = append(podResults.Items, ContainerResult{HasConclusion: HasConclusion{Conclusion: ConclusionFailed}, Description: t_msg})
+					podResults.Items = append(podResults.Items, ContainerResult{Name: status.Name, HasConclusion: HasConclusion{Conclusion: ConclusionFailed}, Description: t_msg})
 					continue
 				}
 			}
+			result.Name = status.Name
 			podResults.Items = append(podResults.Items, result)
 		}
 		jobResult.Items = append(jobResult.Items, podResults)
