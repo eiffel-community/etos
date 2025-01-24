@@ -21,6 +21,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Active")].reason
       name: Reason
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].message
+      name: Description
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
