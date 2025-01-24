@@ -73,7 +73,7 @@ spec:
                 properties:
                   api:
                     default:
-                      image: registry.nordix.org/eiffel/etos-api:latest
+                      image: ghcr.io/eiffel-community/etos-api:latest
                     description: ETOSAPI describes the deployment of the ETOS API.
                     properties:
                       executionSpaceProviderSecret:
@@ -206,7 +206,7 @@ spec:
                     type: object
                   environmentProvider:
                     default:
-                      image: registry.nordix.org/eiffel/etos-environment-provider:latest
+                      image: ghcr.io/eiffel-community/etos-environment-provider:latest
                     description: ETOSEnvironmentProvider describes the deployment
                       of an ETOS environment provider.
                     properties:
@@ -238,7 +238,7 @@ spec:
                     type: object
                   logArea:
                     default:
-                      image: registry.nordix.org/eiffel/etos-log-area:latest
+                      image: ghcr.io/eiffel-community/etos-log-area:latest
                     description: ETOSLogArea describes th deployment of an ETOS log
                       area API.
                     properties:
@@ -254,7 +254,7 @@ spec:
                     type: object
                   sse:
                     default:
-                      image: registry.nordix.org/eiffel/etos-sse:latest
+                      image: ghcr.io/eiffel-community/etos-sse:latest
                     description: ETOSSSE describes th deployment of an ETOS Server
                       Sent Events API.
                     properties:
@@ -270,9 +270,9 @@ spec:
                     type: object
                   suiteRunner:
                     default:
-                      image: registry.nordix.org/eiffel/etos-suite-runner:latest
+                      image: ghcr.io/eiffel-community/etos-suite-runner:latest
                       logListener:
-                        image: registry.nordix.org/eiffel/etos-log-listener:latest
+                        image: ghcr.io/eiffel-community/etos-log-listener:latest
                     description: ETOSSuiteRunner describes the deployment of an ETOS
                       suite runner.
                     properties:
@@ -309,7 +309,7 @@ spec:
                     type: object
                   suiteStarter:
                     default:
-                      image: registry.nordix.org/eiffel/etos-suite-starter:latest
+                      image: ghcr.io/eiffel-community/etos-suite-starter:latest
                     description: ETOSSuiteStarter describes the deployment of an ETOS
                       suite starter.
                     properties:
@@ -377,7 +377,7 @@ spec:
                 properties:
                   api:
                     default:
-                      image: registry.nordix.org/eiffel/eiffel-graphql-api:latest
+                      image: ghcr.io/eiffel-community/eiffel-graphql-api:latest
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
@@ -497,7 +497,7 @@ spec:
                     type: object
                   storage:
                     default:
-                      image: registry.nordix.org/eiffel/eiffel-graphql-storage:latest
+                      image: ghcr.io/eiffel-community/eiffel-graphql-storage:latest
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.

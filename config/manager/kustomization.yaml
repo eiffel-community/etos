@@ -4,5 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: registry.nordix.org/eiffel/etos-controller
+  newName: ghcr.io/eiffel-community/etos-controller
   newTag: 5becd344

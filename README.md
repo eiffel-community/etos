@@ -78,7 +78,7 @@ Installation Steps
 
 ::
 
-    helm repo add Eiffel registry.nordix.org/eiffel
+    helm repo add Eiffel ghcr.io/eiffel-community
 
 2. Then simply install ETOS using Helm
 
