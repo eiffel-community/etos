@@ -18,7 +18,6 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -210,7 +209,7 @@ func (r Result) getContainerResult(podName, containerName string) (Result, error
 			}
 		}
 	}
-	return Result{}, errors.New("pod or container not found with the given name")
+	return Result{}, fmt.Errorf("pod or container with the given name [%s] not found", containerName)
 }
 
 // terminationLogs reads termination-log for each pod/container of the given job returning it as a JobResult instance
