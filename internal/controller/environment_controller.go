@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -154,16 +155,16 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 
 	// Environment releaser failed, setting status.
 	if releasers.failed() {
-		description := ""
+		descriptions := []string{}
 		for _, releaser := range releasers.failedJobs {
 			jobResult, err := terminationLogs(ctx, r, releaser)
 			if err != nil {
-				description = fmt.Sprintf("%s; %s: %s", description, releaser.Name, err.Error())
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", releaser.Name, err.Error()))
 			} else {
-				description = fmt.Sprintf("%s; %s: %s", description, releaser.Name, jobResult.getConclusion())
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", releaser.Name, jobResult.getConclusion()))
 			}
-			description = fmt.Sprintf("%s; %s: %s", description, releaser.Name, jobResult.getConclusion())
 		}
+		description := strings.Join(descriptions, ";")
 		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 			return r.Status().Update(ctx, environment)
 		}
@@ -172,7 +173,7 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 	// Environment releaser successful, setting status.
 	if releasers.successful() {
 		reason := ""
-		description := ""
+		descriptions := []string{}
 		for _, releaser := range releasers.successfulJobs {
 			jobResult, err := terminationLogs(ctx, r, releaser)
 			if err != nil {
@@ -180,9 +181,10 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 			}
 			if jobResult.getVerdict() == VerdictFailed {
 				reason = "Failed"
-				description = fmt.Sprintf("%s; %s: %s", description, releaser.Name, jobResult.getConclusion())
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", releaser.Name, jobResult.getConclusion()))
 			}
 		}
+		description := strings.Join(descriptions, ";")
 		if reason == "Failed" {
 			if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 				return r.Status().Update(ctx, environment)

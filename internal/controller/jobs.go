@@ -241,7 +241,7 @@ func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (Re
 
 			var containerResult Result
 			t_msg := status.State.Terminated.Message
-			// The termination message may not be available for some containers such as etos-log-listener, which are not included in the output.
+			// Containers without termination messages will not be included (for example, etos-log-listener)
 			if t_msg != "" {
 				if err := json.Unmarshal([]byte(t_msg), &containerResult); err != nil {
 					msg := fmt.Sprintf("failed to unmarshal termination log to a result struct: %s: '%s'", status.Name, t_msg)

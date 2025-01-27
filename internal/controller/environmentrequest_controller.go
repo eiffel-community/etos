@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -169,15 +170,16 @@ func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmen
 func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.Context, providers *jobs, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
 	// Environment provider failed, setting status.
 	if providers.failed() {
-		description := ""
+		descriptions := []string{}
 		for _, provider := range providers.failedJobs {
 			jobResult, err := terminationLogs(ctx, r, provider)
 			if err != nil {
-				description = fmt.Sprintf("%s; %s: %s", description, provider.Name, err.Error())
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, err.Error()))
 			} else {
-				description = fmt.Sprintf("%s; %s: %s", description, provider.Name, jobResult.getConclusion())
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, jobResult.getConclusion()))
 			}
 		}
+		description := strings.Join(descriptions, ";")
 		if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 			return r.Status().Update(ctx, environmentrequest)
 		}
@@ -187,19 +189,20 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	if providers.successful() {
 		statusUpdated := false
 		reason := ""
-		description := ""
+		descriptions := []string{}
 		for _, provider := range providers.successfulJobs {
 			jobResult, err := terminationLogs(ctx, r, provider)
 			if err != nil {
-				description = fmt.Sprintf("%s; %s: %s", description, provider.Name, err.Error())
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, err.Error()))
 			} else {
-				description = fmt.Sprintf("%s; %s: %s", description, provider.Name, jobResult.getConclusion())
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, jobResult.getConclusion()))
 			}
 			if jobResult.getVerdict() == VerdictFailed {
 				reason = "Failed"
-				description = fmt.Sprintf("%s; %s: %s", description, provider.Name, jobResult.getConclusion())
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, jobResult.getConclusion()))
 			}
 		}
+		description := strings.Join(descriptions, ";")
 		if reason == "Failed" {
 			if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 				return r.Status().Update(ctx, environmentrequest)

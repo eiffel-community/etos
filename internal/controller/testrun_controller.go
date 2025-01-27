@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -305,8 +306,8 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	logger := log.FromContext(ctx)
 	// Suite runners failed, setting status.
 	if suiteRunners.failed() {
-		description := ""
 		result := Result{}
+		descriptions := []string{}
 		for _, suiteRunner := range suiteRunners.failedJobs {
 			jobResult, err := terminationLogs(ctx, r, suiteRunner)
 			if err != nil {
@@ -315,14 +316,14 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 			}
 			containerResult, err := jobResult.getContainerResult(suiteRunner.Name, suiteRunner.Name)
 			if err != nil {
-				description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, err.Error())
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", suiteRunner.Name, err.Error()))
 			} else {
-				description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, containerResult.Verdict)
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", suiteRunner.Name, containerResult.Verdict))
 			}
 			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
-			description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, containerResult.Verdict)
 			result.Results = append(result.Results, jobResult)
 		}
+		description := strings.Join(descriptions, ";")
 		testrun.Status.Verdict = string(result.getVerdict())
 		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", result.getConclusion(), "message", description)
 		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
@@ -331,7 +332,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	}
 	// Suite runners successful, setting status.
 	if suiteRunners.successful() {
-		description := ""
+		descriptions := []string{}
 		result := Result{}
 		for _, suiteRunner := range suiteRunners.successfulJobs {
 			jobResult, err := terminationLogs(ctx, r, suiteRunner)
@@ -341,14 +342,15 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 			}
 			containerResult, err := jobResult.getContainerResult(suiteRunner.Name, suiteRunner.Name)
 			if err != nil {
-				description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, err.Error())
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", suiteRunner.Name, err.Error()))
 			} else {
-				description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, containerResult.Verdict)
+				descriptions = append(descriptions, fmt.Sprintf("%s: %s", suiteRunner.Name, containerResult.Verdict))
 			}
 			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
 			result.Results = append(result.Results, jobResult)
 		}
 		testrun.Status.Verdict = string(result.getVerdict())
+		description := strings.Join(descriptions, ";")
 		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", result.getConclusion(), "message", description)
 		if result.getConclusion() == ConclusionFailed {
 			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
