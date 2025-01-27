@@ -116,7 +116,7 @@ const (
 	VerdictNone         Verdict = "None"
 )
 
-// ContainerResult describes a container inside a pod of an ETOS job
+// Result describes the result of a container/pod/job execution
 type Result struct {
        Results     []Result
        Conclusion  Conclusion
@@ -125,7 +125,7 @@ type Result struct {
        Name        string `json:"name"`
 }
 
-// getConclusion returns the conclusion of a single job based on individual container conclusions
+// getConclusions returns the conclusion based on the current list of results
 func (r Result) getConclusion() Conclusion {
 	if len(r.Results) == 0 {
 		return r.Conclusion
@@ -166,7 +166,7 @@ func (r Result) getConclusion() Conclusion {
 	return ConclusionSuccessful
 }
 
-// getVerdict determines the verdict based on a list of job results
+// getVerdict returns the verdict based on the current list of results
 func (r Result) getVerdict() Verdict {
 	if len(r.Results) == 0 {
 		return r.Verdict
