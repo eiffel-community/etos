@@ -306,7 +306,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	// Suite runners failed, setting status.
 	if suiteRunners.failed() {
 		description := ""
-		result := JobGroupResult{}
+		result := Result{}
 		for _, suiteRunner := range suiteRunners.failedJobs {
 			jobResult, err := terminationLogs(ctx, r, suiteRunner)
 			if err != nil {
@@ -321,7 +321,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 			}
 			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
 			description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, containerResult.Verdict)
-			result.Items = append(result.Items, jobResult)
+			result.Results = append(result.Results, jobResult)
 		}
 		testrun.Status.Verdict = string(result.getVerdict())
 		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", result.getConclusion(), "message", description)
@@ -332,7 +332,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	// Suite runners successful, setting status.
 	if suiteRunners.successful() {
 		description := ""
-		result := JobGroupResult{}
+		result := Result{}
 		for _, suiteRunner := range suiteRunners.successfulJobs {
 			jobResult, err := terminationLogs(ctx, r, suiteRunner)
 			if err != nil {
@@ -346,7 +346,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 				description = fmt.Sprintf("%s; %s: %s", description, suiteRunner.Name, containerResult.Verdict)
 			}
 			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
-			result.Items = append(result.Items, jobResult)
+			result.Results = append(result.Results, jobResult)
 		}
 		testrun.Status.Verdict = string(result.getVerdict())
 		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", result.getConclusion(), "message", description)

@@ -109,30 +109,34 @@ const (
 	ConclusionInconclusive Conclusion = "Inconclusive"
 )
 
-// HasConclusion describes a single atomic item that can have a conclusion, such as a single container result
-type HasConclusion struct {
-	Conclusion Conclusion `json:"conclusion"`
-}
+const (
+	VerdictPassed       Verdict = "Passed"
+	VerdictFailed       Verdict = "Failed"
+	VerdictInconclusive Verdict = "Inconclusive"
+	VerdictNone         Verdict = "None"
+)
 
-// getConclusion returns the conclusion
-func (hs HasConclusion) getConclusion() Conclusion {
-	return hs.Conclusion
-}
-
-// IterableHasConclusion describes an iterable collection of items that can have a joint conclusion, such as a pod consisting of multiple containers
-type IterableHasConclusion struct {
-	HasConclusion
-	Items []HasConclusion `json:"items"`
+// ContainerResult describes a container inside a pod of an ETOS job
+type Result struct {
+       Results     []Result
+       Conclusion  Conclusion
+       Verdict     Verdict
+       Description string `json:"description,omitempty"`
+       Name        string `json:"name"`
 }
 
 // getConclusion returns the conclusion of a single job based on individual container conclusions
-func (ihc IterableHasConclusion) getConclusion() Conclusion {
+func (r Result) getConclusion() Conclusion {
+	if len(r.Results) == 0 {
+		return r.Conclusion
+	}
+
 	hasAborted := false
 	hasTimedOut := false
 	hasInconclusive := false
 	hasFailed := false
 
-	for _, item := range ihc.Items {
+	for _, item := range r.Results {
 		switch item.Conclusion {
 		case ConclusionAborted:
 			hasAborted = true
@@ -162,36 +166,15 @@ func (ihc IterableHasConclusion) getConclusion() Conclusion {
 	return ConclusionSuccessful
 }
 
-const (
-	VerdictPassed       Verdict = "Passed"
-	VerdictFailed       Verdict = "Failed"
-	VerdictInconclusive Verdict = "Inconclusive"
-	VerdictNone         Verdict = "None"
-)
-
-// HasVerdict describes a single atomic item that can have a verdict, such as a single container result
-type HasVerdict struct {
-	Verdict Verdict `json:"verdict,omitempty"`
-}
-
-// getVerdict returns the verdict
-func (hv HasVerdict) getVerdict() Verdict {
-	return hv.Verdict
-}
-
-// IterableHasVerdict describes an iterable collection of items that can have a joint verdict, such as a pod consisting of multiple containers
-type IterableHasVerdict struct {
-	HasVerdict
-	Items []HasVerdict `json:"items"`
-}
-
 // getVerdict determines the verdict based on a list of job results
-func (ihv IterableHasVerdict) getVerdict() Verdict {
+func (r Result) getVerdict() Verdict {
+	if len(r.Results) == 0 {
+		return r.Verdict
+	}
 	hasInconclusive := false
 	hasFailed := false
 	hasNone := false
-
-	for _, result := range ihv.Items {
+	for _, result := range r.Results {
 		switch result.getVerdict() {
 		case VerdictInconclusive:
 			hasInconclusive = true
@@ -216,115 +199,61 @@ func (ihv IterableHasVerdict) getVerdict() Verdict {
 	return VerdictPassed
 }
 
-// ContainerResult describes a container inside a pod of an ETOS job
-type ContainerResult struct {
-	HasConclusion
-	HasVerdict
-	Description string `json:"description,omitempty"`
-	Name        string `json:"name"`
-}
-
-// PodResult describes a pod of an ETOS job which consists of one or more containers
-type PodResult struct {
-	HasConclusion
-	HasVerdict
-	Name  string
-	Items []ContainerResult
-}
-
-// JobResult describes an ETOS job which consists of one or more pods
-type JobResult struct {
-	HasConclusion
-	HasVerdict
-	Items []PodResult
-}
-
-// failed determines if the job has failed (at least one container has failed)
-func (jr JobResult) failed() bool {
-	for _, pod := range jr.Items {
-		for _, result := range pod.Items {
-			if result.Conclusion == ConclusionFailed {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// successful determines if the job has been successful (all containers succeeded)
-func (jr JobResult) successful() bool {
-	for _, pod := range jr.Items {
-		for _, result := range pod.Items {
-			if result.Conclusion != ConclusionSuccessful {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 // getContainerResults returns the result of a single container by pod/container name
-func (jr JobResult) getContainerResult(podName, containerName string) (ContainerResult, error) {
-	for _, pod := range jr.Items {
+func (r Result) getContainerResult(podName, containerName string) (Result, error) {
+	for _, pod := range r.Results {
 		if pod.Name == podName {
-			for _, result := range pod.Items {
+			for _, result := range pod.Results {
 				if result.Name == containerName {
 					return result, nil
 				}
 			}
 		}
 	}
-	return ContainerResult{}, errors.New("pod or container not found with the given name")
-}
-
-// JobGroupResult handles a group of JobResult instances that have a joint conclusion/verdict
-type JobGroupResult struct {
-	HasConclusion
-	HasVerdict
-	Items []JobResult
+	return Result{}, errors.New("pod or container not found with the given name")
 }
 
 // terminationLogs reads termination-log for each pod/container of the given job returning it as a JobResult instance
-func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (JobResult, error) {
+func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (Result, error) {
 	logger := log.FromContext(ctx)
 
 	var pods corev1.PodList
 	if err := c.List(ctx, &pods, client.InNamespace(job.Namespace), client.MatchingLabels{"job-name": job.Name}); err != nil {
 		logger.Error(err, fmt.Sprintf("could not list pods for job %s", job.Name))
-		return JobResult{}, err
+		return Result{}, err
 	}
 
 	if len(pods.Items) == 0 {
-		return JobResult{}, fmt.Errorf("no pods found for job %s", job.Name)
+		return Result{}, fmt.Errorf("no pods found for job %s", job.Name)
 	}
 
-	var jobResult JobResult
+	var jobResult Result
 	for _, pod := range pods.Items {
 
-		podResults := PodResult{}
+		podResults := Result{}
 		podResults.Name = pod.Name
 
 		for _, status := range pod.Status.ContainerStatuses {
 			if status.State.Terminated == nil {
-				podResults.Items = append(podResults.Items, ContainerResult{Name: status.Name, HasConclusion: HasConclusion{Conclusion: ConclusionFailed}})
+				podResults.Results = append(podResults.Results, Result{Name: status.Name, Conclusion: ConclusionFailed})
 				continue
 			}
 
-			var result ContainerResult
+			var containerResult Result
 			t_msg := status.State.Terminated.Message
 			// The termination message may not be available for some containers such as etos-log-listener, which are not included in the output.
 			if t_msg != "" {
-				if err := json.Unmarshal([]byte(t_msg), &result); err != nil {
+				if err := json.Unmarshal([]byte(t_msg), &containerResult); err != nil {
 					msg := fmt.Sprintf("failed to unmarshal termination log to a result struct: %s: '%s'", status.Name, t_msg)
 					logger.Error(err, msg)
-					podResults.Items = append(podResults.Items, ContainerResult{Name: status.Name, HasConclusion: HasConclusion{Conclusion: ConclusionFailed}, Description: t_msg})
+					podResults.Results = append(podResults.Results, Result{Name: status.Name, Conclusion: ConclusionFailed, Description: t_msg})
 					continue
 				}
 			}
-			result.Name = status.Name
-			podResults.Items = append(podResults.Items, result)
+			containerResult.Name = status.Name
+			podResults.Results = append(podResults.Results, containerResult)
 		}
-		jobResult.Items = append(jobResult.Items, podResults)
+		jobResult.Results = append(jobResult.Results, podResults)
 	}
 
 	return jobResult, nil

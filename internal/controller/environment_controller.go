@@ -178,7 +178,7 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 			if err != nil {
 				return err
 			}
-			if jobResult.failed() {
+			if jobResult.getVerdict() == VerdictFailed {
 				reason = "Failed"
 				description = fmt.Sprintf("%s; %s: %s", description, releaser.Name, jobResult.getConclusion())
 			}

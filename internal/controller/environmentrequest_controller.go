@@ -195,7 +195,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			} else {
 				description = fmt.Sprintf("%s; %s: %s", description, provider.Name, jobResult.getConclusion())
 			}
-			if jobResult.failed() {
+			if jobResult.getVerdict() == VerdictFailed {
 				reason = "Failed"
 				description = fmt.Sprintf("%s; %s: %s", description, provider.Name, jobResult.getConclusion())
 			}
