@@ -26,8 +26,8 @@ spec:
       queueName: "etos.*.log"
   eventRepository:
     deploy: true
-    apiImage: ghcr.io/eiffel-community/eiffel-graphql-api:latest
-    storageImage: ghcr.io/eiffel-community/eiffel-graphql-storage:latest
+    apiImage: registry.nordix.org/eiffel/eiffel-graphql-api:latest
+    storageImage: registry.nordix.org/eiffel/eiffel-graphql-storage:latest 
     mongo:
       deploy: true
     ingress:
