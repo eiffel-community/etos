@@ -19,8 +19,8 @@ package controller
 import (
 	"context"
 	"fmt"
-	"time"
 	"strings"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -323,7 +323,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
 			result.Results = append(result.Results, jobResult)
 		}
-		description := strings.Join(descriptions, ";")
+		description := strings.Join(descriptions, "; ")
 		testrun.Status.Verdict = string(result.getVerdict())
 		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", result.getConclusion(), "message", description)
 		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
@@ -350,7 +350,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 			result.Results = append(result.Results, jobResult)
 		}
 		testrun.Status.Verdict = string(result.getVerdict())
-		description := strings.Join(descriptions, ";")
+		description := strings.Join(descriptions, "; ")
 		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", result.getConclusion(), "message", description)
 		if result.getConclusion() == ConclusionFailed {
 			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {

@@ -117,11 +117,11 @@ const (
 
 // Result describes the result of a container/pod/job execution
 type Result struct {
-       Results     []Result
-       Conclusion  Conclusion
-       Verdict     Verdict
-       Description string `json:"description,omitempty"`
-       Name        string `json:"name"`
+	Results     []Result   `json:"results"`
+	Conclusion  Conclusion `json:"conclusion,omitempty"`
+	Verdict     Verdict    `json:"verdict,omitempty"`
+	Description string     `json:"description,omitempty"`
+	Name        string     `json:"name"`
 }
 
 // getConclusions returns the conclusion based on the current list of results

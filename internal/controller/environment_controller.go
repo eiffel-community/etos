@@ -164,7 +164,7 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 				descriptions = append(descriptions, fmt.Sprintf("%s: %s", releaser.Name, jobResult.getConclusion()))
 			}
 		}
-		description := strings.Join(descriptions, ";")
+		description := strings.Join(descriptions, "; ")
 		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 			return r.Status().Update(ctx, environment)
 		}
@@ -184,7 +184,7 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 				descriptions = append(descriptions, fmt.Sprintf("%s: %s", releaser.Name, jobResult.getConclusion()))
 			}
 		}
-		description := strings.Join(descriptions, ";")
+		description := strings.Join(descriptions, "; ")
 		if reason == "Failed" {
 			if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 				return r.Status().Update(ctx, environment)

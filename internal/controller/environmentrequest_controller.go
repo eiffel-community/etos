@@ -179,7 +179,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, jobResult.getConclusion()))
 			}
 		}
-		description := strings.Join(descriptions, ";")
+		description := strings.Join(descriptions, "; ")
 		if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 			return r.Status().Update(ctx, environmentrequest)
 		}
@@ -202,7 +202,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, jobResult.getConclusion()))
 			}
 		}
-		description := strings.Join(descriptions, ";")
+		description := strings.Join(descriptions, "; ")
 		if reason == "Failed" {
 			if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 				return r.Status().Update(ctx, environmentrequest)
