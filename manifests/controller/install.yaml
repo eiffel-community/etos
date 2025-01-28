@@ -386,7 +386,7 @@ spec:
                 properties:
                   api:
                     default:
-                      image: ghcr.io/eiffel-community/eiffel-graphql-api:latest
+                      image: registry.nordix.org/eiffel/eiffel-graphql-api:latest
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
@@ -506,7 +506,7 @@ spec:
                     type: object
                   storage:
                     default:
-                      image: ghcr.io/eiffel-community/eiffel-graphql-storage:latest
+                      image: registry.nordix.org/eiffel/eiffel-graphql-storage:latest
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
