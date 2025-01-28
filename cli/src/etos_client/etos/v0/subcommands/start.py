@@ -18,6 +18,9 @@
 import sys
 import os
 import logging
+import json
+from json import JSONDecodeError
+from typing import Optional
 import warnings
 
 from etos_client.types.result import Conclusion, Verdict
@@ -38,6 +41,7 @@ class Start(SubCommand):
         -h, --help                                                Show this help message and exit
         -i IDENTITY, --identity IDENTITY                          Artifact created identity purl or ID to execute test suite on.
         -s TEST_SUITE, --test-suite TEST_SUITE                    Test suite execute. Either URL or name.
+        -p PARENT_ACTIVITY, --parent-activity PARENT_ACTIVITY     Activity for the TERCC to link to as the cause of the test execution.
         --no-tty                                                  This parameter is no longer in use.
         -w WORKSPACE, --workspace WORKSPACE                       Which workspace to do all the work in.
         -a ARTIFACT_DIR, --artifact-dir ARTIFACT_DIR              Where test artifacts should be stored. Relative to workspace.
@@ -56,6 +60,18 @@ class Start(SubCommand):
         name="start", description="Start an ETOSv0 testrun.", version="v0"
     )
 
+    def activity_triggered(self, argv: list[str]) -> Optional[str]:
+        """Get an activity triggered event ID from environment or arguments."""
+        if ("-p" not in argv and "--parent-activity" not in argv) and os.getenv(
+            "EIFFEL_ACTIVITY_TRIGGERED"
+        ) is not None:
+            try:
+                actt = json.loads(os.getenv("EIFFEL_ACTIVITY_TRIGGERED", ""))
+                return actt["meta"]["id"]
+            except (JSONDecodeError, IndexError):
+                self.logger.warning("Could not load EIFFEL_ACTIVITY_TRIGGERED from environment due it not being formatted JSON")
+        return None
+
     def parse_args(self, argv: list[str]) -> dict:
         """Parse arguments for etosctl testrun start."""
         if ("-i" not in argv and "--identity" not in argv) and os.getenv("IDENTITY") is not None:
@@ -64,6 +80,9 @@ class Start(SubCommand):
             "TEST_SUITE"
         ) is not None:
             argv.extend(["--test-suite", os.getenv("TEST_SUITE", "")])
+        parent_activity_id = self.activity_triggered(argv)
+        if parent_activity_id is not None:
+            argv.extend(["--parent-activity", parent_activity_id])
         return super().parse_args(argv)
 
     def run(self, args: dict) -> None:
