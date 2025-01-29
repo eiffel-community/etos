@@ -40,13 +40,13 @@ type EventRepository struct {
 
 	// We do not build the GraphQL API automatically nor publish it remotely.
 	// This will need to be provided to work.
-	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/eiffel-graphql-api:latest"}
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-api:latest"}
 	// +optional
 	API Image `json:"api"`
 
 	// We do not build the GraphQL API automatically nor publish it remotely.
 	// This will need to be provided to work.
-	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/eiffel-graphql-storage:latest"}
+	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-storage:latest"}
 	// +optional
 	Storage Image `json:"storage"`
 	// +kubebuilder:default="etos"
