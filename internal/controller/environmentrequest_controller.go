@@ -90,11 +90,9 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			}
 			return ctrl.Result{}, nil
 		}
-	} else {
+	} else if controllerutil.ContainsFinalizer(environmentrequest, releaseFinalizer) {
 		// Environmentrequest is under deletion. Wait for environments to get deleted before finalizing.
-		if controllerutil.ContainsFinalizer(environmentrequest, releaseFinalizer) {
-			return r.reconcileDeletion(ctx, environmentrequest)
-		}
+		return r.reconcileDeletion(ctx, environmentrequest)
 	}
 	if environmentrequest.Status.CompletionTime != nil {
 		return ctrl.Result{}, nil
