@@ -37,9 +37,12 @@ jobs:
           echo IMAGE_ID=$IMAGE_ID
           echo VERSION=$VERSION
           make docker-build split-installer IMG=$IMAGE_ID:$VERSION
-          if [ "${{ github.event.pull_request.merged }}" == "true" ]; then
-            docker push $IMAGE_ID:$VERSION
-          fi
+      - name: Push Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker push $IMAGE_ID:$VERSION
+      - name: Copy manifest files
+        run: |
           mkdir -p manifests/controller
           cp dist/* manifests/controller/
       - name: Commit changes
