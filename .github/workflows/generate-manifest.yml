@@ -1,7 +1,8 @@
 name: Generate Manifest File
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - main
   workflow_dispatch:
