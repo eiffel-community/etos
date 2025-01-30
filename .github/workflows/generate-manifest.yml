@@ -1,8 +1,7 @@
 name: Generate Manifest File
 
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches:
       - main
   workflow_dispatch:
@@ -38,7 +37,9 @@ jobs:
           echo IMAGE_ID=$IMAGE_ID
           echo VERSION=$VERSION
           make docker-build split-installer IMG=$IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+          if [ "${{ github.event.pull_request.merged }}" == "true" ]; then
+            docker push $IMAGE_ID:$VERSION
+          fi
           mkdir -p manifests/controller
           cp dist/* manifests/controller/
       - name: Commit changes
