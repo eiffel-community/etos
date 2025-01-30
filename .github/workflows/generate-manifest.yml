@@ -36,7 +36,8 @@ jobs:
           [ "$VERSION" == "main" ] && VERSION=$(echo ${{ github.sha }} | cut -c1-8)
           echo IMAGE_ID=$IMAGE_ID
           echo VERSION=$VERSION
-          make docker-build docker-push split-installer IMG=$IMAGE_ID:$VERSION
+          make docker-build split-installer IMG=$IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
           mkdir -p manifests/controller
           cp dist/* manifests/controller/
       - name: Commit changes
