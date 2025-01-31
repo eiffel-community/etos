@@ -62,19 +62,18 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	lastHealthCheckTime := metav1.NewTime(time.Now())
-	provider.Status.LastHealthCheckTime = &lastHealthCheckTime
-
 	interval := time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second
-	var next time.Time
-	if provider.Status.LastHealthCheckTime != nil {
-		next = provider.Status.LastHealthCheckTime.Time.Add(interval)
-	} else {
-		next = provider.ObjectMeta.CreationTimestamp.Time
-	}
+	lastHealthCheckTime := metav1.NewTime(time.Now())
 
-	if time.Until(next) > 0 {
-		return ctrl.Result{RequeueAfter: time.Until(next)}, nil
+	if provider.Status.LastHealthCheckTime == nil {
+		// run healthcheck on first reconciliation and update status after that
+		provider.Status.LastHealthCheckTime = &lastHealthCheckTime
+	} else {
+		next := provider.Status.LastHealthCheckTime.Time.Add(interval)
+		if time.Until(next) > 0 {
+			// postpone healthcheck if it is too early to do it now
+			return ctrl.Result{RequeueAfter: time.Until(next)}, nil
+		}
 	}
 
 	// We don't check the availability of JSONTas as it is not yet running as a service we can check.
