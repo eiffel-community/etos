@@ -123,7 +123,7 @@ type Result struct {
 	Description string     `json:"description,omitempty"`
 }
 
-// getLatestPodByCreationTimestamp returns the latest pod created by creation timestamp
+// getLatestPodByCreationTimestamp returns the latest created pod from the given list
 func getLatestPodByCreationTimestamp(pods []v1.Pod) *v1.Pod {
 	if len(pods) == 0 {
 		return nil
