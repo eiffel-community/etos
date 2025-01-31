@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -155,42 +154,31 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 
 	// Environment releaser failed, setting status.
 	if releasers.failed() {
-		descriptions := []string{}
-		for _, releaser := range releasers.failedJobs {
-			jobResult, err := terminationLogs(ctx, r, releaser)
-			if err != nil {
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", releaser.Name, err.Error()))
-			} else {
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", releaser.Name, jobResult.getConclusion()))
-			}
+		releaser := releasers.failedJobs[0] // TODO: We should allow multiple releaser jobs in the future
+		result, err := terminationLog(ctx, r, releaser, environment.Name)
+		if err != nil {
+			result.Description = err.Error()
 		}
-		description := strings.Join(descriptions, "; ")
-		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
+		if result.Description == "" {
+			result.Description = "Failed to release an environment - Unknown error"
+		}
+		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 			return r.Status().Update(ctx, environment)
 		}
 	}
-
 	// Environment releaser successful, setting status.
 	if releasers.successful() {
-		reason := ""
-		descriptions := []string{}
-		for _, releaser := range releasers.successfulJobs {
-			jobResult, err := terminationLogs(ctx, r, releaser)
-			if err != nil {
-				return err
-			}
-			if jobResult.getVerdict() == VerdictFailed {
-				reason = "Failed"
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", releaser.Name, jobResult.getConclusion()))
-			}
+		releaser := releasers.successfulJobs[0] // TODO: We should allow multiple releaser jobs in the future
+		result, err := terminationLog(ctx, r, releaser, environment.Name)
+		if err != nil {
+			result.Description = err.Error()
 		}
-		description := strings.Join(descriptions, "; ")
-		if reason == "Failed" {
-			if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
+		if result.Conclusion == ConclusionFailed {
+			if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 				return r.Status().Update(ctx, environment)
 			}
 		}
-		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Released", Message: "All releaser jobs succeeded"}) {
+		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Released", Message: result.Description}) {
 			for _, environmentProvider := range releasers.successfulJobs {
 				if err := r.Delete(ctx, environmentProvider, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 					if !apierrors.IsNotFound(err) {
@@ -201,7 +189,6 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 			return r.Status().Update(ctx, environment)
 		}
 	}
-
 	// Suite runners active, setting status
 	if releasers.active() {
 		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Releasing", Message: "Environment is being released"}) {

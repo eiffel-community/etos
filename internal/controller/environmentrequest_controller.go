@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -170,16 +169,17 @@ func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmen
 func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.Context, providers *jobs, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
 	// Environment provider failed, setting status.
 	if providers.failed() {
-		descriptions := []string{}
-		for _, provider := range providers.failedJobs {
-			jobResult, err := terminationLogs(ctx, r, provider)
+		description := ""
+		for _, environmentProvider := range providers.failedJobs {
+			result, err := terminationLog(ctx, r, environmentProvider, environmentrequest.Name)
 			if err != nil {
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, err.Error()))
-			} else {
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, jobResult.getConclusion()))
+				result.Description = err.Error()
 			}
+			if result.Description == "" {
+				result.Description = "Failed to provision an environment - Unknown error"
+			}
+			description = fmt.Sprintf("%s; %s: %s", description, environmentProvider.Name, result.Description)
 		}
-		description := strings.Join(descriptions, "; ")
 		if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
 			return r.Status().Update(ctx, environmentrequest)
 		}
@@ -188,31 +188,27 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	// Environment provider successful, setting status.
 	if providers.successful() {
 		statusUpdated := false
-		reason := ""
-		descriptions := []string{}
-		for _, provider := range providers.successfulJobs {
-			jobResult, err := terminationLogs(ctx, r, provider)
+		for _, environmentProvider := range providers.successfulJobs {
+			result, err := terminationLog(ctx, r, environmentProvider, environmentrequest.Name)
 			if err != nil {
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, err.Error()))
-			} else {
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, jobResult.getConclusion()))
+				result.Description = err.Error()
 			}
-			if jobResult.getVerdict() == VerdictFailed {
-				reason = "Failed"
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", provider.Name, jobResult.getConclusion()))
+			if result.Conclusion == ConclusionFailed {
+				if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
+					statusUpdated = true
+				}
 			}
-		}
-		description := strings.Join(descriptions, "; ")
-		if reason == "Failed" {
-			if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
-				return r.Status().Update(ctx, environmentrequest)
-			}
-		}
-		if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionTrue, Reason: "Done", Message: "All environmentrequest jobs succeeded"}) {
-			for _, environmentProvider := range providers.successfulJobs {
-				if err := r.Delete(ctx, environmentProvider, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
-					if !apierrors.IsNotFound(err) {
-						return err
+			if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: StatusReady, Status: metav1.ConditionTrue, Reason: "Done", Message: result.Description}) {
+				statusUpdated = true
+				for _, environmentProvider := range providers.successfulJobs {
+					if err := r.Delete(ctx, environmentProvider, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
+						if !apierrors.IsNotFound(err) {
+							// If returning due to a delete error, the environmentrequest shall be updated here, otherwise later.
+							if _err := r.Status().Update(ctx, environmentrequest); _err != nil {
+								return _err
+							}
+							return err
+						}
 					}
 				}
 			}

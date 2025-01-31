@@ -18,15 +18,16 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// jobs groups Job instances by their status and provides functions to handle them groupwise
 type jobs struct {
 	activeJobs     []*batchv1.Job
 	successfulJobs []*batchv1.Job
@@ -115,145 +116,54 @@ const (
 	VerdictNone         Verdict = "None"
 )
 
-// Result describes the result of a container/pod/job execution
+// Result describes the status and result of an ETOS job
 type Result struct {
-	Results     []Result   `json:"results"`
-	Conclusion  Conclusion `json:"conclusion,omitempty"`
+	Conclusion  Conclusion `json:"conclusion"`
 	Verdict     Verdict    `json:"verdict,omitempty"`
 	Description string     `json:"description,omitempty"`
-	Name        string     `json:"name"`
 }
 
-// getConclusions returns the conclusion based on the current list of results
-func (r Result) getConclusion() Conclusion {
-	if len(r.Results) == 0 {
-		return r.Conclusion
+// getLatestPodByCreationTimestamp returns the latest pod created by creation timestamp
+func getLatestPodByCreationTimestamp(pods []v1.Pod) *v1.Pod {
+	if len(pods) == 0 {
+		return nil
 	}
-
-	hasAborted := false
-	hasTimedOut := false
-	hasInconclusive := false
-	hasFailed := false
-
-	for _, item := range r.Results {
-		switch item.Conclusion {
-		case ConclusionAborted:
-			hasAborted = true
-		case ConclusionTimedOut:
-			hasTimedOut = true
-		case ConclusionInconclusive:
-			hasInconclusive = true
-		case ConclusionFailed:
-			hasFailed = true
+	latestPod := pods[0]
+	for _, pod := range pods[1:] {
+		if pod.CreationTimestamp.After(latestPod.CreationTimestamp.Time) {
+			latestPod = pod
 		}
 	}
-
-	if hasAborted {
-		// at least one Aborted -> ConclusionAborted
-		return ConclusionAborted
-	} else if hasTimedOut {
-		// at least one TimedOut and no Aborted -> ConclusionTimedOut
-		return ConclusionTimedOut
-	} else if hasInconclusive {
-		// at least one Inconclusive and no Aborted/TimedOut -> ConclusionAborted
-		return ConclusionInconclusive
-	} else if hasFailed {
-		// at least one Failed and no Aborted/TimedOut/Inconclusive -> ConclusionFailed
-		return ConclusionFailed
-	}
-	// no Aborted/TimedOut/Inconclusive/Failed
-	return ConclusionSuccessful
+	return &latestPod
 }
 
-// getVerdict returns the verdict based on the current list of results
-func (r Result) getVerdict() Verdict {
-	if len(r.Results) == 0 {
-		return r.Verdict
-	}
-	hasInconclusive := false
-	hasFailed := false
-	hasNone := false
-	for _, result := range r.Results {
-		switch result.getVerdict() {
-		case VerdictInconclusive:
-			hasInconclusive = true
-		case VerdictNone:
-			hasNone = true
-		case VerdictFailed:
-			hasFailed = true
-		}
-	}
-
-	if hasInconclusive {
-		// at least one Inconclusive -> VerdictInconclusive
-		return VerdictInconclusive
-	} else if hasNone {
-		// at least one None and no Inconclusive -> VerdictNone
-		return VerdictNone
-	} else if hasFailed {
-		// at least one Failed and no Inconclusive/None -> VerdictFailed
-		return VerdictFailed
-	}
-	// no Inconclusive/None/Failed
-	return VerdictPassed
-}
-
-// getContainerResults returns the result of a single container by pod/container name
-func (r Result) getContainerResult(podName, containerName string) (Result, error) {
-	for _, pod := range r.Results {
-		if pod.Name == podName {
-			for _, result := range pod.Results {
-				if result.Name == containerName {
-					return result, nil
-				}
-			}
-		}
-	}
-	return Result{}, fmt.Errorf("pod or container with the given name [%s] not found", containerName)
-}
-
-// terminationLogs reads termination-log for each pod/container of the given job returning it as a JobResult instance
-func terminationLogs(ctx context.Context, c client.Reader, job *batchv1.Job) (Result, error) {
+// terminationLog reads the termination-log part of the ESR pod and returns it.
+func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, containerName string) (*Result, error) {
 	logger := log.FromContext(ctx)
-
 	var pods corev1.PodList
 	if err := c.List(ctx, &pods, client.InNamespace(job.Namespace), client.MatchingLabels{"job-name": job.Name}); err != nil {
 		logger.Error(err, fmt.Sprintf("could not list pods for job %s", job.Name))
-		return Result{}, err
+		return &Result{Conclusion: ConclusionFailed}, err
 	}
-
 	if len(pods.Items) == 0 {
-		return Result{}, fmt.Errorf("no pods found for job %s", job.Name)
+		return &Result{Conclusion: ConclusionFailed}, fmt.Errorf("no pods found for job %s", job.Name)
 	}
+	pod := getLatestPodByCreationTimestamp(pods.Items)
+	logger.Info("Reading termination-log from pod: ", "pod", pod)
 
-	var jobResult Result
-	for _, pod := range pods.Items {
-
-		podResults := Result{}
-		podResults.Name = pod.Name
-
-		for _, status := range pod.Status.ContainerStatuses {
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.Name == containerName {
 			if status.State.Terminated == nil {
-				podResults.Results = append(podResults.Results, Result{Name: status.Name, Conclusion: ConclusionFailed})
-				continue
+				return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
 			}
+			var result Result
 
-			var containerResult Result
-			t_msg := status.State.Terminated.Message
-			// Containers without termination messages will not be included (for example, etos-log-listener)
-			if t_msg != "" {
-				if err := json.Unmarshal([]byte(t_msg), &containerResult); err != nil {
-					msg := fmt.Sprintf("failed to unmarshal termination log to a result struct: %s: '%s'", status.Name, t_msg)
-					logger.Error(err, msg)
-					podResults.Results = append(podResults.Results, Result{Name: status.Name, Conclusion: ConclusionFailed, Description: t_msg})
-					continue
-				}
+			if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
+				logger.Error(err, "failed to unmarshal termination log to a result struct")
+				return &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message}, nil
 			}
-			containerResult.Name = status.Name
-			podResults.Results = append(podResults.Results, containerResult)
+			return &result, nil
 		}
-		jobResult.Results = append(jobResult.Results, podResults)
 	}
-
-	return jobResult, nil
+	return &Result{Conclusion: ConclusionFailed}, errors.New("found no container status for pod")
 }

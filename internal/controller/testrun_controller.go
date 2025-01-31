@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -306,54 +305,34 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 	logger := log.FromContext(ctx)
 	// Suite runners failed, setting status.
 	if suiteRunners.failed() {
-		result := Result{}
-		descriptions := []string{}
-		for _, suiteRunner := range suiteRunners.failedJobs {
-			jobResult, err := terminationLogs(ctx, r, suiteRunner)
-			if err != nil {
-				// cannot proceed iterating suiteRunners, because conclusion/verdict will likely be incorrect if at least one jobResult is missing from the list
-				return err
-			}
-			containerResult, err := jobResult.getContainerResult(suiteRunner.Name, suiteRunner.Name)
-			if err != nil {
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", suiteRunner.Name, err.Error()))
-			} else {
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", suiteRunner.Name, containerResult.Verdict))
-			}
-			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
-			result.Results = append(result.Results, jobResult)
+		suiteRunner := suiteRunners.failedJobs[0] // TODO
+		result, err := terminationLog(ctx, r, suiteRunner, testrun.Name)
+		if err != nil {
+			result.Description = err.Error()
 		}
-		description := strings.Join(descriptions, "; ")
-		testrun.Status.Verdict = string(result.getVerdict())
-		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", result.getConclusion(), "message", description)
-		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
+		logger.Info("Suite runner result", "verdict", result.Verdict, "conclusion", result.Conclusion, "message", result.Description)
+		if result.Verdict == "" {
+			result.Verdict = VerdictNone
+		}
+		testrun.Status.Verdict = string(result.Verdict)
+		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 			return r.Status().Update(ctx, testrun)
 		}
 	}
 	// Suite runners successful, setting status.
 	if suiteRunners.successful() {
-		descriptions := []string{}
-		result := Result{}
-		for _, suiteRunner := range suiteRunners.successfulJobs {
-			jobResult, err := terminationLogs(ctx, r, suiteRunner)
-			if err != nil {
-				// cannot proceed iterating suiteRunners, because conclusion/verdict will likely be incorrect if at least one jobResult is missing from the list
-				return err
-			}
-			containerResult, err := jobResult.getContainerResult(suiteRunner.Name, suiteRunner.Name)
-			if err != nil {
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", suiteRunner.Name, err.Error()))
-			} else {
-				descriptions = append(descriptions, fmt.Sprintf("%s: %s", suiteRunner.Name, containerResult.Verdict))
-			}
-			logger.Info("Suite runner result", "name", suiteRunner.Name, "verdict", jobResult.getVerdict(), "conclusion", jobResult.getConclusion(), "message", containerResult.Verdict)
-			result.Results = append(result.Results, jobResult)
+		suiteRunner := suiteRunners.successfulJobs[0] // TODO
+		result, err := terminationLog(ctx, r, suiteRunner, testrun.Name)
+		if err != nil {
+			result.Description = err.Error()
 		}
-		testrun.Status.Verdict = string(result.getVerdict())
-		description := strings.Join(descriptions, "; ")
-		logger.Info("Testrun result", "verdict", testrun.Status.Verdict, "conclusion", result.getConclusion(), "message", description)
-		if result.getConclusion() == ConclusionFailed {
-			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: description}) {
+		logger.Info("Suite runner result", "verdict", result.Verdict, "conclusion", result.Conclusion, "message", result.Description)
+		if result.Verdict == "" {
+			result.Verdict = VerdictNone
+		}
+		testrun.Status.Verdict = string(result.Verdict)
+		if result.Conclusion == ConclusionFailed {
+			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{Type: StatusSuiteRunner, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
 				return r.Status().Update(ctx, testrun)
 			}
 		}
@@ -365,7 +344,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunne
 						return err
 					}
 				}
-				if err := r.deleteEnvironmentRequests(ctx, testrun); err != nil {
+				if err = r.deleteEnvironmentRequests(ctx, testrun); err != nil {
 					return err
 				}
 			}
