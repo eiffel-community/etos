@@ -8,11 +8,11 @@ metadata:
 spec:
   etos:
     api:
-      image: "registry.nordix.org/eiffel/etos-api:672f982e"
+      image: "ghcr.io/eiffel-community/etos-api:672f982e"
     sse:
-      image: "registry.nordix.org/eiffel/etos-sse:672f982e"
+      image: "ghcr.io/eiffel-community/etos-sse:672f982e"
     logArea:
-      image: "registry.nordix.org/eiffel/etos-logarea:672f982e"
+      image: "ghcr.io/eiffel-community/etos-logarea:672f982e"
     ingress:
       enabled: true
   database:

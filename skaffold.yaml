@@ -4,7 +4,7 @@ metadata:
   name: etos
 build:
   artifacts:
-    - image: registry.nordix.org/eiffel/etos-controller
+    - image: ghcr.io/eiffel-community/etos-controller
       docker:
         dockerfile: Dockerfile
       hooks:

@@ -223,25 +223,25 @@ type ETOSConfig struct {
 
 // ETOS describes the deployment of an ETOS cluster.
 type ETOS struct {
-	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-api:latest"}
+	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-api:latest"}
 	// +optional
 	API ETOSAPI `json:"api"`
-	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-sse:latest"}
+	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-sse:latest"}
 	// +optional
 	SSE ETOSSSE `json:"sse"`
-	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-log-area:latest"}
+	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-log-area:latest"}
 	// +optional
 	LogArea ETOSLogArea `json:"logArea"`
-	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-suite-runner:latest", "logListener": {"image": "registry.nordix.org/eiffel/etos-log-listener:latest"}}
+	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-suite-runner:latest", "logListener": {"image": "ghcr.io/eiffel-community/etos-log-listener:latest"}}
 	// +optional
 	SuiteRunner ETOSSuiteRunner `json:"suiteRunner"`
 	// +kubebuilder:default={"version": "latest"}
 	// +optional
 	TestRunner ETOSTestRunner `json:"testRunner"`
-	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-suite-starter:latest"}
+	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-suite-starter:latest"}
 	// +optional
 	SuiteStarter ETOSSuiteStarter `json:"suiteStarter"`
-	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/etos-environment-provider:latest"}
+	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-environment-provider:latest"}
 	// +optional
 	EnvironmentProvider ETOSEnvironmentProvider `json:"environmentProvider"`
 	Ingress             Ingress                 `json:"ingress,omitempty"`
