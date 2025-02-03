@@ -73,7 +73,7 @@ spec:
                 properties:
                   api:
                     default:
-                      image: registry.nordix.org/eiffel/etos-api:latest
+                      image: ghcr.io/eiffel-community/etos-api:latest
                     description: ETOSAPI describes the deployment of the ETOS API.
                     properties:
                       executionSpaceProviderSecret:
