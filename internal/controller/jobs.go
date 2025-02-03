@@ -23,6 +23,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -122,6 +123,20 @@ type Result struct {
 	Description string     `json:"description,omitempty"`
 }
 
+// getLatestPodByCreationTimestamp returns the latest created pod from the given list
+func getLatestPodByCreationTimestamp(pods []v1.Pod) *v1.Pod {
+	if len(pods) == 0 {
+		return nil
+	}
+	latestPod := pods[0]
+	for _, pod := range pods[1:] {
+		if pod.CreationTimestamp.After(latestPod.CreationTimestamp.Time) {
+			latestPod = pod
+		}
+	}
+	return &latestPod
+}
+
 // terminationLog reads the termination-log part of the ESR pod and returns it.
 func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, containerName string) (*Result, error) {
 	logger := log.FromContext(ctx)
@@ -133,11 +148,8 @@ func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, cont
 	if len(pods.Items) == 0 {
 		return &Result{Conclusion: ConclusionFailed}, fmt.Errorf("no pods found for job %s", job.Name)
 	}
-	if len(pods.Items) > 1 {
-		// TODO: check specific
-		logger.Info("found more than 1 pod active. Will only check termination-log for the first one", "pod", pods.Items[0])
-	}
-	pod := pods.Items[0]
+	pod := getLatestPodByCreationTimestamp(pods.Items)
+	logger.Info("Reading termination-log from pod: ", "pod", pod)
 
 	for _, status := range pod.Status.ContainerStatuses {
 		if status.Name == containerName {
