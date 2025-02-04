@@ -23,7 +23,6 @@ For this reason we have created a checklist in order to keep track of what needs
 * |checkbox| Set up an :ref:`execution_space` (Execute test runner containers)
 * |checkbox| Set up a :ref:`log_area` (Storing logs after execution)
 * |checkbox| Deploy `MongoDB <https://www.mongodb.com/>`_ (Event storage DB)
-* |checkbox| Deploy `Redis Sentinel <https://redis.io/topics/sentinel>`_ (ETOS internal communications)
 * |checkbox| Deploy `RabbitMQ <https://www.rabbitmq.com/>`_ (must be accessible outside of kubernetes as well)
 * |checkbox| Deploy `Eiffel GraphQL API <https://eiffel-graphql-api.readthedocs.io/en/latest/readme.html#>`_
 

@@ -119,13 +119,6 @@ Here is an example of a standard ETOS configuration file that should get most co
       username: rabbit_user
       password: rabbit_password
 
-    # This is the configuration that should match your redis deployment
-    # ETOS uses redis for internal communication and data storage
-    databaseHost: redis.redis.svc.cluster.local
-    databasePort: "26379"
-    redis:
-      password: my_redis_password
-
 
 Contribute
 ==========
