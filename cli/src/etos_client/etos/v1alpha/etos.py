@@ -35,8 +35,8 @@ from etos_client.etos.v0.events.collector import Collector
 from etos_client.etos.v0.test_results import TestResults
 from etos_client.etos.v0.event_repository import graphql
 from etos_client.etos.v0.test_run import TestRun
-from etos_client.etos.v0.schema.response import ResponseSchema
-from etos_client.etos.v0.schema.request import RequestSchema
+from etos_client.etos.v1alpha.schema.response import ResponseSchema
+from etos_client.etos.v1alpha.schema.request import RequestSchema
 
 
 # Max total time for a ping request including delays with backoff factor 0.5 will be:
