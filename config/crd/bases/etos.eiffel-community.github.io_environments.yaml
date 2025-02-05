@@ -144,7 +144,10 @@ spec:
             - name
             - priority
             - recipes
+            - sub_suite_id
+            - suite_id
             - test_runner
+            - test_suite_started_id
             type: object
           status:
             description: EnvironmentStatus defines the observed state of Environment
