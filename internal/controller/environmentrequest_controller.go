@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	ref "k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -365,8 +366,14 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 		return nil, err
 	}
 
+	identifier := environmentrequest.Spec.Identifier
+	if identifier == "" {
+		identifier = string(uuid.NewUUID())
+	}
+	environmentrequest.Labels["etos.eiffel-community.github.io/id"] = identifier
+
 	labels := map[string]string{
-		"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier, // TODO: omitempty
+		"etos.eiffel-community.github.io/id": identifier,
 		"app.kubernetes.io/name":             "environment-provider",
 		"app.kubernetes.io/part-of":          "etos",
 	}
