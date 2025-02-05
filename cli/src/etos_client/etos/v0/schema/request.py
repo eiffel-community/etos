@@ -36,20 +36,15 @@ class RequestSchema(BaseModel):
     @classmethod
     def from_args(cls, args: dict) -> "RequestSchema":
         """Create a RequestSchema from an argument list from argparse."""
-        parent_activity = args["--parent-activity"] if "--parent-activity" in args else None
-        execution_space_provider = args["--execution-space-provider"] if "--execution-space-provider" in args else "default"
-        iut_provider = args["--iut-provider"] if "--iut-provider" in args else "default"
-        log_area_provider = args["--log-area-provider"] if "--log-area-provider" in args else "default"
-
         return RequestSchema(
             artifact_id=args["--identity"],
             artifact_identity=args["--identity"],
-            parent_activity=parent_activity,
+            parent_activity=args["--parent-activity"] or None,
             test_suite_url=args["--test-suite"],
             dataset=args["--dataset"],
-            execution_space_provider=execution_space_provider,
-            iut_provider=iut_provider,
-            log_area_provider=log_area_provider,
+            execution_space_provider=args["--execution-space-provider"] or "default",
+            iut_provider=args["--iut-provider"] or "default",
+            log_area_provider=args["--log-area-provider"] or "default",
         )
 
     @field_validator("artifact_identity")
