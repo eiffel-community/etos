@@ -432,10 +432,13 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 	}
 
 	eiffelMessageBus := cluster.Spec.MessageBus.EiffelMessageBus
-	eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, eiffelMessageBus.Host)
-
+	if cluster.Spec.MessageBus.EiffelMessageBus.Deploy {
+		eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, eiffelMessageBus.Host)
+	}
 	etosMessageBus := cluster.Spec.MessageBus.ETOSMessageBus
-	etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, etosMessageBus.Host)
+	if cluster.Spec.MessageBus.ETOSMessageBus.Deploy {
+		etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, etosMessageBus.Host)
+	}
 
 	return &etosv1alpha1.EnvironmentRequest{
 		ObjectMeta: metav1.ObjectMeta{
