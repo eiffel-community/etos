@@ -247,6 +247,15 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 	if err != nil {
 		return nil, err
 	}
+	etosRabbitMQPassword, err := environmentrequest.Spec.Config.EtosMessageBus.Password.Get(ctx, r.Client, environmentrequest.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	eiffelRabbitMQPassword, err := environmentrequest.Spec.Config.EiffelMessageBus.Password.Get(ctx, r.Client, environmentrequest.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	envList := []corev1.EnvVar{
 		{
 			Name:  "REQUEST",
@@ -307,7 +316,7 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 		},
 		{
 			Name:  "RABBITMQ_PASSWORD",
-			Value: environmentrequest.Spec.Config.EiffelMessageBus.Password.Value,
+			Value: string(eiffelRabbitMQPassword),
 		},
 
 		// ETOS Message Bus variables
@@ -337,7 +346,7 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 		},
 		{
 			Name:  "ETOS_RABBITMQ_PASSWORD",
-			Value: environmentrequest.Spec.Config.EtosMessageBus.Password.Value,
+			Value: string(etosRabbitMQPassword),
 		},
 	}
 	return envList, nil
