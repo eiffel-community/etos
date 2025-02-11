@@ -632,6 +632,11 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
               imagePullPolicy: Always
               command: ['/kubexit/kubexit']
               args: ['python', '-u', '-m', 'etos_suite_runner']
+              resources:
+                requests:
+                  memory: "150Mi"
+                limits:
+                  memory: "300Mi"
               envFrom:
               - secretRef:
                   name: {etos_configmap}
@@ -660,6 +665,11 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
               imagePullPolicy: Always
               command: ['/kubexit/kubexit']
               args: ['python', '-u', '-m', 'log_listener']
+              resources:
+                requests:
+                  memory: "128Mi"
+                limits:
+                  memory: "256Mi"
               envFrom:
               - secretRef:
                   name: {etos_configmap}
