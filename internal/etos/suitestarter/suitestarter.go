@@ -601,12 +601,22 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
             - name: kubexit
               image: karlkfi/kubexit:latest
               command: ["cp", "/bin/kubexit", "/kubexit/kubexit"]
+              resources:
+                requests:
+                  memory: "32Mi"
+                limits:
+                  memory: "64Mi"
               volumeMounts:
               - mountPath: /kubexit
                 name: kubexit
             - name: create-queue
               image: ghcr.io/eiffel-community/etos-log-listener:4969c9b2
               command: ["python", "-u", "-m", "create_queue"]
+              resources:
+                requests:
+                  memory: "128Mi"
+                limits:
+                  memory: "256Mi"
               envFrom:
               - secretRef:
                   name: {etos_configmap}
