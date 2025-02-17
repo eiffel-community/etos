@@ -370,7 +370,6 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 	if identifier == "" {
 		identifier = string(uuid.NewUUID())
 	}
-	environmentrequest.Labels["etos.eiffel-community.github.io/id"] = identifier
 
 	labels := map[string]string{
 		"etos.eiffel-community.github.io/id": identifier,
