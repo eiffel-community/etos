@@ -440,6 +440,16 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 		etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, etosMessageBus.Host)
 	}
 
+	databaseHost := cluster.Spec.Database.Etcd.Host
+	if databaseHost == "" {
+		databaseHost = "etcd-client"
+	}
+
+	databasePort := cluster.Spec.Database.Etcd.Port
+	if databasePort == "" {
+		databasePort = "2379"
+	}
+
 	return &etosv1alpha1.EnvironmentRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -485,8 +495,8 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 				EncryptionKey:                       cluster.Spec.ETOS.Config.EncryptionKey,
 				RoutingKeyTag:                       cluster.Spec.ETOS.Config.RoutingKeyTag,
 				GraphQlServer:                       eventRepository,
-				EtcdHost:                            fmt.Sprintf("%s-etcd", cluster.Name),
-				EtcdPort:                            cluster.Spec.Database.Etcd.Port,
+				EtcdHost:                            databaseHost,
+				EtcdPort:                            databasePort,
 				EventDataTimeout:                    cluster.Spec.ETOS.Config.EventDataTimeout,
 				WaitForTimeout:                      cluster.Spec.ETOS.Config.EnvironmentTimeout,
 				EnvironmentProviderEventDataTimeout: cluster.Spec.ETOS.Config.EventDataTimeout,
