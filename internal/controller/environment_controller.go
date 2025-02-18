@@ -203,7 +203,16 @@ func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers
 			if err != nil {
 				return err
 			}
-			releaser := r.releaseJob(environment, environmentRequest)
+			clusterName := environment.Labels["etos.eiffel-community.github.io/cluster"]
+			var cluster *etosv1alpha1.Cluster
+			if clusterName != "" {
+				cluster = &etosv1alpha1.Cluster{}
+				if err := r.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: environment.Namespace}, cluster); err != nil {
+					logger.Info("Failed to get cluster resource!")
+					return err
+				}
+			}
+			releaser := r.releaseJob(environment, environmentRequest, cluster)
 			fmt.Println(releaser)
 			if err := ctrl.SetControllerReference(environment, releaser, r.Scheme); err != nil {
 				return err
@@ -236,18 +245,25 @@ func (r *EnvironmentReconciler) environmentRequest(ctx context.Context, environm
 }
 
 // releaseJob is the job definition for an environment releaser.
-func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment, environmentRequest *etosv1alpha1.EnvironmentRequest) *batchv1.Job {
+func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment, environmentRequest *etosv1alpha1.EnvironmentRequest, cluster *etosv1alpha1.Cluster) *batchv1.Job {
 	id := environment.Labels["etos.eiffel-community.github.io/id"]
-	cluster := environment.Labels["etos.eiffel-community.github.io/cluster"]
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
+
+	clusterName := ""
+	databaseHost := "etcd-client"
+	if cluster != nil {
+		databaseHost = cluster.Spec.Database.Etcd.Host
+		clusterName = cluster.Name
+	}
+
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				"etos.eiffel-community.github.io/id":        id,
 				"etos.eiffel-community.github.io/sub-suite": environment.Name,
-				"etos.eiffel-community.github.io/cluster":   cluster,
+				"etos.eiffel-community.github.io/cluster":   clusterName,
 				"app.kubernetes.io/name":                    "environment-releaser",
 				"app.kubernetes.io/part-of":                 "etos",
 			},
@@ -264,7 +280,7 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment,
 				},
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: &grace,
-					ServiceAccountName:            fmt.Sprintf("%s-provider", cluster),
+					ServiceAccountName:            fmt.Sprintf("%s-provider", clusterName),
 					RestartPolicy:                 "Never",
 					Containers: []corev1.Container{
 						{
@@ -289,6 +305,10 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment,
 								{
 									Name:  "ENVIRONMENT",
 									Value: environment.Name,
+								},
+								{
+									Name:  "ETOS_ETCD_HOST",
+									Value: databaseHost,
 								},
 							},
 						},
