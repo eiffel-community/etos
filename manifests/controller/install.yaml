@@ -3250,7 +3250,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:7a83eaaa
+        image: ghcr.io/eiffel-community/etos-controller:55f5566f
         livenessProbe:
           httpGet:
             path: /healthz
