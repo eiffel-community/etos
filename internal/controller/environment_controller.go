@@ -301,6 +301,8 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment,
 									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
+							Command: []string{"python", "-u", "-m", "environment_provider.environment"},
+							Args:    []string{environment.Name},
 							Env: []corev1.EnvVar{
 								{
 									Name:  "REQUEST",
