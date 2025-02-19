@@ -254,7 +254,11 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment,
 	clusterName := ""
 	databaseHost := "etcd-client"
 	if cluster != nil {
-		databaseHost = cluster.Spec.Database.Etcd.Host
+		if cluster.Spec.Database.Deploy {
+			databaseHost = fmt.Sprintf("%s-etcd-client", cluster.Name)
+		} else {
+			databaseHost = cluster.Spec.Database.Etcd.Host
+		}
 		clusterName = cluster.Name
 	}
 
