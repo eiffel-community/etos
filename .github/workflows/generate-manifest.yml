@@ -38,7 +38,7 @@ jobs:
           echo VERSION=$VERSION
           echo "IMAGE_ID=$IMAGE_ID" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          make docker-build docker-push split-installer IMG=$IMAGE_ID:$VERSION
+          make docker-build split-installer IMG=$IMAGE_ID:$VERSION
           mkdir -p manifests/controller
           cp dist/* manifests/controller/
       - name: Push docker image
