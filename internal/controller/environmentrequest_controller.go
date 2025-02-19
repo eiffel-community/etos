@@ -282,6 +282,18 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 			Value: environmentrequest.Spec.Config.EtcdPort,
 		},
 		{
+			Name:  "ETOS_WAIT_FOR_IUT_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "ETOS_WAIT_FOR_EXECUTION_SPACE_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "ETOS_WAIT_FOR_LOG_AREA_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
 			// Optional when environmentrequest is not issued by testrun, i. e. created separately.
 			// When the environment request is issued by a testrun, this variable is propagated
 			// further from environment provider to test runner.
