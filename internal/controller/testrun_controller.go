@@ -444,6 +444,9 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 	if databaseHost == "" {
 		databaseHost = "etcd-client"
 	}
+	if cluster.Spec.Database.Deploy {
+		databaseHost = fmt.Sprintf("%s-etcd-client", cluster.Name)
+	}
 
 	databasePort := cluster.Spec.Database.Etcd.Port
 	if databasePort == "" {
