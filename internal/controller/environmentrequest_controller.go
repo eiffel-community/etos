@@ -18,7 +18,9 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +35,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -71,6 +74,25 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 		logger.Error(err, "failed to get environmentrequest")
 		return ctrl.Result{}, err
+	}
+	if environmentrequest.DeletionTimestamp.IsZero() {
+		// Add a finalizer if there is none, the finalizer will stop the Kubernetes garbage collector
+		// from removing the EnvironmentRequest until the finalizer is removed. Removal of the finalizer
+		// is done below, if DeletionTimestamp is set and all Environments related to this EnvironmentRequest
+		// are removed.
+		if !controllerutil.ContainsFinalizer(environmentrequest, releaseFinalizer) {
+			controllerutil.AddFinalizer(environmentrequest, releaseFinalizer)
+			if err := r.Update(ctx, environmentrequest); err != nil {
+				if apierrors.IsConflict(err) {
+					return ctrl.Result{Requeue: true}, nil
+				}
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
+	} else if controllerutil.ContainsFinalizer(environmentrequest, releaseFinalizer) {
+		// Environmentrequest is under deletion. Wait for environments to get deleted before finalizing.
+		return r.reconcileDeletion(ctx, environmentrequest)
 	}
 	if environmentrequest.Status.CompletionTime != nil {
 		return ctrl.Result{}, nil
@@ -350,6 +372,58 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 		},
 	}
 	return envList, nil
+}
+
+// reconcileDeletion checks for active environments and deletes them, causing them to clean up, and then, when all environments
+// are deleted, this function will remove the finalizer on the environmentrequest and the environmentrequest will be removed.
+func (r EnvironmentRequestReconciler) reconcileDeletion(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	statusReady := meta.FindStatusCondition(environmentrequest.Status.Conditions, StatusReady)
+	if statusReady == nil {
+		statusReady = &metav1.Condition{Type: StatusReady, Status: metav1.ConditionFalse, Reason: "Unknown"}
+	}
+	logger.Info("Setting status message", "status", metav1.Condition{Type: statusReady.Type, Status: statusReady.Status, Reason: statusReady.Reason, Message: "Releasing environment"})
+	if meta.SetStatusCondition(&environmentrequest.Status.Conditions, metav1.Condition{Type: statusReady.Type, Status: statusReady.Status, Reason: statusReady.Reason, Message: "Releasing environment"}) {
+		if err := r.Status().Update(ctx, environmentrequest); err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
+		}
+	}
+	var environments etosv1alpha1.EnvironmentList
+	if err := r.List(ctx, &environments, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier}); err != nil {
+		logger.Error(err, fmt.Sprintf("could not list pods for job %s", environmentrequest.Name))
+		return ctrl.Result{Requeue: true}, err
+	}
+	var allErr error
+	var err error
+	for _, environment := range environments.Items {
+		// Environment is not deleted.
+		if environment.ObjectMeta.DeletionTimestamp.IsZero() {
+			if err = r.Delete(ctx, &environment); err != nil {
+				logger.Error(err, "failed to delete environment", "environment", environment)
+				allErr = errors.Join(allErr, err)
+			}
+		}
+	}
+	if allErr != nil {
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if len(environments.Items) != 0 {
+		logger.Info("Waiting for Environments to get deleted", "stillAlive", len(environments.Items))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	if controllerutil.RemoveFinalizer(environmentrequest, releaseFinalizer) {
+		if err := r.Update(ctx, environmentrequest); err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // environmentProviderJob is the job definition for an etos environment provider.
