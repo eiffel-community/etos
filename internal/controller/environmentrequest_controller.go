@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -255,8 +256,15 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 	if err != nil {
 		return nil, err
 	}
-
+	dev := "false"
+	if os.Getenv("DEV") != "" {
+		dev = os.Getenv("DEV")
+	}
 	envList := []corev1.EnvVar{
+		{
+			Name:  "DEV",
+			Value: dev,
+		},
 		{
 			Name:  "REQUEST",
 			Value: environmentrequest.Name,
@@ -282,6 +290,10 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 			Value: environmentrequest.Spec.Config.EtcdPort,
 		},
 		{
+			Name:  "ETOS_EVENT_DATA_TIMEOUT",
+			Value: environmentrequest.Spec.Config.EnvironmentProviderEventDataTimeout,
+		},
+		{
 			Name:  "ETOS_WAIT_FOR_IUT_TIMEOUT",
 			Value: environmentrequest.Spec.Config.WaitForTimeout,
 		},
@@ -292,6 +304,10 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 		{
 			Name:  "ETOS_WAIT_FOR_LOG_AREA_TIMEOUT",
 			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "TEST_SUITE_TIMEOUT",
+			Value: environmentrequest.Spec.Config.EnvironmentProviderTestSuiteTimeout,
 		},
 		{
 			// Optional when environmentrequest is not issued by testrun, i. e. created separately.
@@ -330,6 +346,10 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 			Name:  "RABBITMQ_PASSWORD",
 			Value: string(eiffelRabbitMQPassword),
 		},
+		{
+			Name:  "RABBITMQ_ROUTING_KEY",
+			Value: environmentrequest.Spec.Config.RoutingKeyTag,
+		},
 
 		// ETOS Message Bus variables
 		{
@@ -359,6 +379,10 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 		{
 			Name:  "ETOS_RABBITMQ_PASSWORD",
 			Value: string(etosRabbitMQPassword),
+		},
+		{
+			Name:  "ETOS_ROUTING_KEY_TAG",
+			Value: environmentrequest.Spec.Config.RoutingKeyTag,
 		},
 	}
 	return envList, nil
