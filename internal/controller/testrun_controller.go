@@ -500,7 +500,6 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 				GraphQlServer:                       eventRepository,
 				EtcdHost:                            databaseHost,
 				EtcdPort:                            databasePort,
-				EventDataTimeout:                    cluster.Spec.ETOS.Config.EventDataTimeout,
 				WaitForTimeout:                      cluster.Spec.ETOS.Config.EnvironmentTimeout,
 				EnvironmentProviderEventDataTimeout: cluster.Spec.ETOS.Config.EventDataTimeout,
 				EnvironmentProviderImage:            cluster.Spec.ETOS.EnvironmentProvider.Image.Image,

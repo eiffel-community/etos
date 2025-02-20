@@ -317,8 +317,6 @@ spec:
                         default: /
                         type: string
                     type: object
-                  eventDataTimeout:
-                    type: string
                   graphQlServer:
                     type: string
                   routingKeyTag:
@@ -339,7 +337,6 @@ spec:
                 - etcdPort
                 - etosApi
                 - etosMessageBus
-                - eventDataTimeout
                 - graphQlServer
                 - routingKeyTag
                 - testRunnerVersion

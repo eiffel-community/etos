@@ -53,7 +53,6 @@ type EnvironmentProviderJobConfig struct {
 	EncryptionKey     Var      `json:"encryptionKeySecretRef"`
 	EtcdHost          string   `json:"etcdHost"`
 	EtcdPort          string   `json:"etcdPort"`
-	EventDataTimeout  string   `json:"eventDataTimeout"`
 	GraphQlServer     string   `json:"graphQlServer"`
 	RoutingKeyTag     string   `json:"routingKeyTag"`
 	WaitForTimeout    string   `json:"waitForTimeout"`
