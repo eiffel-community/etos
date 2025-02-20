@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"os"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -256,15 +255,7 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 	if err != nil {
 		return nil, err
 	}
-	dev := "false"
-	if os.Getenv("DEV") != "" {
-		dev = os.Getenv("DEV")
-	}
 	envList := []corev1.EnvVar{
-		{
-			Name:  "DEV",
-			Value: dev,
-		},
 		{
 			Name:  "REQUEST",
 			Value: environmentrequest.Name,
@@ -293,8 +284,13 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 			Name:  "ETOS_EVENT_DATA_TIMEOUT",
 			Value: environmentrequest.Spec.Config.EnvironmentProviderEventDataTimeout,
 		},
+		// Duplicate wait timeout variables will be possible to remove when this issue is solved: https://github.com/eiffel-community/etos/issues/304
 		{
 			Name:  "ETOS_WAIT_FOR_IUT_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "ENVIRONMENT_PROVIDER_WAIT_FOR_IUT_TIMEOUT",
 			Value: environmentrequest.Spec.Config.WaitForTimeout,
 		},
 		{
@@ -302,7 +298,15 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 			Value: environmentrequest.Spec.Config.WaitForTimeout,
 		},
 		{
+			Name:  "ENVIRONMENT_PROVIDER_WAIT_FOR_EXECUTION_SPACE_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
 			Name:  "ETOS_WAIT_FOR_LOG_AREA_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "ENVIRONMENT_PROVIDER_WAIT_FOR_LOG_AREA_TIMEOUT",
 			Value: environmentrequest.Spec.Config.WaitForTimeout,
 		},
 		{
