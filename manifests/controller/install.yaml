@@ -1124,8 +1124,6 @@ spec:
                         default: /
                         type: string
                     type: object
-                  eventDataTimeout:
-                    type: string
                   graphQlServer:
                     type: string
                   routingKeyTag:
@@ -1146,7 +1144,6 @@ spec:
                 - etcdPort
                 - etosApi
                 - etosMessageBus
-                - eventDataTimeout
                 - graphQlServer
                 - routingKeyTag
                 - testRunnerVersion
@@ -3250,7 +3247,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:c8f8c2bc
+        image: ghcr.io/eiffel-community/etos-controller:cd357096
         livenessProbe:
           httpGet:
             path: /healthz

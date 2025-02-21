@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: ghcr.io/eiffel-community/etos-controller
-  newTag: c8f8c2bc
+  newTag: cd357096
