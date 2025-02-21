@@ -556,6 +556,16 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 							Name:    "kubexit",
 							Image:   "karlkfi/kubexit:latest",
 							Command: []string{"cp", "/bin/kubexit", "/kubexit/kubexit"},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("64Mi"),
+									corev1.ResourceCPU:    resource.MustParse("250m"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("32Mi"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kubexit",
@@ -568,6 +578,16 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 							Image:           testrun.Spec.LogListener.Image.Image,
 							ImagePullPolicy: testrun.Spec.LogListener.ImagePullPolicy,
 							Command:         []string{"python", "-u", "-m", "create_queue"},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("256Mi"),
+									corev1.ResourceCPU:    resource.MustParse("250m"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("128Mi"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+								},
+							},
 							EnvFrom: []corev1.EnvFromSource{
 								{
 									SecretRef: &corev1.SecretEnvSource{
