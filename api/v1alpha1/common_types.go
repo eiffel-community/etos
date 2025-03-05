@@ -128,4 +128,7 @@ type RabbitMQ struct {
 	// +kubebuilder:default=/
 	// +optional
 	Vhost string `json:"vhost"`
+	// +kubebuilder:default="5552"
+	// +optional
+	StreamPort string `json:"streamPort"`
 }
