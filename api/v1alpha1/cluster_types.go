@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -201,6 +202,20 @@ type ETOSSuiteStarter struct {
 // ETOSSSE describes th deployment of an ETOS Server Sent Events API.
 type ETOSSSE struct {
 	Image `json:",inline"`
+	// +optional
+	Env []corev1.EnvVar `json:"env"`
+	// +optional
+	PublicKey *VarSource `json:"publicKey,omitempty"`
+}
+
+// ETOSKeyService describes th deployment of an ETOS key service.
+type ETOSKeyService struct {
+	Image `json:",inline"`
+	// TODO: ETOS should be able to generate these if not set.
+	// +optional
+	PublicKey *VarSource `json:"publicKey,omitempty"`
+	// +optional
+	PrivateKey *VarSource `json:"privateKey,omitempty"`
 }
 
 // ETOSLogArea describes th deployment of an ETOS log area API.
@@ -277,6 +292,9 @@ type ETOS struct {
 	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-sse:latest"}
 	// +optional
 	SSE ETOSSSE `json:"sse"`
+	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-key-service:latest"}
+	// +optional
+	KeyService ETOSKeyService `json:"keyService"`
 	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-log-area:latest"}
 	// +optional
 	LogArea ETOSLogArea `json:"logArea"`

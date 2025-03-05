@@ -110,6 +110,12 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		return err
 	}
 
+	keys := etosapi.NewETOSKeysDeployment(r.KeyService, r.Scheme, r.Client)
+	if err := keys.Reconcile(ctx, cluster); err != nil {
+		logger.Error(err, "ETOS Key Service reconciliation failed")
+		return err
+	}
+
 	logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client)
 	if err := logarea.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS LogArea reconciliation failed")
@@ -475,6 +481,18 @@ func (r *ETOSDeployment) ingressRule(name types.NamespacedName) networkingv1.Ing
 								Name: fmt.Sprintf("%s-etos-sse", name.Name),
 								Port: networkingv1.ServiceBackendPort{
 									Number: etosapi.SSEServicePort,
+								},
+							},
+						},
+					},
+					{
+						Path:     "/keys",
+						PathType: &prefix,
+						Backend: networkingv1.IngressBackend{
+							Service: &networkingv1.IngressServiceBackend{
+								Name: fmt.Sprintf("%s-etos-key-service", name.Name),
+								Port: networkingv1.ServiceBackendPort{
+									Number: etosapi.KeyServicePort,
 								},
 							},
 						},
