@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS test run handler."""
+
 import logging
 import sys
 import time
@@ -77,9 +78,8 @@ class TestRun:
         self.logger.info("Purl: %s", response.artifact_identity)
         self.logger.info("Event repository: %r", response.event_repository)
 
-    def track(self, sse_client: SSEClient, response: ResponseSchema, timeout: int) -> Events:
+    def track(self, sse_client: SSEClient, response: ResponseSchema, end: float) -> Events:
         """Track, and wait for, an ETOS test run."""
-        end = time.time() + timeout
 
         self.__log_debug_information(response)
         last_log = time.time()

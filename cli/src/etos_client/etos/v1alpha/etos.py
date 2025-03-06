@@ -14,27 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS v1alpha."""
+
 import os
 import logging
+import time
 import shutil
 from pathlib import Path
 from json import JSONDecodeError
-from typing import Optional
+from typing import Optional, Union
 
 from requests.exceptions import HTTPError
 from etos_lib.lib.http import Http
-from urllib3.util import Retry
 from etos_lib import ETOS as ETOSLibrary
+from urllib3.util import Retry
 
 from etos_client.types.result import Result, Verdict, Conclusion
 from etos_client.shared.downloader import Downloader
 from etos_client.shared.utilities import directories
-from etos_client.sse.v1.client import SSEClient
+from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient, TokenExpired
+from etos_client.sse.v1.client import SSEClient as SSEV1Client
 
+from etos_client.etos.v0.test_run import TestRun as V0TestRun
+from etos_client.etos.v0.event_repository import graphql
 from etos_client.etos.v0.events.collector import Collector
 from etos_client.etos.v0.test_results import TestResults
-from etos_client.etos.v0.event_repository import graphql
-from etos_client.etos.v0.test_run import TestRun
+from etos_client.etos.v1alpha.test_run import TestRun as V1AlphaTestRun
 from etos_client.etos.v1alpha.schema.response import ResponseSchema
 from etos_client.etos.v1alpha.schema.request import RequestSchema
 
@@ -61,16 +65,36 @@ class Etos:
 
     version = "v1alpha"
     logger = logging.getLogger(__name__)
+    __apikey = None
     start_response = ResponseSchema
     start_request = RequestSchema
 
-    def __init__(self, args: dict, sse_client: SSEClient):
+    def __init__(self, args: dict, sse_client: Union[SSEV1Client, SSEV2AlphaClient]):
         """Set up sse client and cluster variables."""
         self.args = args
         self.cluster = args.get("<cluster>")
         assert self.cluster is not None
         self.sse_client = sse_client
         self.logger.info("Running ETOS version %s", self.version)
+
+    @property
+    def apikey(self) -> str:
+        """Generate and return an API key."""
+        if self.__apikey is None:
+            http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
+            url = f"{self.cluster}/keys/v1alpha/generate"
+            response = http.post(
+                url,
+                json={"identity": "etos-client", "scope": "post-testrun delete-testrun get-sse"},
+            )
+            try:
+                response.raise_for_status()
+                response_json = response.json()
+            except HTTPError:
+                self.logger.error("Failed to generate an API key for ETOS.")
+                response_json = {}
+            self.__apikey = response_json.get("token")
+        return self.__apikey or ""
 
     def run(self) -> Result:
         """Run ETOS v1alpha."""
@@ -81,20 +105,7 @@ class Etos:
         if error is not None:
             return Result(verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, reason=error)
         assert response is not None
-        (success, msg), error = self.__wait(response)
-        if error is not None:
-            return Result(verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, reason=error)
-        if success is None or msg is None:
-            return Result(
-                verdict=Verdict.INCONCLUSIVE,
-                conclusion=Conclusion.FAILED,
-                reason="No test result received from ETOS testrun",
-            )
-        return Result(
-            verdict=Verdict.PASSED if success else Verdict.FAILED,
-            conclusion=Conclusion.SUCCESSFUL,
-            reason=msg,
-        )
+        return self.__wait(response)
 
     def __start(self) -> tuple[Optional[ResponseSchema], Optional[str]]:
         """Trigger ETOS, retrying on non-client errors until successful or timeout."""
@@ -104,7 +115,9 @@ class Etos:
 
         response_json = {}
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
-        response = http.post(url, json=request.model_dump())
+        response = http.post(
+            url, json=request.model_dump(), headers={"Authorization": f"Bearer {self.apikey}"}
+        )
         try:
             response.raise_for_status()
             response_json = response.json()
@@ -120,30 +133,39 @@ class Etos:
             )
         return self.start_response.from_response(response_json), None
 
-    def __wait(
-        self, response: ResponseSchema
-    ) -> tuple[tuple[Optional[bool], Optional[str]], Optional[str]]:
+    def __wait(self, response: ResponseSchema) -> Result:
         """Wait for ETOS to finish."""
-        etos_library = ETOSLibrary("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
-        os.environ["ETOS_GRAPHQL_SERVER"] = response.event_repository
-
         report_dir, artifact_dir = directories(self.args)
 
-        collector = Collector(etos_library, graphql)
         log_downloader = Downloader()
         clear_queue = True
         log_downloader.start()
+
+        end = time.time() + 24 * 60 * 60  # 24 hours
+
+        if isinstance(self.sse_client, SSEV2AlphaClient):
+            test_run = V1AlphaTestRun(log_downloader, report_dir, artifact_dir)
+        else:
+            etos_library = ETOSLibrary("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
+            os.environ["ETOS_GRAPHQL_SERVER"] = response.event_repository
+            collector = Collector(etos_library, graphql)
+            test_run = V0TestRun(collector, log_downloader, report_dir, artifact_dir)
+        test_run.setup_logging(self.args["-v"])
         try:
-            test_run = TestRun(collector, log_downloader, report_dir, artifact_dir)
-            test_run.setup_logging(self.args["-v"])
-            events = test_run.track(
-                self.sse_client,
-                response,
-                24 * 60 * 60,  # 24 hours
-            )
-        except SystemExit as exit:
-            clear_queue = False
-            return (False, None), str(exit)
+            while time.time() < end:
+                try:
+                    if isinstance(self.sse_client, SSEV2AlphaClient):
+                        return self.__track(test_run, response, end)
+                    else:
+                        return self.__track_v0(test_run, response, end)
+                except TokenExpired:
+                    self.__apikey = None
+                    continue
+                except SystemExit as exit:
+                    clear_queue = False
+                    return Result(
+                        verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, reason=str(exit)
+                    )
         finally:
             log_downloader.stop(clear_queue)
             log_downloader.join()
@@ -159,8 +181,50 @@ class Etos:
         self.logger.info("Artifacts: %s", artifact_dir)
 
         if log_downloader.failed:
-            return (False, None), "ETOS logs did not download successfully"
-        return TestResults().get_results(events), None
+            return Result(
+                verdict=Verdict.INCONCLUSIVE,
+                conclusion=Conclusion.FAILED,
+                reason="ETOS logs did not download succesfully",
+            )
+        return Result(
+            verdict=Verdict.INCONCLUSIVE,
+            conclusion=Conclusion.INCONCLUSIVE,
+            reason="ETOS closed in an odd way",
+        )
+
+    def __track(self, test_run: V1AlphaTestRun, response: ResponseSchema, end: float) -> Result:
+        """Track a testrun."""
+        shutdown = test_run.track(
+            self.sse_client,
+            self.apikey,
+            response,
+            end,
+        )
+        return Result(
+            verdict=Verdict(shutdown.data.verdict.upper()),
+            conclusion=Conclusion(shutdown.data.conclusion.upper()),
+            reason=shutdown.data.description,
+        )
+
+    def __track_v0(self, test_run: V0TestRun, response: ResponseSchema, end: float) -> Result:
+        """Track a testrun using the v0 testrun handler."""
+        events = test_run.track(
+            self.sse_client,
+            response,
+            end,
+        )
+        success, msg = TestResults().get_results(events)
+        if success is None or msg is None:
+            return Result(
+                verdict=Verdict.INCONCLUSIVE,
+                conclusion=Conclusion.FAILED,
+                reason="No test result received from ETOS testrun",
+            )
+        return Result(
+            verdict=Verdict.PASSED if success else Verdict.FAILED,
+            conclusion=Conclusion.SUCCESSFUL,
+            reason=msg,
+        )
 
     def __check(self) -> Optional[str]:
         """Check connection to ETOS."""
