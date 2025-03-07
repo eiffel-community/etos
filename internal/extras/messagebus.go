@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -42,16 +43,17 @@ type MessageBusDeployment struct {
 	client.Client
 	Scheme     *runtime.Scheme
 	SecretName string
+	config     config.Config
 }
 
 // NewMessageBusDeployment will create a new messagebus reconciler.
-func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) *MessageBusDeployment {
-	return &MessageBusDeployment{spec, client, scheme, ""}
+func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client, config config.Config) *MessageBusDeployment {
+	return &MessageBusDeployment{spec, client, scheme, "", config}
 }
 
 // Reconcile will reconcile the messagebus to its expected state.
 func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
-	name := fmt.Sprintf("%s-messagebus", cluster.Name)
+	name := fmt.Sprintf("%s-%s", cluster.Name, r.config.Messagebus.DefaultHost)
 	logger := log.FromContext(ctx, "Reconciler", "MessageBus", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 	if r.Deploy {
