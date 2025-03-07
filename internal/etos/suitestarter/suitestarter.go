@@ -23,6 +23,7 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,12 +48,13 @@ type ETOSSuiteStarterDeployment struct {
 	messagebusSecret string
 	etosConfig       *corev1.Secret
 	encryptionSecret *corev1.Secret
+	config           config.Config
 	restartRequired  bool
 }
 
 // NewETOSSuiteStarterDeployment will create a new ETOS SuiteStarter reconciler.
-func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, scheme *runtime.Scheme, client client.Client, rabbitmqSecret, messagebusSecret string, config *corev1.Secret, encryption *corev1.Secret) *ETOSSuiteStarterDeployment {
-	return &ETOSSuiteStarterDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config, encryption, false}
+func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, scheme *runtime.Scheme, client client.Client, rabbitmqSecret, messagebusSecret string, configSecretName *corev1.Secret, encryption *corev1.Secret, config config.Config) *ETOSSuiteStarterDeployment {
+	return &ETOSSuiteStarterDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, configSecretName, encryption, config, false}
 }
 
 // Reconcile will reconcile the ETOS suite starter to its expected state.
@@ -187,7 +189,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerSecret(ctx context.Cont
 // reconcileConfigmap will reconcile the ETOS suite starter config to its expected state.
 func (r *ETOSSuiteStarterDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, secretName string, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
-	target, err := r.config(ctx, name, secretName, cluster)
+	target, err := r.configSecret(ctx, name, secretName, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +368,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, l
 }
 
 // config creates a secret resource definition for the ETOS suite runner.
-func (r *ETOSSuiteStarterDeployment) config(ctx context.Context, name types.NamespacedName, secretName string, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
+func (r *ETOSSuiteStarterDeployment) configSecret(ctx context.Context, name types.NamespacedName, secretName string, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
 	routingKey := fmt.Sprintf("eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.%s.*", cluster.Spec.ETOS.Config.RoutingKeyTag)
 	data := map[string][]byte{
 		"SUITE_RUNNER":                  []byte(cluster.Spec.ETOS.SuiteRunner.Image.Image),

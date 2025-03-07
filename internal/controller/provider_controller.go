@@ -31,12 +31,14 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 )
 
 // ProviderReconciler reconciles a Provider object
 type ProviderReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Config config.Config
 }
 
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers,verbs=get;list;watch;create;update;patch;delete

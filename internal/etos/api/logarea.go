@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -46,11 +47,12 @@ type ETOSLogAreaDeployment struct {
 	etosv1alpha1.ETOSLogArea
 	client.Client
 	Scheme *runtime.Scheme
+	config config.Config
 }
 
 // NewETOSLogAreaDeployment will create a new ETOS logarea reconciler.
-func NewETOSLogAreaDeployment(spec etosv1alpha1.ETOSLogArea, scheme *runtime.Scheme, client client.Client) *ETOSLogAreaDeployment {
-	return &ETOSLogAreaDeployment{spec, client, scheme}
+func NewETOSLogAreaDeployment(spec etosv1alpha1.ETOSLogArea, scheme *runtime.Scheme, client client.Client, config config.Config) *ETOSLogAreaDeployment {
+	return &ETOSLogAreaDeployment{spec, client, scheme, config}
 }
 
 // Reconcile will reconcile the ETOS logarea to its expected state.
