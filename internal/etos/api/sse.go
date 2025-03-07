@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,11 +48,12 @@ type ETOSSSEDeployment struct {
 	etosv1alpha1.ETOSSSE
 	client.Client
 	Scheme *runtime.Scheme
+	config config.Config
 }
 
 // NewETOSSSEDeployment will create a new ETOS SSE reconciler.
-func NewETOSSSEDeployment(spec etosv1alpha1.ETOSSSE, scheme *runtime.Scheme, client client.Client) *ETOSSSEDeployment {
-	return &ETOSSSEDeployment{spec, client, scheme}
+func NewETOSSSEDeployment(spec etosv1alpha1.ETOSSSE, scheme *runtime.Scheme, client client.Client, config config.Config) *ETOSSSEDeployment {
+	return &ETOSSSEDeployment{spec, client, scheme, config}
 }
 
 // Reconcile will reconcile the ETOS SSE service to its expected state.

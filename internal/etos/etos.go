@@ -22,6 +22,7 @@ import (
 	"maps"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	etosapi "github.com/eiffel-community/etos/internal/etos/api"
 	etossuitestarter "github.com/eiffel-community/etos/internal/etos/suitestarter"
 	"github.com/go-logr/logr"
@@ -45,11 +46,12 @@ type ETOSDeployment struct {
 	Scheme           *runtime.Scheme
 	rabbitmqSecret   string
 	messagebusSecret string
+	config           config.Config
 }
 
 // NewETOSDeployment will create a new ETOSDeployment reconciler.
-func NewETOSDeployment(spec etosv1alpha1.ETOS, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string) *ETOSDeployment {
-	return &ETOSDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret}
+func NewETOSDeployment(spec etosv1alpha1.ETOS, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string, config config.Config) *ETOSDeployment {
+	return &ETOSDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config}
 }
 
 // Reconcile will reconcile ETOS to its expected state.
@@ -98,31 +100,31 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		return err
 	}
 
-	api := etosapi.NewETOSApiDeployment(r.API, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config.ObjectMeta.Name)
+	api := etosapi.NewETOSApiDeployment(r.API, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config.ObjectMeta.Name, r.config)
 	if err := api.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS API reconciliation failed")
 		return err
 	}
 
-	sse := etosapi.NewETOSSSEDeployment(r.SSE, r.Scheme, r.Client)
+	sse := etosapi.NewETOSSSEDeployment(r.SSE, r.Scheme, r.Client, r.config)
 	if err := sse.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS SSE reconciliation failed")
 		return err
 	}
 
-	keys := etosapi.NewETOSKeysDeployment(r.KeyService, r.Scheme, r.Client)
+	keys := etosapi.NewETOSKeysDeployment(r.KeyService, r.Scheme, r.Client, r.config)
 	if err := keys.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS Key Service reconciliation failed")
 		return err
 	}
 
-	logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client)
+	logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client, r.config)
 	if err := logarea.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS LogArea reconciliation failed")
 		return err
 	}
 
-	suitestarter := etossuitestarter.NewETOSSuiteStarterDeployment(r.SuiteStarter, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config, encryption)
+	suitestarter := etossuitestarter.NewETOSSuiteStarterDeployment(r.SuiteStarter, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config, encryption, r.config)
 	if err := suitestarter.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS SuiteStarter reconciliation failed")
 		return err
@@ -236,7 +238,7 @@ func (r *ETOSDeployment) reconcileRolebinding(ctx context.Context, logger logr.L
 // reconcileConfig will reconcile the ETOS config to its expected state.
 func (r *ETOSDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
-	target := r.config(name, cluster)
+	target := r.configSecret(name, cluster)
 	if err := ctrl.SetControllerReference(cluster, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -364,8 +366,8 @@ func (r *ETOSDeployment) ingress(name types.NamespacedName) *networkingv1.Ingres
 	return ingress
 }
 
-// config creates a secret definition for ETOS.
-func (r *ETOSDeployment) config(name types.NamespacedName, cluster *etosv1alpha1.Cluster) *corev1.Secret {
+// configSecret creates a secret definition for ETOS.
+func (r *ETOSDeployment) configSecret(name types.NamespacedName, cluster *etosv1alpha1.Cluster) *corev1.Secret {
 	etosHost := name.Name
 	if r.Ingress.Host != "" {
 		etosHost = r.Ingress.Host

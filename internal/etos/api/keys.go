@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -46,11 +47,12 @@ type ETOSKeysDeployment struct {
 	etosv1alpha1.ETOSKeyService
 	client.Client
 	Scheme *runtime.Scheme
+	config config.Config
 }
 
 // NewETOSKeysDeployment will create a new ETOS key service reconciler.
-func NewETOSKeysDeployment(spec etosv1alpha1.ETOSKeyService, scheme *runtime.Scheme, client client.Client) *ETOSKeysDeployment {
-	return &ETOSKeysDeployment{spec, client, scheme}
+func NewETOSKeysDeployment(spec etosv1alpha1.ETOSKeyService, scheme *runtime.Scheme, client client.Client, config config.Config) *ETOSKeysDeployment {
+	return &ETOSKeysDeployment{spec, client, scheme, config}
 }
 
 // Reconcile will reconcile the ETOS key service to its expected state.
