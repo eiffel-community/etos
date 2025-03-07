@@ -32,6 +32,7 @@ func New() Config {
 			DefaultHost: "rabbitmq",
 		},
 		Database: Database{
+			Image:       "quay.io/coreos/etcd:v3.5.19",
 			DefaultHost: "etcd-client",
 			DefaultPort: "2379",
 		},
@@ -47,6 +48,7 @@ type Eiffelbus struct {
 }
 
 type Database struct {
+	Image       string
 	DefaultHost string
 	DefaultPort string
 }
