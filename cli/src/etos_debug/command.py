@@ -73,7 +73,7 @@ class Debug(Command):
                 response.raise_for_status()
                 response_json = response.json()
             except HTTPError:
-                self.logger.error("Failed to generate an API key for ETOS.")
+                self.logger.exception("Failed to generate an API key for ETOS.")
                 response_json = {}
             self.__apikey = response_json.get("token")
         return self.__apikey or ""

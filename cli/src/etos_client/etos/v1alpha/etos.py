@@ -91,7 +91,7 @@ class Etos:
                 response.raise_for_status()
                 response_json = response.json()
             except HTTPError:
-                self.logger.error("Failed to generate an API key for ETOS.")
+                self.logger.exception("Failed to generate an API key for ETOS.")
                 response_json = {}
             self.__apikey = response_json.get("token")
         return self.__apikey or ""
@@ -151,19 +151,20 @@ class Etos:
             collector = Collector(etos_library, graphql)
             test_run = V0TestRun(collector, log_downloader, report_dir, artifact_dir)
         test_run.setup_logging(self.args["-v"])
+        result = None
         try:
             while time.time() < end:
                 try:
                     if isinstance(self.sse_client, SSEV2AlphaClient):
-                        return self.__track(test_run, response, end)
+                        result = self.__track(test_run, response, end)
                     else:
-                        return self.__track_v0(test_run, response, end)
+                        result = self.__track_v0(test_run, response, end)
                 except TokenExpired:
                     self.__apikey = None
                     continue
                 except SystemExit as exit:
                     clear_queue = False
-                    return Result(
+                    result = Result(
                         verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, reason=str(exit)
                     )
         finally:
@@ -186,10 +187,12 @@ class Etos:
                 conclusion=Conclusion.FAILED,
                 reason="ETOS logs did not download succesfully",
             )
+        if result is not None:
+            return result
         return Result(
             verdict=Verdict.INCONCLUSIVE,
             conclusion=Conclusion.INCONCLUSIVE,
-            reason="ETOS closed in an odd way",
+            reason="Got no result from ETOS so could not determine test result.",
         )
 
     def __track(self, test_run: V1AlphaTestRun, response: ResponseSchema, end: float) -> Result:

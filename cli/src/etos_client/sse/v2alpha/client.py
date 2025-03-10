@@ -50,7 +50,7 @@ class ServerShutdown(Exception):
 
 
 class NoResponse(HTTPError):
-    """No response from the SSE server."""
+    """Empty response from the SSE server."""
 
 
 class HTTPStatusError(HTTPError):
@@ -118,7 +118,7 @@ class SSEClient:
                 raise TokenExpired("API Key has expired")
             raise HTTPStatusError(f"Error code {response.status} when connecting to SSE server")
         if response.status == 204:
-            raise NoResponse("No response from the SSE server")
+            raise NoResponse("Empty response from the SSE server")
 
         content_type = response.headers.get("Content-Type", None)
         if content_type is None:
