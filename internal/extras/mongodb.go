@@ -21,6 +21,7 @@ import (
 	"net/url"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -44,11 +45,12 @@ type MongoDBDeployment struct {
 	Scheme     *runtime.Scheme
 	URL        url.URL
 	SecretName string
+	config     config.Config
 }
 
 // NewMongoDBDeployment will create a new MongoDB reconciler.
-func NewMongoDBDeployment(spec etosv1alpha1.MongoDB, scheme *runtime.Scheme, client client.Client) *MongoDBDeployment {
-	return &MongoDBDeployment{spec, client, scheme, url.URL{}, ""}
+func NewMongoDBDeployment(spec etosv1alpha1.MongoDB, scheme *runtime.Scheme, client client.Client, config config.Config) *MongoDBDeployment {
+	return &MongoDBDeployment{spec, client, scheme, url.URL{}, "", config}
 }
 
 // Reconcile will reconcile MongoDB to its expected state.
