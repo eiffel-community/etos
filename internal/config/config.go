@@ -32,7 +32,7 @@ func New() Config {
 			DefaultHost: "rabbitmq",
 		},
 		Database: Database{
-			Image:       "quay.io/coreos/etcd:v3.5.18",
+			Image:       "quay.io/coreos/etcd:v3.3.8",
 			DefaultHost: "etcd-client",
 			DefaultPort: "2379",
 		},
