@@ -454,7 +454,7 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 	}
 	if cluster.Spec.Database.Deploy {
 		databaseHost = fmt.Sprintf("%s-%s", cluster.Name, r.Config.Database.DefaultHost)
-		databasePort = fmt.Sprintf("%s-%s", cluster.Name, r.Config.Database.DefaultPort)
+		databasePort = r.Config.Database.DefaultPort
 	}
 
 	return &etosv1alpha1.EnvironmentRequest{
