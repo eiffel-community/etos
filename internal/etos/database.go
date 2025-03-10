@@ -254,7 +254,7 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 	peers := fmt.Sprintf("%[1]s-0=http://%[1]s-0.%[1]s:%[2]d,%[1]s-1=http://%[1]s-1.%[1]s:%[2]d,%[1]s-2=http://%[1]s-2.%[1]s:%[2]d", name.Name, etcdPeerPort)
 	return corev1.Container{
 		Name:  name.Name,
-		Image: "quay.io/coreos/etcd:latest",
+		Image: "quay.io/coreos/etcd:v3.3.8",
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("512Mi"),
