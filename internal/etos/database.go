@@ -165,10 +165,10 @@ func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.Stateful
 			},
 			ServiceName: name.Name,
 			Replicas:    &etcdReplicas,
-			// For initialization, the etcd pods must be available to eachother before
+			// For initialization, the etcd pods must be available to each other before
 			// they are "ready" for traffic. The "Parallel" policy makes this possible.
 			PodManagementPolicy: appsv1.ParallelPodManagement,
-			// Ensure evailability of the etcd cluster.
+			// Ensure availability of the etcd cluster.
 			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.RollingUpdateStatefulSetStrategyType,
 			},
