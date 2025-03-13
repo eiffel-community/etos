@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS v0."""
+
 import os
 import logging
+import time
 import shutil
 from pathlib import Path
 from json import JSONDecodeError
@@ -132,7 +134,7 @@ class Etos:
             events = test_run.track(
                 self.sse_client,
                 response,
-                24 * 60 * 60,  # 24 hours
+                time.time() + 24 * 60 * 60,  # 24 hours
             )
         except SystemExit as exit:
             clear_queue = False
