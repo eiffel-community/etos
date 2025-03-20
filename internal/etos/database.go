@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -35,7 +36,8 @@ import (
 
 var (
 	etcdClientPort int32 = 2379
-	etcdPeerPort   int32 = 2380
+	etcdServerPort int32 = 2380
+	etcdMetricPort int32 = 8080
 	etcdReplicas   int32 = 3
 )
 
@@ -56,8 +58,8 @@ func (r *ETCDDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 	name := fmt.Sprintf("%s-etcd", cluster.Name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 	if r.Deploy {
-		logger.Info("Patching host when deploying etcd", "host", fmt.Sprintf("%s-client", name))
-		r.Etcd.Host = fmt.Sprintf("%s-client", name)
+		logger.Info("Patching host when deploying etcd", "host", name)
+		r.Etcd.Host = name
 	}
 
 	_, err := r.reconcileStatefulset(ctx, namespacedName, cluster)
@@ -161,8 +163,15 @@ func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.Stateful
 					"app.kubernetes.io/part-of": "etos",
 				},
 			},
-			ServiceName:          name.Name,
-			Replicas:             &etcdReplicas,
+			ServiceName: name.Name,
+			Replicas:    &etcdReplicas,
+			// For initialization, the etcd pods must be available to each other before
+			// they are "ready" for traffic. The "Parallel" policy makes this possible.
+			PodManagementPolicy: appsv1.ParallelPodManagement,
+			// Ensure availability of the etcd cluster.
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+				Type: appsv1.RollingUpdateStatefulSetStrategyType,
+			},
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{r.volumeClaim(name)},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: r.meta(name),
@@ -180,8 +189,9 @@ func (r *ETCDDeployment) headlessService(name types.NamespacedName) *corev1.Serv
 	return &corev1.Service{
 		ObjectMeta: r.meta(name),
 		Spec: corev1.ServiceSpec{
-			Ports:     r.ports(),
-			ClusterIP: "None",
+			Ports:                    r.ports(),
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
 			Selector: map[string]string{
 				"app.kubernetes.io/name":    name.Name,
 				"app.kubernetes.io/part-of": "etos",
@@ -249,12 +259,9 @@ func (r *ETCDDeployment) volume(name types.NamespacedName) corev1.Volume {
 
 // container creates a container resource definition for the ETCD statefulset.
 func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
-	// Example peers with a cluster name of 'cluster-sample':
-	// cluster-sample-etcd-0=http://cluster-sample-etcd-0.cluster-sample-etcd:2380,cluster-sample-etcd-1=http://cluster-sample-etcd-1.cluster-sample-etcd:2380,cluster-sample-etcd-2=http://cluster-sample-etcd-2.cluster-sample-etcd:2380
-	peers := fmt.Sprintf("%[1]s-0=http://%[1]s-0.%[1]s:%[2]d,%[1]s-1=http://%[1]s-1.%[1]s:%[2]d,%[1]s-2=http://%[1]s-2.%[1]s:%[2]d", name.Name, etcdPeerPort)
 	return corev1.Container{
-		Name:  name.Name,
-		Image: "quay.io/coreos/etcd:v3.3.8",
+		Name:  "etcd",
+		Image: "quay.io/coreos/etcd:v3.5.19",
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("512Mi"),
@@ -268,45 +275,95 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      fmt.Sprintf("%s-data", name.Name),
-				MountPath: "/var/run/etcd",
+				MountPath: "/data",
 			},
 		},
 		Ports: []corev1.ContainerPort{
 			{
-				Name:          "client",
+				Name:          "etcd-client",
 				ContainerPort: etcdClientPort,
-				Protocol:      "TCP",
 			},
 			{
-				Name:          "peer",
-				ContainerPort: etcdPeerPort,
-				Protocol:      "TCP",
+				Name:          "etcd-server",
+				ContainerPort: etcdServerPort,
+			},
+			{
+				Name:          "etcd-metrics",
+				ContainerPort: etcdMetricPort,
 			},
 		},
 		Env: []corev1.EnvVar{
 			{
-				Name:  "PEERS",
-				Value: peers,
+				Name: "K8S_NAMESPACE",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
 			},
 			{
-				Name:  "SUBDOMAIN",
+				Name: "HOSTNAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+			{
+				Name:  "SERVICE_NAME",
 				Value: name.Name,
+			},
+			{
+				Name:  "ETCDCTL_ENDPOINTS",
+				Value: fmt.Sprintf("$(HOSTNAME).$(SERVICE_NAME):%d", etcdClientPort),
+			},
+			{
+				Name:  "URI_SCHEME",
+				Value: "http",
 			},
 		},
 		Command: []string{
-			"/bin/sh",
-			"-c",
-			`exec etcd --name ${HOSTNAME} \
-        --listen-peer-urls http://0.0.0.0:2380 \
-        --listen-client-urls http://0.0.0.0:2379 \
-        --advertise-client-urls http://${HOSTNAME}.${SUBDOMAIN}:2379 \
-        --initial-advertise-peer-urls http://${HOSTNAME}.${SUBDOMAIN}:2380 \
-        --initial-cluster-token etcd-cluster-1 \
-        --initial-cluster ${PEERS} \
-        --initial-cluster-state new \
-        --data-dir /var/run/etcd/default.etcd \
-        --auto-compaction-mode=revision \
-        --auto-compaction-retention=1`,
+			"/usr/local/bin/etcd",
+		},
+		Args: []string{
+			"--name=$(HOSTNAME)",
+			"--data-dir=/data",
+			"--wal-dir=/data/wal",
+			fmt.Sprintf("--listen-peer-urls=$(URI_SCHEME)://0.0.0.0:%d", etcdServerPort),
+			fmt.Sprintf("--listen-client-urls=$(URI_SCHEME)://0.0.0.0:%d", etcdClientPort),
+			fmt.Sprintf("--advertise-client-urls=$(URI_SCHEME)://$(HOSTNAME).$(SERVICE_NAME):%d", etcdClientPort),
+			"--initial-cluster-state=new",
+			fmt.Sprintf("--initial-cluster-token=%s-$(K8S_NAMESPACE)", name.Name),
+			fmt.Sprintf("--initial-cluster=%[1]s-0=$(URI_SCHEME)://%[1]s-0.$(SERVICE_NAME):%[2]d,%[1]s-1=$(URI_SCHEME)://%[1]s-1.$(SERVICE_NAME):%[2]d,%[1]s-2=$(URI_SCHEME)://%[1]s-2.$(SERVICE_NAME):%[2]d", name.Name, etcdServerPort),
+			fmt.Sprintf("--initial-advertise-peer-urls=$(URI_SCHEME)://$(HOSTNAME).$(SERVICE_NAME):%d", etcdServerPort),
+			fmt.Sprintf("--listen-metrics-urls=http://0.0.0.0:%d", etcdMetricPort),
+			"--auto-compaction-mode=revision",
+			"--auto-compaction-retention=1",
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/livez",
+					Port: intstr.FromInt(int(etcdMetricPort)),
+				},
+			},
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       10,
+			TimeoutSeconds:      5,
+			FailureThreshold:    3,
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/readyz",
+					Port: intstr.FromInt(int(etcdMetricPort)),
+				},
+			},
+			InitialDelaySeconds: 10,
+			PeriodSeconds:       5,
+			TimeoutSeconds:      5,
+			SuccessThreshold:    1,
+			FailureThreshold:    30,
 		},
 	}
 }
@@ -314,14 +371,15 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 // ports creates a service port resource definition for the ETCD service.
 func (r *ETCDDeployment) ports() []corev1.ServicePort {
 	return []corev1.ServicePort{
-		{Port: etcdClientPort, Name: "client", Protocol: "TCP"},
-		{Port: etcdPeerPort, Name: "peer", Protocol: "TCP"},
+		{Port: etcdClientPort, Name: "etcd-client"},
+		{Port: etcdServerPort, Name: "etcd-server"},
+		{Port: etcdMetricPort, Name: "etcd-metrics"},
 	}
 }
 
 // clientPorts creates a service port resource definition for the ETCD headless service.
 func (r *ETCDDeployment) clientPorts() []corev1.ServicePort {
 	return []corev1.ServicePort{
-		{Port: etcdClientPort, Name: "etcd-client", Protocol: "TCP"},
+		{Port: etcdClientPort, Name: "etcd-client"},
 	}
 }
