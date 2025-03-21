@@ -129,7 +129,7 @@ func (r *Provider) Default() {
 		providerlog.Error(err, "failed to get jsontas from provider")
 		return
 	}
-	providerlog.Info("Unmarshalling jsontasbytes", "jsontas", string(jsontasBytes))
+	providerlog.Info("Unmarshalling jsontasbytes")
 	jsontas := &JSONTas{}
 	if err := json.Unmarshal(jsontasBytes, jsontas); err != nil {
 		providerlog.Error(err, "failed to unmarshal jsontas from provider")
