@@ -433,11 +433,13 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 
 	eiffelMessageBus := cluster.Spec.MessageBus.EiffelMessageBus
 	if cluster.Spec.MessageBus.EiffelMessageBus.Deploy {
-		eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, eiffelMessageBus.Host)
+		// eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, eiffelMessageBus.Host)
+		eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, "rabbitmq")
 	}
 	etosMessageBus := cluster.Spec.MessageBus.ETOSMessageBus
 	if cluster.Spec.MessageBus.ETOSMessageBus.Deploy {
-		etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, etosMessageBus.Host)
+		// etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, etosMessageBus.Host)
+		etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, "messagebus")
 	}
 
 	databaseHost := cluster.Spec.Database.Etcd.Host
