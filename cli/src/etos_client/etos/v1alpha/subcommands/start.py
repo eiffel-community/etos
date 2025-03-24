@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command line for starting ETOSv1alpha testruns."""
+
 import sys
 import os
 import logging
@@ -22,7 +23,8 @@ import warnings
 
 from etos_client.types.result import Conclusion, Verdict
 from etos_client.etos.v1alpha.etos import Etos
-from etos_client.sse.v1.client import SSEClient
+from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient
+from etos_client.sse.v1.client import SSEClient as SSEV1Client
 
 from etosctl.command import SubCommand
 from etosctl.models import CommandMeta
@@ -46,6 +48,7 @@ class Start(SubCommand):
         --log-area-provider LOG_AREA_PROVIDER                     Which log area provider to use.
         --dataset DATASET                                         Additional dataset information to the environment provider.
                                                                   Check with your provider which information can be supplied.
+        --ssev2alpha                                              Use the v2alpha version of sse.
         --version                                                 Show program's version number and exit
     """
 
@@ -69,7 +72,19 @@ class Start(SubCommand):
         warnings.warn("This is an alpha version of ETOS! Don't expect it to work properly")
         self.logger.info("Running in cluster: %r", args["<cluster>"])
 
-        etos = Etos(args, SSEClient(args["<cluster>"]))
+        filter = [
+            "message.info",
+            "message.warning",
+            "message.error",
+            "message.critical",
+            "report.*",
+            "artifact.*",
+            "shutdown.*",
+        ]
+        if args["--ssev2alpha"]:
+            etos = Etos(args, SSEV2AlphaClient(args["<cluster>"], filter))
+        else:
+            etos = Etos(args, SSEV1Client(args["<cluster>"]))
         result = etos.run()
         if result.conclusion == Conclusion.FAILED:
             sys.exit(result.reason)
