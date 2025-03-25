@@ -547,11 +547,11 @@ func (r *ETOSSuiteStarterDeployment) container(name types.NamespacedName, secret
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("256Mi"),
-				corev1.ResourceCPU:    resource.MustParse("20m"),
+				corev1.ResourceCPU:    resource.MustParse("200m"),
 			},
 			Requests: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("128Mi"),
-				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceCPU:    resource.MustParse("100m"),
 			},
 		},
 		EnvFrom: []corev1.EnvFromSource{
