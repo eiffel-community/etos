@@ -604,10 +604,10 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
               resources:
                 requests:
                   memory: "32Mi"
-                  cpu: "100m"
+                  cpu: "5m"
                 limits:
                   memory: "64Mi"
-                  cpu: "250m"
+                  cpu: "10m"
               volumeMounts:
               - mountPath: /kubexit
                 name: kubexit
@@ -617,10 +617,10 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
               resources:
                 requests:
                   memory: "128Mi"
-                  cpu: "100m"
+                  cpu: "5m"
                 limits:
                   memory: "256Mi"
-                  cpu: "250m"
+                  cpu: "10m"
               envFrom:
               - secretRef:
                   name: {etos_configmap}
@@ -639,10 +639,10 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
               resources:
                 requests:
                   memory: "150Mi"
-                  cpu: "100m"
+                  cpu: "10m"
                 limits:
                   memory: "300Mi"
-                  cpu: "250m"
+                  cpu: "25m"
               envFrom:
               - secretRef:
                   name: {etos_configmap}
@@ -674,10 +674,10 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
               resources:
                 requests:
                   memory: "128Mi"
-                  cpu: "100m"
+                  cpu: "10m"
                 limits:
                   memory: "256Mi"
-                  cpu: "250m"
+                  cpu: "25m"
               envFrom:
               - secretRef:
                   name: {etos_configmap}
