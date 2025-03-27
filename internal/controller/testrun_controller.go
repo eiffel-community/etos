@@ -561,11 +561,11 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("64Mi"),
-									corev1.ResourceCPU:    resource.MustParse("250m"),
+									corev1.ResourceCPU:    resource.MustParse("50m"),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("32Mi"),
-									corev1.ResourceCPU:    resource.MustParse("100m"),
+									corev1.ResourceCPU:    resource.MustParse("25m"),
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
@@ -583,11 +583,11 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),
-									corev1.ResourceCPU:    resource.MustParse("250m"),
+									corev1.ResourceCPU:    resource.MustParse("50m"),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("128Mi"),
-									corev1.ResourceCPU:    resource.MustParse("100m"),
+									corev1.ResourceCPU:    resource.MustParse("25m"),
 								},
 							},
 							EnvFrom: []corev1.EnvFromSource{
@@ -617,7 +617,7 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),
-									corev1.ResourceCPU:    resource.MustParse("250m"),
+									corev1.ResourceCPU:    resource.MustParse("200m"),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("128Mi"),
@@ -683,11 +683,11 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),
-									corev1.ResourceCPU:    resource.MustParse("250m"),
+									corev1.ResourceCPU:    resource.MustParse("50m"),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("128Mi"),
-									corev1.ResourceCPU:    resource.MustParse("100m"),
+									corev1.ResourceCPU:    resource.MustParse("25m"),
 								},
 							},
 							EnvFrom: []corev1.EnvFromSource{
