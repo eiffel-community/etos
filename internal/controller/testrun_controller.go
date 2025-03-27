@@ -561,11 +561,11 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("64Mi"),
-									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceCPU:    resource.MustParse("250m"),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("32Mi"),
-									corev1.ResourceCPU:    resource.MustParse("5m"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
@@ -583,11 +583,11 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),
-									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceCPU:    resource.MustParse("250m"),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("128Mi"),
-									corev1.ResourceCPU:    resource.MustParse("5m"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
 							EnvFrom: []corev1.EnvFromSource{
@@ -617,11 +617,11 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),
-									corev1.ResourceCPU:    resource.MustParse("25m"),
+									corev1.ResourceCPU:    resource.MustParse("250m"),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("128Mi"),
-									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
 							EnvFrom: []corev1.EnvFromSource{
@@ -683,11 +683,11 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),
-									corev1.ResourceCPU:    resource.MustParse("25m"),
+									corev1.ResourceCPU:    resource.MustParse("250m"),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("128Mi"),
-									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
 							EnvFrom: []corev1.EnvFromSource{
