@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/go-logr/logr"
@@ -46,11 +47,12 @@ type ETOSSuiteStarterDeployment struct {
 	messagebusSecret string
 	etosConfig       *corev1.Secret
 	encryptionSecret *corev1.Secret
+	restartRequired  bool
 }
 
 // NewETOSSuiteStarterDeployment will create a new ETOS SuiteStarter reconciler.
 func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, scheme *runtime.Scheme, client client.Client, rabbitmqSecret, messagebusSecret string, config *corev1.Secret, encryption *corev1.Secret) *ETOSSuiteStarterDeployment {
-	return &ETOSSuiteStarterDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config, encryption}
+	return &ETOSSuiteStarterDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config, encryption, false}
 }
 
 // Reconcile will reconcile the ETOS suite starter to its expected state.
@@ -198,12 +200,17 @@ func (r *ETOSSuiteStarterDeployment) reconcileConfig(ctx context.Context, logger
 		if !apierrors.IsNotFound(err) {
 			return secret, err
 		}
+		r.restartRequired = true
 		logger.Info("Creating a new config for the suite starter")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
 		return target, nil
 	}
+	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
+		return secret, nil
+	}
+	r.restartRequired = true
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
@@ -221,6 +228,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, logg
 		if !apierrors.IsNotFound(err) {
 			return secret, err
 		}
+		r.restartRequired = true
 		logger.Info("Creating a new suite runner template for the suite starter")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
@@ -230,6 +238,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, logg
 	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
 		return secret, nil
 	}
+	r.restartRequired = true
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
@@ -251,6 +260,8 @@ func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, lo
 			return target, err
 		}
 		return target, nil
+	} else if r.restartRequired {
+		deployment.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, nil

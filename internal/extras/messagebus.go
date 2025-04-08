@@ -18,6 +18,7 @@ package extras
 import (
 	"context"
 	"fmt"
+	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/go-logr/logr"
@@ -38,13 +39,14 @@ import (
 type MessageBusDeployment struct {
 	etosv1alpha1.RabbitMQ
 	client.Client
-	Scheme     *runtime.Scheme
-	SecretName string
+	Scheme          *runtime.Scheme
+	SecretName      string
+	restartRequired bool
 }
 
 // NewMessageBusDeployment will create a new messagebus reconciler.
 func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) *MessageBusDeployment {
-	return &MessageBusDeployment{spec, client, scheme, ""}
+	return &MessageBusDeployment{spec, client, scheme, "", false}
 }
 
 // Reconcile will reconcile the messagebus to its expected state.
@@ -94,6 +96,7 @@ func (r *MessageBusDeployment) reconcileSecret(ctx context.Context, logger logr.
 		if !apierrors.IsNotFound(err) {
 			return secret, err
 		}
+		r.restartRequired = true
 		logger.Info("Secret not found. Creating")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
@@ -103,6 +106,7 @@ func (r *MessageBusDeployment) reconcileSecret(ctx context.Context, logger logr.
 	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
 		return secret, nil
 	}
+	r.restartRequired = true
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
@@ -128,6 +132,8 @@ func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, logger 
 	} else if !r.Deploy {
 		logger.Info("Removing the statefulset for MessageBus")
 		return nil, r.Delete(ctx, rabbitmq)
+	} else if r.restartRequired {
+		rabbitmq.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq))
 }

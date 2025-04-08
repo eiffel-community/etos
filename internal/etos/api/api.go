@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/go-logr/logr"
@@ -51,11 +52,12 @@ type ETOSApiDeployment struct {
 	rabbitmqSecret   string
 	messagebusSecret string
 	configSecret     string
+	restartRequired  bool
 }
 
 // NewETOSApiDeployment will create a new ETOS API reconciler.
 func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string, config string) *ETOSApiDeployment {
-	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config}
+	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config, false}
 }
 
 // Reconcile will reconcile the ETOS API to its expected state.
@@ -119,12 +121,17 @@ func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, logger logr.Log
 		if !apierrors.IsNotFound(err) {
 			return secret, err
 		}
+		r.restartRequired = true
 		logger.Info("Creating a new config for the ETOS API")
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
 		return target, nil
 	}
+	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
+		return secret, nil
+	}
+	r.restartRequired = true
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
@@ -146,6 +153,8 @@ func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, logger logr
 			return target, err
 		}
 		return target, nil
+	} else if r.restartRequired {
+		deployment.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, nil

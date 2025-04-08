@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/go-logr/logr"
@@ -42,15 +43,16 @@ var graphqlPort int32 = 5000
 type EventRepositoryDeployment struct {
 	*etosv1alpha1.EventRepository
 	client.Client
-	Scheme         *runtime.Scheme
-	mongoUri       url.URL
-	rabbitmqSecret string
-	mongodbSecret  string
+	Scheme          *runtime.Scheme
+	mongoUri        url.URL
+	rabbitmqSecret  string
+	mongodbSecret   string
+	restartRequired bool
 }
 
 // NewEventRepositoryDeployment will create a new event repository reconciler.
 func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *runtime.Scheme, client client.Client, mongodb *MongoDBDeployment, rabbitmqSecret string) *EventRepositoryDeployment {
-	return &EventRepositoryDeployment{spec, client, scheme, mongodb.URL, rabbitmqSecret, mongodb.SecretName}
+	return &EventRepositoryDeployment{spec, client, scheme, mongodb.URL, rabbitmqSecret, mongodb.SecretName, false}
 }
 
 // Reconcile will reconcile the event repository to its expected state.
@@ -117,6 +119,7 @@ func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, logger 
 			return secret, err
 		}
 		if r.Deploy {
+			r.restartRequired = true
 			logger.Info("Creating the configuration for an EventRepository")
 			if err = r.Create(ctx, target); err != nil {
 				return target, err
@@ -127,6 +130,10 @@ func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, logger 
 		logger.Info("Removing the configuration for EventRepository")
 		return nil, r.Delete(ctx, secret)
 	}
+	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
+		return secret, nil
+	}
+	r.restartRequired = true
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
@@ -153,6 +160,8 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, log
 	} else if !r.Deploy {
 		logger.Info("Removing the deployment for EventRepository")
 		return nil, r.Delete(ctx, deployment)
+	} else if r.restartRequired {
+		deployment.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, nil
