@@ -137,7 +137,8 @@ func (r *RabbitMQDeployment) reconcileStatefulset(ctx context.Context, logger lo
 		logger.Info("Removing the statefulset for RabbitMQ")
 		return nil, r.Delete(ctx, rabbitmq)
 	} else if r.restartRequired {
-		rabbitmq.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		logger.Info("Configuration(s) have changed, restarting statefulset")
+		rabbitmq.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq))
 }

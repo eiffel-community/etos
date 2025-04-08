@@ -161,9 +161,10 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, log
 		logger.Info("Removing the deployment for EventRepository")
 		return nil, r.Delete(ctx, deployment)
 	} else if r.restartRequired {
-		deployment.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		logger.Info("Configuration(s) have changed, restarting deployment")
+		deployment.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
-	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
+	if !r.restartRequired && equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, nil
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))

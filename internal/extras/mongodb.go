@@ -155,7 +155,8 @@ func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, logger log
 		logger.Info("Removing the MongoDB statefulset")
 		return nil, r.Delete(ctx, mongodb)
 	} else if r.restartRequired {
-		mongodb.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		logger.Info("Configuration(s) have changed, restarting statefulset")
+		mongodb.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(mongodb))
 }
