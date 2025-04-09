@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/go-logr/logr"
@@ -41,14 +42,15 @@ var mongodbPort int32 = 27017
 type MongoDBDeployment struct {
 	etosv1alpha1.MongoDB
 	client.Client
-	Scheme     *runtime.Scheme
-	URL        url.URL
-	SecretName string
+	Scheme          *runtime.Scheme
+	URL             url.URL
+	SecretName      string
+	restartRequired bool
 }
 
 // NewMongoDBDeployment will create a new MongoDB reconciler.
 func NewMongoDBDeployment(spec etosv1alpha1.MongoDB, scheme *runtime.Scheme, client client.Client) *MongoDBDeployment {
-	return &MongoDBDeployment{spec, client, scheme, url.URL{}, ""}
+	return &MongoDBDeployment{spec, client, scheme, url.URL{}, "", false}
 }
 
 // Reconcile will reconcile MongoDB to its expected state.
@@ -112,6 +114,7 @@ func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, logger logr.Log
 			return secret, err
 		}
 		if r.Deploy {
+			r.restartRequired = true
 			logger.Info("Secret not found. Creating")
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
@@ -125,6 +128,7 @@ func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, logger logr.Log
 	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
 		return secret, nil
 	}
+	r.restartRequired = true
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
@@ -150,6 +154,9 @@ func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, logger log
 	} else if !r.Deploy {
 		logger.Info("Removing the MongoDB statefulset")
 		return nil, r.Delete(ctx, mongodb)
+	} else if r.restartRequired {
+		logger.Info("Configuration(s) have changed, restarting statefulset")
+		mongodb.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(mongodb))
 }
