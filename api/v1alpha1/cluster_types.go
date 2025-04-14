@@ -109,6 +109,9 @@ type ETOSAPI struct {
 	ExecutionSpaceProviderSecret string `json:"executionSpaceProviderSecret"`
 	// +optional
 	LogAreaProviderSecret string `json:"logAreaProviderSecret"`
+	// +kubebuilder:default=1
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
 }
 
 // ETOSSuiteStarterConfig describes the configuration required for a suite starter.
@@ -148,6 +151,9 @@ type ETOSSuiteStarter struct {
 	// +kubebuilder:default={"ttl": "3600", "gracePeriod": "300"}
 	// +optional
 	Config ETOSSuiteStarterConfig `json:"config"`
+	// +kubebuilder:default=1
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
 }
 
 // ETOSSSE describes th deployment of an ETOS Server Sent Events API.

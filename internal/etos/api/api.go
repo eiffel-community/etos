@@ -390,6 +390,7 @@ func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName str
 	return &appsv1.Deployment{
 		ObjectMeta: r.meta(name),
 		Spec: appsv1.DeploymentSpec{
+			Replicas: r.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app.kubernetes.io/name":      name.Name,
