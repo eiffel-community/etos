@@ -102,6 +102,10 @@ spec:
                         type: string
                       logAreaProviderSecret:
                         type: string
+                      replicas:
+                        default: 1
+                        format: int32
+                        type: integer
                     required:
                     - image
                     type: object
@@ -360,6 +364,10 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
+                      replicas:
+                        default: 1
+                        format: int32
+                        type: integer
                       suiteRunnerTemplateSecretName:
                         default: ""
                         description: Provide a custom suite runner template.
@@ -3247,7 +3255,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:724e6d37
+        image: ghcr.io/eiffel-community/etos-controller:f6b76bb0
         livenessProbe:
           httpGet:
             path: /healthz

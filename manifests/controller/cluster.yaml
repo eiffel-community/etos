@@ -105,6 +105,10 @@ spec:
                         type: string
                       logAreaProviderSecret:
                         type: string
+                      replicas:
+                        default: 1
+                        format: int32
+                        type: integer
                     required:
                     - image
                     type: object
@@ -384,6 +388,10 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
+                      replicas:
+                        default: 1
+                        format: int32
+                        type: integer
                       suiteRunnerTemplateSecretName:
                         default: ''
                         description: Provide a custom suite runner template.
