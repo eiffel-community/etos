@@ -512,6 +512,7 @@ func (r *ETOSSuiteStarterDeployment) deployment(name types.NamespacedName, secre
 	return &appsv1.Deployment{
 		ObjectMeta: r.meta(name),
 		Spec: appsv1.DeploymentSpec{
+			Replicas: r.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app.kubernetes.io/name":      name.Name,
