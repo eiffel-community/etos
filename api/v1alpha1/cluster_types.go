@@ -111,7 +111,7 @@ type ETOSAPI struct {
 	LogAreaProviderSecret string `json:"logAreaProviderSecret"`
 	// +kubebuilder:default=1
 	// +optional
-	Replicas *int32 `json:"replicas"`
+	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
 }
 
 // ETOSSuiteStarterConfig describes the configuration required for a suite starter.
