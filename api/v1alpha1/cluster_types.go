@@ -153,7 +153,7 @@ type ETOSSuiteStarter struct {
 	Config ETOSSuiteStarterConfig `json:"config"`
 	// +kubebuilder:default=1
 	// +optional
-	Replicas *int32 `json:"replicas"`
+	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
 }
 
 // ETOSSSE describes th deployment of an ETOS Server Sent Events API.
