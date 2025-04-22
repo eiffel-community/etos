@@ -503,6 +503,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 			Name:      clusterName,
 			Namespace: environmentrequest.Namespace,
 		}
+		cluster = &etosv1alpha1.Cluster{}
 		if err := r.Get(ctx, clusterNamespacedName, cluster); err != nil {
 			logger.Info("Failed to get cluster resource!")
 			return nil, err
