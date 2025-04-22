@@ -268,6 +268,39 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 			databaseHost = cluster.Spec.Database.Etcd.Host
 		}
 	}
+	traceparent, ok := environmentRequest.Annotations["etos.eiffel-community.github.io/traceparent"]
+	if !ok {
+		traceparent = ""
+	}
+
+	envList := []corev1.EnvVar{
+		{
+			Name:  "REQUEST",
+			Value: environmentRequest.Name,
+		},
+		{
+			Name:  "ENVIRONMENT",
+			Value: environment.Name,
+		},
+		{
+			Name:  "ETOS_ETCD_HOST",
+			Value: databaseHost,
+		},
+		{
+			Name:  "OTEL_CONTEXT",
+			Value: traceparent,
+		},
+	}
+	if cluster != nil && cluster.Spec.OpenTelemetry.Enabled {
+		envList = append(envList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
+			Value: cluster.Spec.OpenTelemetry.Endpoint,
+		})
+		envList = append(envList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
+			Value: cluster.Spec.OpenTelemetry.Insecure,
+		})
+	}
 
 	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -317,20 +350,7 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 							},
 							Command: []string{"python", "-u", "-m", "environment_provider.environment"},
 							Args:    []string{environment.Name},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "REQUEST",
-									Value: environmentRequest.Name,
-								},
-								{
-									Name:  "ENVIRONMENT",
-									Value: environment.Name,
-								},
-								{
-									Name:  "ETOS_ETCD_HOST",
-									Value: databaseHost,
-								},
-							},
+							Env:     envList,
 						},
 					},
 				},

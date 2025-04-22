@@ -54,7 +54,6 @@ type TestRunReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Clock
-	Cluster *etosv1alpha1.Cluster
 }
 
 /*
@@ -528,6 +527,12 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 	}
 	logger.Info("ETOS database configured", "host", databaseHost, "port", databasePort)
 
+	annotations := make(map[string]string)
+	traceparent, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]
+	if ok {
+		annotations["etos.eiffel-community.github.io/traceparent"] = traceparent
+	}
+
 	return &etosv1alpha1.EnvironmentRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -536,7 +541,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 				"app.kubernetes.io/name":                  "suite-runner",
 				"app.kubernetes.io/part-of":               "etos",
 			},
-			Annotations:  make(map[string]string),
+			Annotations:  annotations,
 			GenerateName: fmt.Sprintf("%s-", testrun.Name),
 			Namespace:    testrun.Namespace,
 		},
@@ -592,6 +597,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 	testrun, ok := obj.(*etosv1alpha1.TestRun)
 	if !ok {
 		return nil, errors.New("object received from job manager is not a TestRun")
+	}
+	traceparent, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]
+	if !ok {
+		traceparent = ""
 	}
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -733,6 +742,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 								{
 									Name:  "IDENTIFIER",
 									Value: testrun.Spec.ID,
+								},
+								{
+									Name:  "OTEL_CONTEXT",
+									Value: traceparent,
 								},
 								{
 									Name:  "KUBEXIT_NAME",
