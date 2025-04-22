@@ -375,18 +375,13 @@ func (r *ETOSSuiteStarterDeployment) config(ctx context.Context, name types.Name
 		"RABBITMQ_ROUTING_KEY":          []byte(routingKey),
 		"RABBITMQ_QUEUE":                []byte(r.EiffelQueueName),
 	}
-	if r.Config.ObservabilityConfigmapName != "" {
-		data["ETOS_OBSERVABILITY_CONFIGMAP"] = []byte(r.Config.ObservabilityConfigmapName)
-	}
 	if r.Config.SidecarImage != "" {
 		data["ETOS_SIDECAR_IMAGE"] = []byte(r.Config.SidecarImage)
-	}
-	if r.Config.OTELCollectorHost != "" {
-		data["OTEL_COLLECTOR_HOST"] = []byte(r.Config.OTELCollectorHost)
 	}
 	if r.EiffelQueueParams != "" {
 		data["RABBITMQ_QUEUE_PARAMS"] = []byte(r.EiffelQueueParams)
 	}
+
 	eiffel := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
 		return nil, err

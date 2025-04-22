@@ -67,6 +67,24 @@ type EventRepository struct {
 	Ingress Ingress `json:"ingress"`
 }
 
+// OpenTelemetry describes a deployment of an opentelemetry collector for ETOS to use.
+type OpenTelemetry struct {
+	// Enable opentelemetry support, adding the environment variables to services.
+	// +kubebuilder:default=false
+	// +optional
+	Enabled bool `json:"enabled"`
+
+	// Sets the OTEL_EXPORTER_OTLP_ENDPOINT environment variable
+	// +kubebuilder:default="http://localhost:4317"
+	// +optional
+	Endpoint string `json:"endpoint"`
+
+	// Sets the OTEL_EXPORTER_OTLP_INSECURE environment variable
+	// +kubebuilder:default="true"
+	// +optional
+	Insecure string `json:"insecure"`
+}
+
 // MessageBus describes the deployment of messagesbuses for ETOS.
 type MessageBus struct {
 	// +optional
@@ -121,18 +139,12 @@ type ETOSSuiteStarterConfig struct {
 	// +kubebuilder:default="3600"
 	// +optional
 	TTL string `json:"ttl,omitempty"`
-	// +kubebuilder:default=""
-	// +optional
-	ObservabilityConfigmapName string `json:"observabilityConfigmapName,omitempty"`
 	// +kubebuilder:default="300"
 	// +optional
 	GracePeriod string `json:"gracePeriod,omitempty"`
 	// +kubebuilder:default=""
 	// +optional
 	SidecarImage string `json:"sidecarImage,omitempty"`
-	// +kubebuilder:default=""
-	// +optional
-	OTELCollectorHost string `json:"otelCollectorHost,omitempty"`
 }
 
 // ETOSSuiteStarter describes the deployment of an ETOS suite starter.
@@ -266,6 +278,8 @@ type ClusterSpec struct {
 	MessageBus MessageBus `json:"messageBus"`
 	// +kubebuilder:default={}
 	EventRepository EventRepository `json:"eventRepository"`
+	// +kubebuilder:default={}
+	OpenTelemetry OpenTelemetry `json:"openTelemetry"`
 }
 
 // ClusterStatus defines the observed state of Cluster
