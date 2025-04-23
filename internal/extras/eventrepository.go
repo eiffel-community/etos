@@ -162,6 +162,9 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, log
 		return nil, r.Delete(ctx, deployment)
 	} else if r.restartRequired {
 		logger.Info("Configuration(s) have changed, restarting deployment")
+		if deployment.Spec.Template.Annotations == nil {
+			deployment.Spec.Template.Annotations = make(map[string]string)
+		}
 		deployment.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	if !r.restartRequired && equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
