@@ -24,7 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -34,21 +34,25 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 )
 
+// nolint:unused
 // log is for logging in this package.
 var (
 	providerlog = logf.Log.WithName("provider-resource")
 	cli         client.Client
 )
 
-// SetupWebhookWithManager will setup the manager to manage the webhooks
-func (r *Provider) SetupWebhookWithManager(mgr ctrl.Manager) error {
+// SetupProviderWebhookWithManager registers the webhook for Provider in the manager.
+func SetupProviderWebhookWithManager(mgr ctrl.Manager) error {
 	if cli == nil {
 		cli = mgr.GetClient()
 	}
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha1.Provider{}).
+		WithValidator(&ProviderCustomValidator{}).
+		WithDefaulter(&ProviderCustomDefaulter{}).
 		Complete()
 }
 
@@ -102,71 +106,83 @@ func getFromConfigMapKeySelector(ctx context.Context, client client.Client, conf
 }
 
 // Get the value from a secret or configmap ref.
-func (r *Provider) Get(ctx context.Context, client client.Client, namespace string) ([]byte, error) {
-	if r.Spec.JSONTasSource.SecretKeyRef != nil {
-		return getFromSecretKeySelector(ctx, client, r.Spec.JSONTasSource.SecretKeyRef, namespace)
+func (r *ProviderCustomDefaulter) Get(ctx context.Context, provider *etosv1alpha1.Provider, client client.Client, namespace string) ([]byte, error) {
+	if provider.Spec.JSONTasSource.SecretKeyRef != nil {
+		return getFromSecretKeySelector(ctx, client, provider.Spec.JSONTasSource.SecretKeyRef, namespace)
 	}
-	if r.Spec.JSONTasSource.ConfigMapKeyRef != nil {
-		return getFromConfigMapKeySelector(ctx, client, r.Spec.JSONTasSource.ConfigMapKeyRef, namespace)
+	if provider.Spec.JSONTasSource.ConfigMapKeyRef != nil {
+		return getFromConfigMapKeySelector(ctx, client, provider.Spec.JSONTasSource.ConfigMapKeyRef, namespace)
 	}
 	return nil, errors.New("found no source for key")
 }
 
-// +kubebuilder:webhook:path=/mutate-etos-eiffel-community-github-io-v1alpha1-provider,mutating=true,failurePolicy=fail,sideEffects=None,groups=etos.eiffel-community.github.io,resources=providers,verbs=create;update,versions=v1alpha1,name=mprovider.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-etos-eiffel-community-github-io-v1alpha1-provider,mutating=true,failurePolicy=fail,sideEffects=None,groups=etos.eiffel-community.github.io,resources=providers,verbs=create;update,versions=v1alpha1,name=mprovider-v1alpha1.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Provider{}
+// ProviderCustomDefaulter struct is responsible for setting default values on the custom resource of the
+// Kind Provider when those are created or updated.
+//
+// NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
+// as it is used only for temporary operations and does not need to be deeply copied.
+type ProviderCustomDefaulter struct{}
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Provider) Default() {
-	providerlog.Info("default", "name", r.Name)
+var _ webhook.CustomDefaulter = &ProviderCustomDefaulter{}
 
-	if r.Spec.JSONTasSource == nil {
-		return
+// Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Provider.
+func (d *ProviderCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	provider, ok := obj.(*etosv1alpha1.Provider)
+
+	if !ok {
+		return fmt.Errorf("expected an Provider object but got %T", obj)
 	}
+	providerlog.Info("Defaulting for Provider", "name", provider.GetName())
 
-	jsontasBytes, err := r.Get(context.TODO(), cli, r.Namespace)
+	if provider.Spec.JSONTasSource == nil {
+		return nil
+	}
+	jsontasBytes, err := d.Get(ctx, provider, cli, provider.Namespace)
 	if err != nil {
 		providerlog.Error(err, "failed to get jsontas from provider")
-		return
+		return nil
 	}
 	providerlog.Info("Unmarshalling jsontasbytes")
-	jsontas := &JSONTas{}
+	jsontas := &etosv1alpha1.JSONTas{}
 	if err := json.Unmarshal(jsontasBytes, jsontas); err != nil {
 		providerlog.Error(err, "failed to unmarshal jsontas from provider")
-		return
+		return nil
 	}
 	providerlog.Info("Done", "jsontas", jsontas)
-	r.Spec.Healthcheck = nil   // Not sure about this one
-	r.Spec.Host = ""           // Not sure about this one
-	r.Spec.JSONTasSource = nil // Not sure about this one
-	r.Spec.JSONTas = jsontas
+	provider.Spec.Healthcheck = nil   // Not sure about this one
+	provider.Spec.Host = ""           // Not sure about this one
+	provider.Spec.JSONTasSource = nil // Not sure about this one
+	provider.Spec.JSONTas = jsontas
+	return nil
 }
 
 // validate the spec of a Provider object.
-func (r *Provider) validate() error {
+func (d *ProviderCustomValidator) validate(provider *etosv1alpha1.Provider) error {
 	var allErrs field.ErrorList
-	groupVersionKind := r.GroupVersionKind()
-	if r.Spec.JSONTas != nil && r.Spec.JSONTasSource != nil {
+	groupVersionKind := provider.GroupVersionKind()
+	if provider.Spec.JSONTas != nil && provider.Spec.JSONTasSource != nil {
 		allErrs = append(allErrs, field.Invalid(
 			field.NewPath("spec").Child("jsonTas"),
-			r.Spec.JSONTas,
+			provider.Spec.JSONTas,
 			"only one of jsonTas and jsonTasSource is allowed"))
 		allErrs = append(allErrs, field.Invalid(
 			field.NewPath("spec").Child("jsonTasSource"),
-			r.Spec.JSONTasSource,
+			provider.Spec.JSONTasSource,
 			"only one of jsonTas and jsonTasSource is allowed"))
 	}
-	if r.Spec.JSONTas == nil && r.Spec.JSONTasSource == nil {
-		if r.Spec.Host == "" {
+	if provider.Spec.JSONTas == nil && provider.Spec.JSONTasSource == nil {
+		if provider.Spec.Host == "" {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec").Child("host"),
-				r.Spec.Host,
+				provider.Spec.Host,
 				"host must be set when JSONTas is not"))
 		}
-		if r.Spec.Healthcheck == nil {
+		if provider.Spec.Healthcheck == nil {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec").Child("healthCheck"),
-				r.Spec.Healthcheck,
+				provider.Spec.Healthcheck,
 				"healthCheck must be set when JSONTas is not"))
 		}
 	}
@@ -174,30 +190,52 @@ func (r *Provider) validate() error {
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(
 			schema.GroupKind{Group: groupVersionKind.Group, Kind: groupVersionKind.Kind},
-			r.Name, allErrs,
+			provider.Name, allErrs,
 		)
 	}
 	return nil
 }
 
-// +kubebuilder:webhook:path=/validate-etos-eiffel-community-github-io-v1alpha1-provider,mutating=false,failurePolicy=fail,sideEffects=None,groups=etos.eiffel-community.github.io,resources=providers,verbs=create;update,versions=v1alpha1,name=mprovider.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-etos-eiffel-community-github-io-v1alpha1-provider,mutating=false,failurePolicy=fail,sideEffects=None,groups=etos.eiffel-community.github.io,resources=providers,verbs=create;update,versions=v1alpha1,name=vprovider-v1alpha1.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &Provider{}
+// ProviderCustomValidator struct is responsible for validating the Provider resource
+// when it is created, updated, or deleted.
+//
+// NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
+// as this struct is used only for temporary operations and does not need to be deeply copied.
+type ProviderCustomValidator struct{}
+
+var _ webhook.CustomValidator = &ProviderCustomValidator{}
 
 // ValidateCreate validates the creation of a Provider.
-func (r *Provider) ValidateCreate() (admission.Warnings, error) {
-	providerlog.Info("validate create", "name", r.Name)
-	return nil, r.validate()
+func (d *ProviderCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	provider, ok := obj.(*etosv1alpha1.Provider)
+
+	if !ok {
+		return nil, fmt.Errorf("expected an Provider object but got %T", obj)
+	}
+	providerlog.Info("Validation for Provider upon creation", "name", provider.GetName())
+	return nil, d.validate(provider)
 }
 
 // ValidateUpdate validates the updates of a Provider.
-func (r *Provider) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	providerlog.Info("validate update", "name", r.Name)
-	return nil, r.validate()
+func (d *ProviderCustomValidator) ValidateUpdate(_ context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
+	provider, ok := newObj.(*etosv1alpha1.Provider)
+
+	if !ok {
+		return nil, fmt.Errorf("expected an Provider object but got %T", newObj)
+	}
+	providerlog.Info("Validation for Provider upon update", "name", provider.GetName())
+	return nil, d.validate(provider)
 }
 
 // ValidateDelete validates the deletion of a Provider.
-func (r *Provider) ValidateDelete() (admission.Warnings, error) {
-	providerlog.Info("validate delete", "name", r.Name)
+func (d *ProviderCustomValidator) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	provider, ok := obj.(*etosv1alpha1.Provider)
+
+	if !ok {
+		return nil, fmt.Errorf("expected an Provider object but got %T", obj)
+	}
+	providerlog.Info("Validation for Provider upon deletion", "name", provider.GetName())
 	return nil, nil
 }

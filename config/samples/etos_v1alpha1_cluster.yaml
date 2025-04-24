@@ -27,7 +27,7 @@ spec:
   eventRepository:
     deploy: true
     apiImage: registry.nordix.org/eiffel/eiffel-graphql-api:latest
-    storageImage: registry.nordix.org/eiffel/eiffel-graphql-storage:latest 
+    storageImage: registry.nordix.org/eiffel/eiffel-graphql-storage:latest
     mongo:
       deploy: true
     ingress:

@@ -19,6 +19,7 @@ resources:
   version: v1alpha1
   webhooks:
     defaulting: true
+    validation: true
     webhookVersion: v1
 - api:
     crdVersion: v1
@@ -31,6 +32,7 @@ resources:
   version: v1alpha1
   webhooks:
     defaulting: true
+    validation: true
     webhookVersion: v1
 - api:
     crdVersion: v1

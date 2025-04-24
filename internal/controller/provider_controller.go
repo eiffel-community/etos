@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 )
@@ -47,9 +47,9 @@ type ProviderReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
 func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 
 	provider := &etosv1alpha1.Provider{}
 	err := r.Get(ctx, req.NamespacedName, provider)
@@ -112,5 +112,6 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 func (r *ProviderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&etosv1alpha1.Provider{}).
+		Named("provider").
 		Complete(r)
 }

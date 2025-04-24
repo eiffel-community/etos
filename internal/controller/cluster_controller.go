@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/etos"
@@ -64,9 +64,9 @@ type ClusterReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
 
 	// TODO: Logstash
@@ -157,6 +157,7 @@ func (r *ClusterReconciler) update(ctx context.Context, cluster *etosv1alpha1.Cl
 func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&etosv1alpha1.Cluster{}).
+		Named("cluster").
 		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&corev1.Secret{}).
