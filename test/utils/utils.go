@@ -113,7 +113,8 @@ func UninstallCertManager() {
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
-	cmd = exec.Command("kubectl", "delete", "-n", "kube-system", "leases", certmanagerControllerLease, certmanagerCAInjectorLease)
+	cmd = exec.Command("kubectl", "delete", "-n", "kube-system", "leases",
+		certmanagerControllerLease, certmanagerCAInjectorLease)
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
