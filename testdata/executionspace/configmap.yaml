@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etos-executionspace
+data:
+  PROVIDER_HOSTNAME: http://etos-executionspace
+  ETOS_ETCD_HOST: cluster-sample-etcd-client
+  EIFFEL_GOER_URL: http://goer.etos-test.svc.cluster.local/v1/events
+  ETOS_NAMESPACE: etos-test

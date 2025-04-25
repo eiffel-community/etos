@@ -51,7 +51,12 @@ var _ = Describe("Cluster Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: etosv1alpha1.ClusterSpec{
+						ETOS:            etosv1alpha1.ETOS{},
+						Database:        etosv1alpha1.Database{},
+						MessageBus:      etosv1alpha1.MessageBus{},
+						EventRepository: etosv1alpha1.EventRepository{},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

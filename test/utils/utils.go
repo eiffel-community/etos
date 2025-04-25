@@ -70,7 +70,7 @@ func InstallPrometheusOperator() error {
 	return err
 }
 
-// UninstallPrometheusOperator uninstalls the prometheus
+// UninstallPrometheusOperator uninstalls the prometheus Operator.
 func UninstallPrometheusOperator() {
 	url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
 	cmd := exec.Command("kubectl", "delete", "-f", url)

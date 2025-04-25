@@ -95,6 +95,9 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 		}
 		r.Host = fmt.Sprintf("http://%s/graphql", host)
 		logger.Info("Host for the EventRepository", "host", r.Host)
+	} else if r.Host == "" {
+		r.Host = fmt.Sprintf("http://%s:%d/graphql", namespacedName.Name, graphqlPort)
+		logger.Info("Host for the EventRepository", "host", r.Host)
 	}
 	return nil
 }
