@@ -32,8 +32,10 @@ const (
 	prometheusOperatorURL     = "https://github.com/prometheus-operator/prometheus-operator/" +
 		"releases/download/%s/bundle.yaml"
 
-	certmanagerVersion = "v1.16.3"
-	certmanagerURLTmpl = "https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml"
+	certmanagerVersion         = "v1.16.3"
+	certmanagerURLTmpl         = "https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml"
+	certmanagerControllerLease = "cert-manager-controller"
+	certmanagerCAInjectorLease = "cert-manager-cainjector-leader-election"
 )
 
 func warnError(err error) {
@@ -108,6 +110,10 @@ func IsPrometheusCRDsInstalled() bool {
 func UninstallCertManager() {
 	url := fmt.Sprintf(certmanagerURLTmpl, certmanagerVersion)
 	cmd := exec.Command("kubectl", "delete", "-f", url)
+	if _, err := Run(cmd); err != nil {
+		warnError(err)
+	}
+	cmd = exec.Command("kubectl", "delete", "-n", "kube-system", "leases", certmanagerControllerLease, certmanagerCAInjectorLease)
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
