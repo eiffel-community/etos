@@ -98,6 +98,8 @@ type EnvironmentRequestStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+// +kubebuilder:conversion:hub
 // +kubebuilder:subresource:status
 
 // EnvironmentRequest is the Schema for the environmentrequests API

@@ -18,6 +18,7 @@ resources:
   path: github.com/eiffel-community/etos/api/v1alpha1
   version: v1alpha1
   webhooks:
+    conversion: true
     defaulting: true
     validation: true
     webhookVersion: v1
@@ -31,6 +32,7 @@ resources:
   path: github.com/eiffel-community/etos/api/v1alpha1
   version: v1alpha1
   webhooks:
+    conversion: true
     defaulting: true
     validation: true
     webhookVersion: v1
@@ -62,6 +64,7 @@ resources:
   path: github.com/eiffel-community/etos/api/v1alpha1
   version: v1alpha1
   webhooks:
+    conversion: true
     defaulting: true
     webhookVersion: v1
 version: "3"

@@ -117,6 +117,8 @@ type ProviderStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+// +kubebuilder:conversion:hub
 // +kubebuilder:subresource:status
 
 // Provider is the Schema for the providers API
