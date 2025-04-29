@@ -81,6 +81,7 @@ spec:
     protocol: TCP
     targetPort: 8443
   selector:
+    app.kubernetes.io/name: etos
     control-plane: controller-manager
 ---
 apiVersion: v1
@@ -97,6 +98,7 @@ spec:
     protocol: TCP
     targetPort: 9443
   selector:
+    app.kubernetes.io/name: etos
     control-plane: controller-manager
 ---
 apiVersion: apps/v1
@@ -118,6 +120,7 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
+        app.kubernetes.io/name: etos
         control-plane: controller-manager
     spec:
       containers:
@@ -125,9 +128,11 @@ spec:
         - --metrics-bind-address=:8443
         - --leader-elect
         - --health-probe-bind-address=:8081
+        - --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
+        - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:96137091
+        image: ghcr.io/eiffel-community/etos-controller:cc1f0c97
         livenessProbe:
           httpGet:
             path: /healthz
@@ -158,29 +163,57 @@ spec:
             drop:
             - ALL
         volumeMounts:
+        - mountPath: /tmp/k8s-metrics-server/metrics-certs
+          name: metrics-certs
+          readOnly: true
         - mountPath: /tmp/k8s-webhook-server/serving-certs
-          name: cert
+          name: webhook-certs
           readOnly: true
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: etos-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
-      - name: cert
+      - name: metrics-certs
         secret:
-          defaultMode: 420
+          items:
+          - key: ca.crt
+            path: ca.crt
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          optional: false
+          secretName: metrics-server-cert
+      - name: webhook-certs
+        secret:
           secretName: webhook-server-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   labels:
-    app.kubernetes.io/component: certificate
-    app.kubernetes.io/created-by: etos
-    app.kubernetes.io/instance: serving-cert
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: certificate
-    app.kubernetes.io/part-of: etos
+    app.kubernetes.io/name: etos
+  name: etos-metrics-certs
+  namespace: etos-system
+spec:
+  dnsNames:
+  - etos-controller-manager-metrics-service.etos-system.svc
+  - etos-controller-manager-metrics-service.etos-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: etos-selfsigned-issuer
+  secretName: metrics-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
   name: etos-serving-cert
   namespace: etos-system
 spec:
@@ -202,3 +235,37 @@ metadata:
   namespace: etos-system
 spec:
   selfSigned: {}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+    control-plane: controller-manager
+  name: etos-controller-manager-metrics-monitor
+  namespace: etos-system
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    path: /metrics
+    port: https
+    scheme: https
+    tlsConfig:
+      ca:
+        secret:
+          key: ca.crt
+          name: metrics-server-cert
+      cert:
+        secret:
+          key: tls.crt
+          name: metrics-server-cert
+      insecureSkipVerify: false
+      keySecret:
+        key: tls.key
+        name: metrics-server-cert
+      serverName: etos-controller-manager-metrics-service.etos-system.svc
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: etos
+      control-plane: controller-manager

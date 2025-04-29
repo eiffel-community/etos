@@ -2,8 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.17.2
   name: clusters.etos.eiffel-community.github.io
 spec:
   group: etos.eiffel-community.github.io
@@ -151,13 +150,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the ConfigMap or
@@ -187,13 +180,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the Secret or its
@@ -362,12 +349,6 @@ spec:
                           gracePeriod:
                             default: '300'
                             type: string
-                          observabilityConfigmapName:
-                            default: ''
-                            type: string
-                          otelCollectorHost:
-                            default: ''
-                            type: string
                           sidecarImage:
                             default: ''
                             type: string
@@ -500,13 +481,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the ConfigMap or
@@ -536,13 +511,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the Secret or its
@@ -621,13 +590,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the ConfigMap or
@@ -657,13 +620,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the Secret or its
@@ -730,13 +687,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the ConfigMap or
@@ -766,13 +717,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the Secret or its
@@ -798,28 +743,41 @@ spec:
                         type: string
                     type: object
                 type: object
+              openTelemetry:
+                default: {}
+                description: OpenTelemetry describes a deployment of an opentelemetry
+                  collector for ETOS to use.
+                properties:
+                  enabled:
+                    default: false
+                    description: Enable opentelemetry support, adding the environment
+                      variables to services.
+                    type: boolean
+                  endpoint:
+                    default: http://localhost:4317
+                    description: Sets the OTEL_EXPORTER_OTLP_ENDPOINT environment
+                      variable
+                    type: string
+                  insecure:
+                    default: 'true'
+                    description: Sets the OTEL_EXPORTER_OTLP_INSECURE environment
+                      variable
+                    type: string
+                type: object
             required:
             - database
             - etos
             - eventRepository
             - messageBus
+            - openTelemetry
             type: object
           status:
             description: ClusterStatus defines the observed state of Cluster
             properties:
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current\
-                    \ state of this API Resource.\n---\nThis struct is intended for\
-                    \ direct use as an array at the field path .status.conditions.\
-                    \  For example,\n\n\n\ttype FooStatus struct{\n\t    // Represents\
-                    \ the observations of a foo's current state.\n\t    // Known .status.conditions.type\
-                    \ are: \"Available\", \"Progressing\", and \"Degraded\"\n\t  \
-                    \  // +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t \
-                    \   // +listType=map\n\t    // +listMapKey=type\n\t    Conditions\
-                    \ []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"\
-                    merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"\
-                    `\n\n\n\t    // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: 'lastTransitionTime is the last time the condition
@@ -873,17 +831,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: 'type of condition in CamelCase or in foo.example.com/CamelCase.
-
-                        ---
-
-                        Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be
-
-                        useful (see .node.status.conditions), the ability to deconflict
-                        is important.
-
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)'
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -907,7 +855,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.17.2
   name: environmentrequests.etos.eiffel-community.github.io
 spec:
   conversion:
@@ -1019,13 +967,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the ConfigMap or
@@ -1055,13 +997,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the Secret or its
@@ -1114,13 +1050,7 @@ spec:
 
                                   almost certainly wrong.
 
-                                  TODO: Add other useful fields. apiVersion, kind,
-                                  uid?
-
-                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                  TODO: Drop `kubebuilder:default` when controller-gen
-                                  doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                 type: string
                               optional:
                                 description: Specify whether the ConfigMap or its
@@ -1149,13 +1079,7 @@ spec:
 
                                   almost certainly wrong.
 
-                                  TODO: Add other useful fields. apiVersion, kind,
-                                  uid?
-
-                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                  TODO: Drop `kubebuilder:default` when controller-gen
-                                  doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                 type: string
                               optional:
                                 description: Specify whether the Secret or its key
@@ -1227,13 +1151,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the ConfigMap or
@@ -1263,13 +1181,7 @@ spec:
 
                                       almost certainly wrong.
 
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?
-
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                                      TODO: Drop `kubebuilder:default` when controller-gen
-                                      doesn''t need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                     type: string
                                   optional:
                                     description: Specify whether the Secret or its
@@ -1322,7 +1234,6 @@ spec:
               artifact:
                 type: string
               dataset:
-                description: 'TODO: Dataset per provider?'
                 x-kubernetes-preserve-unknown-fields: true
               id:
                 description: ID is the ID for the environments generated. Will be
@@ -1455,17 +1366,8 @@ spec:
                 type: string
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current\
-                    \ state of this API Resource.\n---\nThis struct is intended for\
-                    \ direct use as an array at the field path .status.conditions.\
-                    \  For example,\n\n\n\ttype FooStatus struct{\n\t    // Represents\
-                    \ the observations of a foo's current state.\n\t    // Known .status.conditions.type\
-                    \ are: \"Available\", \"Progressing\", and \"Degraded\"\n\t  \
-                    \  // +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t \
-                    \   // +listType=map\n\t    // +listMapKey=type\n\t    Conditions\
-                    \ []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"\
-                    merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"\
-                    `\n\n\n\t    // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: 'lastTransitionTime is the last time the condition
@@ -1519,17 +1421,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: 'type of condition in CamelCase or in foo.example.com/CamelCase.
-
-                        ---
-
-                        Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be
-
-                        useful (see .node.status.conditions), the ability to deconflict
-                        is important.
-
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)'
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -1543,32 +1435,8 @@ spec:
                 type: array
               environmentProviders:
                 items:
-                  description: "ObjectReference contains enough information to let\
-                    \ you inspect or modify the referred object.\n---\nNew uses of\
-                    \ this type are discouraged because of difficulty describing its\
-                    \ usage when embedded in APIs.\n 1. Ignored fields.  It includes\
-                    \ many fields which are not generally honored.  For instance,\
-                    \ ResourceVersion and FieldPath are both very rarely valid in\
-                    \ actual usage.\n 2. Invalid usage help.  It is impossible to\
-                    \ add specific help for individual usage.  In most embedded usages,\
-                    \ there are particular\n    restrictions like, \"must refer only\
-                    \ to types A and B\" or \"UID not honored\" or \"name must be\
-                    \ restricted\".\n    Those cannot be well described when embedded.\n\
-                    \ 3. Inconsistent validation.  Because the usages are different,\
-                    \ the validation rules are different by usage, which makes it\
-                    \ hard for users to predict what will happen.\n 4. The fields\
-                    \ are both imprecise and overly precise.  Kind is not a precise\
-                    \ mapping to a URL. This can produce ambiguity\n    during interpretation\
-                    \ and require a REST mapping.  In most cases, the dependency is\
-                    \ on the group,resource tuple\n    and the version of the actual\
-                    \ struct is irrelevant.\n 5. We cannot easily change it.  Because\
-                    \ this type is embedded in many locations, updates to this type\n\
-                    \    will affect numerous schemas.  Don't make new APIs embed\
-                    \ an underspecified API type they do not control.\n\n\nInstead\
-                    \ of using this type, create a locally provided and used type\
-                    \ that is well-focused on your reference.\nFor example, ServiceReferences\
-                    \ for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533\
-                    \ ."
+                  description: ObjectReference contains enough information to let
+                    you inspect or modify the referred object.
                   properties:
                     apiVersion:
                       description: API version of the referent.
@@ -1592,10 +1460,7 @@ spec:
                         index 2 in this pod). This syntax is chosen only to have some
                         well-defined way of
 
-                        referencing a part of an object.
-
-                        TODO: this design is not final and this field is subject to
-                        change in the future.'
+                        referencing a part of an object.'
                       type: string
                     kind:
                       description: 'Kind of the referent.
@@ -1640,8 +1505,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.17.2
   name: environments.etos.eiffel-community.github.io
 spec:
   group: etos.eiffel-community.github.io
@@ -1804,17 +1668,8 @@ spec:
                 type: string
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current\
-                    \ state of this API Resource.\n---\nThis struct is intended for\
-                    \ direct use as an array at the field path .status.conditions.\
-                    \  For example,\n\n\n\ttype FooStatus struct{\n\t    // Represents\
-                    \ the observations of a foo's current state.\n\t    // Known .status.conditions.type\
-                    \ are: \"Available\", \"Progressing\", and \"Degraded\"\n\t  \
-                    \  // +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t \
-                    \   // +listType=map\n\t    // +listMapKey=type\n\t    Conditions\
-                    \ []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"\
-                    merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"\
-                    `\n\n\n\t    // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: 'lastTransitionTime is the last time the condition
@@ -1868,17 +1723,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: 'type of condition in CamelCase or in foo.example.com/CamelCase.
-
-                        ---
-
-                        Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be
-
-                        useful (see .node.status.conditions), the ability to deconflict
-                        is important.
-
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)'
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -1892,32 +1737,8 @@ spec:
                 type: array
               environmentReleasers:
                 items:
-                  description: "ObjectReference contains enough information to let\
-                    \ you inspect or modify the referred object.\n---\nNew uses of\
-                    \ this type are discouraged because of difficulty describing its\
-                    \ usage when embedded in APIs.\n 1. Ignored fields.  It includes\
-                    \ many fields which are not generally honored.  For instance,\
-                    \ ResourceVersion and FieldPath are both very rarely valid in\
-                    \ actual usage.\n 2. Invalid usage help.  It is impossible to\
-                    \ add specific help for individual usage.  In most embedded usages,\
-                    \ there are particular\n    restrictions like, \"must refer only\
-                    \ to types A and B\" or \"UID not honored\" or \"name must be\
-                    \ restricted\".\n    Those cannot be well described when embedded.\n\
-                    \ 3. Inconsistent validation.  Because the usages are different,\
-                    \ the validation rules are different by usage, which makes it\
-                    \ hard for users to predict what will happen.\n 4. The fields\
-                    \ are both imprecise and overly precise.  Kind is not a precise\
-                    \ mapping to a URL. This can produce ambiguity\n    during interpretation\
-                    \ and require a REST mapping.  In most cases, the dependency is\
-                    \ on the group,resource tuple\n    and the version of the actual\
-                    \ struct is irrelevant.\n 5. We cannot easily change it.  Because\
-                    \ this type is embedded in many locations, updates to this type\n\
-                    \    will affect numerous schemas.  Don't make new APIs embed\
-                    \ an underspecified API type they do not control.\n\n\nInstead\
-                    \ of using this type, create a locally provided and used type\
-                    \ that is well-focused on your reference.\nFor example, ServiceReferences\
-                    \ for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533\
-                    \ ."
+                  description: ObjectReference contains enough information to let
+                    you inspect or modify the referred object.
                   properties:
                     apiVersion:
                       description: API version of the referent.
@@ -1941,10 +1762,7 @@ spec:
                         index 2 in this pod). This syntax is chosen only to have some
                         well-defined way of
 
-                        referencing a part of an object.
-
-                        TODO: this design is not final and this field is subject to
-                        change in the future.'
+                        referencing a part of an object.'
                       type: string
                     kind:
                       description: 'Kind of the referent.
@@ -1987,7 +1805,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.17.2
   name: providers.etos.eiffel-community.github.io
 spec:
   conversion:
@@ -2219,12 +2037,7 @@ spec:
 
                           almost certainly wrong.
 
-                          TODO: Add other useful fields. apiVersion, kind, uid?
-
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                          TODO: Drop `kubebuilder:default` when controller-gen doesn''t
-                          need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                         type: string
                       optional:
                         description: Specify whether the ConfigMap or its key must
@@ -2253,12 +2066,7 @@ spec:
 
                           almost certainly wrong.
 
-                          TODO: Add other useful fields. apiVersion, kind, uid?
-
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-
-                          TODO: Drop `kubebuilder:default` when controller-gen doesn''t
-                          need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.'
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                         type: string
                       optional:
                         description: Specify whether the Secret or its key must be
@@ -2283,17 +2091,8 @@ spec:
             properties:
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current\
-                    \ state of this API Resource.\n---\nThis struct is intended for\
-                    \ direct use as an array at the field path .status.conditions.\
-                    \  For example,\n\n\n\ttype FooStatus struct{\n\t    // Represents\
-                    \ the observations of a foo's current state.\n\t    // Known .status.conditions.type\
-                    \ are: \"Available\", \"Progressing\", and \"Degraded\"\n\t  \
-                    \  // +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t \
-                    \   // +listType=map\n\t    // +listMapKey=type\n\t    Conditions\
-                    \ []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"\
-                    merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"\
-                    `\n\n\n\t    // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: 'lastTransitionTime is the last time the condition
@@ -2347,17 +2146,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: 'type of condition in CamelCase or in foo.example.com/CamelCase.
-
-                        ---
-
-                        Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be
-
-                        useful (see .node.status.conditions), the ability to deconflict
-                        is important.
-
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)'
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -2384,7 +2173,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.17.2
   name: testruns.etos.eiffel-community.github.io
 spec:
   conversion:
@@ -2640,17 +2429,8 @@ spec:
                 type: string
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current\
-                    \ state of this API Resource.\n---\nThis struct is intended for\
-                    \ direct use as an array at the field path .status.conditions.\
-                    \  For example,\n\n\n\ttype FooStatus struct{\n\t    // Represents\
-                    \ the observations of a foo's current state.\n\t    // Known .status.conditions.type\
-                    \ are: \"Available\", \"Progressing\", and \"Degraded\"\n\t  \
-                    \  // +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t \
-                    \   // +listType=map\n\t    // +listMapKey=type\n\t    Conditions\
-                    \ []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"\
-                    merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"\
-                    `\n\n\n\t    // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: 'lastTransitionTime is the last time the condition
@@ -2704,17 +2484,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: 'type of condition in CamelCase or in foo.example.com/CamelCase.
-
-                        ---
-
-                        Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be
-
-                        useful (see .node.status.conditions), the ability to deconflict
-                        is important.
-
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)'
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -2728,32 +2498,8 @@ spec:
                 type: array
               environmentRequests:
                 items:
-                  description: "ObjectReference contains enough information to let\
-                    \ you inspect or modify the referred object.\n---\nNew uses of\
-                    \ this type are discouraged because of difficulty describing its\
-                    \ usage when embedded in APIs.\n 1. Ignored fields.  It includes\
-                    \ many fields which are not generally honored.  For instance,\
-                    \ ResourceVersion and FieldPath are both very rarely valid in\
-                    \ actual usage.\n 2. Invalid usage help.  It is impossible to\
-                    \ add specific help for individual usage.  In most embedded usages,\
-                    \ there are particular\n    restrictions like, \"must refer only\
-                    \ to types A and B\" or \"UID not honored\" or \"name must be\
-                    \ restricted\".\n    Those cannot be well described when embedded.\n\
-                    \ 3. Inconsistent validation.  Because the usages are different,\
-                    \ the validation rules are different by usage, which makes it\
-                    \ hard for users to predict what will happen.\n 4. The fields\
-                    \ are both imprecise and overly precise.  Kind is not a precise\
-                    \ mapping to a URL. This can produce ambiguity\n    during interpretation\
-                    \ and require a REST mapping.  In most cases, the dependency is\
-                    \ on the group,resource tuple\n    and the version of the actual\
-                    \ struct is irrelevant.\n 5. We cannot easily change it.  Because\
-                    \ this type is embedded in many locations, updates to this type\n\
-                    \    will affect numerous schemas.  Don't make new APIs embed\
-                    \ an underspecified API type they do not control.\n\n\nInstead\
-                    \ of using this type, create a locally provided and used type\
-                    \ that is well-focused on your reference.\nFor example, ServiceReferences\
-                    \ for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533\
-                    \ ."
+                  description: ObjectReference contains enough information to let
+                    you inspect or modify the referred object.
                   properties:
                     apiVersion:
                       description: API version of the referent.
@@ -2777,10 +2523,7 @@ spec:
                         index 2 in this pod). This syntax is chosen only to have some
                         well-defined way of
 
-                        referencing a part of an object.
-
-                        TODO: this design is not final and this field is subject to
-                        change in the future.'
+                        referencing a part of an object.'
                       type: string
                     kind:
                       description: 'Kind of the referent.
@@ -2816,32 +2559,8 @@ spec:
                 type: string
               suiteRunners:
                 items:
-                  description: "ObjectReference contains enough information to let\
-                    \ you inspect or modify the referred object.\n---\nNew uses of\
-                    \ this type are discouraged because of difficulty describing its\
-                    \ usage when embedded in APIs.\n 1. Ignored fields.  It includes\
-                    \ many fields which are not generally honored.  For instance,\
-                    \ ResourceVersion and FieldPath are both very rarely valid in\
-                    \ actual usage.\n 2. Invalid usage help.  It is impossible to\
-                    \ add specific help for individual usage.  In most embedded usages,\
-                    \ there are particular\n    restrictions like, \"must refer only\
-                    \ to types A and B\" or \"UID not honored\" or \"name must be\
-                    \ restricted\".\n    Those cannot be well described when embedded.\n\
-                    \ 3. Inconsistent validation.  Because the usages are different,\
-                    \ the validation rules are different by usage, which makes it\
-                    \ hard for users to predict what will happen.\n 4. The fields\
-                    \ are both imprecise and overly precise.  Kind is not a precise\
-                    \ mapping to a URL. This can produce ambiguity\n    during interpretation\
-                    \ and require a REST mapping.  In most cases, the dependency is\
-                    \ on the group,resource tuple\n    and the version of the actual\
-                    \ struct is irrelevant.\n 5. We cannot easily change it.  Because\
-                    \ this type is embedded in many locations, updates to this type\n\
-                    \    will affect numerous schemas.  Don't make new APIs embed\
-                    \ an underspecified API type they do not control.\n\n\nInstead\
-                    \ of using this type, create a locally provided and used type\
-                    \ that is well-focused on your reference.\nFor example, ServiceReferences\
-                    \ for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533\
-                    \ ."
+                  description: ObjectReference contains enough information to let
+                    you inspect or modify the referred object.
                   properties:
                     apiVersion:
                       description: API version of the referent.
@@ -2865,10 +2584,7 @@ spec:
                         index 2 in this pod). This syntax is chosen only to have some
                         well-defined way of
 
-                        referencing a part of an object.
-
-                        TODO: this design is not final and this field is subject to
-                        change in the future.'
+                        referencing a part of an object.'
                       type: string
                     kind:
                       description: 'Kind of the referent.
@@ -2907,6 +2623,27 @@ spec:
     storage: true
     subresources:
       status: {}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-cluster-admin-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - clusters
+  verbs:
+  - '*'
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - clusters/status
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -2964,6 +2701,27 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: etos
+  name: etos-environment-admin-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments
+  verbs:
+  - '*'
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environments/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
   name: etos-environment-editor-role
 rules:
 - apiGroups:
@@ -3005,6 +2763,27 @@ rules:
   - etos.eiffel-community.github.io
   resources:
   - environments/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-environmentrequest-admin-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests
+  verbs:
+  - '*'
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentrequests/status
   verbs:
   - get
 ---
@@ -3067,30 +2846,14 @@ rules:
   - '*'
   resources:
   - configmaps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
   - deployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
   - ingresses
+  - rolebindings
+  - roles
+  - secrets
+  - serviceaccounts
+  - services
+  - statefulsets
   verbs:
   - create
   - delete
@@ -3117,78 +2880,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - '*'
-  resources:
-  - rolebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - roles
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - serviceaccounts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - statefulsets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - batch
   resources:
   - jobs
@@ -3208,6 +2899,9 @@ rules:
   - etos.eiffel-community.github.io
   resources:
   - clusters
+  - environmentrequests
+  - environments
+  - providers
   verbs:
   - create
   - delete
@@ -3220,64 +2914,20 @@ rules:
   - etos.eiffel-community.github.io
   resources:
   - clusters/finalizers
+  - environmentrequests/finalizers
+  - environments/finalizers
+  - providers/finalizers
+  - testruns/finalizers
   verbs:
   - update
 - apiGroups:
   - etos.eiffel-community.github.io
   resources:
   - clusters/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - environmentrequests
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - environmentrequests/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
   - environmentrequests/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - environments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - environments/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
   - environments/status
+  - providers/status
+  - testruns/status
   verbs:
   - get
   - patch
@@ -3291,32 +2941,6 @@ rules:
 - apiGroups:
   - etos.eiffel-community.github.io
   resources:
-  - providers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - providers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - providers/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
   - testruns
   verbs:
   - create
@@ -3327,20 +2951,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - testruns/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - testruns/status
-  verbs:
-  - get
-  - patch
-  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -3367,6 +2977,27 @@ metadata:
 rules:
 - nonResourceURLs:
   - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-provider-admin-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers
+  verbs:
+  - '*'
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - providers/status
   verbs:
   - get
 ---
@@ -3417,6 +3048,27 @@ rules:
   - etos.eiffel-community.github.io
   resources:
   - providers/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-testrun-admin-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns
+  verbs:
+  - '*'
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns/status
   verbs:
   - get
 ---
@@ -3504,9 +3156,6 @@ kind: MutatingWebhookConfiguration
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
-  labels:
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: etos
   name: etos-mutating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
@@ -3517,7 +3166,7 @@ webhooks:
       namespace: etos-system
       path: /mutate-etos-eiffel-community-github-io-v1alpha1-environmentrequest
   failurePolicy: Fail
-  name: menvironmentrequest.kb.io
+  name: menvironmentrequest-v1alpha1.kb.io
   rules:
   - apiGroups:
     - etos.eiffel-community.github.io
@@ -3537,7 +3186,7 @@ webhooks:
       namespace: etos-system
       path: /mutate-etos-eiffel-community-github-io-v1alpha1-provider
   failurePolicy: Fail
-  name: mprovider.kb.io
+  name: mprovider-v1alpha1.kb.io
   rules:
   - apiGroups:
     - etos.eiffel-community.github.io
@@ -3557,7 +3206,7 @@ webhooks:
       namespace: etos-system
       path: /mutate-etos-eiffel-community-github-io-v1alpha1-testrun
   failurePolicy: Fail
-  name: mtestrun.kb.io
+  name: mtestrun-v1alpha1.kb.io
   rules:
   - apiGroups:
     - etos.eiffel-community.github.io
@@ -3575,13 +3224,6 @@ kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
-  labels:
-    app.kubernetes.io/component: webhook
-    app.kubernetes.io/created-by: etos
-    app.kubernetes.io/instance: validating-webhook-configuration
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: validatingwebhookconfiguration
-    app.kubernetes.io/part-of: etos
   name: etos-validating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
@@ -3592,7 +3234,7 @@ webhooks:
       namespace: etos-system
       path: /validate-etos-eiffel-community-github-io-v1alpha1-provider
   failurePolicy: Fail
-  name: mprovider.kb.io
+  name: vprovider-v1alpha1.kb.io
   rules:
   - apiGroups:
     - etos.eiffel-community.github.io
@@ -3612,7 +3254,7 @@ webhooks:
       namespace: etos-system
       path: /validate-etos-eiffel-community-github-io-v1alpha1-testrun
   failurePolicy: Fail
-  name: mtestrun.kb.io
+  name: vtestrun-v1alpha1.kb.io
   rules:
   - apiGroups:
     - etos.eiffel-community.github.io
