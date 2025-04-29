@@ -325,12 +325,6 @@ spec:
                           gracePeriod:
                             default: "300"
                             type: string
-                          observabilityConfigmapName:
-                            default: ""
-                            type: string
-                          otelCollectorHost:
-                            default: ""
-                            type: string
                           sidecarImage:
                             default: ""
                             type: string
@@ -693,11 +687,33 @@ spec:
                         type: string
                     type: object
                 type: object
+              openTelemetry:
+                default: {}
+                description: OpenTelemetry describes a deployment of an opentelemetry
+                  collector for ETOS to use.
+                properties:
+                  enabled:
+                    default: false
+                    description: Enable opentelemetry support, adding the environment
+                      variables to services.
+                    type: boolean
+                  endpoint:
+                    default: http://localhost:4317
+                    description: Sets the OTEL_EXPORTER_OTLP_ENDPOINT environment
+                      variable
+                    type: string
+                  insecure:
+                    default: "true"
+                    description: Sets the OTEL_EXPORTER_OTLP_INSECURE environment
+                      variable
+                    type: string
+                type: object
             required:
             - database
             - etos
             - eventRepository
             - messageBus
+            - openTelemetry
             type: object
           status:
             description: ClusterStatus defines the observed state of Cluster

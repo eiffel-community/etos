@@ -397,6 +397,10 @@ func (r *ETOSDeployment) config(name types.NamespacedName, cluster *etosv1alpha1
 	if cluster.Spec.ETOS.Config.TestRunRetention.Success != nil {
 		data["TESTRUN_SUCCESS_RETENTION"] = []byte(cluster.Spec.ETOS.Config.TestRunRetention.Success.Duration.String())
 	}
+	if cluster.Spec.OpenTelemetry.Enabled {
+		data["OTEL_EXPORTER_OTLP_ENDPOINT"] = []byte(cluster.Spec.OpenTelemetry.Endpoint)
+		data["OTEL_EXPORTER_OTLP_INSECURE"] = []byte(cluster.Spec.OpenTelemetry.Insecure)
+	}
 	if r.Config.Timezone != "" {
 		data["TZ"] = []byte(r.Config.Timezone)
 	}
