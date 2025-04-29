@@ -12,7 +12,7 @@ webhooks:
       namespace: system
       path: /mutate-etos-eiffel-community-github-io-v1alpha1-environmentrequest
   failurePolicy: Fail
-  name: menvironmentrequest.kb.io
+  name: menvironmentrequest-v1alpha1.kb.io
   rules:
   - apiGroups:
     - etos.eiffel-community.github.io
@@ -32,7 +32,7 @@ webhooks:
       namespace: system
       path: /mutate-etos-eiffel-community-github-io-v1alpha1-provider
   failurePolicy: Fail
-  name: mprovider.kb.io
+  name: mprovider-v1alpha1.kb.io
   rules:
   - apiGroups:
     - etos.eiffel-community.github.io
@@ -52,7 +52,7 @@ webhooks:
       namespace: system
       path: /mutate-etos-eiffel-community-github-io-v1alpha1-testrun
   failurePolicy: Fail
-  name: mtestrun.kb.io
+  name: mtestrun-v1alpha1.kb.io
   rules:
   - apiGroups:
     - etos.eiffel-community.github.io
@@ -78,7 +78,7 @@ webhooks:
       namespace: system
       path: /validate-etos-eiffel-community-github-io-v1alpha1-provider
   failurePolicy: Fail
-  name: mprovider.kb.io
+  name: vprovider-v1alpha1.kb.io
   rules:
   - apiGroups:
     - etos.eiffel-community.github.io
@@ -98,7 +98,7 @@ webhooks:
       namespace: system
       path: /validate-etos-eiffel-community-github-io-v1alpha1-testrun
   failurePolicy: Fail
-  name: mtestrun.kb.io
+  name: vtestrun-v1alpha1.kb.io
   rules:
   - apiGroups:
     - etos.eiffel-community.github.io

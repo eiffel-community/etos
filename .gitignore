@@ -1,7 +1,13 @@
-# Temporary and binary files
+# Binaries for programs and plugins
 *~
 *.py[cod]
+*.exe
+*.exe~
+*.dll
 *.so
+*.dylib
+bin/*
+Dockerfile.cross
 *.cfg
 !.isort.cfg
 !setup.cfg
@@ -14,7 +20,6 @@ __pycache__/*
 */.ipynb_checkpoints/*
 .DS_Store
 .tags
-bin
 
 # Project files
 .ropeproject
@@ -24,6 +29,25 @@ bin
 .idea
 .vscode
 tags
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Go workspace file
+go.work
+
+# Kubernetes Generated files - skip generated files, except for vendored files
+!vendor/**/zz_generated.*
+
+# editor and IDE paraphernalia
+.idea
+.vscode
+*.swp
+*.swo
+*~
 
 # Package files
 *.egg

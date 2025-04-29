@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -60,9 +60,9 @@ type EnvironmentRequestReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
 func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 
 	// Get environment if exists.
 	environmentrequest := &etosv1alpha1.EnvironmentRequest{}
@@ -107,7 +107,7 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 }
 
 func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 
 	// Set initial statuses if not set.
 	if meta.FindStatusCondition(environmentrequest.Status.Conditions, StatusReady) == nil {
@@ -417,7 +417,7 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 // reconcileDeletion checks for active environments and deletes them, causing them to clean up, and then, when all environments
 // are deleted, this function will remove the finalizer on the environmentrequest and the environmentrequest will be removed.
 func (r EnvironmentRequestReconciler) reconcileDeletion(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 
 	statusReady := meta.FindStatusCondition(environmentrequest.Status.Conditions, StatusReady)
 	if statusReady == nil {
@@ -468,7 +468,7 @@ func (r EnvironmentRequestReconciler) reconcileDeletion(ctx context.Context, env
 
 // environmentProviderJob is the job definition for an etos environment provider.
 func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) (*batchv1.Job, error) {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
@@ -624,6 +624,7 @@ func (r *EnvironmentRequestReconciler) SetupWithManager(mgr ctrl.Manager) error 
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&etosv1alpha1.EnvironmentRequest{}).
+		Named("environmentrequest").
 		Owns(&batchv1.Job{}).
 		Watches(
 			&etosv1alpha1.Provider{},

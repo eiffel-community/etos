@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -52,6 +52,7 @@ var (
 	iutProvider                = ".spec.providers.iut"
 	executionSpaceProvider     = ".spec.providers.executionSpace"
 	logAreaProvider            = ".spec.providers.logarea"
+	testRunKind                = "TestRun"
 )
 
 // TestRunReconciler reconciles a TestRun object
@@ -92,9 +93,9 @@ type Clock interface {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
 func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
 
 	testrun := &etosv1alpha1.TestRun{}
@@ -155,7 +156,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun) error {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 
 	// Set initial statuses if not set.
 	if meta.FindStatusCondition(testrun.Status.Conditions, StatusActive) == nil {
@@ -248,7 +249,7 @@ func (r *TestRunReconciler) complete(ctx context.Context, testrun *etosv1alpha1.
 
 // reconcileEnvironmentRequest will check the status of environment requests, create new ones if necessary.
 func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun) (error, bool) {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 	var environmentRequestList etosv1alpha1.EnvironmentRequestList
 	if err := r.List(ctx, &environmentRequestList, client.InNamespace(testrun.Namespace), client.MatchingFields{TestRunOwnerKey: testrun.Name}); err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -302,7 +303,7 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 
 // reconcileSuiteRunner will check the status of suite runners, create new ones if necessary.
 func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, suiteRunners *jobs, testrun *etosv1alpha1.TestRun) error {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 	// Suite runners failed, setting status.
 	if suiteRunners.failed() {
 		suiteRunner := suiteRunners.failedJobs[0] // TODO
@@ -407,7 +408,7 @@ func (r *TestRunReconciler) update(ctx context.Context, testrun *etosv1alpha1.Te
 
 // checkEnvironment will check the status of the environment used for test.
 func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 	logger.Info("Checking environment")
 	var environments etosv1alpha1.EnvironmentList
 	if err := r.List(ctx, &environments, client.InNamespace(testrun.Namespace), client.MatchingFields{TestRunOwnerKey: testrun.Name}); err != nil {
@@ -776,6 +777,7 @@ func (r *TestRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&etosv1alpha1.TestRun{}).
+		Named("testrun").
 		Owns(&batchv1.Job{}).
 		Owns(&etosv1alpha1.EnvironmentRequest{}).
 		Watches(
@@ -809,7 +811,7 @@ func (r *TestRunReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error {
 		if owner == nil {
 			return nil
 		}
-		if owner.APIVersion != APIGroupVersionString || owner.Kind != "TestRun" {
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != testRunKind {
 			return nil
 		}
 
@@ -828,7 +830,7 @@ func (r *TestRunReconciler) registerOwnerIndexForEnvironment(mgr ctrl.Manager) e
 		if owner == nil {
 			return nil
 		}
-		if owner.APIVersion != APIGroupVersionString || owner.Kind != "TestRun" {
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != testRunKind {
 			return nil
 		}
 		return []string{owner.Name}
@@ -846,7 +848,7 @@ func (r *TestRunReconciler) registerOwnerIndexForEnvironmentRequest(mgr ctrl.Man
 		if owner == nil {
 			return nil
 		}
-		if owner.APIVersion != APIGroupVersionString || owner.Kind != "TestRun" {
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != testRunKind {
 			return nil
 		}
 
@@ -908,7 +910,7 @@ func (r *TestRunReconciler) findTestrunsForEnvironment(ctx context.Context, envi
 	// how registerOwnerIndexForJob does it.
 	refs := environment.GetOwnerReferences()
 	for i := range refs {
-		if refs[i].APIVersion == APIGroupVersionString && refs[i].Kind == "TestRun" {
+		if refs[i].APIVersion == APIGroupVersionString && refs[i].Kind == testRunKind {
 			return []reconcile.Request{
 				{
 					NamespacedName: types.NamespacedName{

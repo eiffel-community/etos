@@ -51,7 +51,16 @@ var _ = Describe("TestRun Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: etosv1alpha1.TestRunSpec{
+						Artifact: "268dd4db-93da-4232-a544-bf4c0fb26dac",
+						Identity: "pkg:testrun/etos/eiffel_community",
+						Providers: etosv1alpha1.Providers{
+							IUT:            "default",
+							LogArea:        "default",
+							ExecutionSpace: "default",
+						},
+						Suites: []etosv1alpha1.Suite{},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

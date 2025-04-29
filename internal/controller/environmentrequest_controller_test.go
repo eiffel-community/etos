@@ -51,7 +51,24 @@ var _ = Describe("EnvironmentRequest Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: etosv1alpha1.EnvironmentRequestSpec{
+						Image: &etosv1alpha1.Image{
+							Image: "ghcr.io/eiffel-community/etos-environment-provider:60bf50aa",
+						},
+						MinimumAmount: 1,
+						MaximumAmount: 1,
+						Providers: etosv1alpha1.EnvironmentProviders{
+							IUT:     etosv1alpha1.IutProvider{ID: "default"},
+							LogArea: etosv1alpha1.LogAreaProvider{ID: "default"},
+							ExecutionSpace: etosv1alpha1.ExecutionSpaceProvider{
+								ID:         "default",
+								TestRunner: "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
+							},
+						},
+						Splitter: etosv1alpha1.Splitter{
+							Tests: []etosv1alpha1.Test{},
+						},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

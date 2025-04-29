@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -51,7 +52,26 @@ var _ = Describe("Environment Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: etosv1alpha1.EnvironmentSpec{
+						Name:        "etos-controller-test",
+						SuiteID:     "98f061a2-ee55-447c-aff4-78cafa6ae15d",
+						SubSuiteID:  "7dbbed66-b71f-4ff7-a76c-fe9cd77409b4",
+						MainSuiteID: "1ad41f38-3745-41cc-bd19-cafc0c673dae",
+						Artifact:    "268dd4db-93da-4232-a544-bf4c0fb26dac",
+						Context:     "012a79a7-3f43-41e4-82c2-d71b4899d82e",
+						Priority:    1,
+						Tests:       []etosv1alpha1.Test{},
+						TestRunner:  "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
+						Iut: &apiextensionsv1.JSON{
+							Raw: []byte("{}"),
+						},
+						Executor: &apiextensionsv1.JSON{
+							Raw: []byte("{}"),
+						},
+						LogArea: &apiextensionsv1.JSON{
+							Raw: []byte("{}"),
+						},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

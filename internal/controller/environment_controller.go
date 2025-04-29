@@ -33,7 +33,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 )
@@ -56,7 +56,7 @@ type EnvironmentReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
 func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	environment := &etosv1alpha1.Environment{}
 	err := r.Get(ctx, req.NamespacedName, environment)
@@ -92,7 +92,7 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // reconcile an environment resource to its desired state.
 func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etosv1alpha1.Environment) error {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 
 	// Set initial statuses if not set.
 	if meta.FindStatusCondition(environment.Status.Conditions, StatusActive) == nil {
@@ -150,7 +150,7 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 
 // reconcileReleaser will check the status of environment releasers, create new ones if necessary.
 func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers *jobs, environment *etosv1alpha1.Environment) error {
-	logger := log.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 
 	// Environment releaser failed, setting status.
 	if releasers.failed() {
@@ -350,9 +350,9 @@ func (r *EnvironmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := r.registerOwnerIndexForJob(mgr); err != nil {
 		return err
 	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&etosv1alpha1.Environment{}).
+		Named("environment").
 		Owns(&batchv1.Job{}).
 		Complete(r)
 }

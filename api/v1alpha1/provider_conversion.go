@@ -16,18 +16,7 @@
 
 package v1alpha1
 
-import (
-	. "github.com/onsi/ginkgo/v2"
-)
+// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-var _ = Describe("EnvironmentRequest Webhook", func() {
-
-	Context("When creating EnvironmentRequest under Defaulting Webhook", func() {
-		It("Should fill in the default value if a required field is empty", func() {
-
-			// TODO(user): Add your logic here
-
-		})
-	})
-
-})
+// Hub marks this type as a conversion hub.
+func (*Provider) Hub() {}

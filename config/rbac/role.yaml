@@ -8,30 +8,14 @@ rules:
   - '*'
   resources:
   - configmaps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
   - deployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
   - ingresses
+  - rolebindings
+  - roles
+  - secrets
+  - serviceaccounts
+  - services
+  - statefulsets
   verbs:
   - create
   - delete
@@ -58,78 +42,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - '*'
-  resources:
-  - rolebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - roles
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - serviceaccounts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - statefulsets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - batch
   resources:
   - jobs
@@ -149,6 +61,9 @@ rules:
   - etos.eiffel-community.github.io
   resources:
   - clusters
+  - environmentrequests
+  - environments
+  - providers
   verbs:
   - create
   - delete
@@ -161,64 +76,20 @@ rules:
   - etos.eiffel-community.github.io
   resources:
   - clusters/finalizers
+  - environmentrequests/finalizers
+  - environments/finalizers
+  - providers/finalizers
+  - testruns/finalizers
   verbs:
   - update
 - apiGroups:
   - etos.eiffel-community.github.io
   resources:
   - clusters/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - environmentrequests
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - environmentrequests/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
   - environmentrequests/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - environments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - environments/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
   - environments/status
+  - providers/status
+  - testruns/status
   verbs:
   - get
   - patch
@@ -232,32 +103,6 @@ rules:
 - apiGroups:
   - etos.eiffel-community.github.io
   resources:
-  - providers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - providers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - providers/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
   - testruns
   verbs:
   - create
@@ -268,17 +113,3 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - testruns/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
-  - testruns/status
-  verbs:
-  - get
-  - patch
-  - update
