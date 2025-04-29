@@ -132,7 +132,7 @@ func (d *ProviderCustomDefaulter) Default(ctx context.Context, obj runtime.Objec
 	provider, ok := obj.(*etosv1alpha1.Provider)
 
 	if !ok {
-		return fmt.Errorf("expected an Provider object but got %T", obj)
+		return fmt.Errorf("expected a Provider object but got %T", obj)
 	}
 	providerlog.Info("Defaulting for Provider", "name", provider.GetName())
 
@@ -212,7 +212,7 @@ func (d *ProviderCustomValidator) ValidateCreate(_ context.Context, obj runtime.
 	provider, ok := obj.(*etosv1alpha1.Provider)
 
 	if !ok {
-		return nil, fmt.Errorf("expected an Provider object but got %T", obj)
+		return nil, fmt.Errorf("expected a Provider object but got %T", obj)
 	}
 	providerlog.Info("Validation for Provider upon creation", "name", provider.GetName())
 	return nil, d.validate(provider)
@@ -223,7 +223,7 @@ func (d *ProviderCustomValidator) ValidateUpdate(_ context.Context, _, newObj ru
 	provider, ok := newObj.(*etosv1alpha1.Provider)
 
 	if !ok {
-		return nil, fmt.Errorf("expected an Provider object but got %T", newObj)
+		return nil, fmt.Errorf("expected a Provider object but got %T", newObj)
 	}
 	providerlog.Info("Validation for Provider upon update", "name", provider.GetName())
 	return nil, d.validate(provider)
@@ -234,7 +234,7 @@ func (d *ProviderCustomValidator) ValidateDelete(_ context.Context, obj runtime.
 	provider, ok := obj.(*etosv1alpha1.Provider)
 
 	if !ok {
-		return nil, fmt.Errorf("expected an Provider object but got %T", obj)
+		return nil, fmt.Errorf("expected a Provider object but got %T", obj)
 	}
 	providerlog.Info("Validation for Provider upon deletion", "name", provider.GetName())
 	return nil, nil

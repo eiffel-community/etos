@@ -23,6 +23,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -65,34 +66,58 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 	testrun, ok := obj.(*etosv1alpha1.TestRun)
 
 	if !ok {
-		return fmt.Errorf("expected an TestRun object but got %T", obj)
+		return fmt.Errorf("expected a TestRun object but got %T", obj)
 	}
 	testrunlog.Info("Defaulting for TestRun", "name", testrun.GetName())
+	testrunlog.Info("TestRun spec", "spec", testrun.Spec)
 
 	if testrun.Spec.ID == "" {
+		testrunlog.Info("TestRun ID does not exist, generating a new one")
 		testrun.Spec.ID = string(uuid.NewUUID())
 	}
+
+	testrunlog.Info("Checking for a cluster, either in spec or in namespace")
 	clusters := &etosv1alpha1.ClusterList{}
+	var cluster *etosv1alpha1.Cluster
 	if testrun.Spec.Cluster == "" {
+		testrunlog.Info("TestRun cluster is empty, checking if a cluster is deployed in namespace")
 		if err := cli.List(ctx, clusters, client.InNamespace(testrun.Namespace)); err != nil {
 			testrunlog.Error(err, "name", testrun.Name, "namespace", testrun.Namespace, "Failed to get clusters in namespace")
 		}
+		testrunlog.Info("Number of clusters found in namespace", "count", len(clusters.Items))
+		if len(clusters.Items) == 1 {
+			cluster = &clusters.Items[0]
+			testrun.Spec.Cluster = cluster.Name
+		}
+	} else {
+		testrunlog.Info("Getting cluster from specification")
+		clusterNamespacedName := types.NamespacedName{
+			Name:      testrun.Spec.Cluster,
+			Namespace: testrun.Namespace,
+		}
+		testrunlog.Info("Getting cluster from specification", "name", clusterNamespacedName.Name, "namespace", clusterNamespacedName.Namespace)
+		clu := &etosv1alpha1.Cluster{}
+		if err := cli.Get(ctx, clusterNamespacedName, clu); err != nil {
+			testrunlog.Error(err, "name", testrun.Name, "namespace", testrun.Namespace, "cluster", clusterNamespacedName.Name,
+				"Failed to get cluster in namespace")
+		}
+		cluster = clu
 	}
-	var cluster *etosv1alpha1.Cluster
-	if len(clusters.Items) == 1 {
-		cluster = &clusters.Items[0]
-		testrun.Spec.Cluster = cluster.Name
-	}
+
 	if testrun.Spec.SuiteRunner == nil && cluster != nil {
+		testrunlog.Info("Loading suite runner image from cluster", "suiteRunner", cluster.Spec.ETOS.SuiteRunner.Image)
 		testrun.Spec.SuiteRunner = &etosv1alpha1.SuiteRunner{Image: &cluster.Spec.ETOS.SuiteRunner.Image}
 	}
 	if testrun.Spec.LogListener == nil && cluster != nil {
+		testrunlog.Info("Loading log listener image from cluster", "logListener", cluster.Spec.ETOS.SuiteRunner.LogListener.Image)
 		testrun.Spec.LogListener = &etosv1alpha1.LogListener{Image: &cluster.Spec.ETOS.SuiteRunner.LogListener.Image}
 	}
 	if testrun.Spec.EnvironmentProvider == nil && cluster != nil {
+		testrunlog.Info("Loading environment provider image from cluster", "environmentProvider", cluster.Spec.ETOS.EnvironmentProvider.Image)
 		testrun.Spec.EnvironmentProvider = &etosv1alpha1.EnvironmentProvider{Image: &cluster.Spec.ETOS.EnvironmentProvider.Image}
 	}
 	if testrun.Spec.TestRunner == nil && cluster != nil {
+		testrunlog.Info("Loading test runner version from cluster", "testRunner", cluster.Spec.ETOS.TestRunner.Version)
 		testrun.Spec.TestRunner = &etosv1alpha1.TestRunner{Version: cluster.Spec.ETOS.TestRunner.Version}
 	}
 
@@ -107,8 +132,10 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 		testrun.ObjectMeta.Labels = map[string]string{}
 	}
 	if addLabel {
+		testrunlog.Info("Adding ETOS test run ID label", "id", testrun.Spec.ID)
 		testrun.ObjectMeta.Labels["etos.eiffel-community.github.io/id"] = testrun.Spec.ID
 	}
+	testrunlog.Info("Defaulting webhook has finished")
 
 	return nil
 }
@@ -183,7 +210,7 @@ func (d *TestRunCustomValidator) ValidateCreate(_ context.Context, obj runtime.O
 	testrun, ok := obj.(*etosv1alpha1.TestRun)
 
 	if !ok {
-		return nil, fmt.Errorf("expected an TestRun object but got %T", obj)
+		return nil, fmt.Errorf("expected a TestRun object but got %T", obj)
 	}
 	testrunlog.Info("Validation for TestRun upon creation", "name", testrun.GetName())
 	return nil, d.validate(testrun)
@@ -194,7 +221,7 @@ func (d *TestRunCustomValidator) ValidateUpdate(_ context.Context, _, newObj run
 	testrun, ok := newObj.(*etosv1alpha1.TestRun)
 
 	if !ok {
-		return nil, fmt.Errorf("expected an TestRun object but got %T", newObj)
+		return nil, fmt.Errorf("expected a TestRun object but got %T", newObj)
 	}
 	testrunlog.Info("Validation for TestRun upon update", "name", testrun.GetName())
 	return nil, d.validate(testrun)
@@ -205,7 +232,7 @@ func (d *TestRunCustomValidator) ValidateDelete(_ context.Context, obj runtime.O
 	testrun, ok := obj.(*etosv1alpha1.TestRun)
 
 	if !ok {
-		return nil, fmt.Errorf("expected an TestRun object but got %T", obj)
+		return nil, fmt.Errorf("expected a TestRun object but got %T", obj)
 	}
 	testrunlog.Info("Validation for TestRun upon deletion", "name", testrun.GetName())
 	return nil, nil

@@ -30,7 +30,6 @@ import (
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 )
 
-// nolint:unused
 // log is for logging in this package.
 var environmentrequestlog = logf.Log.WithName("environmentrequest-resource")
 
