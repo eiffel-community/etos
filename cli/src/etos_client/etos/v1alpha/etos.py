@@ -159,6 +159,7 @@ class Etos:
                         result = self.__track(test_run, response, end)
                     else:
                         result = self.__track_v0(test_run, response, end)
+                    break
                 except TokenExpired:
                     self.__apikey = None
                     continue
