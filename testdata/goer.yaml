@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: goer
+  name: goer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: goer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: goer
+      name: goer
+    spec:
+      containers:
+      - envFrom:
+        - secretRef:
+            name: cluster-sample-graphql
+        env:
+        - name: API_PORT
+          value: "9090"
+        - name: CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              key: MONGODB_CONNSTRING
+              name: cluster-sample-graphql
+              optional: false
+        image: ghcr.io/eiffel-community/eiffel-goer:sha-e8263bd
+        imagePullPolicy: IfNotPresent
+        name: goer
+        ports:
+        - containerPort: 9090
+          name: goer
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: goer
+  name: goer
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: goer
+  selector:
+    app.kubernetes.io/name: goer
+  type: ClusterIP
