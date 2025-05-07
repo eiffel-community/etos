@@ -325,6 +325,12 @@ spec:
                           gracePeriod:
                             default: "300"
                             type: string
+                          observabilityConfigmapName:
+                            default: ""
+                            type: string
+                          otelCollectorHost:
+                            default: ""
+                            type: string
                           sidecarImage:
                             default: ""
                             type: string

@@ -145,6 +145,12 @@ type ETOSSuiteStarterConfig struct {
 	// +kubebuilder:default=""
 	// +optional
 	SidecarImage string `json:"sidecarImage,omitempty"`
+	// +kubebuilder:default=""
+	// +optional
+	OtelCollectorHost string `json:"otelCollectorHost,omitempty"`
+	// +kubebuilder:default=""
+	// +optional
+	ObservabilityConfigmapName string `json:"observabilityConfigmapName,omitempty"`
 }
 
 // ETOSSuiteStarter describes the deployment of an ETOS suite starter.
