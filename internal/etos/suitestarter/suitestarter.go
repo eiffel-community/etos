@@ -670,8 +670,6 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
                 value: /graveyard
               - name: OTEL_CONTEXT
                 value: {otel_context}
-			  - name: OTEL_EXPORTER_OTLP_ENDPOINT
-                value: {otel_exporter_otlp_endpoint}
               volumeMounts:
               - name: graveyard
                 mountPath: /graveyard
