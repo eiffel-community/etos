@@ -33,11 +33,12 @@ from requests.exceptions import HTTPError
 from etos_lib.lib.http import Http
 
 
+max_retries = 10  # With 1 as backoff_factor, the total wait time between retries will be 1023 seconds
 HTTP_RETRY_PARAMETERS = Retry(
     total=None,
-    read=0,
-    connect=10,  # With 1 as backoff_factor, will retry for 1023s
-    status=10,  # With 1 as backoff_factor, will retry for 1023s
+    read=max_retries,
+    connect=max_retries,
+    status=max_retries,
     backoff_factor=1,
     other=0,
     # 413, 429, 503 + 404 (for cases when the file is not uploaded immediately)
