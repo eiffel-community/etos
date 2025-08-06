@@ -24,7 +24,11 @@ from urllib3.exceptions import HTTPError, MaxRetryError
 from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry
 
-from etos_lib.messaging.events import Shutdown, Event, parse
+#from etos_lib.messaging.events import Shutdown, Event, parse # import disabled due to: https://github.com/eiffel-community/etos/issues/417
+# dummy class: remove when the etos_lib.messaging module is available
+class Event:
+    pass
+
 
 CHUNK_SIZE = 500
 RETRIES = Retry(
