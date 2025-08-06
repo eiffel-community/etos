@@ -20,12 +20,25 @@ import sys
 import logging
 
 from etos_lib.lib.http import Http
-from etos_lib.messaging.events import Artifact, Message, Report, Shutdown
+#from etos_lib.messaging.events import Artifact, Message, Report, Shutdown  # import disabled due to: https://github.com/eiffel-community/etos/issues/417
 from urllib3.util import Retry
 from requests.exceptions import HTTPError
 from etosctl.command import Command
 from etosctl.models import CommandMeta
 from etos_client.sse.v2alpha.client import SSEClient
+
+# dummy classes: remove when the etos_lib.messaging module is available: https://github.com/eiffel-community/etos/issues/417
+class Artifact:
+    pass
+
+class Message:
+    pass
+
+class Report:
+    pass
+
+class Shutdown:
+    pass
 
 LOGGER = logging.getLogger(__name__)
 # Max total time for a ping request including delays with backoff factor 0.5 will be:
