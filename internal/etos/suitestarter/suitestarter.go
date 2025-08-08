@@ -623,7 +623,7 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
               - mountPath: /kubexit
                 name: kubexit
             - name: create-queue
-              image: ghcr.io/eiffel-community/etos-log-listener:4969c9b2
+              image: {log_listener}
               command: ["python", "-u", "-m", "create_queue"]
               resources:
                 requests:
