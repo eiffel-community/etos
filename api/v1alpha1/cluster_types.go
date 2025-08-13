@@ -103,6 +103,26 @@ type Etcd struct {
 	// +kubebuilder:default="2379"
 	// +optional
 	Port string `json:"port"`
+	// Parameter is ignored if Deploy is set to true.
+	// +kubebuilder:default="quay.io/coreos/etcd:v3.5.19"
+	// +optional
+	Image string `json:"image"`
+	// Parameter is ignored if Deploy is set to true.
+	// +kubebuilder:default="1024Mi"
+	// +optional
+	RequestsMemory string `json:"requestsMemory"`
+	// Parameter is ignored if Deploy is set to true.
+	// +kubebuilder:default="400m"
+	// +optional
+	RequestsCPU string `json:"requestsCPU"`
+	// Parameter is ignored if Deploy is set to true.
+	// +kubebuilder:default=1024*1024*1024
+	// +optional
+	LimitsMemory string `json:"limitsMemory"`
+	// Parameter is ignored if Deploy is set to true.
+	// +kubebuilder:default="400m"
+	// +optional
+	LimitsCPU string `json:"limitsCPU"`
 }
 
 // Database describes the deployment of a database for ETOS.
