@@ -39,7 +39,6 @@ var (
 	etcdClientPort int32 = 2379
 	etcdServerPort int32 = 2380
 	etcdMetricPort int32 = 8080
-	etcdReplicas   int32 = 3
 )
 
 type ETCDDeployment struct {
@@ -155,11 +154,6 @@ func (r *ETCDDeployment) reconcileClientService(ctx context.Context, name types.
 
 // statefulset creates a statefulset resource definition for ETCD.
 func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.StatefulSet {
-	// Set default value for replicas if it is nil or zero
-	replicas := etcdReplicas // use the default constant
-	if r.Etcd.Replicas != nil && *r.Etcd.Replicas > 0 {
-		replicas = *r.Etcd.Replicas
-	}
 
 	return &appsv1.StatefulSet{
 		ObjectMeta: r.meta(name),
@@ -171,7 +165,7 @@ func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.Stateful
 				},
 			},
 			ServiceName: name.Name,
-			Replicas:    &replicas,
+			Replicas:    r.Etcd.Replicas,
 			// For initialization, the etcd pods must be available to each other before
 			// they are "ready" for traffic. The "Parallel" policy makes this possible.
 			PodManagementPolicy: appsv1.ParallelPodManagement,

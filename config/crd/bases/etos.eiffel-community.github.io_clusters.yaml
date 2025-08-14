@@ -59,36 +59,36 @@ spec:
                     properties:
                       host:
                         default: etcd-client
-                        description: Parameter is ignored if Deploy is set to true.
+                        description: Parameter is ignored if Deploy is set to false.
                         type: string
                       image:
                         default: quay.io/coreos/etcd:v3.5.19
-                        description: Parameter is ignored if Deploy is set to true.
+                        description: Parameter is ignored if Deploy is set to false.
                         type: string
                       limitsCPU:
                         default: 300m
-                        description: Parameter is ignored if Deploy is set to true.
+                        description: Parameter is ignored if Deploy is set to false.
                         type: string
                       limitsMemory:
                         default: 768Mi
-                        description: Parameter is ignored if Deploy is set to true.
+                        description: Parameter is ignored if Deploy is set to false.
                         type: string
                       port:
                         default: "2379"
-                        description: Parameter is ignored if Deploy is set to true.
+                        description: Parameter is ignored if Deploy is set to false.
                         type: string
                       replicas:
                         default: 3
-                        description: Parameter is ignored if Deploy is set to true.
+                        description: Parameter is ignored if Deploy is set to false.
                         format: int32
                         type: integer
                       requestsCPU:
                         default: 300m
-                        description: Parameter is ignored if Deploy is set to true.
+                        description: Parameter is ignored if Deploy is set to false.
                         type: string
                       requestsMemory:
                         default: 768Mi
-                        description: Parameter is ignored if Deploy is set to true.
+                        description: Parameter is ignored if Deploy is set to false.
                         type: string
                     type: object
                 type: object

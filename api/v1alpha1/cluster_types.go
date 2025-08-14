@@ -95,35 +95,35 @@ type MessageBus struct {
 
 // Etcd describes the deployment of an ETCD database.
 type Etcd struct {
-	// Parameter is ignored if Deploy is set to true.
+	// Parameter is ignored if Deploy is set to false.
 	// +kubebuilder:default="etcd-client"
 	// +optional
 	Host string `json:"host"`
-	// Parameter is ignored if Deploy is set to true.
+	// Parameter is ignored if Deploy is set to false.
 	// +kubebuilder:default="2379"
 	// +optional
 	Port string `json:"port"`
-	// Parameter is ignored if Deploy is set to true.
+	// Parameter is ignored if Deploy is set to false.
 	// +kubebuilder:default="quay.io/coreos/etcd:v3.5.19"
 	// +optional
 	Image string `json:"image"`
-	// Parameter is ignored if Deploy is set to true.
+	// Parameter is ignored if Deploy is set to false.
 	// +kubebuilder:default="768Mi"
 	// +optional
 	RequestsMemory string `json:"requestsMemory"`
-	// Parameter is ignored if Deploy is set to true.
+	// Parameter is ignored if Deploy is set to false.
 	// +kubebuilder:default="300m"
 	// +optional
 	RequestsCPU string `json:"requestsCPU"`
-	// Parameter is ignored if Deploy is set to true.
+	// Parameter is ignored if Deploy is set to false.
 	// +kubebuilder:default="768Mi"
 	// +optional
 	LimitsMemory string `json:"limitsMemory"`
-	// Parameter is ignored if Deploy is set to true.
+	// Parameter is ignored if Deploy is set to false.
 	// +kubebuilder:default="300m"
 	// +optional
 	LimitsCPU string `json:"limitsCPU"`
-	// Parameter is ignored if Deploy is set to true.
+	// Parameter is ignored if Deploy is set to false.
 	// +kubebuilder:default=3
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
