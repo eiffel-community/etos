@@ -266,39 +266,9 @@ func (r *ETCDDeployment) volume(name types.NamespacedName) corev1.Volume {
 
 // container creates a container resource definition for the ETCD statefulset.
 func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
-	// Set default values for resource specifications if they are empty
-	limitsMemory := r.Etcd.LimitsMemory
-	if limitsMemory == "" {
-		limitsMemory = "768Mi"
-	}
-	limitsCPU := r.Etcd.LimitsCPU
-	if limitsCPU == "" {
-		limitsCPU = "300m"
-	}
-	requestsMemory := r.Etcd.RequestsMemory
-	if requestsMemory == "" {
-		requestsMemory = "768Mi"
-	}
-	requestsCPU := r.Etcd.RequestsCPU
-	if requestsCPU == "" {
-		requestsCPU = "300m"
-	}
-
-	// Set default value for image if it is empty
-	image := r.Etcd.Image
-	if image == "" {
-		image = "quay.io/coreos/etcd:v3.5.19"
-	}
-
-	// Set default value for replicas if it is nil or zero
-	replicas := etcdReplicas // use the default constant
-	if r.Etcd.Replicas != nil && *r.Etcd.Replicas > 0 {
-		replicas = *r.Etcd.Replicas
-	}
-
 	// Build the initial cluster configuration dynamically based on replicas
 	var initialClusterMembers []string
-	for i := int32(0); i < replicas; i++ {
+	for i := int32(0); i < *r.Etcd.Replicas; i++ {
 		member := fmt.Sprintf("%s-%d=$(URI_SCHEME)://%s-%d.$(SERVICE_NAME):%d", name.Name, i, name.Name, i, etcdServerPort)
 		initialClusterMembers = append(initialClusterMembers, member)
 	}
@@ -323,15 +293,15 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 
 	return corev1.Container{
 		Name:  "etcd",
-		Image: image,
+		Image: r.Etcd.Image,
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse(limitsMemory),
-				corev1.ResourceCPU:    resource.MustParse(limitsCPU),
+				corev1.ResourceMemory: resource.MustParse(r.Etcd.LimitsMemory),
+				corev1.ResourceCPU:    resource.MustParse(r.Etcd.LimitsCPU),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse(requestsMemory),
-				corev1.ResourceCPU:    resource.MustParse(requestsCPU),
+				corev1.ResourceMemory: resource.MustParse(r.Etcd.RequestsMemory),
+				corev1.ResourceCPU:    resource.MustParse(r.Etcd.RequestsCPU),
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
