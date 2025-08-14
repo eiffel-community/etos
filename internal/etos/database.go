@@ -259,17 +259,35 @@ func (r *ETCDDeployment) volume(name types.NamespacedName) corev1.Volume {
 
 // container creates a container resource definition for the ETCD statefulset.
 func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
+	// Set default values for resource specifications if they are empty
+	limitsMemory := r.Etcd.LimitsMemory
+	if limitsMemory == "" {
+		limitsMemory = "768Mi"
+	}
+	limitsCPU := r.Etcd.LimitsCPU
+	if limitsCPU == "" {
+		limitsCPU = "300m"
+	}
+	requestsMemory := r.Etcd.RequestsMemory
+	if requestsMemory == "" {
+		requestsMemory = "768Mi"
+	}
+	requestsCPU := r.Etcd.RequestsCPU
+	if requestsCPU == "" {
+		requestsCPU = "300m"
+	}
+
 	return corev1.Container{
 		Name:  "etcd",
 		Image: r.Etcd.Image,
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse(r.Etcd.LimitsMemory),
-				corev1.ResourceCPU:    resource.MustParse(r.Etcd.LimitsCPU),
+				corev1.ResourceMemory: resource.MustParse(limitsMemory),
+				corev1.ResourceCPU:    resource.MustParse(limitsCPU),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse(r.Etcd.RequestsMemory),
-				corev1.ResourceCPU:    resource.MustParse(r.Etcd.RequestsCPU),
+				corev1.ResourceMemory: resource.MustParse(requestsMemory),
+				corev1.ResourceCPU:    resource.MustParse(requestsCPU),
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
