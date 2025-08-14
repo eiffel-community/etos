@@ -106,23 +106,23 @@ type Etcd struct {
 	// Parameter is ignored if Deploy is set to true.
 	// +kubebuilder:default="quay.io/coreos/etcd:v3.5.19"
 	// +optional
-	Image string `json:"image,omitempty"`
+	Image string `json:"image"`
 	// Parameter is ignored if Deploy is set to true.
 	// +kubebuilder:default="768Mi"
 	// +optional
-	RequestsMemory string `json:"requestsMemory,omitempty"`
+	RequestsMemory string `json:"requestsMemory"`
 	// Parameter is ignored if Deploy is set to true.
 	// +kubebuilder:default="300m"
 	// +optional
-	RequestsCPU string `json:"requestsCPU,omitempty"`
+	RequestsCPU string `json:"requestsCPU"`
 	// Parameter is ignored if Deploy is set to true.
 	// +kubebuilder:default="768Mi"
 	// +optional
-	LimitsMemory string `json:"limitsMemory,omitempty"`
+	LimitsMemory string `json:"limitsMemory"`
 	// Parameter is ignored if Deploy is set to true.
 	// +kubebuilder:default="300m"
 	// +optional
-	LimitsCPU string `json:"limitsCPU,omitempty"`
+	LimitsCPU string `json:"limitsCPU"`
 	// Parameter is ignored if Deploy is set to true.
 	// +kubebuilder:default=3
 	// +optional
