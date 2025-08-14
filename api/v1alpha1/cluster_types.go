@@ -108,21 +108,25 @@ type Etcd struct {
 	// +optional
 	Image string `json:"image"`
 	// Parameter is ignored if Deploy is set to true.
-	// +kubebuilder:default="1024Mi"
+	// +kubebuilder:default="768Mi"
 	// +optional
 	RequestsMemory string `json:"requestsMemory"`
 	// Parameter is ignored if Deploy is set to true.
-	// +kubebuilder:default="400m"
+	// +kubebuilder:default="300m"
 	// +optional
 	RequestsCPU string `json:"requestsCPU"`
 	// Parameter is ignored if Deploy is set to true.
-	// +kubebuilder:default=1024*1024*1024
+	// +kubebuilder:default="768Mi"
 	// +optional
 	LimitsMemory string `json:"limitsMemory"`
 	// Parameter is ignored if Deploy is set to true.
-	// +kubebuilder:default="400m"
+	// +kubebuilder:default="300m"
 	// +optional
 	LimitsCPU string `json:"limitsCPU"`
+	// Parameter is ignored if Deploy is set to true.
+	// +kubebuilder:default=3
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
 }
 
 // Database describes the deployment of a database for ETOS.
