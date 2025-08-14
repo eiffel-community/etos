@@ -123,10 +123,6 @@ type Etcd struct {
 	// +kubebuilder:default="300m"
 	// +optional
 	LimitsCPU string `json:"limitsCPU"`
-	// Parameter is ignored if Deploy is set to false.
-	// +kubebuilder:default=3
-	// +optional
-	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
 }
 
 // Database describes the deployment of a database for ETOS.

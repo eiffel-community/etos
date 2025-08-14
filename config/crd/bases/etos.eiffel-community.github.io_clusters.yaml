@@ -77,11 +77,6 @@ spec:
                         default: "2379"
                         description: Parameter is ignored if Deploy is set to false.
                         type: string
-                      replicas:
-                        default: 3
-                        description: Parameter is ignored if Deploy is set to false.
-                        format: int32
-                        type: integer
                       requestsCPU:
                         default: 300m
                         description: Parameter is ignored if Deploy is set to false.

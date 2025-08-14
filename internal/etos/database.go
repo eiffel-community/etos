@@ -19,7 +19,6 @@ package etos
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -39,6 +38,7 @@ var (
 	etcdClientPort int32 = 2379
 	etcdServerPort int32 = 2380
 	etcdMetricPort int32 = 8080
+	etcdReplicas   int32 = 3
 )
 
 type ETCDDeployment struct {
@@ -165,7 +165,7 @@ func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.Stateful
 				},
 			},
 			ServiceName: name.Name,
-			Replicas:    r.Etcd.Replicas,
+			Replicas:    &etcdReplicas,
 			// For initialization, the etcd pods must be available to each other before
 			// they are "ready" for traffic. The "Parallel" policy makes this possible.
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -260,31 +260,6 @@ func (r *ETCDDeployment) volume(name types.NamespacedName) corev1.Volume {
 
 // container creates a container resource definition for the ETCD statefulset.
 func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
-	// Build the initial cluster configuration dynamically based on replicas
-	var initialClusterMembers []string
-	for i := int32(0); i < *r.Etcd.Replicas; i++ {
-		member := fmt.Sprintf("%s-%d=$(URI_SCHEME)://%s-%d.$(SERVICE_NAME):%d", name.Name, i, name.Name, i, etcdServerPort)
-		initialClusterMembers = append(initialClusterMembers, member)
-	}
-	initialCluster := fmt.Sprintf("--initial-cluster=%s", fmt.Sprintf("%s", strings.Join(initialClusterMembers, ",")))
-
-	// Build args slice with dynamic initial cluster
-	args := []string{
-		"--name=$(HOSTNAME)",
-		"--data-dir=/data",
-		"--wal-dir=/data/wal",
-		fmt.Sprintf("--listen-peer-urls=$(URI_SCHEME)://0.0.0.0:%d", etcdServerPort),
-		fmt.Sprintf("--listen-client-urls=$(URI_SCHEME)://0.0.0.0:%d", etcdClientPort),
-		fmt.Sprintf("--advertise-client-urls=$(URI_SCHEME)://$(HOSTNAME).$(SERVICE_NAME):%d", etcdClientPort),
-		"--initial-cluster-state=new",
-		fmt.Sprintf("--initial-cluster-token=%s-$(K8S_NAMESPACE)", name.Name),
-		initialCluster,
-		fmt.Sprintf("--initial-advertise-peer-urls=$(URI_SCHEME)://$(HOSTNAME).$(SERVICE_NAME):%d", etcdServerPort),
-		fmt.Sprintf("--listen-metrics-urls=http://0.0.0.0:%d", etcdMetricPort),
-		"--auto-compaction-mode=revision",
-		"--auto-compaction-retention=1",
-	}
-
 	return corev1.Container{
 		Name:  "etcd",
 		Image: r.Etcd.Image,
@@ -351,7 +326,21 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 		Command: []string{
 			"/usr/local/bin/etcd",
 		},
-		Args: args,
+		Args: []string{
+			"--name=$(HOSTNAME)",
+			"--data-dir=/data",
+			"--wal-dir=/data/wal",
+			fmt.Sprintf("--listen-peer-urls=$(URI_SCHEME)://0.0.0.0:%d", etcdServerPort),
+			fmt.Sprintf("--listen-client-urls=$(URI_SCHEME)://0.0.0.0:%d", etcdClientPort),
+			fmt.Sprintf("--advertise-client-urls=$(URI_SCHEME)://$(HOSTNAME).$(SERVICE_NAME):%d", etcdClientPort),
+			"--initial-cluster-state=new",
+			fmt.Sprintf("--initial-cluster-token=%s-$(K8S_NAMESPACE)", name.Name),
+			fmt.Sprintf("--initial-cluster=%[1]s-0=$(URI_SCHEME)://%[1]s-0.$(SERVICE_NAME):%[2]d,%[1]s-1=$(URI_SCHEME)://%[1]s-1.$(SERVICE_NAME):%[2]d,%[1]s-2=$(URI_SCHEME)://%[1]s-2.$(SERVICE_NAME):%[2]d", name.Name, etcdServerPort),
+			fmt.Sprintf("--initial-advertise-peer-urls=$(URI_SCHEME)://$(HOSTNAME).$(SERVICE_NAME):%d", etcdServerPort),
+			fmt.Sprintf("--listen-metrics-urls=http://0.0.0.0:%d", etcdMetricPort),
+			"--auto-compaction-mode=revision",
+			"--auto-compaction-retention=1",
+		},
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
