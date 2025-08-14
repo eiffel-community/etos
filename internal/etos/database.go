@@ -154,6 +154,12 @@ func (r *ETCDDeployment) reconcileClientService(ctx context.Context, name types.
 
 // statefulset creates a statefulset resource definition for ETCD.
 func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.StatefulSet {
+	// Set default value for replicas if it is nil or zero
+	replicas := etcdReplicas // use the default constant
+	if r.Etcd.Replicas != nil && *r.Etcd.Replicas > 0 {
+		replicas = *r.Etcd.Replicas
+	}
+
 	return &appsv1.StatefulSet{
 		ObjectMeta: r.meta(name),
 		Spec: appsv1.StatefulSetSpec{
@@ -164,7 +170,7 @@ func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.Stateful
 				},
 			},
 			ServiceName: name.Name,
-			Replicas:    &etcdReplicas,
+			Replicas:    &replicas,
 			// For initialization, the etcd pods must be available to each other before
 			// they are "ready" for traffic. The "Parallel" policy makes this possible.
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -277,9 +283,15 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 		requestsCPU = "300m"
 	}
 
+	// Set default value for image if it is empty
+	image := r.Etcd.Image
+	if image == "" {
+		image = "quay.io/coreos/etcd:v3.5.19"
+	}
+
 	return corev1.Container{
 		Name:  "etcd",
-		Image: r.Etcd.Image,
+		Image: image,
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse(limitsMemory),
