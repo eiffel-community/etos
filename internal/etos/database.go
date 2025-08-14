@@ -19,6 +19,7 @@ package etos
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -289,6 +290,37 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 		image = "quay.io/coreos/etcd:v3.5.19"
 	}
 
+	// Set default value for replicas if it is nil or zero
+	replicas := etcdReplicas // use the default constant
+	if r.Etcd.Replicas != nil && *r.Etcd.Replicas > 0 {
+		replicas = *r.Etcd.Replicas
+	}
+
+	// Build the initial cluster configuration dynamically based on replicas
+	var initialClusterMembers []string
+	for i := int32(0); i < replicas; i++ {
+		member := fmt.Sprintf("%s-%d=$(URI_SCHEME)://%s-%d.$(SERVICE_NAME):%d", name.Name, i, name.Name, i, etcdServerPort)
+		initialClusterMembers = append(initialClusterMembers, member)
+	}
+	initialCluster := fmt.Sprintf("--initial-cluster=%s", fmt.Sprintf("%s", strings.Join(initialClusterMembers, ",")))
+
+	// Build args slice with dynamic initial cluster
+	args := []string{
+		"--name=$(HOSTNAME)",
+		"--data-dir=/data",
+		"--wal-dir=/data/wal",
+		fmt.Sprintf("--listen-peer-urls=$(URI_SCHEME)://0.0.0.0:%d", etcdServerPort),
+		fmt.Sprintf("--listen-client-urls=$(URI_SCHEME)://0.0.0.0:%d", etcdClientPort),
+		fmt.Sprintf("--advertise-client-urls=$(URI_SCHEME)://$(HOSTNAME).$(SERVICE_NAME):%d", etcdClientPort),
+		"--initial-cluster-state=new",
+		fmt.Sprintf("--initial-cluster-token=%s-$(K8S_NAMESPACE)", name.Name),
+		initialCluster,
+		fmt.Sprintf("--initial-advertise-peer-urls=$(URI_SCHEME)://$(HOSTNAME).$(SERVICE_NAME):%d", etcdServerPort),
+		fmt.Sprintf("--listen-metrics-urls=http://0.0.0.0:%d", etcdMetricPort),
+		"--auto-compaction-mode=revision",
+		"--auto-compaction-retention=1",
+	}
+
 	return corev1.Container{
 		Name:  "etcd",
 		Image: image,
@@ -355,21 +387,7 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 		Command: []string{
 			"/usr/local/bin/etcd",
 		},
-		Args: []string{
-			"--name=$(HOSTNAME)",
-			"--data-dir=/data",
-			"--wal-dir=/data/wal",
-			fmt.Sprintf("--listen-peer-urls=$(URI_SCHEME)://0.0.0.0:%d", etcdServerPort),
-			fmt.Sprintf("--listen-client-urls=$(URI_SCHEME)://0.0.0.0:%d", etcdClientPort),
-			fmt.Sprintf("--advertise-client-urls=$(URI_SCHEME)://$(HOSTNAME).$(SERVICE_NAME):%d", etcdClientPort),
-			"--initial-cluster-state=new",
-			fmt.Sprintf("--initial-cluster-token=%s-$(K8S_NAMESPACE)", name.Name),
-			fmt.Sprintf("--initial-cluster=%[1]s-0=$(URI_SCHEME)://%[1]s-0.$(SERVICE_NAME):%[2]d,%[1]s-1=$(URI_SCHEME)://%[1]s-1.$(SERVICE_NAME):%[2]d,%[1]s-2=$(URI_SCHEME)://%[1]s-2.$(SERVICE_NAME):%[2]d", name.Name, etcdServerPort),
-			fmt.Sprintf("--initial-advertise-peer-urls=$(URI_SCHEME)://$(HOSTNAME).$(SERVICE_NAME):%d", etcdServerPort),
-			fmt.Sprintf("--listen-metrics-urls=http://0.0.0.0:%d", etcdMetricPort),
-			"--auto-compaction-mode=revision",
-			"--auto-compaction-retention=1",
-		},
+		Args: args,
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
