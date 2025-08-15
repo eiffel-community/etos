@@ -154,6 +154,7 @@ func (r *ETCDDeployment) reconcileClientService(ctx context.Context, name types.
 
 // statefulset creates a statefulset resource definition for ETCD.
 func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.StatefulSet {
+
 	return &appsv1.StatefulSet{
 		ObjectMeta: r.meta(name),
 		Spec: appsv1.StatefulSetSpec{
@@ -264,12 +265,12 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 		Image: "quay.io/coreos/etcd:v3.5.19",
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
-				corev1.ResourceCPU:    resource.MustParse("200m"),
+				corev1.ResourceMemory: resource.MustParse(r.Etcd.Resources.Limits.Memory),
+				corev1.ResourceCPU:    resource.MustParse(r.Etcd.Resources.Limits.CPU),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
-				corev1.ResourceCPU:    resource.MustParse("200m"),
+				corev1.ResourceMemory: resource.MustParse(r.Etcd.Resources.Requests.Memory),
+				corev1.ResourceCPU:    resource.MustParse(r.Etcd.Resources.Requests.CPU),
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
