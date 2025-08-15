@@ -64,15 +64,60 @@ spec:
                   etcd:
                     default: {}
                     description: Etcd describes the deployment of an ETCD database.
+                      Ignored if Deploy is set to false.
                     properties:
                       host:
                         default: etcd-client
-                        description: Parameter is ignored if Deploy is set to true.
+                        description: Host specifies the ETCD server hostname.
                         type: string
                       port:
                         default: "2379"
-                        description: Parameter is ignored if Deploy is set to true.
+                        description: Port specifies the ETCD port number.
                         type: string
+                      resources:
+                        default:
+                          limits:
+                            cpu: 300m
+                            memory: 768Mi
+                          requests:
+                            cpu: 300m
+                            memory: 768Mi
+                        description: Resources describes compute resource requirements
+                          per etcd pod which are three in a cluster.
+                        properties:
+                          limits:
+                            default:
+                              cpu: 300m
+                              memory: 768Mi
+                            description: Limits describes the maximum amount of compute
+                              resources allowed.
+                            properties:
+                              cpu:
+                                default: 300m
+                                description: CPU resource.
+                                type: string
+                              memory:
+                                default: 768Mi
+                                description: Memory resource.
+                                type: string
+                            type: object
+                          requests:
+                            default:
+                              cpu: 300m
+                              memory: 768Mi
+                            description: Requests describes the minimum amount of
+                              compute resources required.
+                            properties:
+                              cpu:
+                                default: 300m
+                                description: CPU resource.
+                                type: string
+                              memory:
+                                default: 768Mi
+                                description: Memory resource.
+                                type: string
+                            type: object
+                        type: object
                     type: object
                 type: object
               etos:
@@ -3044,7 +3089,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:efbc934c
+        image: ghcr.io/eiffel-community/etos-controller:aae1d309
         livenessProbe:
           httpGet:
             path: /healthz
