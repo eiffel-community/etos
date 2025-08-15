@@ -103,7 +103,7 @@ type Etcd struct {
 	// +kubebuilder:default="2379"
 	// +optional
 	Port string `json:"port"`
-	// Resources describes compute resource requirements.
+	// Resources describes compute resource requirements per etcd pod which are three in a cluster.
 	// +kubebuilder:default={"limits": {"cpu": "300m", "memory": "768Mi"}, "requests": {"cpu": "300m", "memory": "768Mi"}}
 	// +optional
 	Resources EtcdResources `json:"resources"`
