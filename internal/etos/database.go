@@ -265,12 +265,12 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 		Image: r.Etcd.Image,
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse(r.Etcd.LimitsMemory),
-				corev1.ResourceCPU:    resource.MustParse(r.Etcd.LimitsCPU),
+				corev1.ResourceMemory: resource.MustParse(r.Etcd.Resources.Limits.Memory),
+				corev1.ResourceCPU:    resource.MustParse(r.Etcd.Resources.Limits.CPU),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse(r.Etcd.RequestsMemory),
-				corev1.ResourceCPU:    resource.MustParse(r.Etcd.RequestsCPU),
+				corev1.ResourceMemory: resource.MustParse(r.Etcd.Resources.Requests.Memory),
+				corev1.ResourceCPU:    resource.MustParse(r.Etcd.Resources.Requests.CPU),
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{

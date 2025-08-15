@@ -93,36 +93,50 @@ type MessageBus struct {
 	ETOSMessageBus RabbitMQ `json:"logs"`
 }
 
-// Etcd describes the deployment of an ETCD database.
+// Etcd describes the deployment of an ETCD database. Ignored if Deploy is set to false.
 type Etcd struct {
-	// Parameter is ignored if Deploy is set to false.
+	// Host specifies the ETCD server hostname.
 	// +kubebuilder:default="etcd-client"
 	// +optional
 	Host string `json:"host"`
-	// Parameter is ignored if Deploy is set to false.
+	// Port specifies the ETCD port number.
 	// +kubebuilder:default="2379"
 	// +optional
 	Port string `json:"port"`
-	// Parameter is ignored if Deploy is set to false.
+	// Image specifies the ETCD docker image.
 	// +kubebuilder:default="quay.io/coreos/etcd:v3.5.19"
 	// +optional
 	Image string `json:"image"`
-	// Parameter is ignored if Deploy is set to false.
-	// +kubebuilder:default="768Mi"
+	// Resources describes compute resource requirements.
+	// +kubebuilder:default={"limits": {"cpu": "300m", "memory": "768Mi"}, "requests": {"cpu": "300m", "memory": "768Mi"}}
 	// +optional
-	RequestsMemory string `json:"requestsMemory"`
-	// Parameter is ignored if Deploy is set to false.
+	Resources EtcdResources `json:"resources"`
+}
+
+// EtcdResources describes compute resource requirements for Etcd.
+type EtcdResources struct {
+	// Limits describes the maximum amount of compute resources allowed.
+	// +kubebuilder:default={"cpu": "300m", "memory": "768Mi"}
+	// +optional
+	Limits EtcdResourceList `json:"limits"`
+
+	// Requests describes the minimum amount of compute resources required.
+	// +kubebuilder:default={"cpu": "300m", "memory": "768Mi"}
+	// +optional
+	Requests EtcdResourceList `json:"requests"`
+}
+
+// EtcdResourceList describes CPU and memory resources.
+type EtcdResourceList struct {
+	// CPU resource.
 	// +kubebuilder:default="300m"
 	// +optional
-	RequestsCPU string `json:"requestsCPU"`
-	// Parameter is ignored if Deploy is set to false.
+	CPU string `json:"cpu"`
+
+	// Memory resource.
 	// +kubebuilder:default="768Mi"
 	// +optional
-	LimitsMemory string `json:"limitsMemory"`
-	// Parameter is ignored if Deploy is set to false.
-	// +kubebuilder:default="300m"
-	// +optional
-	LimitsCPU string `json:"limitsCPU"`
+	Memory string `json:"memory"`
 }
 
 // Database describes the deployment of a database for ETOS.

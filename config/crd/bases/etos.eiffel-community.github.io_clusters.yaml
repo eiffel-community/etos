@@ -56,35 +56,63 @@ spec:
                   etcd:
                     default: {}
                     description: Etcd describes the deployment of an ETCD database.
+                      Ignored if Deploy is set to false.
                     properties:
                       host:
                         default: etcd-client
-                        description: Parameter is ignored if Deploy is set to false.
+                        description: Host specifies the ETCD server hostname.
                         type: string
                       image:
                         default: quay.io/coreos/etcd:v3.5.19
-                        description: Parameter is ignored if Deploy is set to false.
-                        type: string
-                      limitsCPU:
-                        default: 300m
-                        description: Parameter is ignored if Deploy is set to false.
-                        type: string
-                      limitsMemory:
-                        default: 768Mi
-                        description: Parameter is ignored if Deploy is set to false.
+                        description: Image specifies the ETCD docker image.
                         type: string
                       port:
                         default: "2379"
-                        description: Parameter is ignored if Deploy is set to false.
+                        description: Port specifies the ETCD port number.
                         type: string
-                      requestsCPU:
-                        default: 300m
-                        description: Parameter is ignored if Deploy is set to false.
-                        type: string
-                      requestsMemory:
-                        default: 768Mi
-                        description: Parameter is ignored if Deploy is set to false.
-                        type: string
+                      resources:
+                        default:
+                          limits:
+                            cpu: 300m
+                            memory: 768Mi
+                          requests:
+                            cpu: 300m
+                            memory: 768Mi
+                        description: Resources describes compute resource requirements.
+                        properties:
+                          limits:
+                            default:
+                              cpu: 300m
+                              memory: 768Mi
+                            description: Limits describes the maximum amount of compute
+                              resources allowed.
+                            properties:
+                              cpu:
+                                default: 300m
+                                description: CPU resource.
+                                type: string
+                              memory:
+                                default: 768Mi
+                                description: Memory resource.
+                                type: string
+                            type: object
+                          requests:
+                            default:
+                              cpu: 300m
+                              memory: 768Mi
+                            description: Requests describes the minimum amount of
+                              compute resources required.
+                            properties:
+                              cpu:
+                                default: 300m
+                                description: CPU resource.
+                                type: string
+                              memory:
+                                default: 768Mi
+                                description: Memory resource.
+                                type: string
+                            type: object
+                        type: object
                     type: object
                 type: object
               etos:
