@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: artifact-injector
+spec:
+  containers:
+  - name: injector
+    image: ghcr.io/eiffel-community/eiffel-graphql-storage:latest
+    command:
+    - python
+    - -c
+    args: ["print('hello')"]  # Gets overridden in e2e tests
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      runAsNonRoot: true
+      runAsUser: 1000
+      seccompProfile:
+        type: RuntimeDefault
+  restartPolicy: Never
