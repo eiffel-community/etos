@@ -262,7 +262,7 @@ func (r *ETCDDeployment) volume(name types.NamespacedName) corev1.Volume {
 func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 	return corev1.Container{
 		Name:  "etcd",
-		Image: r.Etcd.Image,
+		Image: "quay.io/coreos/etcd:v3.5.19",
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse(r.Etcd.Resources.Limits.Memory),

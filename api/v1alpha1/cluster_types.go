@@ -103,10 +103,6 @@ type Etcd struct {
 	// +kubebuilder:default="2379"
 	// +optional
 	Port string `json:"port"`
-	// Image specifies the ETCD docker image.
-	// +kubebuilder:default="quay.io/coreos/etcd:v3.5.19"
-	// +optional
-	Image string `json:"image"`
 	// Resources describes compute resource requirements.
 	// +kubebuilder:default={"limits": {"cpu": "300m", "memory": "768Mi"}, "requests": {"cpu": "300m", "memory": "768Mi"}}
 	// +optional
