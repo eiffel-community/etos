@@ -317,11 +317,11 @@ func (r *ETOSSSEDeployment) container(name types.NamespacedName) corev1.Containe
 		ImagePullPolicy: r.ImagePullPolicy,
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("256Mi"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
 				corev1.ResourceCPU:    resource.MustParse("200m"),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("128Mi"),
+				corev1.ResourceMemory: resource.MustParse("256Mi"),
 				corev1.ResourceCPU:    resource.MustParse("100m"),
 			},
 		},
