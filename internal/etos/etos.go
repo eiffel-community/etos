@@ -335,12 +335,23 @@ func (r *ETOSDeployment) environmentProviderConfig(ctx context.Context, name typ
 
 // ingress creates an ingress resource definition for ETOS.
 func (r *ETOSDeployment) ingress(name types.NamespacedName) *networkingv1.Ingress {
+	meta := r.meta(name)
+
+	if meta.Annotations == nil {
+		meta.Annotations = make(map[string]string)
+	}
+
+	for key, value := range r.Ingress.Annotations {
+		meta.Annotations[key] = value
+	}
+
 	ingress := &networkingv1.Ingress{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: meta,
 		Spec: networkingv1.IngressSpec{
 			Rules: []networkingv1.IngressRule{r.ingressRule(name)},
 		},
 	}
+
 	if r.Ingress.IngressClass != "" {
 		ingress.Spec.IngressClassName = &r.Ingress.IngressClass
 	}
