@@ -42,15 +42,10 @@ except FileNotFoundError:
     pass
 
 try:
-    import sphinx
-    from pkg_resources import parse_version
-
     cmd_line_template = "sphinx-apidoc -f -o {outputdir} {moduledir}"
     cmd_line = cmd_line_template.format(outputdir=output_dir, moduledir=module_dir)
 
-    args = cmd_line.split(" ")
-    if parse_version(sphinx.__version__) >= parse_version("1.7"):
-        args = args[1:]
+    args = cmd_line.split(" ")[1:]  # Remove first argument (sphinx-apidoc)
 
     apidoc.main(args)
 except Exception as e:
