@@ -25,7 +25,6 @@ from etos_client.types.result import Conclusion, Verdict
 from etos_client.etos.v1alpha.etos import Etos
 from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient
 from etos_client.sse.v1.client import SSEClient as SSEV1Client
-from etos_client.shared.validators import StartSubcommandArgumentValidator, ValidationError
 
 from etosctl.command import SubCommand
 from etosctl.models import CommandMeta
@@ -70,13 +69,6 @@ class Start(SubCommand):
 
     def run(self, args: dict) -> None:
         """Start an ETOS testrun."""
-        # Validate arguments
-        try:
-            StartSubcommandArgumentValidator().validate_args(args)
-        except ValidationError as e:
-            self.logger.error("Validation error: %s", str(e))
-            sys.exit(1)
-
         warnings.warn("This is an alpha version of ETOS! Don't expect it to work properly")
         self.logger.info("Running in cluster: %r", args["<cluster>"])
 

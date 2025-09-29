@@ -26,7 +26,6 @@ import warnings
 from etos_client.types.result import Conclusion, Verdict
 from etos_client.etos.v0.etos import Etos
 from etos_client.sse.v1.client import SSEClient
-from etos_client.shared.validators import StartSubcommandArgumentValidator, ValidationError
 
 from etosctl.command import SubCommand
 from etosctl.models import CommandMeta
@@ -88,13 +87,6 @@ class Start(SubCommand):
 
     def run(self, args: dict) -> None:
         """Start an ETOS testrun."""
-        # Validate arguments
-        try:
-            StartSubcommandArgumentValidator.validate_args(args)
-        except ValidationError as e:
-            self.logger.error("Validation error: %s", str(e))
-            sys.exit(1)
-
         if args["--download-reports"]:
             warnings.warn(
                 "The '-d/--download-reports' parameter is deprecated",
