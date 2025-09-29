@@ -14,15 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS client module."""
-from pkg_resources import get_distribution, DistributionNotFound
+from importlib.metadata import version, PackageNotFoundError
 from .command import TestRun
 
 # pylint:disable=invalid-name
 try:
-    # Change here if project is renamed and does not equal the package name
     dist_name = "etos_client"
-    __version__ = get_distribution(dist_name).version
-except DistributionNotFound:
+    __version__ = version(dist_name)
+except PackageNotFoundError:
     __version__ = "unknown"
 finally:
-    del get_distribution, DistributionNotFound
+    del version, PackageNotFoundError
