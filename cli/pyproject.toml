@@ -14,9 +14,9 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.13"
 dependencies = [
-    "etos_lib==5.1.2",
+    "etos_lib==5.1.4",
     "docopt~=0.6",
     "pydantic~=2.6",
 ]
