@@ -134,6 +134,9 @@ spec:
                       ssl:
                         default: "false"
                         type: string
+                      streamPort:
+                        default: "5552"
+                        type: string
                       username:
                         default: guest
                         type: string
@@ -297,6 +300,9 @@ spec:
                         type: string
                       ssl:
                         default: "false"
+                        type: string
+                      streamPort:
+                        default: "5552"
                         type: string
                       username:
                         default: guest

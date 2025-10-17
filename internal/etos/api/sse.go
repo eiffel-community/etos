@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,11 +48,12 @@ type ETOSSSEDeployment struct {
 	etosv1alpha1.ETOSSSE
 	client.Client
 	Scheme *runtime.Scheme
+	config config.Config
 }
 
 // NewETOSSSEDeployment will create a new ETOS SSE reconciler.
-func NewETOSSSEDeployment(spec etosv1alpha1.ETOSSSE, scheme *runtime.Scheme, client client.Client) *ETOSSSEDeployment {
-	return &ETOSSSEDeployment{spec, client, scheme}
+func NewETOSSSEDeployment(spec etosv1alpha1.ETOSSSE, scheme *runtime.Scheme, client client.Client, config config.Config) *ETOSSSEDeployment {
+	return &ETOSSSEDeployment{spec, client, scheme, config}
 }
 
 // Reconcile will reconcile the ETOS SSE service to its expected state.
@@ -273,6 +275,7 @@ func (r *ETOSSSEDeployment) deployment(name types.NamespacedName) *appsv1.Deploy
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: r.meta(name),
 				Spec: corev1.PodSpec{
+					Volumes:            r.volumes(),
 					ServiceAccountName: name.Name,
 					Containers:         []corev1.Container{r.container(name)},
 				},
@@ -294,6 +297,34 @@ func (r *ETOSSSEDeployment) service(name types.NamespacedName) *corev1.Service {
 			},
 		},
 	}
+}
+
+// volumes return volumes to mount into the SSE deployment.
+func (r *ETOSSSEDeployment) volumes() []corev1.Volume {
+	var source *corev1.VolumeSource
+	if r.PublicKey == nil {
+		return nil
+	}
+	if r.PublicKey.SecretKeyRef != nil {
+		source = &corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: r.PublicKey.SecretKeyRef.Name,
+			},
+		}
+	}
+	if r.PublicKey.ConfigMapKeyRef != nil {
+		source = &corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: r.PublicKey.ConfigMapKeyRef.Name,
+				},
+			},
+		}
+	}
+	if source != nil {
+		return []corev1.Volume{{Name: "signing-keys", VolumeSource: *source}}
+	}
+	return nil
 }
 
 // container creates a container resource definition for the ETOS SSE deployment.
@@ -334,18 +365,50 @@ func (r *ETOSSSEDeployment) container(name types.NamespacedName) corev1.Containe
 		},
 		LivenessProbe:  probe,
 		ReadinessProbe: probe,
+		VolumeMounts:   r.volumeMounts(),
 		Env:            r.environment(),
 	}
 }
 
+// volumeMounts return a volume mount specification if there are any signing key volumes.
+func (r *ETOSSSEDeployment) volumeMounts() []corev1.VolumeMount {
+	if r.PublicKey == nil {
+		return nil
+	}
+	if r.PublicKey.ConfigMapKeyRef != nil || r.PublicKey.SecretKeyRef != nil {
+		return []corev1.VolumeMount{{
+			Name:      "signing-keys",
+			MountPath: "/keys",
+			ReadOnly:  true,
+		}}
+	}
+	return nil
+}
+
 // environment creates an environment resource definition for the ETOS SSE deployment.
 func (r *ETOSSSEDeployment) environment() []corev1.EnvVar {
-	return []corev1.EnvVar{
+	envs := []corev1.EnvVar{
 		{
 			Name:  "SERVICE_HOST",
 			Value: "0.0.0.0",
 		},
 	}
+	envs = append(envs, r.Env...)
+	if r.PublicKey == nil {
+		return envs
+	}
+	if r.PublicKey.SecretKeyRef != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "PUBLIC_KEY_PATH",
+			Value: fmt.Sprintf("/keys/%s", r.PublicKey.SecretKeyRef.Key),
+		})
+	} else if r.PublicKey.ConfigMapKeyRef != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "PUBLIC_KEY_PATH",
+			Value: fmt.Sprintf("/keys/%s", r.PublicKey.ConfigMapKeyRef.Key),
+		})
+	}
+	return envs
 }
 
 // meta creates a common meta resource definition for the ETOS SSE service.

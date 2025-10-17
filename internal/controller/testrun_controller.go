@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 )
 
 // TODO: Move Environment, EnvironmentRequestOwnerKey
@@ -61,6 +62,7 @@ type TestRunReconciler struct {
 	Scheme *runtime.Scheme
 	Clock
 	Cluster *etosv1alpha1.Cluster
+	Config  config.Config
 }
 
 /*
@@ -434,26 +436,25 @@ func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, tes
 
 	eiffelMessageBus := cluster.Spec.MessageBus.EiffelMessageBus
 	if cluster.Spec.MessageBus.EiffelMessageBus.Deploy {
-		// eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, eiffelMessageBus.Host)
-		eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, "rabbitmq")
+		eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, r.Config.Eiffelbus.DefaultHost)
 	}
 	etosMessageBus := cluster.Spec.MessageBus.ETOSMessageBus
 	if cluster.Spec.MessageBus.ETOSMessageBus.Deploy {
-		// etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, etosMessageBus.Host)
-		etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, "messagebus")
+		etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, r.Config.Messagebus.DefaultHost)
 	}
 
 	databaseHost := cluster.Spec.Database.Etcd.Host
 	if databaseHost == "" {
-		databaseHost = "etcd-client"
-	}
-	if cluster.Spec.Database.Deploy {
-		databaseHost = fmt.Sprintf("%s-etcd-client", cluster.Name)
+		databaseHost = r.Config.Database.DefaultHost
 	}
 
 	databasePort := cluster.Spec.Database.Etcd.Port
 	if databasePort == "" {
-		databasePort = "2379"
+		databasePort = r.Config.Database.DefaultPort
+	}
+	if cluster.Spec.Database.Deploy {
+		databaseHost = fmt.Sprintf("%s-%s", cluster.Name, r.Config.Database.DefaultHost)
+		databasePort = r.Config.Database.DefaultPort
 	}
 
 	return &etosv1alpha1.EnvironmentRequest{
