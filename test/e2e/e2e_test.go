@@ -672,7 +672,7 @@ var _ = Describe("Manager", Ordered, func() {
 			// Getting an EOF error every now and then from the environment-provider.
 			// I think it is because ETCD reports that it is up, but it is not ready
 			// to accept connections. A wait for ETCD to respond is a better fix.
-			time.Sleep(5 * time.Second)
+			time.Sleep(30 * time.Second)
 
 			// TODO: This testrun could create a v0 testrun and wait for it to complete, as a way to test
 			// both ETOS versions.
