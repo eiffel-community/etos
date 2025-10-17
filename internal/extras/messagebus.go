@@ -42,25 +42,15 @@ var rabbitmqStreamPort int32 = 5552
 type MessageBusDeployment struct {
 	etosv1alpha1.RabbitMQ
 	client.Client
-<<<<<<< HEAD
 	Scheme          *runtime.Scheme
 	SecretName      string
+	config          config.Config
 	restartRequired bool
 }
 
 // NewMessageBusDeployment will create a new messagebus reconciler.
-func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) *MessageBusDeployment {
-	return &MessageBusDeployment{spec, client, scheme, "", false}
-=======
-	Scheme     *runtime.Scheme
-	SecretName string
-	config     config.Config
-}
-
-// NewMessageBusDeployment will create a new messagebus reconciler.
 func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client, config config.Config) *MessageBusDeployment {
-	return &MessageBusDeployment{spec, client, scheme, "", config}
->>>>>>> 6642238 (Add a global configuration)
+	return &MessageBusDeployment{spec, client, scheme, "", config, false}
 }
 
 // Reconcile will reconcile the messagebus to its expected state.
