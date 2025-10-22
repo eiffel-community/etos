@@ -7,5 +7,4 @@ metadata:
   name: iut-provider-sample
 spec:
   type: iut
-  jsontas:
-    iut: {}
+  host: http://etos-iut.etos-test.svc.cluster.local/iut

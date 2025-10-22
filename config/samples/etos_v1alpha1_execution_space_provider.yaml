@@ -1,0 +1,12 @@
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Provider
+metadata:
+  labels:
+    app.kubernetes.io/name: etos
+    app.kubernetes.io/managed-by: kustomize
+  name: execution-space-provider-sample
+spec:
+  type: execution-space
+  host: http://etos-executionspace.etos-test.svc.cluster.local/executionspace
+  healthCheck:
+    endpoint: v1alpha/selftest/ping

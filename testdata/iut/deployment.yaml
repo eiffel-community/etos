@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: etos-api
+    app.kubernetes.io/part-of: etos
+    app.kubernetes.io/component: iut
+  name: etos-iut
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: etos-api
+      app.kubernetes.io/component: iut
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: etos-api
+        app.kubernetes.io/component: iut
+    spec:
+      serviceAccountName: etos-iut
+      containers:
+        - name: etos-iut
+          image: ghcr.io/eiffel-community/etos-iut:1d7dcc23
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SERVICE_HOST
+              value: 0.0.0.0
+            - name: ETOS_ETCD_HOST
+              value: cluster-sample-etcd-client
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /iut/v1alpha1/selftest/ping
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /iut/v1alpha1/selftest/ping
+              port: http

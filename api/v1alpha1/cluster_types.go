@@ -59,7 +59,7 @@ type EventRepository struct {
 	// +kubebuilder:default={}
 	// +optional
 	Database MongoDB `json:"mongo"`
-	// +kubebuilder:default="eventrepository"
+	// +kubebuilder:default=""
 	// +optional
 	Host string `json:"host"`
 	// +kubebuilder:default={}

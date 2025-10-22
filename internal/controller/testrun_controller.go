@@ -273,7 +273,7 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 			}
 		}
 		if !found {
-			request := r.environmentRequest(cluster, testrun, suite)
+			request := r.environmentRequest(ctx, cluster, testrun, suite)
 			if err := ctrl.SetControllerReference(testrun, request, r.Scheme); err != nil {
 				return err, true
 			}
@@ -426,35 +426,47 @@ func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv
 }
 
 // environmentRequest is the definition for an environment request.
-func (r TestRunReconciler) environmentRequest(cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, suite etosv1alpha1.Suite) *etosv1alpha1.EnvironmentRequest {
+func (r TestRunReconciler) environmentRequest(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, suite etosv1alpha1.Suite) *etosv1alpha1.EnvironmentRequest {
+	logger := logf.FromContext(ctx)
 	eventRepository := cluster.Spec.EventRepository.Host
 	if cluster.Spec.ETOS.Config.ETOSEventRepositoryURL != "" {
+		logger.Info("Cluster configured with an event repository URL, using that instead")
 		eventRepository = cluster.Spec.ETOS.Config.ETOSEventRepositoryURL
 	}
+	if eventRepository == "" {
+		// TODO: We must fix a global config to store these default values.
+		eventRepository = fmt.Sprintf("http://%s-graphql:%d/graphql", cluster.Name, 5000)
+	}
+	logger.Info("Event repository configured", "url", eventRepository)
 
 	eiffelMessageBus := cluster.Spec.MessageBus.EiffelMessageBus
 	if cluster.Spec.MessageBus.EiffelMessageBus.Deploy {
-		// eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, eiffelMessageBus.Host)
+		logger.Info("Cluster deployed with an Eiffel messagebus, using that instead")
 		eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, "rabbitmq")
 	}
+	logger.Info("Eiffel messagebus configured", "url", eiffelMessageBus)
+
 	etosMessageBus := cluster.Spec.MessageBus.ETOSMessageBus
 	if cluster.Spec.MessageBus.ETOSMessageBus.Deploy {
-		// etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, etosMessageBus.Host)
+		logger.Info("Cluster deployed with an ETOS messagebus, using that instead")
 		etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, "messagebus")
 	}
+	logger.Info("ETOS messagebus configured", "url", etosMessageBus)
 
 	databaseHost := cluster.Spec.Database.Etcd.Host
 	if databaseHost == "" {
 		databaseHost = "etcd-client"
 	}
 	if cluster.Spec.Database.Deploy {
+		logger.Info("Cluster deployed with an ETOS database, using that instead")
 		databaseHost = fmt.Sprintf("%s-etcd-client", cluster.Name)
 	}
-
 	databasePort := cluster.Spec.Database.Etcd.Port
 	if databasePort == "" {
+		logger.Info("Database port not configured, using default")
 		databasePort = "2379"
 	}
+	logger.Info("ETOS database configured", "host", databaseHost, "port", databasePort)
 
 	return &etosv1alpha1.EnvironmentRequest{
 		ObjectMeta: metav1.ObjectMeta{
