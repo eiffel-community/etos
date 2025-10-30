@@ -16,6 +16,7 @@
 """Get ETOS sse events."""
 import logging
 import time
+from enum import Enum
 from json import JSONDecodeError
 from typing import Callable, Iterable, Optional
 
@@ -36,6 +37,13 @@ RETRIES = Retry(
     backoff_factor=1,
     status_forcelist=Retry.RETRY_AFTER_STATUS_CODES,  # 413, 429, 503
 )
+
+
+class ConnectionState(Enum):
+    """Connection state for SSE client."""
+    INITIAL = "initial"        # Waiting for test run to start
+    CONNECTED = "connected"    # Successfully connected, streaming events
+    RECONNECTING = "reconnecting"  # Reconnecting after temporary failure
 
 
 class Desynced(Exception):
@@ -69,6 +77,7 @@ class SSEClient:
         """Set up a connection pool and retry strategy."""
         self.url = url
         self.last_event_id = None
+        self.connection_state = ConnectionState.INITIAL
         self.__pool = PoolManager(retries=RETRIES)
         self.__release: Optional[Callable] = None
 
@@ -78,22 +87,110 @@ class SSEClient:
         return "v1"
 
     def __connect(self, stream_id: str, retry_not_found=False) -> Iterable[bytes]:
-        """Connect to an event-stream server, retrying if necessary.
+        """Connect to an event-stream server with state-aware retry logic.
 
         Sets the attribute `__release` which must be closed before exiting.
         """
+        retries = RETRIES
+        if retry_not_found:
+            retries = retries.new(status_forcelist={413, 429, 503, 404})
+
+        # Use extended retries and user feedback only during initial connection
+        if self.connection_state == ConnectionState.INITIAL:
+            return self.__initial_connect(stream_id, retries)
+        else:
+            # Standard connection for reconnections
+            return self.__standard_connect(stream_id, retries)
+
+    def __initial_connect(self, stream_id: str, retries: Retry) -> Iterable[bytes]:
+        """Handle initial connection with user feedback and exponential backoff retries."""
+        # Use exponential backoff: 20 attempts with backoff_factor=2 gives ~30 minutes total
+        # Wait times: 1s, 2s, 4s, 8s, 16s, 32s, 64s, 120s, 120s, ... (capped at 120s)
+        extended_retries = retries.new(connect=20, status=20, backoff_factor=2, backoff_max=120)
+        url = f"{self.url}/sse/{self.version()}/events/{stream_id}"
+
+        self.logger.info("Connecting to SSE server at %s", url)
+        self.logger.info("Waiting for test run to start...")
+
         headers = {
             "Cache-Control": "no-cache",
             "Accept": "text/event-stream",
         }
         if self.last_event_id is not None:
             headers["Last-Event-ID"] = str(self.last_event_id)
+
+        max_attempts = extended_retries.connect or extended_retries.status or 20
+        total_elapsed_time = 0
+
+        for attempt in range(max_attempts):
+            try:
+                # Single attempt per loop iteration
+                response = self.__pool.request(
+                    "GET",
+                    url,
+                    headers=headers,
+                    preload_content=False,
+                    retries=Retry(total=0, connect=0, status=0),
+                )
+                self.__release = response.release_conn
+
+                if response.status == 200:
+                    content_type = response.headers.get("Content-Type", None)
+                    if content_type is None:
+                        raise HTTPWrongContentType("Server did not respond with a content type")
+                    if not content_type.startswith("text/event-stream"):
+                        raise HTTPWrongContentType(f"Bad content type from server: {content_type!r}")
+
+                    self.logger.info("Test run started successfully, beginning event stream")
+                    # Switch to connected state after successful connection
+                    self.connection_state = ConnectionState.CONNECTED
+                    self.__connected = True
+                    return response.stream(CHUNK_SIZE, True)
+
+                elif response.status == 404:
+                    # Log progress for 404 errors (test run not ready yet)
+                    if attempt in [0, 2, 5, 8, 11, 14, 17]:  # Log at key intervals
+                        self.logger.info("Still waiting for test run to start...")
+                elif response.status >= 400:
+                    if attempt % 3 == 0:  # Log errors more frequently for non-404 errors
+                        self.logger.info(f"Connection failed with status {response.status} (attempt {attempt+1}), retrying...")
+                elif response.status == 204:
+                    if attempt % 3 == 0:
+                        self.logger.info(f"Empty response from server (attempt {attempt+1}), retrying...")
+
+                response.release_conn()
+
+            except Exception as e:
+                if attempt % 3 == 0:  # Log connection errors
+                    self.logger.info(f"Connection attempt {attempt+1} failed: {str(e)}, retrying...")
+
+            if attempt < max_attempts - 1:
+                # Calculate exponential backoff with max cap
+                backoff_time = min(
+                    extended_retries.backoff_factor * (2 ** attempt),
+                    extended_retries.backoff_max or 120
+                )
+                total_elapsed_time += backoff_time
+                time.sleep(backoff_time)
+
+        # If we get here, all attempts failed
+        raise MaxRetryError(
+            pool=None,
+            url=url,
+            reason="Max retries exceeded waiting for test run to start"
+        )
+
+    def __standard_connect(self, stream_id: str, retries: Retry) -> Iterable[bytes]:
+        """Handle standard connection for reconnections."""
+        headers = {
+            "Cache-Control": "no-cache",
+            "Accept": "text/event-stream",
+        }
+        if self.last_event_id is not None:
+            headers["Last-Event-ID"] = str(self.last_event_id)
+
         try:
-            retries = RETRIES
-            if retry_not_found:
-                retries = retries.new(status_forcelist={413, 429, 503, 404})
             url = f"{self.url}/sse/{self.version()}/events/{stream_id}"
-            self.logger.info("Connecting to SSE server at %s", url)
             response = self.__pool.request(
                 "GET",
                 url,
@@ -107,6 +204,7 @@ class SSEClient:
             if exception.reason is not None:
                 raise exception.reason
             raise
+
         if response.status >= 400:
             raise HTTPStatusError(f"Error code {response.status} when connecting to SSE server")
         if response.status == 204:
@@ -117,6 +215,7 @@ class SSEClient:
             raise HTTPWrongContentType("Server did not respond with a content type")
         if not content_type.startswith("text/event-stream"):
             raise HTTPWrongContentType(f"Bad content type from server: {content_type!r}")
+
         self.__connected = True
         return response.stream(CHUNK_SIZE, True)
 
@@ -135,6 +234,9 @@ class SSEClient:
         if self.__release is not None:
             self.__release()
         self.__connected = False
+        # If we were connected, switch to reconnecting state; otherwise stay in initial state
+        if self.connection_state == ConnectionState.CONNECTED:
+            self.connection_state = ConnectionState.RECONNECTING
 
     def __line_buffered(self, chunks: Iterable[bytes]) -> Iterable[bytes]:
         """Read chunks from a byte feed and split each chunk on line-break."""
