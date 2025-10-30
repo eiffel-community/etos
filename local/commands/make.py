@@ -42,6 +42,9 @@ class Make:
         # TODO: This only works because the image value is set in main, no runtime variables work here
         return Shell(["make", "deploy", f"IMG={image}"])
 
+    def docker_build(self, image: str | Value) -> Command:
+        return Shell(["make", "docker-build", f"IMG={image}"])
+
     def undeploy(self, ignore_not_found: bool = True) -> Command:
         """Command for running 'make undeploy'."""
         return Shell(

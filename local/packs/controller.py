@@ -18,6 +18,7 @@
 from local.commands.command import Command
 from local.commands.kubectl import Kubectl, Resource
 from local.commands.make import Make
+from local.commands.shell import Shell
 from local.commands.utilities import (HasLines, StdoutEquals, StdoutLength,
                                       StoreStdout, WaitUntil)
 
@@ -47,6 +48,8 @@ class Controller(BasePack):
                 Resource(type="namespace", names=self.local_store["cluster_namespace"])
             ),
             make.install(),
+            make.docker_build(self.local_store["project_image"]),
+            Shell(["kind", "load", "docker-image", self.local_store["project_image"]]),
             make.deploy(self.local_store["project_image"]),
             *self.__wait_for_control_plane(kubectl),
             *self.__wait_for_webhook_certificates(kubectl),
