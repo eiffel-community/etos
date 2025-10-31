@@ -58,26 +58,20 @@ class LogRetry(Retry):
     def increment(self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None):
         """Override increment to add logging for initial connection attempts."""
         self._attempt_count += 1
+        new_retry = super().increment(method, url, response, error, _pool, _stacktrace)
 
-        if response is not None and response.status == 404:
-            # Log progress for 404 errors at more spaced intervals to avoid duplicates
-            if self._attempt_count in [1, 5, 10, 15, 20]:
-                self.logger.info("Still waiting for test run to start...")
-        elif response is not None and response.status == 401:
-            # Don't retry on 401, let it bubble up immediately
-            pass
-        elif response is not None and response.status >= 400:
-            if self._attempt_count % 5 == 0:  # Less frequent logging for other errors
-                self.logger.info("Connection failed with status %s (attempt %s), retrying...", response.status, self._attempt_count)
-        elif response is not None and response.status == 204:
-            if self._attempt_count % 5 == 0:
-                self.logger.info("Empty response from server (attempt %s), retrying...", self._attempt_count)
-        elif error is not None:
-            if self._attempt_count % 5 == 0:
-                self.logger.info("Connection attempt %s failed: %s, retrying...", self._attempt_count, str(error))
+        # Copy counter to new retry instance
+        if hasattr(new_retry, '_attempt_count'):
+            new_retry._attempt_count = self._attempt_count
 
-        return super().increment(method, url, response, error, _pool, _stacktrace)
+        # Log progress for 404 responses (test run not ready) at specific intervals
+        is_404_response = response is not None and response.status == 404
+        is_logging_interval = self._attempt_count in [4, 8, 12, 16, 20]
 
+        if is_404_response and is_logging_interval:
+            self.logger.info("Still waiting for test run to start...")
+
+        return new_retry
 
 
 class Desynced(Exception):
@@ -125,9 +119,12 @@ class SSEClient:
         return "v2alpha"
 
     def __connect(self, stream_id: str, apikey: str, is_initial_connection=False) -> Iterable[bytes]:
-        """Handle standard connection for reconnections."""
+        """Connect to an event-stream server with state-aware retry logic.
+
+        Sets the attribute `__release` which must be closed before exiting.
+        """
         if is_initial_connection:
-            # Use LogRetry with extended retries and user feedback for initial connection
+            # Use LogRetry with extended retries for initial connection
             retries = LogRetry(
                 total=None,
                 read=0,
@@ -174,7 +171,6 @@ class SSEClient:
             if exception.reason is not None:
                 raise exception.reason
             raise
-
         if response.status >= 400:
             if response.status == 401:
                 raise TokenExpired("API Key has expired")
@@ -189,7 +185,6 @@ class SSEClient:
             raise HTTPWrongContentType(
                 f"Bad content type from server: {content_type!r}, expected text/event-stream"
             )
-
         self.__connected = True
         return response.stream(CHUNK_SIZE, True)
 
