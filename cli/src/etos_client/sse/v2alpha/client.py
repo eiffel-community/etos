@@ -68,13 +68,13 @@ class LogRetry(Retry):
             pass
         elif response is not None and response.status >= 400:
             if self._attempt_count % 5 == 0:  # Less frequent logging for other errors
-                self.logger.info(f"Connection failed with status {response.status} (attempt {self._attempt_count}), retrying...")
+                self.logger.info("Connection failed with status %s (attempt %s), retrying...", response.status, self._attempt_count)
         elif response is not None and response.status == 204:
             if self._attempt_count % 5 == 0:
-                self.logger.info(f"Empty response from server (attempt {self._attempt_count}), retrying...")
+                self.logger.info("Empty response from server (attempt %s), retrying...", self._attempt_count)
         elif error is not None:
             if self._attempt_count % 5 == 0:
-                self.logger.info(f"Connection attempt {self._attempt_count} failed: {str(error)}, retrying...")
+                self.logger.info("Connection attempt %s failed: %s, retrying...", self._attempt_count, str(error))
 
         return super().increment(method, url, response, error, _pool, _stacktrace)
 
