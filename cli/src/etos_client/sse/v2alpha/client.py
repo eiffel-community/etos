@@ -119,10 +119,7 @@ class SSEClient:
         return "v2alpha"
 
     def __connect(self, stream_id: str, apikey: str, is_initial_connection=False) -> Iterable[bytes]:
-        """Connect to an event-stream server with state-aware retry logic.
-
-        Sets the attribute `__release` which must be closed before exiting.
-        """
+        """Handle connection for reconnections."""
         if is_initial_connection:
             # Use LogRetry with extended retries for initial connection
             retries = LogRetry(

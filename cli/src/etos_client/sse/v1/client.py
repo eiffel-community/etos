@@ -105,7 +105,7 @@ class SSEClient:
         return "v1"
 
     def __connect(self, stream_id: str, is_initial_connection=False) -> Iterable[bytes]:
-        """Handle standard connection for reconnections."""
+        """Handle connection for reconnections."""
         if is_initial_connection:
             # Use LogRetry with extended retries for initial connection
             retries = LogRetry(
