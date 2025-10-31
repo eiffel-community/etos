@@ -17,7 +17,6 @@
 
 import logging
 import time
-from enum import Enum
 from json import loads, JSONDecodeError
 from typing import Callable, Iterable, Optional
 
@@ -26,8 +25,14 @@ from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry
 
 #from etos_lib.messaging.events import Shutdown, Event, parse # import disabled due to: https://github.com/eiffel-community/etos/issues/417
-# dummy class: remove when the etos_lib.messaging module is available
+# dummy classes: remove when the etos_lib.messaging module is available
 class Event:
+    pass
+
+class Shutdown:
+    pass
+
+def parse(event):
     pass
 
 
@@ -42,11 +47,37 @@ RETRIES = Retry(
 )
 
 
-class ConnectionState(Enum):
-    """Connection state for SSE client."""
-    INITIAL = "initial"        # Waiting for test run to start
-    CONNECTED = "connected"    # Successfully connected, streaming events
-    RECONNECTING = "reconnecting"  # Reconnecting after temporary failure
+class LogRetry(Retry):
+    """A Retry class that logs progress during initial connection attempts."""
+
+    def __init__(self, *args, **kwargs):
+        self.logger = logging.getLogger(__name__)
+        self._attempt_count = 0
+        super().__init__(*args, **kwargs)
+
+    def increment(self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None):
+        """Override increment to add logging for initial connection attempts."""
+        self._attempt_count += 1
+
+        if response is not None and response.status == 404:
+            # Log progress for 404 errors at more spaced intervals to avoid duplicates
+            if self._attempt_count in [1, 5, 10, 15, 20]:
+                self.logger.info("Still waiting for test run to start...")
+        elif response is not None and response.status == 401:
+            # Don't retry on 401, let it bubble up immediately
+            pass
+        elif response is not None and response.status >= 400:
+            if self._attempt_count % 5 == 0:  # Less frequent logging for other errors
+                self.logger.info(f"Connection failed with status {response.status} (attempt {self._attempt_count}), retrying...")
+        elif response is not None and response.status == 204:
+            if self._attempt_count % 5 == 0:
+                self.logger.info(f"Empty response from server (attempt {self._attempt_count}), retrying...")
+        elif error is not None:
+            if self._attempt_count % 5 == 0:
+                self.logger.info(f"Connection attempt {self._attempt_count} failed: {str(error)}, retrying...")
+
+        return super().increment(method, url, response, error, _pool, _stacktrace)
+
 
 
 class Desynced(Exception):
@@ -85,7 +116,6 @@ class SSEClient:
         self.url = url
         self.filter = filter
         self.last_event_id = None
-        self.connection_state = ConnectionState.INITIAL
         self.__pool = PoolManager(retries=RETRIES)
         self.__release: Optional[Callable] = None
 
@@ -94,106 +124,32 @@ class SSEClient:
         """SSE protocol version."""
         return "v2alpha"
 
-    def __connect(self, stream_id: str, apikey: str, retry_not_found=False) -> Iterable[bytes]:
-        """Connect to an event-stream server with state-aware retry logic.
+    def __connect(self, stream_id: str, apikey: str, is_initial_connection=False) -> Iterable[bytes]:
+        """Handle standard connection for reconnections."""
+        if is_initial_connection:
+            # Use LogRetry with extended retries and user feedback for initial connection
+            retries = LogRetry(
+                total=None,
+                read=0,
+                connect=20,  # More attempts for initial connection
+                status=20,
+                backoff_factor=2,  # Exponential backoff
+                backoff_max=120,  # Cap at 2 minutes
+                status_forcelist={413, 429, 503, 404},  # Include 404 for initial connection
+            )
+            self.logger.info("Connecting to SSE server")
+            self.logger.info("Waiting for test run to start...")
+        else:
+            # Standard retries for reconnections
+            retries = RETRIES
+
+        return self.__do_connect(stream_id, apikey, retries)
+
+    def __do_connect(self, stream_id: str, apikey: str, retries: Retry) -> Iterable[bytes]:
+        """Connect to an event-stream server with the given retry policy.
 
         Sets the attribute `__release` which must be closed before exiting.
         """
-        retries = RETRIES
-        if retry_not_found:
-            retries = retries.new(status_forcelist={413, 429, 503, 404})
-
-        # Use extended retries and user feedback only during initial connection
-        if self.connection_state == ConnectionState.INITIAL:
-            return self.__initial_connect(stream_id, apikey, retries)
-        else:
-            # Standard connection for reconnections
-            return self.__standard_connect(stream_id, apikey, retries)
-
-    def __initial_connect(self, stream_id: str, apikey: str, retries: Retry) -> Iterable[bytes]:
-        """Handle initial connection with user feedback and exponential backoff retries."""
-        # Use exponential backoff: 20 attempts with backoff_factor=2 gives ~30 minutes total
-        # Wait times: 1s, 2s, 4s, 8s, 16s, 32s, 64s, 120s, 120s, ... (capped at 120s)
-        extended_retries = retries.new(connect=20, status=20, backoff_factor=2, backoff_max=120)
-        filter_param = "&".join(f"filter={value}" for value in self.filter)
-        url = f"{self.url}/sse/{self.version()}/events/{stream_id}?{filter_param}"
-
-        self.logger.info("Connecting to SSE server at %s", url)
-        self.logger.info("Waiting for test run to start...")
-
-        headers = {
-            "Cache-Control": "no-cache",
-            "Accept": "text/event-stream",
-            "Authorization": f"Bearer {apikey}",
-        }
-        if self.last_event_id is not None:
-            headers["Last-Event-ID"] = str(self.last_event_id)
-
-        max_attempts = extended_retries.connect or extended_retries.status or 20
-        total_elapsed_time = 0
-
-        for attempt in range(max_attempts):
-            try:
-                # Single attempt per loop iteration
-                response = self.__pool.request(
-                    "GET",
-                    url,
-                    headers=headers,
-                    preload_content=False,
-                    retries=Retry(total=0, connect=0, status=0),
-                )
-                self.__release = response.release_conn
-
-                if response.status == 200:
-                    content_type = response.headers.get("Content-Type", None)
-                    if content_type is None:
-                        raise HTTPWrongContentType("Server did not respond with a content type")
-                    if not content_type.startswith("text/event-stream"):
-                        raise HTTPWrongContentType(f"Bad content type from server: {content_type!r}, expected text/event-stream")
-
-                    self.logger.info("Test run started successfully, beginning event stream")
-                    # Switch to connected state after successful connection
-                    self.connection_state = ConnectionState.CONNECTED
-                    self.__connected = True
-                    return response.stream(CHUNK_SIZE, True)
-
-                elif response.status == 404:
-                    # Log progress for 404 errors (test run not ready yet)
-                    if attempt in [0, 2, 5, 8, 11, 14, 17]:  # Log at key intervals
-                        self.logger.info("Still waiting for test run to start...")
-                elif response.status == 401:
-                    raise TokenExpired("API Key has expired")
-                elif response.status >= 400:
-                    if attempt % 3 == 0:  # Log errors more frequently for non-404 errors
-                        self.logger.info(f"Connection failed with status {response.status} (attempt {attempt+1}), retrying...")
-                elif response.status == 204:
-                    if attempt % 3 == 0:
-                        self.logger.info(f"Empty response from server (attempt {attempt+1}), retrying...")
-
-                response.release_conn()
-
-            except Exception as e:
-                if attempt % 3 == 0:  # Log connection errors
-                    self.logger.info(f"Connection attempt {attempt+1} failed: {str(e)}, retrying...")
-
-            if attempt < max_attempts - 1:
-                # Calculate exponential backoff with max cap
-                backoff_time = min(
-                    extended_retries.backoff_factor * (2 ** attempt),
-                    extended_retries.backoff_max or 120
-                )
-                total_elapsed_time += backoff_time
-                time.sleep(backoff_time)
-
-        # If we get here, all attempts failed
-        raise MaxRetryError(
-            pool=None,
-            url=url,
-            reason="Max retries exceeded waiting for test run to start"
-        )
-
-    def __standard_connect(self, stream_id: str, apikey: str, retries: Retry) -> Iterable[bytes]:
-        """Handle standard connection for reconnections."""
         headers = {
             "Cache-Control": "no-cache",
             "Accept": "text/event-stream",
@@ -252,9 +208,6 @@ class SSEClient:
         if self.__release is not None:
             self.__release()
         self.__connected = False
-        # If we were connected, switch to reconnecting state; otherwise stay in initial state
-        if self.connection_state == ConnectionState.CONNECTED:
-            self.connection_state = ConnectionState.RECONNECTING
 
     def __line_buffered(self, chunks: Iterable[bytes]) -> Iterable[bytes]:
         """Read chunks from a byte feed and split each chunk on line-break."""
@@ -327,7 +280,7 @@ class SSEClient:
         stream = []
         while not self.__shutdown:
             while self.__connected is False:
-                stream = self.__connect(stream_id, apikey, retry_not_found=not bool(stream))
+                stream = self.__connect(stream_id, apikey, is_initial_connection=not bool(stream))
                 time.sleep(1)
                 if not stream:
                     self.logger.warning("Failed connecting to stream. Reconnecting")
