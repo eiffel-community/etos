@@ -23,6 +23,7 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,12 +48,13 @@ type EventRepositoryDeployment struct {
 	mongoUri        url.URL
 	rabbitmqSecret  string
 	mongodbSecret   string
+	config          config.Config
 	restartRequired bool
 }
 
 // NewEventRepositoryDeployment will create a new event repository reconciler.
-func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *runtime.Scheme, client client.Client, mongodb *MongoDBDeployment, rabbitmqSecret string) *EventRepositoryDeployment {
-	return &EventRepositoryDeployment{spec, client, scheme, mongodb.URL, rabbitmqSecret, mongodb.SecretName, false}
+func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *runtime.Scheme, client client.Client, mongodb *MongoDBDeployment, rabbitmqSecret string, config config.Config) *EventRepositoryDeployment {
+	return &EventRepositoryDeployment{spec, client, scheme, mongodb.URL, rabbitmqSecret, mongodb.SecretName, config, false}
 }
 
 // Reconcile will reconcile the event repository to its expected state.
@@ -107,7 +109,7 @@ func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, logger 
 	var err error
 	var target *corev1.Secret
 	if r.Deploy {
-		target, err = r.config(ctx, name)
+		target, err = r.configSecret(ctx, name)
 		if err != nil {
 			return nil, err
 		}
@@ -233,8 +235,8 @@ func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, logger
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(ingress))
 }
 
-// config creates a new Secret to be used as configuration for the event repository.
-func (r *EventRepositoryDeployment) config(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+// configSecret creates a new Secret to be used as configuration for the event repository.
+func (r *EventRepositoryDeployment) configSecret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
 	eiffel := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
 		return nil, err

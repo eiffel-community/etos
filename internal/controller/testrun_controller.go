@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 )
 
 // TODO: Move Environment, EnvironmentRequestOwnerKey
@@ -61,6 +62,7 @@ type TestRunReconciler struct {
 	Scheme *runtime.Scheme
 	Clock
 	Cluster *etosv1alpha1.Cluster
+	Config  config.Config
 }
 
 /*
@@ -442,29 +444,31 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, cluster *etos
 	eiffelMessageBus := cluster.Spec.MessageBus.EiffelMessageBus
 	if cluster.Spec.MessageBus.EiffelMessageBus.Deploy {
 		logger.Info("Cluster deployed with an Eiffel messagebus, using that instead")
-		eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, "rabbitmq")
+		eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, r.Config.Eiffelbus.DefaultHost)
 	}
 	logger.Info("Eiffel messagebus configured", "url", eiffelMessageBus)
 
 	etosMessageBus := cluster.Spec.MessageBus.ETOSMessageBus
 	if cluster.Spec.MessageBus.ETOSMessageBus.Deploy {
 		logger.Info("Cluster deployed with an ETOS messagebus, using that instead")
-		etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, "messagebus")
+		etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, r.Config.Messagebus.DefaultHost)
 	}
 	logger.Info("ETOS messagebus configured", "url", etosMessageBus)
 
 	databaseHost := cluster.Spec.Database.Etcd.Host
 	if databaseHost == "" {
-		databaseHost = "etcd-client"
-	}
-	if cluster.Spec.Database.Deploy {
-		logger.Info("Cluster deployed with an ETOS database, using that instead")
-		databaseHost = fmt.Sprintf("%s-etcd-client", cluster.Name)
+		databaseHost = r.Config.Database.DefaultHost
+		logger.Info("Database host not configured, using default", "host", databaseHost)
 	}
 	databasePort := cluster.Spec.Database.Etcd.Port
 	if databasePort == "" {
-		logger.Info("Database port not configured, using default")
-		databasePort = "2379"
+		databasePort = r.Config.Database.DefaultPort
+		logger.Info("Database port not configured, using default", "port", databasePort)
+	}
+	if cluster.Spec.Database.Deploy {
+		databaseHost = fmt.Sprintf("%s-%s", cluster.Name, r.Config.Database.DefaultHost)
+		databasePort = r.Config.Database.DefaultPort
+		logger.Info("Cluster deployed with an ETOS database, using that instead", "host", databaseHost, "port", databasePort)
 	}
 	logger.Info("ETOS database configured", "host", databaseHost, "port", databasePort)
 

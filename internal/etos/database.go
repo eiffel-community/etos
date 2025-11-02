@@ -19,8 +19,10 @@ package etos
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -44,25 +46,33 @@ var (
 type ETCDDeployment struct {
 	*etosv1alpha1.Database
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme         *runtime.Scheme
+	config         config.Config
+	etcdClientPort int32
 }
 
 // NewETCDDeployment will create a new ETCD reconciler.
-func NewETCDDeployment(spec *etosv1alpha1.Database, scheme *runtime.Scheme, client client.Client) *ETCDDeployment {
-	return &ETCDDeployment{spec, client, scheme}
+func NewETCDDeployment(spec *etosv1alpha1.Database, scheme *runtime.Scheme, client client.Client, config config.Config) *ETCDDeployment {
+	return &ETCDDeployment{spec, client, scheme, config, 0}
 }
 
 // Reconcile will reconcile ETCD to its expected state.
 func (r *ETCDDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
+	var err error
 	logger := log.FromContext(ctx)
 	name := fmt.Sprintf("%s-etcd", cluster.Name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 	if r.Deploy {
-		logger.Info("Patching host when deploying etcd", "host", name)
-		r.Etcd.Host = name
+		logger.Info("Patching host when deploying etcd", "host", fmt.Sprintf("%s-%s", cluster.Name, r.config.Database.DefaultHost))
+		r.Etcd.Host = fmt.Sprintf("%s-%s", cluster.Name, r.config.Database.DefaultHost)
 	}
+	etcdClientPort, err := strconv.Atoi(r.config.Database.DefaultPort)
+	if err != nil {
+		return err
+	}
+	r.etcdClientPort = int32(etcdClientPort)
 
-	_, err := r.reconcileStatefulset(ctx, namespacedName, cluster)
+	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
 	if err != nil {
 		return err
 	}
@@ -127,11 +137,11 @@ func (r *ETCDDeployment) reconcileService(ctx context.Context, name types.Namesp
 }
 
 // reconcileClientService will reconcile the ETCD client service to its expected state.
-func (r *ETCDDeployment) reconcileClientService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *ETCDDeployment) reconcileClientService(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Service, error) {
 	labelName := name.Name
-	name.Name = fmt.Sprintf("%s-client", name.Name)
+	name.Name = fmt.Sprintf("%s-%s", cluster.Name, r.config.Database.DefaultHost)
 	target := r.service(name, labelName)
-	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+	if err := ctrl.SetControllerReference(cluster, target, r.Scheme); err != nil {
 		return target, err
 	}
 
@@ -282,7 +292,7 @@ func (r *ETCDDeployment) container(name types.NamespacedName) corev1.Container {
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "etcd-client",
-				ContainerPort: etcdClientPort,
+				ContainerPort: r.etcdClientPort,
 			},
 			{
 				Name:          "etcd-server",

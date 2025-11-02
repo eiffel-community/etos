@@ -23,6 +23,7 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -51,13 +52,14 @@ type ETOSApiDeployment struct {
 	Scheme           *runtime.Scheme
 	rabbitmqSecret   string
 	messagebusSecret string
-	configSecret     string
+	configSecretName string
+	config           config.Config
 	restartRequired  bool
 }
 
 // NewETOSApiDeployment will create a new ETOS API reconciler.
-func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string, config string) *ETOSApiDeployment {
-	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config, false}
+func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string, configName string, config config.Config) *ETOSApiDeployment {
+	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, configName, config, false}
 }
 
 // Reconcile will reconcile the ETOS API to its expected state.
@@ -108,7 +110,7 @@ func (r *ETOSApiDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 // reconcileConfig will reconcile the secret to use as configuration for the ETOS API.
 func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
-	target, err := r.config(ctx, name)
+	target, err := r.configSecret(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -279,8 +281,8 @@ func (r *ETOSApiDeployment) reconcileService(ctx context.Context, logger logr.Lo
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
-// config creates a new Secret to be used as configuration for the ETOS API.
-func (r *ETOSApiDeployment) config(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+// configSecret creates a new Secret to be used as configuration for the ETOS API.
+func (r *ETOSApiDeployment) configSecret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
 	eiffel := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
 		return nil, err
@@ -290,7 +292,7 @@ func (r *ETOSApiDeployment) config(ctx context.Context, name types.NamespacedNam
 		return nil, err
 	}
 	config := &corev1.Secret{}
-	if err := r.Get(ctx, types.NamespacedName{Name: r.configSecret, Namespace: name.Namespace}, config); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: r.configSecretName, Namespace: name.Namespace}, config); err != nil {
 		return nil, err
 	}
 	data := map[string][]byte{}
