@@ -264,7 +264,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 }
 
 // envVarListFrom creates a list of EnvVar key-value pairs from an EnvironmentRequest instance
-func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) ([]corev1.EnvVar, error) {
+func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest, cluster *etosv1alpha1.Cluster) ([]corev1.EnvVar, error) {
 	etosEncryptionKey, err := environmentrequest.Spec.Config.EncryptionKey.Get(ctx, r.Client, environmentrequest.Namespace)
 	if err != nil {
 		return nil, err
@@ -276,6 +276,10 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 	eiffelRabbitMQPassword, err := environmentrequest.Spec.Config.EiffelMessageBus.Password.Get(ctx, r.Client, environmentrequest.Namespace)
 	if err != nil {
 		return nil, err
+	}
+	traceparent, ok := environmentrequest.Annotations["etos.eiffel-community.github.io/traceparent"]
+	if !ok {
+		traceparent = ""
 	}
 	envList := []corev1.EnvVar{
 		{
@@ -410,6 +414,20 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 			Name:  "ETOS_ROUTING_KEY_TAG",
 			Value: environmentrequest.Spec.Config.RoutingKeyTag,
 		},
+		{
+			Name:  "OTEL_CONTEXT",
+			Value: traceparent,
+		},
+	}
+	if cluster != nil && cluster.Spec.OpenTelemetry.Enabled {
+		envList = append(envList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
+			Value: cluster.Spec.OpenTelemetry.Endpoint,
+		})
+		envList = append(envList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
+			Value: cluster.Spec.OpenTelemetry.Insecure,
+		})
 	}
 	return envList, nil
 }
@@ -473,19 +491,30 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 	grace := int64(30)
 	backoff := int32(0)
 
-	envVarList, err := r.envVarListFrom(ctx, environmentrequest)
-	if err != nil {
-		logger.Error(err, "Failed to create environment variable list for environment provider")
-		return nil, err
-	}
-
 	labels := map[string]string{
 		"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier, // TODO: omitempty
 		"app.kubernetes.io/name":             "environment-provider",
 		"app.kubernetes.io/part-of":          "etos",
 	}
-	if cluster := environmentrequest.Labels["etos.eiffel-community.github.io/cluster"]; cluster != "" {
-		labels["etos.eiffel-community.github.io/cluster"] = cluster
+
+	var cluster *etosv1alpha1.Cluster
+	if clusterName := environmentrequest.Labels["etos.eiffel-community.github.io/cluster"]; clusterName != "" {
+		labels["etos.eiffel-community.github.io/cluster"] = clusterName
+		clusterNamespacedName := types.NamespacedName{
+			Name:      clusterName,
+			Namespace: environmentrequest.Namespace,
+		}
+		cluster = &etosv1alpha1.Cluster{}
+		if err := r.Get(ctx, clusterNamespacedName, cluster); err != nil {
+			logger.Info("Failed to get cluster resource!")
+			return nil, err
+		}
+	}
+
+	envVarList, err := r.envVarListFrom(ctx, environmentrequest, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to create environment variable list for environment provider")
+		return nil, err
 	}
 
 	return &batchv1.Job{

@@ -60,7 +60,6 @@ type TestRunReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Clock
-	Cluster *etosv1alpha1.Cluster
 }
 
 /*
@@ -468,6 +467,12 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, cluster *etos
 	}
 	logger.Info("ETOS database configured", "host", databaseHost, "port", databasePort)
 
+	annotations := make(map[string]string)
+	traceparent, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]
+	if ok {
+		annotations["etos.eiffel-community.github.io/traceparent"] = traceparent
+	}
+
 	return &etosv1alpha1.EnvironmentRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -476,7 +481,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, cluster *etos
 				"app.kubernetes.io/name":                  "suite-runner",
 				"app.kubernetes.io/part-of":               "etos",
 			},
-			Annotations:  make(map[string]string),
+			Annotations:  annotations,
 			GenerateName: fmt.Sprintf("%s-", testrun.Name),
 			Namespace:    testrun.Namespace,
 		},
@@ -529,6 +534,10 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, cluster *etos
 
 // suiteRunnerJob is the job definition for an etos suite runner.
 func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv1.Job {
+	traceparent, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]
+	if !ok {
+		traceparent = ""
+	}
 	grace := int64(30)
 	backoff := int32(0)
 	return &batchv1.Job{
@@ -666,6 +675,10 @@ func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv
 								{
 									Name:  "IDENTIFIER",
 									Value: testrun.Spec.ID,
+								},
+								{
+									Name:  "OTEL_CONTEXT",
+									Value: traceparent,
 								},
 								{
 									Name:  "KUBEXIT_NAME",
