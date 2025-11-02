@@ -77,6 +77,30 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 	}
 	go test ./test/e2e/ -v -ginkgo.v
 
+.PHONY: deploy-local
+deploy-local: manifests generate
+	@command -v $(KIND) >/dev/null 2>&1 || { \
+		echo "Kind is not installed. Please install Kind manually."; \
+		exit 1; \
+	}
+	@$(KIND) get clusters | grep -q 'kind' || { \
+		echo "No Kind cluster is running. Please start a Kind cluster before deploying ETOS locally."; \
+		exit 1; \
+	}
+	python -m local.main -r -i -v up
+
+.PHONY: undeploy-local
+undeploy-local: manifests generate
+	@command -v $(KIND) >/dev/null 2>&1 || { \
+		echo "Kind is not installed. Please install Kind manually."; \
+		exit 1; \
+	}
+	@$(KIND) get clusters | grep -q 'kind' || { \
+		echo "No Kind cluster is running. Are you sure you want to undeploy?"; \
+		exit 1; \
+	}
+	python -m local.main -r -i -v down
+
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
 	$(GOLANGCI_LINT) run
