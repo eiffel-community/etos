@@ -183,7 +183,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			condition = metav1.Condition{
 				Type:    status.StatusReady,
 				Status:  metav1.ConditionTrue,
-				Reason:  status.ReasonDone,
+				Reason:  status.ReasonCompleted,
 				Message: result.Description,
 			}
 		}
@@ -197,7 +197,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			metav1.Condition{
 				Type:    status.StatusReady,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonRunning,
+				Reason:  status.ReasonActive,
 				Message: "Environment provider is running",
 			}) {
 			return r.Status().Update(ctx, environmentrequest)

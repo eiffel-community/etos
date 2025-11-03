@@ -86,7 +86,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				metav1.Condition{
 					Type:    status.StatusAvailable,
 					Status:  metav1.ConditionFalse,
-					Reason:  status.ReasonError,
+					Reason:  status.ReasonFailed,
 					Message: "Could not communicate with host",
 				})
 			if err = r.Status().Update(ctx, provider); err != nil {
@@ -101,7 +101,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				metav1.Condition{
 					Type:    status.StatusAvailable,
 					Status:  metav1.ConditionFalse,
-					Reason:  status.ReasonError,
+					Reason:  status.ReasonFailed,
 					Message: fmt.Sprintf("Wrong status code (%d) from health check endpoint", resp.StatusCode),
 				})
 			if err = r.Status().Update(ctx, provider); err != nil {
@@ -116,7 +116,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		metav1.Condition{
 			Type:    status.StatusAvailable,
 			Status:  metav1.ConditionTrue,
-			Reason:  status.ReasonOk,
+			Reason:  status.ReasonActive,
 			Message: "Provider is up and running",
 		})
 	if err = r.Status().Update(ctx, provider); err != nil {

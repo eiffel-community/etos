@@ -123,7 +123,6 @@ type ProviderStatus struct {
 
 // Provider is the Schema for the providers API
 // +kubebuilder:printcolumn:name="Available",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].status"
-// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].message"
 type Provider struct {
 	metav1.TypeMeta   `json:",inline"`

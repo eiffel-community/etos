@@ -24,16 +24,9 @@ const (
 	StatusSuiteRunner = "SuiteRunner"
 )
 
-// There are many duplicates here, will clean up later.
 const (
-	ReasonCompleted  = "Completed"
-	ReasonDone       = "Done"
-	ReasonOk         = "OK"
-	ReasonSuccessful = "Successful"
-	ReasonReady      = "Ready"
-	ReasonFailed     = "Failed"
-	ReasonError      = "Error"
-	ReasonRunning    = "Running"
-	ReasonActive     = "Active"
-	ReasonPending    = "Pending"
+	ReasonPending   = "Pending"
+	ReasonActive    = "Active"
+	ReasonFailed    = "Failed"
+	ReasonCompleted = "Completed"
 )
