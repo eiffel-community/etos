@@ -79,6 +79,13 @@ func (j *job) Result(ctx context.Context) Result {
 
 	result := Result{Verdict: VerdictNone}
 	for _, job := range jobs {
+		// Get termination log from all jobs and parse it as a Result.
+		//  - If there was an error getting the terminationLog, we'll write the error in description.
+		//  - If the description is empty, write an error to the description
+		// 	- Append description to overarching result description
+		//  - If conclusion is Failed, set ConclusionFailed on the overarching result
+		//  - If verdict is failed, set VerdictFailed on the overarching result
+		//  - If no verdict is set and verdict is not None, set the verdict on the overarching result
 		jobResult, err := terminationLog(ctx, j, job, j.name)
 		if err != nil {
 			jobResult.Description = err.Error()
