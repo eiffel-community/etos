@@ -15,6 +15,7 @@
    Services <services/index>
    SSE Protocol <sse>
    Database <database>
+   Development Server <local>
 
    License <license>
    Authors <authors>
