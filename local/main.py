@@ -140,6 +140,7 @@ def run(args: argparse.Namespace):
 
     setup_logging(loglevel(args.verbose))
     store = Store()
+    # These are hard-coded values used for local deployment, similar to how the e2e tests do it.
     store["namespace"] = "etos-system"
     store["cluster_namespace"] = "etos-test"
     store["cluster_name"] = "cluster-sample"

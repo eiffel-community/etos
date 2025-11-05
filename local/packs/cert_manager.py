@@ -23,6 +23,7 @@ from .base import BasePack
 class CertManager(BasePack):
     """Pack for deploying cert manager."""
 
+    # Same version that the e2e tests use
     version = "v1.16.3"
     url = f"https://github.com/cert-manager/cert-manager/releases/download/{version}/cert-manager.yaml"
     cert_manager_controller_lease = "cert-manager-controller"

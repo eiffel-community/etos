@@ -23,6 +23,7 @@ from .base import BasePack
 class Prometheus(BasePack):
     """Pack for deploying prometheus."""
 
+    # Same version that the e2e tests use
     version = "v0.77.1"
     url = f"https://github.com/prometheus-operator/prometheus-operator/releases/download/{version}/bundle.yaml"
 
