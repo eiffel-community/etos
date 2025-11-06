@@ -143,7 +143,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // update will set the status condition and update the status of the ETOS cluster.
 // if the update fails due to conflict the reconciliation will requeue after one second.
 func (r *ClusterReconciler) update(ctx context.Context, cluster *etosv1alpha1.Cluster, clusterStatus metav1.ConditionStatus, message string) (ctrl.Result, error) {
-	if meta.SetStatusCondition(&cluster.Status.Conditions, metav1.Condition{Type: status.StatusReady, Status: clusterStatus, Reason: status.ReasonReady, Message: message}) {
+	if meta.SetStatusCondition(&cluster.Status.Conditions, metav1.Condition{Type: status.StatusReady, Status: clusterStatus, Reason: status.ReasonCompleted, Message: message}) {
 		if err := r.Status().Update(ctx, cluster); err != nil {
 			if apierrors.IsConflict(err) {
 				return ctrl.Result{RequeueAfter: time.Second}, nil

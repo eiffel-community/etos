@@ -114,7 +114,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if testrun.Status.CompletionTime != nil {
 		testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, status.StatusActive)
 		var retention *metav1.Duration
-		if testrunCondition.Reason == "Successful" {
+		if testrunCondition.Reason == status.ReasonCompleted {
 			retention = testrun.Spec.Retention.Success
 		} else {
 			retention = testrun.Spec.Retention.Failure
@@ -234,7 +234,7 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 			metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonSuccessful,
+				Reason:  status.ReasonCompleted,
 				Message: "Suite runners finished successfully",
 			}) {
 			now := metav1.Now()
@@ -305,7 +305,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			condition = metav1.Condition{
 				Type:    status.StatusSuiteRunner,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonDone,
+				Reason:  status.ReasonCompleted,
 				Message: result.Description,
 			}
 		}
@@ -320,7 +320,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			metav1.Condition{
 				Type:    status.StatusSuiteRunner,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonRunning,
+				Reason:  status.ReasonActive,
 				Message: "Job is running",
 			}) {
 			return r.Status().Update(ctx, testrun)
@@ -464,7 +464,7 @@ func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv
 			metav1.Condition{
 				Type:    status.StatusEnvironment,
 				Status:  metav1.ConditionTrue,
-				Reason:  status.ReasonReady,
+				Reason:  status.ReasonCompleted,
 				Message: "Environment ready",
 			}) {
 			return r.Status().Update(ctx, testrun)

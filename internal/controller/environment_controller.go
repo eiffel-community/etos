@@ -165,7 +165,7 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 			metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonRunning,
+				Reason:  status.ReasonActive,
 				Message: "Job is running",
 			}) {
 			return r.Status().Update(ctx, environment)
