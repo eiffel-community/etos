@@ -22,10 +22,10 @@ spec:
     environmentProvider:
       image: ghcr.io/eiffel-community/etos-environment-provider:b7590430
     suiteRunner:
-      image: ghcr.io/eiffel-community/etos-suite-runner:c85d419e
+      image: ghcr.io/eiffel-community/etos-suite-runner:3c5575fd
       logListener:
         etosQueueName: "*.testlog"
-        image: ghcr.io/eiffel-community/etos-log-listener:c85d419e
+        image: ghcr.io/eiffel-community/etos-log-listener:3c5575fd
     suiteStarter:
       image: ghcr.io/eiffel-community/etos-suite-starter:76543433
       eiffelQueueName: etos-suite-starter
