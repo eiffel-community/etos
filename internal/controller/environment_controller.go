@@ -29,13 +29,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	ref "k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/controller/jobs"
+	"github.com/eiffel-community/etos/internal/controller/status"
 )
 
 const releaseFinalizer = "etos.eiffel-community.github.io/release"
@@ -63,6 +64,7 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
 	// If the environment is considered 'Completed', it has been released. Check that the object is
 	// being deleted and contains the finalizer and remove the finalizer.
 	if environment.Status.CompletionTime != nil {
@@ -73,7 +75,7 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 					if apierrors.IsConflict(err) {
 						return ctrl.Result{Requeue: true}, nil
 					}
-					return ctrl.Result{}, err
+					return ctrl.Result{}, client.IgnoreNotFound(err)
 				}
 			}
 		}
@@ -92,11 +94,15 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // reconcile an environment resource to its desired state.
 func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etosv1alpha1.Environment) error {
-	logger := logf.FromContext(ctx)
-
 	// Set initial statuses if not set.
-	if meta.FindStatusCondition(environment.Status.Conditions, StatusActive) == nil {
-		meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Status: metav1.ConditionTrue, Type: StatusActive, Message: "Actively being used", Reason: "Active"})
+	if meta.FindStatusCondition(environment.Status.Conditions, status.StatusActive) == nil {
+		meta.SetStatusCondition(&environment.Status.Conditions,
+			metav1.Condition{
+				Status:  metav1.ConditionTrue,
+				Type:    status.StatusActive,
+				Reason:  status.ReasonActive,
+				Message: "Actively being used",
+			})
 		return r.Status().Update(ctx, environment)
 	}
 	if environment.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -106,120 +112,80 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 		}
 	}
 
-	// Get active, finished and failed environment releasers.
-	releasers, err := jobStatus(ctx, r, environment.Namespace, environment.Name, EnvironmentOwnerKey)
-	if err != nil {
-		return err
-	}
-
-	environment.Status.EnvironmentReleasers = nil
-	for _, activeReleaser := range releasers.activeJobs {
-		jobRef, err := ref.GetReference(r.Scheme, activeReleaser)
-		if err != nil {
-			logger.Error(err, "failed to make reference to active environment releaser", "releaser", activeReleaser)
-			continue
-		}
-		environment.Status.EnvironmentReleasers = append(environment.Status.EnvironmentReleasers, *jobRef)
-	}
-	if err := r.Status().Update(ctx, environment); err != nil {
-		return err
-	}
-	logger.V(1).Info("environment releaser count", "active", len(releasers.activeJobs), "successful", len(releasers.successfulJobs), "failed", len(releasers.failedJobs))
-
 	// TODO: Provider information does not exist in a deterministic way in the Environment resource
 	// so either we need to find the EnvironmentRequest or the Environment resource needs an update.
 	// if err := checkProviders(ctx, r, environment.Namespace, environment.Spec.Providers); err != nil {
 	// 	return err
 	// }
 
-	if err := r.reconcileReleaser(ctx, releasers, environment); err != nil {
+	conditions := &environment.Status.Conditions
+	jobManager := jobs.NewJob(r.Client, EnvironmentOwnerKey, environment.GetName(), environment.GetNamespace())
+
+	jobStatus, err := jobManager.Status(ctx)
+	if err != nil {
 		return err
 	}
-
-	// There is no explicit retry here as it is not necessarily needed. If releasers is not successful
-	// then the Job will get deleted after a while. When that job is deleted, a reconcile is called for
-	// and the Environment will try to get released again.
-	if releasers.successful() {
-		environmentCondition := meta.FindStatusCondition(environment.Status.Conditions, StatusActive)
-		environment.Status.CompletionTime = &environmentCondition.LastTransitionTime
-		return r.Status().Update(ctx, environment)
-	}
-
-	return nil
-}
-
-// reconcileReleaser will check the status of environment releasers, create new ones if necessary.
-func (r *EnvironmentReconciler) reconcileReleaser(ctx context.Context, releasers *jobs, environment *etosv1alpha1.Environment) error {
-	logger := logf.FromContext(ctx)
-
-	// Environment releaser failed, setting status.
-	if releasers.failed() {
-		releaser := releasers.failedJobs[0] // TODO: We should allow multiple releaser jobs in the future
-		result, err := terminationLog(ctx, r, releaser, environment.Name)
-		if err != nil {
-			result.Description = err.Error()
-		}
-		if result.Description == "" {
-			result.Description = "Failed to release an environment - Unknown error"
-		}
-		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
+	switch jobStatus {
+	case jobs.StatusFailed:
+		result := jobManager.Result(ctx)
+		if meta.SetStatusCondition(conditions,
+			metav1.Condition{
+				Type:    status.StatusActive,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonFailed,
+				Message: result.Description,
+			}) {
 			return r.Status().Update(ctx, environment)
 		}
-	}
-	// Environment releaser successful, setting status.
-	if releasers.successful() {
-		releaser := releasers.successfulJobs[0] // TODO: We should allow multiple releaser jobs in the future
-		result, err := terminationLog(ctx, r, releaser, environment.Name)
-		if err != nil {
-			result.Description = err.Error()
+	case jobs.StatusSuccessful:
+		result := jobManager.Result(ctx)
+		var condition metav1.Condition
+		if result.Conclusion == jobs.ConclusionFailed {
+			condition = metav1.Condition{
+				Type:    status.StatusActive,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonFailed,
+				Message: result.Description,
+			}
+		} else {
+			condition = metav1.Condition{
+				Type:    status.StatusActive,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonCompleted,
+				Message: result.Description,
+			}
 		}
-		if result.Conclusion == ConclusionFailed {
-			if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Failed", Message: result.Description}) {
+		environmentCondition := meta.FindStatusCondition(environment.Status.Conditions, status.StatusActive)
+		environment.Status.CompletionTime = &environmentCondition.LastTransitionTime
+		if meta.SetStatusCondition(conditions, condition) {
+			return errors.Join(r.Status().Update(ctx, environment), jobManager.Delete(ctx))
+		}
+	case jobs.StatusActive:
+		if meta.SetStatusCondition(conditions,
+			metav1.Condition{
+				Type:    status.StatusActive,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonRunning,
+				Message: "Job is running",
+			}) {
+			return r.Status().Update(ctx, environment)
+		}
+	default:
+		// Since this is a release job, we don't want to release if we are not deleting.
+		if environment.GetDeletionTimestamp().IsZero() {
+			return nil
+		}
+		if err := jobManager.Create(ctx, environment, r.releaseJob); err != nil {
+			if meta.SetStatusCondition(conditions,
+				metav1.Condition{
+					Type:    status.StatusActive,
+					Status:  metav1.ConditionFalse,
+					Reason:  status.ReasonFailed,
+					Message: err.Error(),
+				}) {
 				return r.Status().Update(ctx, environment)
 			}
-		}
-		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Released", Message: result.Description}) {
-			for _, environmentProvider := range releasers.successfulJobs {
-				if err := r.Delete(ctx, environmentProvider, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
-					if !apierrors.IsNotFound(err) {
-						return err
-					}
-				}
-			}
-			return r.Status().Update(ctx, environment)
-		}
-	}
-	// Suite runners active, setting status
-	if releasers.active() {
-		if meta.SetStatusCondition(&environment.Status.Conditions, metav1.Condition{Type: StatusActive, Status: metav1.ConditionFalse, Reason: "Releasing", Message: "Environment is being released"}) {
-			return r.Status().Update(ctx, environment)
-		}
-	}
-	// Environment is being released and no releaser is active, create an environment releaser
-	if releasers.empty() && !environment.ObjectMeta.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(environment, releaseFinalizer) {
-			logger.Info("Environment is being deleted, release it")
-			environmentRequest, err := r.environmentRequest(ctx, environment)
-			if err != nil {
-				return err
-			}
-			clusterName := environment.Labels["etos.eiffel-community.github.io/cluster"]
-			var cluster *etosv1alpha1.Cluster
-			if clusterName != "" {
-				cluster = &etosv1alpha1.Cluster{}
-				if err := r.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: environment.Namespace}, cluster); err != nil {
-					logger.Info("Failed to get cluster resource!")
-					return err
-				}
-			}
-			releaser := r.releaseJob(environment, environmentRequest, cluster)
-			fmt.Println(releaser)
-			if err := ctrl.SetControllerReference(environment, releaser, r.Scheme); err != nil {
-				return err
-			}
-			if err := r.Create(ctx, releaser); err != nil {
-				return err
-			}
+			return err
 		}
 	}
 	return nil
@@ -245,13 +211,30 @@ func (r *EnvironmentReconciler) environmentRequest(ctx context.Context, environm
 }
 
 // releaseJob is the job definition for an environment releaser.
-func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment, environmentRequest *etosv1alpha1.EnvironmentRequest, cluster *etosv1alpha1.Cluster) *batchv1.Job {
-	id := environment.Labels["etos.eiffel-community.github.io/id"]
+func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object) (*batchv1.Job, error) {
+	logger := logf.FromContext(ctx)
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
 
-	clusterName := ""
+	environment, ok := obj.(*etosv1alpha1.Environment)
+	if !ok {
+		return nil, errors.New("object received from job manager is not an Environment")
+	}
+	environmentRequest, err := r.environmentRequest(ctx, environment)
+	if err != nil {
+		return nil, err
+	}
+	clusterName := environment.Labels["etos.eiffel-community.github.io/cluster"]
+	var cluster *etosv1alpha1.Cluster
+	if clusterName != "" {
+		cluster = &etosv1alpha1.Cluster{}
+		if err := r.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: environment.Namespace}, cluster); err != nil {
+			logger.Info("Failed to get cluster resource!")
+			return nil, err
+		}
+	}
+
 	databaseHost := "etcd-client"
 	if cluster != nil {
 		if cluster.Spec.Database.Deploy {
@@ -259,13 +242,12 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment,
 		} else {
 			databaseHost = cluster.Spec.Database.Etcd.Host
 		}
-		clusterName = cluster.Name
 	}
 
-	return &batchv1.Job{
+	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"etos.eiffel-community.github.io/id":        id,
+				"etos.eiffel-community.github.io/id":        environment.Labels["etos.eiffel-community.github.io/id"],
 				"etos.eiffel-community.github.io/sub-suite": environment.Name,
 				"etos.eiffel-community.github.io/cluster":   clusterName,
 				"app.kubernetes.io/name":                    "environment-releaser",
@@ -281,6 +263,13 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: environment.Name,
+					Labels: map[string]string{
+						"etos.eiffel-community.github.io/id":        environment.Labels["etos.eiffel-community.github.io/id"],
+						"etos.eiffel-community.github.io/sub-suite": environment.Name,
+						"etos.eiffel-community.github.io/cluster":   clusterName,
+						"app.kubernetes.io/name":                    "environment-releaser",
+						"app.kubernetes.io/part-of":                 "etos",
+					},
 				},
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: &grace,
@@ -323,6 +312,7 @@ func (r EnvironmentReconciler) releaseJob(environment *etosv1alpha1.Environment,
 			},
 		},
 	}
+	return jobSpec, ctrl.SetControllerReference(environment, jobSpec, r.Scheme)
 }
 
 // registerOwnerIndexForJob will set an index of the jobs that an environment owns.

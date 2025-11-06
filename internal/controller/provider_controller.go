@@ -31,6 +31,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/controller/status"
 )
 
 // ProviderReconciler reconciles a Provider object
@@ -81,7 +82,13 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		logger.Info("Healthcheck", "endpoint", fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
 		resp, err := http.Get(fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
 		if err != nil {
-			meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionFalse, Reason: "Error", Message: "Could not communicate with host"})
+			meta.SetStatusCondition(&provider.Status.Conditions,
+				metav1.Condition{
+					Type:    status.StatusAvailable,
+					Status:  metav1.ConditionFalse,
+					Reason:  status.ReasonError,
+					Message: "Could not communicate with host",
+				})
 			if err = r.Status().Update(ctx, provider); err != nil {
 				logger.Error(err, "failed to update provider status")
 				return ctrl.Result{}, err
@@ -90,7 +97,13 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{RequeueAfter: interval}, nil
 		}
 		if resp.StatusCode != 204 {
-			meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionFalse, Reason: "Error", Message: fmt.Sprintf("Wrong status code (%d) from health check endpoint", resp.StatusCode)})
+			meta.SetStatusCondition(&provider.Status.Conditions,
+				metav1.Condition{
+					Type:    status.StatusAvailable,
+					Status:  metav1.ConditionFalse,
+					Reason:  status.ReasonError,
+					Message: fmt.Sprintf("Wrong status code (%d) from health check endpoint", resp.StatusCode),
+				})
 			if err = r.Status().Update(ctx, provider); err != nil {
 				logger.Error(err, "failed to update provider status")
 				return ctrl.Result{}, err
@@ -99,7 +112,13 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{RequeueAfter: interval}, nil
 		}
 	}
-	meta.SetStatusCondition(&provider.Status.Conditions, metav1.Condition{Type: StatusAvailable, Status: metav1.ConditionTrue, Reason: "OK", Message: "Provider is up and running"})
+	meta.SetStatusCondition(&provider.Status.Conditions,
+		metav1.Condition{
+			Type:    status.StatusAvailable,
+			Status:  metav1.ConditionTrue,
+			Reason:  status.ReasonOk,
+			Message: "Provider is up and running",
+		})
 	if err = r.Status().Update(ctx, provider); err != nil {
 		logger.Error(err, "failed to update provider status")
 		return ctrl.Result{}, err

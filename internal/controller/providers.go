@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/controller/status"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -49,7 +50,7 @@ func checkProvider(ctx context.Context, c client.Reader, name string, namespace 
 	if err != nil {
 		return err
 	}
-	if meta.IsStatusConditionPresentAndEqual(provider.Status.Conditions, StatusAvailable, metav1.ConditionTrue) {
+	if meta.IsStatusConditionPresentAndEqual(provider.Status.Conditions, status.StatusAvailable, metav1.ConditionTrue) {
 		return nil
 	}
 	return fmt.Errorf("Provider '%s' does not have a status field", name)
