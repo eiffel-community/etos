@@ -15,33 +15,32 @@
 # limitations under the License.
 """ETOS v1alpha."""
 
-import os
 import logging
-import time
+import os
 import shutil
-from pathlib import Path
+import time
 from json import JSONDecodeError
+from pathlib import Path
 from typing import Optional, Union
 
-from requests.exceptions import HTTPError
-from etos_lib.lib.http import Http
 from etos_lib import ETOS as ETOSLibrary
+from etos_lib.lib.http import Http
+from requests.exceptions import HTTPError
 from urllib3.util import Retry
 
-from etos_client.types.result import Result, Verdict, Conclusion
-from etos_client.shared.downloader import Downloader
-from etos_client.shared.utilities import directories
-from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient, TokenExpired
-from etos_client.sse.v1.client import SSEClient as SSEV1Client
-
-from etos_client.etos.v0.test_run import TestRun as V0TestRun
 from etos_client.etos.v0.event_repository import graphql
 from etos_client.etos.v0.events.collector import Collector
 from etos_client.etos.v0.test_results import TestResults
-from etos_client.etos.v1alpha.test_run import TestRun as V1AlphaTestRun
-from etos_client.etos.v1alpha.schema.response import ResponseSchema
+from etos_client.etos.v0.test_run import TestRun as V0TestRun
 from etos_client.etos.v1alpha.schema.request import RequestSchema
-
+from etos_client.etos.v1alpha.schema.response import ResponseSchema
+from etos_client.etos.v1alpha.test_run import TestRun as V1AlphaTestRun
+from etos_client.shared.downloader import Downloader
+from etos_client.shared.utilities import directories
+from etos_client.sse.v1.client import SSEClient as SSEV1Client
+from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient
+from etos_client.sse.v2alpha.client import TokenExpired
+from etos_client.types.result import Conclusion, Result, Verdict
 
 # Max total time for a ping request including delays with backoff factor 0.5 will be:
 # 0.5 + 1.5 + 3.5 + 7.5 + 15.5 = 28.5 (seconds)
@@ -66,6 +65,7 @@ class Etos:
     version = "v1alpha"
     logger = logging.getLogger(__name__)
     __apikey = None
+    __key_service_exists = None
     start_response = ResponseSchema
     start_request = RequestSchema
 
@@ -80,8 +80,16 @@ class Etos:
     @property
     def apikey(self) -> str:
         """Generate and return an API key."""
-        if self.__apikey is None:
-            http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
+        http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
+        if self.__key_service_exists is None:
+            url = f"{self.cluster}/keys/v1alpha/ping"
+            response = http.get(url)
+            if response.status_code == 404:
+                self.__key_service_exists = False
+                return ""
+            response.raise_for_status()
+            self.__key_service_exists = True
+        if self.__key_service_exists and self.__apikey is None:
             url = f"{self.cluster}/keys/v1alpha/generate"
             response = http.post(
                 url,
