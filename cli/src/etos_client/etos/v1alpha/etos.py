@@ -65,7 +65,6 @@ class Etos:
     version = "v1alpha"
     logger = logging.getLogger(__name__)
     __apikey = None
-    __key_service_exists = None
     start_response = ResponseSchema
     start_request = RequestSchema
 
@@ -81,15 +80,7 @@ class Etos:
     def apikey(self) -> str:
         """Generate and return an API key."""
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
-        if self.__key_service_exists is None:
-            url = f"{self.cluster}/keys/v1alpha/ping"
-            response = http.get(url)
-            if response.status_code == 404:
-                self.__key_service_exists = False
-                return ""
-            response.raise_for_status()
-            self.__key_service_exists = True
-        if self.__key_service_exists and self.__apikey is None:
+        if self.__apikey is None:
             url = f"{self.cluster}/keys/v1alpha/generate"
             response = http.post(
                 url,
@@ -123,9 +114,12 @@ class Etos:
 
         response_json = {}
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
-        response = http.post(
-            url, json=request.model_dump(), headers={"Authorization": f"Bearer {self.apikey}"}
-        )
+        if isinstance(self.sse_client, SSEV2AlphaClient):
+            response = http.post(
+                url, json=request.model_dump(), headers={"Authorization": f"Bearer {self.apikey}"}
+            )
+        else:
+            response = http.post(url, json=request.model_dump())
         try:
             response.raise_for_status()
             response_json = response.json()
