@@ -37,6 +37,7 @@ const clusterName = "cluster-sample"
 
 const clusterSample = "config/samples/etos_v1alpha1_cluster.yaml"
 const testRunSample = "config/samples/etos_v1alpha1_testrun.yaml"
+const multiSuiteTestRunSample = "config/samples/etos_v1alpha1_testrun_multi_suite.yaml"
 const iutProviderSample = "config/samples/etos_v1alpha1_iut_provider.yaml"
 const executionSpaceProviderSample = "config/samples/etos_v1alpha1_execution_space_provider.yaml"
 const logAreaProviderSample = "config/samples/etos_v1alpha1_log_area_provider.yaml"
@@ -626,12 +627,11 @@ var _ = Describe("Manager", Ordered, func() {
 			}
 			Eventually(verifyGoerReady).Should(Succeed())
 		})
-
 		cmd := "from eiffel_graphql_api.graphql.db.database import insert_to_db;" +
 			"from eiffellib.events import EiffelArtifactCreatedEvent;" +
 			fmt.Sprintf("event = EiffelArtifactCreatedEvent(); event.meta.event_id = '%s';", artifactID) +
 			fmt.Sprintf("event.data.identity = '%s';insert_to_db(event);", artifactIdentity)
-		It("should be able to execute a v1alpha testrun", func() {
+		It("should prepare test environment", func() {
 			By("injecting a fake artifact to test")
 			cmd := exec.Command("kubectl", "run", "artifact-injector", "--restart=Never",
 				"--namespace", clusterNamespace,
@@ -668,23 +668,42 @@ var _ = Describe("Manager", Ordered, func() {
 				"etos-encryption-key", "--from-literal", "ETOS_ENCRYPTION_KEY=ZmgcW2Qz43KNJfIuF0vYCoPneViMVyObH4GR8R9JE4g=")
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create an encryption key secret")
-
 			// Getting an EOF error every now and then from the environment-provider.
 			// I think it is because ETCD reports that it is up, but it is not ready
 			// to accept connections. A wait for ETCD to respond is a better fix.
 			time.Sleep(30 * time.Second)
+		})
 
+		It("should be able to execute a v1alpha testrun", func() {
 			// TODO: This testrun could create a v0 testrun and wait for it to complete, as a way to test
 			// both ETOS versions.
 			By("creating a testrun")
-			cmd = exec.Command("kubectl", "create", "-n", clusterNamespace, "-f", testRunSample)
-			_, err = utils.Run(cmd)
+			cmd := exec.Command("kubectl", "create", "-n", clusterNamespace, "-f", testRunSample)
+			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create a testrun")
 
 			By("checking the status field of the testrun")
 			verifyTestRun := func(g Gomega) {
 				cmd := exec.Command("kubectl", "get",
 					"testrun", "testrun-sample", "-o", "jsonpath={.status.verdict}",
+					"-n", clusterNamespace)
+				output, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(output).To(Equal("Passed"), "Incorrect TestRun status")
+			}
+			Eventually(verifyTestRun, "5m").Should(Succeed())
+		})
+
+		It("should be able to execute a v1alpha multi-suite testrun", func() {
+			By("creating a testrun")
+			cmd := exec.Command("kubectl", "create", "-n", clusterNamespace, "-f", multiSuiteTestRunSample)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create a multi-suite testrun")
+
+			By("checking the status field of the testrun")
+			verifyTestRun := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get",
+					"testrun", "testrun-sample-multi-suite", "-o", "jsonpath={.status.verdict}",
 					"-n", clusterNamespace)
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())

@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/name: etos
     app.kubernetes.io/managed-by: kustomize
-  name: testrun-sample  # This is used by e2e test, don't change
+  name: testrun-sample-multi-suite  # This is used by e2e test, don't change
 spec:
   identity: pkg:testrun/etos/eiffel_community  # This is used by e2e test, don't change
   artifact: 268dd4db-93da-4232-a544-bf4c0fb26dac  # This is used by e2e test, don't change
@@ -28,6 +28,24 @@ spec:
         - sleep 30
         parameters: {}
         testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
+      id: c2c93da1-53c7-42f2-881c-60a579e57630
+      testCase:
+        id: etos-sample-test
+        version: main
+  - name: testrun-sample-extra-suite
+    dataset:
+      test: Hello
+    tests:
+    - environment: {}
+      execution:
+        checkout:
+        - git clone https://github.com/eiffel-community/etos
+        command: exit 0
+        environment: {}
+        execute:
+        - sleep 30
+        parameters: {}
+        testRunner: ghcr.io/eiffel-community/etos-base-test-runner:debian-bookworm
       id: c2c93da1-53c7-42f2-881c-60a579e57630
       testCase:
         id: etos-sample-test
