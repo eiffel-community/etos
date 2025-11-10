@@ -27,7 +27,7 @@ spec:
         execute:
         - sleep 30
         parameters: {}
-        testRunner: ghcr.io/eiffel-community/etos-base-test-runner:bullseye
+        testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
       id: c2c93da1-53c7-42f2-881c-60a579e57630
       testCase:
         id: etos-sample-test
