@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -109,6 +110,30 @@ var _ = Describe("Manager", Ordered, func() {
 		By("cleaning up the etos testrun")
 		cmd := exec.Command("kubectl", "delete", "--wait", "-n", clusterNamespace, "testrun/testrun-sample")
 		_, _ = utils.Run(cmd)
+		cmd = exec.Command("kubectl", "delete", "--wait", "-n", clusterNamespace, "testrun/testrun-sample-multi-suite")
+		_, _ = utils.Run(cmd)
+		cmd = exec.Command("kubectl", "delete", "--wait", "-n", clusterNamespace, "environmentrequests")
+		_, _ = utils.Run(cmd)
+
+		cmd = exec.Command("kubectl", "get", "environmentrequests", "-o", "custom-columns=:metadata.name")
+		output, _ := utils.Run(cmd)
+		for _, name := range strings.Split(output, "\n") {
+			if name == "" {
+				continue
+			}
+			cmd := exec.Command("kubectl", "patch", "environmentrequest", name, "--patch", "{\"metadata\": {\"finalizers\": []}}")
+			_, _ = utils.Run(cmd)
+		}
+		cmd = exec.Command("kubectl", "get", "environments", "-o", "custom-columns=:metadata.name")
+		output, _ = utils.Run(cmd)
+		for _, name := range strings.Split(output, "\n") {
+			if name == "" {
+				continue
+			}
+			cmd := exec.Command("kubectl", "patch", "environment", name, "--patch", "{\"metadata\": {\"finalizers\": []}}")
+			_, _ = utils.Run(cmd)
+		}
+
 		// This wait is necessary to make sure we clean up all resources before deleting the CRs that are
 		// being used. If we don't delete them the tests won't pass since we'll get stuck waiting for the
 		// namespace being deleted.
@@ -689,7 +714,7 @@ var _ = Describe("Manager", Ordered, func() {
 					"-n", clusterNamespace)
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(output).To(Equal("Passed"), "Incorrect TestRun status")
+				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
 			}
 			Eventually(verifyTestRun, "5m").Should(Succeed())
 		})
@@ -700,14 +725,14 @@ var _ = Describe("Manager", Ordered, func() {
 			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create a multi-suite testrun")
 
-			By("checking the status field of the testrun")
+			By("waiting for finished")
 			verifyTestRun := func(g Gomega) {
 				cmd := exec.Command("kubectl", "get",
 					"testrun", "testrun-sample-multi-suite", "-o", "jsonpath={.status.verdict}",
 					"-n", clusterNamespace)
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(output).To(Equal("Passed"), "Incorrect TestRun status")
+				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
 			}
 			Eventually(verifyTestRun, "5m").Should(Succeed())
 		})
