@@ -17,6 +17,8 @@ package controller
 
 import (
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -38,3 +40,13 @@ const (
 const (
 	releaseFinalizer = "etos.eiffel-community.github.io/release"
 )
+
+// isStatusReason return true when the conditionType is present and reason is set to reason
+func isStatusReason(conditions []metav1.Condition, conditionType, reason string) bool {
+	if condition := meta.FindStatusCondition(conditions, conditionType); condition == nil {
+		return false
+	} else if condition.Reason == reason {
+		return true
+	}
+	return false
+}

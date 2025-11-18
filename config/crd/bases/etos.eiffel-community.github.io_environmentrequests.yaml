@@ -202,12 +202,6 @@ spec:
                     type: object
                   environmentProviderEventDataTimeout:
                     type: string
-                  environmentProviderImage:
-                    type: string
-                  environmentProviderImagePullPolicy:
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
-                    type: string
                   environmentProviderServiceAccount:
                     type: string
                   environmentProviderTestSuiteTimeout:
@@ -317,8 +311,6 @@ spec:
                 - eiffelMessageBus
                 - encryptionKeySecretRef
                 - environmentProviderEventDataTimeout
-                - environmentProviderImage
-                - environmentProviderImagePullPolicy
                 - environmentProviderServiceAccount
                 - environmentProviderTestSuiteTimeout
                 - etcdHost
