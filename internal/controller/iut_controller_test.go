@@ -51,7 +51,12 @@ var _ = Describe("Iut Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: etosv1alpha2.IutSpec{
+						ID:                 "5f3fe085-1d12-4ccd-846b-31404c3cf214",
+						Identity:           "pkg:testrun/etos/eiffel_community",
+						EnvironmentRequest: "environmentrequest-sample",
+						ProviderID:         "iut-provider-sample",
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

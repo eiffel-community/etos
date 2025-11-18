@@ -71,7 +71,7 @@ spec:
                 description: Identity is the PackageURL definition of the IUT.
                 type: string
               provider_data:
-                description: ProviderData is specific data provider by the IUT providers
+                description: ProviderData is specific data provided by the IUT providers
                 x-kubernetes-preserve-unknown-fields: true
               provider_id:
                 description: ProviderID is the name of the Provider used to create
