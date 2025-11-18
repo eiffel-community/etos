@@ -252,11 +252,9 @@ func terminationLog(ctx context.Context, pod *corev1.Pod, containerName string) 
 	logger := log.FromContext(ctx)
 	logger.Info("Reading termination-log from pod: ", "pod", pod, "container", containerName)
 
-	found := false
 	for _, status := range pod.Status.ContainerStatuses {
 		if status.Name == containerName {
 			logger.Info(fmt.Sprintf("Found container status for container %s", containerName))
-			found = true
 			if status.State.Terminated == nil {
 				return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
 			}
@@ -270,21 +268,19 @@ func terminationLog(ctx context.Context, pod *corev1.Pod, containerName string) 
 		}
 	}
 	logger.Info(fmt.Sprintf("Found no container status for %s, trying initcontainers", containerName))
-	if !found {
-		for _, status := range pod.Status.InitContainerStatuses {
-			if status.Name == containerName {
-				logger.Info(fmt.Sprintf("Found container status for initContainer %s", containerName))
-				if status.State.Terminated == nil {
-					return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
-				}
-				var result Result
-
-				if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
-					logger.Error(err, "failed to unmarshal termination log to a result struct")
-					return &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message}, nil
-				}
-				return &result, nil
+	for _, status := range pod.Status.InitContainerStatuses {
+		if status.Name == containerName {
+			logger.Info(fmt.Sprintf("Found container status for initContainer %s", containerName))
+			if status.State.Terminated == nil {
+				return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
 			}
+			var result Result
+
+			if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
+				logger.Error(err, "failed to unmarshal termination log to a result struct")
+				return &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message}, nil
+			}
+			return &result, nil
 		}
 
 	}
