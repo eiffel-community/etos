@@ -121,7 +121,10 @@ var _ = Describe("Manager", Ordered, func() {
 			if name == "" {
 				continue
 			}
-			cmd := exec.Command("kubectl", "patch", "environmentrequest", name, "--patch", "{\"metadata\": {\"finalizers\": []}}")
+			cmd := exec.Command(
+				"kubectl", "patch", "environmentrequest", name, "--patch",
+				"{\"metadata\": {\"finalizers\": []}}",
+			)
 			_, _ = utils.Run(cmd)
 		}
 		cmd = exec.Command("kubectl", "get", "environments", "-o", "custom-columns=:metadata.name")
