@@ -39,8 +39,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller"
 	webhooketosv1alpha1 "github.com/eiffel-community/etos/internal/webhook/v1alpha1"
+	webhookv1alpha2 "github.com/eiffel-community/etos/internal/webhook/v1alpha2"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -53,6 +55,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(etosv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(etosv1alpha2.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -258,6 +261,20 @@ func main() {
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err = webhooketosv1alpha1.SetupEnvironmentRequestWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "EnvironmentRequest")
+			os.Exit(1)
+		}
+	}
+	if err := (&controller.IutReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Iut")
+		os.Exit(1)
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookv1alpha2.SetupIutWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Iut")
 			os.Exit(1)
 		}
 	}

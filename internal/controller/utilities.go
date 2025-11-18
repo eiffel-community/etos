@@ -17,16 +17,23 @@ package controller
 
 import (
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
-	APIGroupVersionString = etosv1alpha1.GroupVersion.String()
+	APIGroupVersionString   = etosv1alpha1.GroupVersion.String()
+	APIv2GroupVersionString = etosv1alpha2.GroupVersion.String()
 )
 
 const (
 	TestRunOwnerKey            = ".metadata.controller.suiterunner"
 	EnvironmentRequestOwnerKey = ".metadata.controller.environmentrequest"
 	EnvironmentOwnerKey        = ".metadata.controller.environment"
+	LogAreaOwnerKey            = ".metadata.controller.log-area-provider"
+	ExecutionSpaceOwnerKey     = ".metadata.controller.execution-space-provider"
+	IutOwnerKey                = ".metadata.controller.iut-provider"
 )
 
 const (
@@ -36,5 +43,26 @@ const (
 )
 
 const (
-	releaseFinalizer = "etos.eiffel-community.github.io/release"
+	releaseFinalizer  = "etos.eiffel-community.github.io/release"
+	providerFinalizer = "etos.eiffel-community.github.io/managed-by-provider"
 )
+
+// hasOwner checks if a resource kind exists in ownerReferences.
+func hasOwner(ownerReferences []metav1.OwnerReference, kind string) bool {
+	for _, ownerReference := range ownerReferences {
+		if ownerReference.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+// isStatusReason return true when the conditionType is present and reason is set to reason
+func isStatusReason(conditions []metav1.Condition, conditionType, reason string) bool {
+	if condition := meta.FindStatusCondition(conditions, conditionType); condition == nil {
+		return false
+	} else if condition.Reason == reason {
+		return true
+	}
+	return false
+}
