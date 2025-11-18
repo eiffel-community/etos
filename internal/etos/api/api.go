@@ -155,10 +155,10 @@ func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, logger logr
 		return target, nil
 	} else if r.restartRequired {
 		logger.Info("Configuration(s) have changed, restarting deployment")
-		if deployment.Spec.Template.Annotations == nil {
-			deployment.Spec.Template.Annotations = make(map[string]string)
+		if target.Spec.Template.Annotations == nil {
+			target.Spec.Template.Annotations = make(map[string]string)
 		}
-		deployment.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	if !r.restartRequired && equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, nil
