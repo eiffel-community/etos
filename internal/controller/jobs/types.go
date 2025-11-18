@@ -62,6 +62,6 @@ type JobSpecFunc func(context.Context, client.Object) (*batchv1.Job, error)
 type Job interface {
 	Create(context.Context, client.Object, JobSpecFunc) error
 	Delete(context.Context) error
-	Result(context.Context) Result
+	Result(context.Context, ...string) Result
 	Status(context.Context) (Status, error)
 }

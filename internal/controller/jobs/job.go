@@ -69,7 +69,8 @@ func (j *job) Status(ctx context.Context) (Status, error) {
 }
 
 // Result returns the result of either successful or failed jobs depending on the current status of the jobs
-func (j *job) Result(ctx context.Context) Result {
+func (j *job) Result(ctx context.Context, containerNames ...string) Result {
+	logger := logf.FromContext(ctx)
 	var jobs []*batchv1.Job
 	if j.successful() {
 		jobs = j.successfulJobs
@@ -79,6 +80,19 @@ func (j *job) Result(ctx context.Context) Result {
 
 	result := Result{Verdict: VerdictNone}
 	for _, job := range jobs {
+		var pods corev1.PodList
+		if err := j.List(ctx, &pods, client.InNamespace(job.Namespace), client.MatchingLabels{"job-name": job.Name}); err != nil {
+			logger.Error(err, fmt.Sprintf("could not list pods for job %s", job.Name))
+			result.Description = fmt.Sprintf("%s; %s: %s", result.Description, job.Name, fmt.Sprintf("could not list pods for job %s", job.Name))
+			result.Conclusion = ConclusionFailed
+			break
+		}
+		if len(pods.Items) == 0 {
+			result.Description = fmt.Sprintf("%s; %s: %s", result.Description, job.Name, fmt.Sprintf("no pods found for job %s", job.Name))
+			result.Conclusion = ConclusionFailed
+			break
+		}
+		pod := getLatestPodByCreationTimestamp(pods.Items)
 		// Get termination log from all jobs and parse it as a Result.
 		//  - If there was an error getting the terminationLog, we'll write the error in description.
 		//  - If the description is empty, write an error to the description
@@ -86,22 +100,25 @@ func (j *job) Result(ctx context.Context) Result {
 		//  - If conclusion is Failed, set ConclusionFailed on the overarching result
 		//  - If verdict is failed, set VerdictFailed on the overarching result
 		//  - If no verdict is set and verdict is not None, set the verdict on the overarching result
-		jobResult, err := terminationLog(ctx, j, job, j.name)
-		if err != nil {
-			jobResult.Description = err.Error()
-		}
-		if jobResult.Description == "" {
-			jobResult.Description = fmt.Sprintf("No description on pod %s - Unknown error", j.name)
-		}
-		result.Description = fmt.Sprintf("%s; %s: %s", result.Description, job.Name, jobResult.Description)
-		// Only set conclusion if it is not already failed.
-		if jobResult.Conclusion == ConclusionFailed && result.Conclusion != ConclusionFailed {
-			result.Conclusion = ConclusionFailed
-		}
-		if jobResult.Verdict == VerdictFailed && result.Verdict != VerdictFailed {
-			result.Verdict = jobResult.Verdict
-		} else if result.Verdict == VerdictNone {
-			result.Verdict = jobResult.Verdict
+		for _, containerName := range containerNames {
+			jobResult, err := terminationLog(ctx, pod, containerName)
+			if err != nil {
+				jobResult.Description = err.Error()
+			}
+			if jobResult.Description == "" {
+				jobResult.Description = fmt.Sprintf("No description on pod %s - Unknown error", j.name)
+			}
+			result.Description = fmt.Sprintf("%s; %s: %s", result.Description, containerName, jobResult.Description)
+
+			// Only set conclusion if it is not already failed.
+			if jobResult.Conclusion == ConclusionFailed && result.Conclusion != ConclusionFailed {
+				result.Conclusion = ConclusionFailed
+			}
+			if jobResult.Verdict == VerdictFailed && result.Verdict != VerdictFailed {
+				result.Verdict = jobResult.Verdict
+			} else if result.Verdict == VerdictNone {
+				result.Verdict = jobResult.Verdict
+			}
 		}
 	}
 	if result.Conclusion != ConclusionFailed {
@@ -121,11 +138,15 @@ func (j job) Create(ctx context.Context, obj client.Object, jobSpecFunc JobSpecF
 
 // Delete all owned jobs
 func (j job) Delete(ctx context.Context) error {
+	logger := logf.FromContext(ctx)
 	var multiErr error
 	for _, job := range j.all() {
-		if err := j.Client.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
-			if !apierrors.IsNotFound(err) {
-				multiErr = errors.Join(multiErr, err)
+		if job.DeletionTimestamp.IsZero() {
+			logger.Info("Deleting job", "name", job.Name)
+			if err := j.Client.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
+				if !apierrors.IsNotFound(err) {
+					multiErr = errors.Join(multiErr, err)
+				}
 			}
 		}
 	}
@@ -227,21 +248,15 @@ func getLatestPodByCreationTimestamp(pods []v1.Pod) *v1.Pod {
 }
 
 // terminationLog reads the termination-log part of the ESR pod and returns it.
-func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, containerName string) (*Result, error) {
+func terminationLog(ctx context.Context, pod *corev1.Pod, containerName string) (*Result, error) {
 	logger := log.FromContext(ctx)
-	var pods corev1.PodList
-	if err := c.List(ctx, &pods, client.InNamespace(job.Namespace), client.MatchingLabels{"job-name": job.Name}); err != nil {
-		logger.Error(err, fmt.Sprintf("could not list pods for job %s", job.Name))
-		return &Result{Conclusion: ConclusionFailed}, err
-	}
-	if len(pods.Items) == 0 {
-		return &Result{Conclusion: ConclusionFailed}, fmt.Errorf("no pods found for job %s", job.Name)
-	}
-	pod := getLatestPodByCreationTimestamp(pods.Items)
-	logger.Info("Reading termination-log from pod: ", "pod", pod)
+	logger.Info("Reading termination-log from pod: ", "pod", pod, "container", containerName)
 
+	found := false
 	for _, status := range pod.Status.ContainerStatuses {
 		if status.Name == containerName {
+			logger.Info(fmt.Sprintf("Found container status for container %s", containerName))
+			found = true
 			if status.State.Terminated == nil {
 				return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
 			}
@@ -253,6 +268,25 @@ func terminationLog(ctx context.Context, c client.Reader, job *batchv1.Job, cont
 			}
 			return &result, nil
 		}
+	}
+	logger.Info(fmt.Sprintf("Found no container status for %s, trying initcontainers", containerName))
+	if !found {
+		for _, status := range pod.Status.InitContainerStatuses {
+			if status.Name == containerName {
+				logger.Info(fmt.Sprintf("Found container status for initContainer %s", containerName))
+				if status.State.Terminated == nil {
+					return &Result{Conclusion: ConclusionFailed}, errors.New("could not read termination log from pod")
+				}
+				var result Result
+
+				if err := json.Unmarshal([]byte(status.State.Terminated.Message), &result); err != nil {
+					logger.Error(err, "failed to unmarshal termination log to a result struct")
+					return &Result{Conclusion: ConclusionFailed, Description: status.State.Terminated.Message}, nil
+				}
+				return &result, nil
+			}
+		}
+
 	}
 	return &Result{Conclusion: ConclusionFailed}, errors.New("found no container status for pod")
 }
