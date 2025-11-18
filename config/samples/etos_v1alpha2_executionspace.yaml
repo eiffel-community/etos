@@ -1,0 +1,17 @@
+apiVersion: etos.eiffel-community.github.io/v1alpha2
+kind: ExecutionSpace
+metadata:
+  labels:
+    app.kubernetes.io/name: etos
+    app.kubernetes.io/managed-by: kustomize
+  name: executionspace-sample
+spec:
+  id: cd0db0b5-f720-451d-a5da-8833494d81bf
+  test_runner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
+  environmentRequest: environmentrequest-sample
+  provider_id: execution-space-provider-sample
+  instructions:
+    environment: {}
+    identifier: d00511ea-a8aa-42a8-8c60-f2e98e802520
+    image: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
+    parameters: {}
