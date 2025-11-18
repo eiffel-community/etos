@@ -39,8 +39,6 @@ import (
 	"github.com/eiffel-community/etos/internal/controller/status"
 )
 
-const releaseFinalizer = "etos.eiffel-community.github.io/release"
-
 // EnvironmentReconciler reconciles a Environment object
 type EnvironmentReconciler struct {
 	client.Client
