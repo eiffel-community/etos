@@ -63,6 +63,7 @@ rules:
   - clusters
   - environmentrequests
   - environments
+  - iuts
   - providers
   verbs:
   - create
@@ -78,6 +79,7 @@ rules:
   - clusters/finalizers
   - environmentrequests/finalizers
   - environments/finalizers
+  - iuts/finalizers
   - providers/finalizers
   - testruns/finalizers
   verbs:
@@ -88,6 +90,7 @@ rules:
   - clusters/status
   - environmentrequests/status
   - environments/status
+  - iuts/status
   - providers/status
   - testruns/status
   verbs:

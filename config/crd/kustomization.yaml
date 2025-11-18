@@ -7,6 +7,7 @@ resources:
 - bases/etos.eiffel-community.github.io_environments.yaml
 - bases/etos.eiffel-community.github.io_clusters.yaml
 - bases/etos.eiffel-community.github.io_environmentrequests.yaml
+- bases/etos.eiffel-community.github.io_iuts.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

@@ -1,0 +1,12 @@
+apiVersion: etos.eiffel-community.github.io/v1alpha2
+kind: Iut
+metadata:
+  labels:
+    app.kubernetes.io/name: etos
+    app.kubernetes.io/managed-by: kustomize
+  name: iut-sample
+spec:
+  id: 5f3fe085-1d12-4ccd-846b-31404c3cf214
+  identity: pkg:testrun/etos/eiffel_community
+  environmentRequest: environmentrequest-sample
+  provider_id: iut-provider-sample
