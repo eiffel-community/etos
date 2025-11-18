@@ -48,3 +48,6 @@ resources:
 - executionspace_admin_role.yaml
 - executionspace_editor_role.yaml
 - executionspace_viewer_role.yaml
+- logarea_admin_role.yaml
+- logarea_editor_role.yaml
+- logarea_viewer_role.yaml
