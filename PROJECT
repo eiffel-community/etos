@@ -73,7 +73,11 @@ resources:
   controller: true
   domain: eiffel-community.github.io
   group: etos
+<<<<<<< HEAD
   kind: Iut
+=======
+  kind: ExecutionSpace
+>>>>>>> 23b78a5 (Add ExecutionSpace controller)
   path: github.com/eiffel-community/etos/api/v1alpha2
   version: v1alpha2
   webhooks:
