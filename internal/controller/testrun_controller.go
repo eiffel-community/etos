@@ -47,7 +47,7 @@ import (
 	"github.com/eiffel-community/etos/internal/controller/status"
 )
 
-var testRunKind = "TestRun"
+const testRunKind = "TestRun"
 
 // TestRunReconciler reconciles a TestRun object
 type TestRunReconciler struct {
@@ -887,24 +887,6 @@ func (r *TestRunReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error {
 			return nil
 		}
 
-		return []string{owner.Name}
-	}); err != nil {
-		return err
-	}
-	return nil
-}
-
-// registerOwnerIndexForEnvironment will set an index of the environments that a testrun owns.
-func (r *TestRunReconciler) registerOwnerIndexForEnvironment(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.Environment{}, TestRunOwnerKey, func(rawObj client.Object) []string {
-		environment := rawObj.(*etosv1alpha1.Environment)
-		owner := metav1.GetControllerOf(environment)
-		if owner == nil {
-			return nil
-		}
-		if owner.APIVersion != APIGroupVersionString || owner.Kind != testRunKind {
-			return nil
-		}
 		return []string{owner.Name}
 	}); err != nil {
 		return err
