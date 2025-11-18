@@ -9,7 +9,7 @@ resources:
 - bases/etos.eiffel-community.github.io_environmentrequests.yaml
 - bases/etos.eiffel-community.github.io_iuts.yaml
 - bases/etos.eiffel-community.github.io_executionspaces.yaml
-# +kubebuilder:scaffold:crdkustomizeresource
+- bases/etos.eiffel-community.github.io_logarea.yaml
 
 patches:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
