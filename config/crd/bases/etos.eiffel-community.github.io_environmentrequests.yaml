@@ -24,6 +24,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Message
       type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/id
+      name: TestRun
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
