@@ -134,7 +134,10 @@ func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, logger 
 		return nil, r.Delete(ctx, rabbitmq)
 	} else if r.restartRequired {
 		logger.Info("Configuration(s) have changed, restarting statefulset")
-		rabbitmq.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		if target.Spec.Template.Annotations == nil {
+			target.Spec.Template.Annotations = make(map[string]string)
+		}
+		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq))
 }
