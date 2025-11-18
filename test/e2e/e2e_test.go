@@ -233,6 +233,24 @@ var _ = Describe("Manager", Ordered, func() {
 			} else {
 				fmt.Println("Failed to describe controller pod")
 			}
+
+			By("Fetching testrun description")
+			cmd = exec.Command("kubectl", "describe", "testruns", "-n", clusterNamespace)
+			testrunOutput, err := utils.Run(cmd)
+			if err == nil {
+				_, _ = fmt.Fprintf(GinkgoWriter, "Testrun description:\n %s", testrunOutput)
+			} else {
+				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get testrun description: %s", err)
+			}
+
+			By("Fetching testrun, environment and environmentrequests")
+			cmd = exec.Command("kubectl", "get", "testruns,environments,environmentrequests", "-n", clusterNamespace)
+			listOutput, err := utils.Run(cmd)
+			if err == nil {
+				_, _ = fmt.Fprintf(GinkgoWriter, "Testruns, environments and environmentrequests:\n %s", listOutput)
+			} else {
+				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get testruns, environments and environmentrequests: %s", err)
+			}
 		}
 	})
 
