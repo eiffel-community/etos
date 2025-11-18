@@ -58,11 +58,9 @@ type EnvironmentProviderJobConfig struct {
 	WaitForTimeout    string   `json:"waitForTimeout"`
 	TestRunnerVersion string   `json:"testRunnerVersion"`
 
-	EnvironmentProviderEventDataTimeout string            `json:"environmentProviderEventDataTimeout"`
-	EnvironmentProviderImage            string            `json:"environmentProviderImage"`
-	EnvironmentProviderImagePullPolicy  corev1.PullPolicy `json:"environmentProviderImagePullPolicy"`
-	EnvironmentProviderServiceAccount   string            `json:"environmentProviderServiceAccount"`
-	EnvironmentProviderTestSuiteTimeout string            `json:"environmentProviderTestSuiteTimeout"`
+	EnvironmentProviderEventDataTimeout string `json:"environmentProviderEventDataTimeout"`
+	EnvironmentProviderServiceAccount   string `json:"environmentProviderServiceAccount"`
+	EnvironmentProviderTestSuiteTimeout string `json:"environmentProviderTestSuiteTimeout"`
 }
 
 // EnvironmentRequestSpec defines the desired state of EnvironmentRequest
