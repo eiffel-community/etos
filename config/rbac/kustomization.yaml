@@ -45,3 +45,6 @@ resources:
 - iut_admin_role.yaml
 - iut_editor_role.yaml
 - iut_viewer_role.yaml
+- executionspace_admin_role.yaml
+- executionspace_editor_role.yaml
+- executionspace_viewer_role.yaml
