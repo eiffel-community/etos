@@ -45,6 +45,8 @@ import (
 	"github.com/eiffel-community/etos/internal/controller/status"
 )
 
+const environmentRequestKind = "EnvironmentRequest"
+
 // EnvironmentRequestReconciler reconciles a EnvironmentRequest object
 type EnvironmentRequestReconciler struct {
 	client.Client
@@ -532,7 +534,7 @@ func (r *EnvironmentRequestReconciler) registerOwnerIndexForJob(mgr ctrl.Manager
 		if owner == nil {
 			return nil
 		}
-		if owner.APIVersion != APIGroupVersionString || owner.Kind != "EnvironmentRequest" {
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != environmentRequestKind {
 			return nil
 		}
 
@@ -551,7 +553,7 @@ func (r *EnvironmentRequestReconciler) registerOwnerIndexForEnvironment(mgr ctrl
 		if owner == nil {
 			return nil
 		}
-		if owner.APIVersion != APIGroupVersionString || owner.Kind != "EnvironmentRequest" {
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != environmentRequestKind {
 			return nil
 		}
 
