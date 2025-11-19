@@ -42,11 +42,11 @@ jobs:
           mkdir -p manifests/controller
           cp dist/* manifests/controller/
       - name: Push docker image
-        if: github.event.pull_request.merged == true
+        if: github.ref == 'refs/heads/main'
         run: |
           make docker-push IMG=$IMAGE_ID:$VERSION
       - name: Commit changes
-        if: github.event.pull_request.merged == true
+        if: github.ref == 'refs/heads/main'
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
