@@ -24,6 +24,12 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Active")].message
       name: Description
       type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/environment-request
+      name: Environment Request
+      type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/id
+      name: TestRun
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -65,6 +71,21 @@ spec:
                 type: string
               priority:
                 type: integer
+              providers:
+                description: Providers describes which providers were used to create
+                  this environment
+                properties:
+                  executionSpace:
+                    type: string
+                  iut:
+                    type: string
+                  logArea:
+                    type: string
+                required:
+                - executionSpace
+                - iut
+                - logArea
+                type: object
               recipes:
                 items:
                   properties:

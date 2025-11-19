@@ -57,6 +57,8 @@ type EnvironmentReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
 func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := logf.FromContext(ctx)
+	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
 	environment := &etosv1alpha1.Environment{}
 	err := r.Get(ctx, req.NamespacedName, environment)
 	if err != nil {
@@ -82,8 +84,10 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if err := r.reconcile(ctx, environment); err != nil {
 		if apierrors.IsConflict(err) {
+			logger.Error(err, "Environment reconciliation conflict, requeueing")
 			return ctrl.Result{Requeue: true}, nil
 		}
+		logger.Error(err, "Environment reconciliation failed")
 		return ctrl.Result{}, err
 	}
 
@@ -93,13 +97,13 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 // reconcile an environment resource to its desired state.
 func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etosv1alpha1.Environment) error {
 	// Set initial statuses if not set.
-	if meta.FindStatusCondition(environment.Status.Conditions, status.StatusActive) == nil {
+	if active := meta.FindStatusCondition(environment.Status.Conditions, status.StatusActive); active == nil {
 		meta.SetStatusCondition(&environment.Status.Conditions,
 			metav1.Condition{
-				Status:  metav1.ConditionTrue,
+				Status:  metav1.ConditionFalse,
 				Type:    status.StatusActive,
-				Reason:  status.ReasonActive,
-				Message: "Actively being used",
+				Reason:  status.ReasonPending,
+				Message: "Waiting environment to become ready",
 			})
 		return r.Status().Update(ctx, environment)
 	}
@@ -110,11 +114,9 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 		}
 	}
 
-	// TODO: Provider information does not exist in a deterministic way in the Environment resource
-	// so either we need to find the EnvironmentRequest or the Environment resource needs an update.
-	// if err := checkProviders(ctx, r, environment.Namespace, environment.Spec.Providers); err != nil {
-	// 	return err
-	// }
+	if isStatusReason(environment.Status.Conditions, status.StatusActive, status.ReasonPending) {
+		return r.reconcileEnvironment(ctx, environment)
+	}
 
 	conditions := &environment.Status.Conditions
 	jobManager := jobs.NewJob(r.Client, EnvironmentOwnerKey, environment.GetName(), environment.GetNamespace())
@@ -164,7 +166,7 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
 				Reason:  status.ReasonActive,
-				Message: "Job is running",
+				Message: "Release job is running",
 			}) {
 			return r.Status().Update(ctx, environment)
 		}
@@ -174,7 +176,11 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 			return nil
 		}
 		if err := jobManager.Create(ctx, environment, r.releaseJob); err != nil {
-			if meta.SetStatusCondition(conditions,
+			// When we create a job the job gets a unique name. If there's an error for that unique name the error
+			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
+			// causing a nasty reconciliation loop (when the environment gets updated a new reconciliation starts).
+			// We mitigate this by checking that StatusReason is not already Failed.
+			if !isStatusReason(*conditions, status.StatusActive, status.ReasonFailed) && meta.SetStatusCondition(conditions,
 				metav1.Condition{
 					Type:    status.StatusActive,
 					Status:  metav1.ConditionFalse,
@@ -185,6 +191,27 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 			}
 			return err
 		}
+	}
+	return nil
+}
+
+// reconcileEnvironment sets the active status on an environment.
+func (r *EnvironmentReconciler) reconcileEnvironment(ctx context.Context, environment *etosv1alpha1.Environment) error {
+	logger := logf.FromContext(ctx)
+	// TODO: Provider information does not exist in a deterministic way in the Environment resource
+	// so either we need to find the EnvironmentRequest or the Environment resource needs an update.
+	// if err := checkProviders(ctx, r, environment.Namespace, environment.Spec.Providers); err != nil {
+	// 	return err
+	// }
+	if meta.SetStatusCondition(&environment.Status.Conditions,
+		metav1.Condition{
+			Status:  metav1.ConditionTrue,
+			Type:    status.StatusActive,
+			Reason:  status.ReasonCompleted,
+			Message: "Actively being used",
+		}) {
+		logger.Info("Environment is active and ready for use")
+		return r.Status().Update(ctx, environment)
 	}
 	return nil
 }
@@ -271,7 +298,7 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 				},
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: &grace,
-					ServiceAccountName:            fmt.Sprintf("%s-provider", clusterName),
+					ServiceAccountName:            environmentRequest.Spec.ServiceAccountName,
 					RestartPolicy:                 "Never",
 					Containers: []corev1.Container{
 						{
