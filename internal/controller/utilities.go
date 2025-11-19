@@ -58,8 +58,6 @@ func hasOwner(ownerReferences []metav1.OwnerReference, kind string) bool {
 }
 
 // isStatusReason return true when the conditionType is present and reason is set to reason
-//
-//nolint:unparam // golangci-lint does not like that all calls of this function pass ReasonFailed
 func isStatusReason(conditions []metav1.Condition, conditionType, reason string) bool {
 	if condition := meta.FindStatusCondition(conditions, conditionType); condition == nil {
 		return false

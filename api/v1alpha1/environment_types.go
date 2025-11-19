@@ -39,6 +39,10 @@ type EnvironmentSpec struct {
 	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 	Context string `json:"context"`
 
+	// Providers describes which providers were used to create this environment
+	// +optional
+	Providers *Providers `json:"providers,omitempty"`
+
 	Priority   int                   `json:"priority"`
 	Tests      []Test                `json:"recipes"`
 	TestRunner string                `json:"test_runner"`
@@ -63,6 +67,8 @@ type EnvironmentStatus struct {
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].status"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].reason"
 // +kubebuilder:printcolumn:name="Description",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].message"
+// +kubebuilder:printcolumn:name="Environment Request",type="string",JSONPath=.metadata.labels.etos\.eiffel-community\.github\.io/environment-request
+// +kubebuilder:printcolumn:name="TestRun",type="string",JSONPath=.metadata.labels.etos\.eiffel-community\.github\.io/id
 type Environment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
