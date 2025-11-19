@@ -156,10 +156,10 @@ func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, logger log
 		return nil, r.Delete(ctx, mongodb)
 	} else if r.restartRequired {
 		logger.Info("Configuration(s) have changed, restarting statefulset")
-		if mongodb.Spec.Template.Annotations == nil {
-			mongodb.Spec.Template.Annotations = make(map[string]string)
+		if target.Spec.Template.Annotations == nil {
+			target.Spec.Template.Annotations = make(map[string]string)
 		}
-		mongodb.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(mongodb))
 }
