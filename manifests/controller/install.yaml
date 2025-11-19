@@ -1716,9 +1716,6 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Available")].status
       name: Available
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Available")].reason
-      name: Reason
-      type: string
     - jsonPath: .status.conditions[?(@.type=="Available")].message
       name: Message
       type: string
@@ -3089,7 +3086,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:a5829abb
+        image: ghcr.io/eiffel-community/etos-controller:5adaba2a
         livenessProbe:
           httpGet:
             path: /healthz

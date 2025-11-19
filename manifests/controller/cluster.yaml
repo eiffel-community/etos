@@ -1875,9 +1875,6 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Available")].status
       name: Available
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Available")].reason
-      name: Reason
-      type: string
     - jsonPath: .status.conditions[?(@.type=="Available")].message
       name: Message
       type: string
