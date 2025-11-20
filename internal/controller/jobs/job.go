@@ -69,8 +69,17 @@ func (j *job) Status(ctx context.Context) (Status, error) {
 }
 
 // Result returns the result of either successful or failed jobs depending on the current status of the jobs
-func (j *job) Result(ctx context.Context, containerNames ...string) Result {
+//
+// This function will never return errors and always returns a Result.
+// If there are errors coming from calls that this function makes then this
+// function will return a Result with ConclusionFailed and adds the error
+// message to the Description of that Result.
+// This case must be handled by callers in regards to if they want to
+// exit out, reconcile again or whatever is needed.
+func (j *job) Result(ctx context.Context, containerName string, containerNames ...string) Result {
 	logger := logf.FromContext(ctx)
+	names := []string{containerName}
+	names = append(names, containerNames...)
 	var jobs []*batchv1.Job
 	if j.successful() {
 		jobs = j.successfulJobs
@@ -100,7 +109,7 @@ func (j *job) Result(ctx context.Context, containerNames ...string) Result {
 		//  - If conclusion is Failed, set ConclusionFailed on the overarching result
 		//  - If verdict is failed, set VerdictFailed on the overarching result
 		//  - If no verdict is set and verdict is not None, set the verdict on the overarching result
-		for _, containerName := range containerNames {
+		for _, containerName := range names {
 			jobResult, err := terminationLog(ctx, pod, containerName)
 			if err != nil {
 				jobResult.Description = err.Error()
