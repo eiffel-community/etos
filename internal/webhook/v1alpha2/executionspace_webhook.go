@@ -32,17 +32,11 @@ import (
 )
 
 // nolint:unused
-// log is for logging in this package.
-var (
-	executionspacelog = logf.Log.WithName("executionspace-resource")
-	cli               client.Client
-)
+// executionspacelog is for logging in this package.
+var executionspacelog = logf.Log.WithName("executionspace-resource")
 
 // SetupExecutionSpaceWebhookWithManager registers the webhook for ExecutionSpace in the manager.
 func SetupExecutionSpaceWebhookWithManager(mgr ctrl.Manager) error {
-	if cli == nil {
-		cli = mgr.GetClient()
-	}
 	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha2.ExecutionSpace{}).
 		WithDefaulter(&ExecutionSpaceCustomDefaulter{}).
 		Complete()
@@ -56,6 +50,7 @@ func SetupExecutionSpaceWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
 type ExecutionSpaceCustomDefaulter struct {
+	client.Reader
 }
 
 var _ webhook.CustomDefaulter = &ExecutionSpaceCustomDefaulter{}
@@ -71,11 +66,15 @@ func (d *ExecutionSpaceCustomDefaulter) Default(ctx context.Context, obj runtime
 
 	environmentrequest := &v1alpha1.EnvironmentRequest{}
 	namespacedName := types.NamespacedName{Name: executionspace.Spec.EnvironmentRequest, Namespace: executionspace.Namespace}
-	if err := cli.Get(ctx, namespacedName, environmentrequest); err != nil {
+	if err := d.Get(ctx, namespacedName, environmentrequest); err != nil {
 		executionspacelog.Error(err, "name", executionspace.Name, "namespace", executionspace.Namespace, "environmentRequest", namespacedName.Name,
 			"Failed to get environmentrequest in namespace")
+		return err
 	}
 
+	if executionspace.Labels == nil {
+		executionspace.Labels = make(map[string]string)
+	}
 	executionspace.Labels["etos.eiffel-community.github.io/environment-request"] = environmentrequest.Spec.Name
 	executionspace.Labels["etos.eiffel-community.github.io/environment-request-id"] = environmentrequest.Spec.ID
 	executionspace.Labels["etos.eiffel-community.github.io/provider"] = executionspace.Spec.ProviderID
