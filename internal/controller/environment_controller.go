@@ -125,7 +125,7 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 	}
 	switch jobStatus {
 	case jobs.StatusFailed:
-		result := jobManager.Result(ctx)
+		result := jobManager.Result(ctx, environment.Name)
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusActive,
@@ -136,7 +136,7 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 			return r.Status().Update(ctx, environment)
 		}
 	case jobs.StatusSuccessful:
-		result := jobManager.Result(ctx)
+		result := jobManager.Result(ctx, environment.Name)
 		var condition metav1.Condition
 		if result.Conclusion == jobs.ConclusionFailed {
 			condition = metav1.Condition{

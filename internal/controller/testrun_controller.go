@@ -262,7 +262,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 	conditions := &testrun.Status.Conditions
 	switch jobStatus {
 	case jobs.StatusFailed:
-		result := jobManager.Result(ctx)
+		result := jobManager.Result(ctx, testrun.Name)
 		if result.Verdict == "" {
 			result.Verdict = jobs.VerdictNone
 		}
@@ -277,7 +277,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			return r.Status().Update(ctx, testrun)
 		}
 	case jobs.StatusSuccessful:
-		result := jobManager.Result(ctx)
+		result := jobManager.Result(ctx, testrun.Name)
 		if result.Verdict == "" {
 			result.Verdict = jobs.VerdictNone
 		}
