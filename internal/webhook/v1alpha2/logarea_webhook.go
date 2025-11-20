@@ -32,16 +32,13 @@ import (
 )
 
 // nolint:unused
-// log is for logging in this package.
-var (
-	logarealog = logf.Log.WithName("logarea-resource")
-	cli        client.Client
-)
+// logarealog is for logging in this package.
+var logarealog = logf.Log.WithName("logarea-resource")
 
 // SetupLogAreaWebhookWithManager registers the webhook for LogArea in the manager.
 func SetupLogAreaWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha2.LogArea{}).
-		WithDefaulter(&LogAreaCustomDefaulter{}).
+		WithDefaulter(&LogAreaCustomDefaulter{mgr.GetClient()}).
 		Complete()
 }
 
@@ -53,6 +50,7 @@ func SetupLogAreaWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
 type LogAreaCustomDefaulter struct {
+	client.Reader
 }
 
 var _ webhook.CustomDefaulter = &LogAreaCustomDefaulter{}
@@ -68,11 +66,15 @@ func (d *LogAreaCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 
 	environmentrequest := &v1alpha1.EnvironmentRequest{}
 	namespacedName := types.NamespacedName{Name: logarea.Spec.EnvironmentRequest, Namespace: logarea.Namespace}
-	if err := cli.Get(ctx, namespacedName, environmentrequest); err != nil {
+	if err := d.Get(ctx, namespacedName, environmentrequest); err != nil {
 		logarealog.Error(err, "name", logarea.Name, "namespace", logarea.Namespace, "environmentRequest", namespacedName.Name,
 			"Failed to get environmentrequest in namespace")
+		return err
 	}
 
+	if logarea.Labels == nil {
+		logarea.Labels = make(map[string]string)
+	}
 	logarea.Labels["etos.eiffel-community.github.io/environment-request"] = environmentrequest.Spec.Name
 	logarea.Labels["etos.eiffel-community.github.io/environment-request-id"] = environmentrequest.Spec.ID
 	logarea.Labels["etos.eiffel-community.github.io/provider"] = logarea.Spec.ProviderID
