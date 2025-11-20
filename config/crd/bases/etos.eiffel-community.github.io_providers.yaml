@@ -61,6 +61,10 @@ spec:
                 type: object
               host:
                 type: string
+              image:
+                description: Image describes the docker image to run when providing
+                  a resource.
+                type: string
               jsontas:
                 description: |-
                   These are pointers so that they become nil in the Provider object in Kubernetes
