@@ -46,17 +46,7 @@ import (
 	"github.com/eiffel-community/etos/internal/controller/status"
 )
 
-// TODO: Move Environment, EnvironmentRequestOwnerKey
-var (
-	TestRunOwnerKey            = ".metadata.controller.suiterunner"
-	EnvironmentRequestOwnerKey = ".metadata.controller.environmentrequest"
-	EnvironmentOwnerKey        = ".metadata.controller.environment"
-	APIGroupVersionString      = etosv1alpha1.GroupVersion.String()
-	iutProvider                = ".spec.providers.iut"
-	executionSpaceProvider     = ".spec.providers.executionSpace"
-	logAreaProvider            = ".spec.providers.logarea"
-	testRunKind                = "TestRun"
-)
+var testRunKind = "TestRun"
 
 // TestRunReconciler reconciles a TestRun object
 type TestRunReconciler struct {
