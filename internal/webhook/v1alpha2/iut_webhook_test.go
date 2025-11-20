@@ -19,9 +19,10 @@ package v1alpha2
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
-	// TODO (user): Add any additional imports if needed
 )
 
 var _ = Describe("Iut Webhook", func() {
@@ -29,33 +30,56 @@ var _ = Describe("Iut Webhook", func() {
 		obj       *etosv1alpha2.Iut
 		oldObj    *etosv1alpha2.Iut
 		defaulter IutCustomDefaulter
+
+		requestID           = "89224612-3851-45c9-95c0-72b719ae46ea"
+		requestIdentifier   = "fbb4096d-6529-4c39-bac3-08a7e45bf69a"
+		requestName         = "test-environment-request"
+		requestLabelCluster = "cluster-sample"
+		providerID          = "iut-provider-sample"
 	)
 
 	BeforeEach(func() {
+		environmentRequest := etosv1alpha1.EnvironmentRequest{
+			ObjectMeta: v1.ObjectMeta{
+				Labels: map[string]string{
+					"etos.eiffel-community.github.io/cluster": requestLabelCluster,
+				},
+			},
+			Spec: etosv1alpha1.EnvironmentRequestSpec{
+				Identifier: requestIdentifier,
+				Name:       requestName,
+				ID:         requestID,
+			},
+		}
 		obj = &etosv1alpha2.Iut{}
 		oldObj = &etosv1alpha2.Iut{}
-		defaulter = IutCustomDefaulter{}
+		defaulter = IutCustomDefaulter{FakeReader(&environmentRequest, nil)}
 		Expect(defaulter).NotTo(BeNil(), "Expected defaulter to be initialized")
 		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
 		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")
-		// TODO (user): Add any setup logic common to all tests
 	})
 
 	AfterEach(func() {
-		// TODO (user): Add any teardown logic common to all tests
 	})
 
 	Context("When creating Iut under Defaulting Webhook", func() {
-		// TODO (user): Add logic for defaulting webhooks
-		// Example:
-		// It("Should apply defaults when a required field is empty", func() {
-		//     By("simulating a scenario where defaults should be applied")
-		//     obj.SomeFieldWithDefault = ""
-		//     By("calling the Default method to apply defaults")
-		//     defaulter.Default(ctx, obj)
-		//     By("checking that the default values are set")
-		//     Expect(obj.SomeFieldWithDefault).To(Equal("default_value"))
-		// })
+		It("Should apply defaults when a required field is empty", func() {
+			By("simulating a scenario where defaults should be applied")
+			obj.Labels = nil
+			obj.Spec.ProviderID = providerID
+			By("calling the Default method to apply defaults")
+			defaulter.Default(ctx, obj)
+			By("checking that the default values are set")
+			Expect(obj.Labels).To(Equal(map[string]string{
+				"etos.eiffel-community.github.io/environment-request":    requestName,
+				"etos.eiffel-community.github.io/environment-request-id": requestID,
+				"etos.eiffel-community.github.io/cluster":                requestLabelCluster,
+				"etos.eiffel-community.github.io/provider":               providerID,
+				"etos.eiffel-community.github.io/id":                     requestIdentifier,
+				"app.kubernetes.io/part-of":                              "etos",
+				"app.kubernetes.io/name":                                 "iut-provider",
+			}))
+		})
 	})
 
 })

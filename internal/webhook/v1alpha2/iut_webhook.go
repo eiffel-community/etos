@@ -32,19 +32,13 @@ import (
 )
 
 // nolint:unused
-// log is for logging in this package.
-var (
-	iutlog = logf.Log.WithName("iut-resource")
-	cli    client.Client
-)
+// iutlog is for logging in this package.
+var iutlog = logf.Log.WithName("iut-resource")
 
 // SetupIutWebhookWithManager registers the webhook for Iut in the manager.
 func SetupIutWebhookWithManager(mgr ctrl.Manager) error {
-	if cli == nil {
-		cli = mgr.GetClient()
-	}
 	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha2.Iut{}).
-		WithDefaulter(&IutCustomDefaulter{}).
+		WithDefaulter(&IutCustomDefaulter{mgr.GetClient()}).
 		Complete()
 }
 
@@ -56,6 +50,7 @@ func SetupIutWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
 type IutCustomDefaulter struct {
+	client.Reader
 }
 
 var _ webhook.CustomDefaulter = &IutCustomDefaulter{}
@@ -71,11 +66,15 @@ func (d *IutCustomDefaulter) Default(ctx context.Context, obj runtime.Object) er
 
 	environmentrequest := &v1alpha1.EnvironmentRequest{}
 	namespacedName := types.NamespacedName{Name: iut.Spec.EnvironmentRequest, Namespace: iut.Namespace}
-	if err := cli.Get(ctx, namespacedName, environmentrequest); err != nil {
+	if err := d.Get(ctx, namespacedName, environmentrequest); err != nil {
 		iutlog.Error(err, "name", iut.Name, "namespace", iut.Namespace, "environmentRequest", namespacedName.Name,
 			"Failed to get environmentrequest in namespace")
+		return err
 	}
 
+	if iut.Labels == nil {
+		iut.Labels = make(map[string]string)
+	}
 	iut.Labels["etos.eiffel-community.github.io/environment-request"] = environmentrequest.Spec.Name
 	iut.Labels["etos.eiffel-community.github.io/environment-request-id"] = environmentrequest.Spec.ID
 	iut.Labels["etos.eiffel-community.github.io/provider"] = iut.Spec.ProviderID
