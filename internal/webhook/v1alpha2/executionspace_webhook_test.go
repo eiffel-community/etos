@@ -66,7 +66,7 @@ var _ = Describe("ExecutionSpace Webhook", func() {
 		It("Should apply defaults when a required field is empty", func() {
 			By("simulating a scenario where defaults should be applied")
 			obj.Labels = nil
-			obj.Spec.ProviderID = "execution-space-provider-sample"
+			obj.Spec.ProviderID = providerID
 			By("calling the Default method to apply defaults")
 			Expect(defaulter.Default(ctx, obj)).ToNot(HaveOccurred())
 			By("checking that the default values are set")
