@@ -68,7 +68,7 @@ var _ = Describe("Iut Webhook", func() {
 			obj.Labels = nil
 			obj.Spec.ProviderID = providerID
 			By("calling the Default method to apply defaults")
-			defaulter.Default(ctx, obj)
+			Expect(defaulter.Default(ctx, obj)).ToNot(HaveOccurred())
 			By("checking that the default values are set")
 			Expect(obj.Labels).To(Equal(map[string]string{
 				"etos.eiffel-community.github.io/environment-request":    requestName,
