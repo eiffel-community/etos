@@ -38,7 +38,7 @@ var executionspacelog = logf.Log.WithName("executionspace-resource")
 // SetupExecutionSpaceWebhookWithManager registers the webhook for ExecutionSpace in the manager.
 func SetupExecutionSpaceWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha2.ExecutionSpace{}).
-		WithDefaulter(&ExecutionSpaceCustomDefaulter{}).
+		WithDefaulter(&ExecutionSpaceCustomDefaulter{mgr.GetClient()}).
 		Complete()
 }
 
