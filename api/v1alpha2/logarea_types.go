@@ -46,7 +46,8 @@ type LogAreaSpec struct {
 }
 
 type Upload struct {
-	AsJSON bool   `json:"as_json"`
+	AsJSON bool `json:"as_json"`
+	//+kubebuilder:validation:Enum=GET;POST;PUT
 	Method string `json:"method"`
 	URL    string `json:"url"`
 }
