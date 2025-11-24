@@ -476,6 +476,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 		"app.kubernetes.io/name":    "environment-provider",
 		"app.kubernetes.io/part-of": "etos",
 	}
+	// The Identifier spec field has 'omitempty', which means it can be an empty string.
 	if environmentrequest.Spec.Identifier != "" {
 		labels["etos.eiffel-community.github.io/id"] = environmentrequest.Spec.Identifier
 	}
