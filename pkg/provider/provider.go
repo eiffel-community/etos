@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,6 +73,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(Scheme))
 
 	utilruntime.Must(v1alpha1.AddToScheme(Scheme))
+	utilruntime.Must(v1alpha2.AddToScheme(Scheme))
 }
 
 // ParseParameters parses the input parameters for a provider.
