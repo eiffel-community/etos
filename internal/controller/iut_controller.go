@@ -61,8 +61,11 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	// Ownership handoff: If Environment owns this IUT, we relinquish control
 	if hasOwner(iut.OwnerReferences, "Environment") {
 		if controllerutil.ContainsFinalizer(iut, providerFinalizer) {
+			// Clean up our finalizer since the environment controller now owns the IUT.
 			controllerutil.RemoveFinalizer(iut, providerFinalizer)
 			if err := r.Update(ctx, iut); err != nil {
 				if apierrors.IsConflict(err) {
@@ -71,8 +74,9 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 				return ctrl.Result{}, err
 			}
 		}
-		// Not being deleted, in use.
+
 		if iut.ObjectMeta.DeletionTimestamp.IsZero() {
+			// The IUT is not being deleted, in use by environment
 			if meta.SetStatusCondition(&iut.Status.Conditions,
 				metav1.Condition{
 					Status:  metav1.ConditionTrue,
@@ -87,8 +91,10 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 					return ctrl.Result{}, err
 				}
 			}
-			// Being deleted, releasing.
 		} else {
+			// The IUT is being deleted, update status to reflect this
+			// At this point the environment controller has ownership, so no release
+			// job is being created here.
 			if meta.SetStatusCondition(&iut.Status.Conditions,
 				metav1.Condition{
 					Status:  metav1.ConditionFalse,
@@ -105,7 +111,6 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			}
 		}
 		logger.Info("Iut is being managed by Environment", "iut", iut.Name)
-		// We no longer own this IUT. Let the Environment controller manage it.
 		return ctrl.Result{}, nil
 	}
 	// If the IUT is considered 'Completed', it has been released. Check that the object is
