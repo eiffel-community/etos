@@ -61,8 +61,11 @@ func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	// Ownership handoff: If Environment owns this LogArea, we relinquish control
 	if hasOwner(logarea.OwnerReferences, "Environment") {
 		if controllerutil.ContainsFinalizer(logarea, providerFinalizer) {
+			// Clean up our finalizer since the environment controller now owns the LogArea.
 			controllerutil.RemoveFinalizer(logarea, providerFinalizer)
 			if err := r.Update(ctx, logarea); err != nil {
 				if apierrors.IsConflict(err) {
@@ -71,8 +74,8 @@ func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		}
-		// Not being deleted, in use.
 		if logarea.ObjectMeta.DeletionTimestamp.IsZero() {
+			// The LogArea is not being deleted, in use by environment
 			if meta.SetStatusCondition(&logarea.Status.Conditions,
 				metav1.Condition{
 					Status:  metav1.ConditionTrue,
@@ -87,8 +90,10 @@ func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 					return ctrl.Result{}, err
 				}
 			}
-			// Being deleted, releasing.
 		} else {
+			// The LogArea is being deleted, update status to reflect this
+			// At this point the environment controller has ownership, so no release
+			// job is being created here.
 			if meta.SetStatusCondition(&logarea.Status.Conditions,
 				metav1.Condition{
 					Status:  metav1.ConditionFalse,
@@ -105,7 +110,6 @@ func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			}
 		}
 		logger.Info("LogArea is being managed by Environment", "logarea", logarea.Name)
-		// We no longer own this LogArea. Let the Environment controller manage it.
 		return ctrl.Result{}, nil
 	}
 	// If the LogArea is considered 'Completed', it has been released. Check that the object is
