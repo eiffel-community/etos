@@ -38,7 +38,7 @@ var (
 	terminationLog = "/dev/termination-log"
 )
 
-type parameters struct {
+type Parameters struct {
 	environmentRequestName string
 	namespace              string
 	name                   string
@@ -74,12 +74,12 @@ func init() {
 	utilruntime.Must(v1alpha1.AddToScheme(Scheme))
 }
 
-// loadParameters loads the parameters for a provider.
-func loadParameters() parameters {
+// ParseParameters parses the input parameters for a provider.
+func ParseParameters() Parameters {
 	opts := zap.Options{
 		Development: true,
 	}
-	params := parameters{}
+	params := Parameters{}
 	flag.BoolVar(&params.releaseEnvironment, "release", false, "Release instead of creating")
 	flag.BoolVar(&params.noDelete, "nodelete", false, "Don't delete the resource")
 	flag.StringVar(&params.environmentRequestName, "environment-request", "", "The environment request to provision for.")
