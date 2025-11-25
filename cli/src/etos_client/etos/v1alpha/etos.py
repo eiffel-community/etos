@@ -170,6 +170,7 @@ class Etos:
                     result = Result(
                         verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, reason=str(exit)
                     )
+                    break
         finally:
             log_downloader.stop(clear_queue)
             log_downloader.join()
