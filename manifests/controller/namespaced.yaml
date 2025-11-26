@@ -132,7 +132,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:1be87c4f
+        image: ghcr.io/eiffel-community/etos-controller:bfa7de07
         livenessProbe:
           httpGet:
             path: /healthz
