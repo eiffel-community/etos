@@ -81,7 +81,7 @@ func (d *LogAreaCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 	logarea.Labels["etos.eiffel-community.github.io/environment-request"] = environmentrequest.Spec.Name
 	logarea.Labels["etos.eiffel-community.github.io/environment-request-id"] = environmentrequest.Spec.ID
 	logarea.Labels["etos.eiffel-community.github.io/provider"] = logarea.Spec.ProviderID
-	logarea.Labels["app.kubernetes.io/part-of"] = "etos"
+	logarea.Labels["app.kubernetes.io/part-of"] = etos
 	if logarea.Labels["app.kubernetes.io/name"] == "" {
 		logarea.Labels["app.kubernetes.io/name"] = "logarea-provider"
 	}

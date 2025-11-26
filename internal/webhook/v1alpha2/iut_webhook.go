@@ -78,7 +78,7 @@ func (d *IutCustomDefaulter) Default(ctx context.Context, obj runtime.Object) er
 	iut.Labels["etos.eiffel-community.github.io/environment-request"] = environmentrequest.Spec.Name
 	iut.Labels["etos.eiffel-community.github.io/environment-request-id"] = environmentrequest.Spec.ID
 	iut.Labels["etos.eiffel-community.github.io/provider"] = iut.Spec.ProviderID
-	iut.Labels["app.kubernetes.io/part-of"] = "etos"
+	iut.Labels["app.kubernetes.io/part-of"] = etos
 	if iut.Labels["app.kubernetes.io/name"] == "" {
 		iut.Labels["app.kubernetes.io/name"] = "iut-provider"
 	}
