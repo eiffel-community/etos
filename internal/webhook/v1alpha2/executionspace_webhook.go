@@ -35,6 +35,8 @@ import (
 // executionspacelog is for logging in this package.
 var executionspacelog = logf.Log.WithName("executionspace-resource")
 
+const etos = "etos"
+
 // SetupExecutionSpaceWebhookWithManager registers the webhook for ExecutionSpace in the manager.
 func SetupExecutionSpaceWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha2.ExecutionSpace{}).
@@ -78,7 +80,7 @@ func (d *ExecutionSpaceCustomDefaulter) Default(ctx context.Context, obj runtime
 	executionspace.Labels["etos.eiffel-community.github.io/environment-request"] = environmentrequest.Spec.Name
 	executionspace.Labels["etos.eiffel-community.github.io/environment-request-id"] = environmentrequest.Spec.ID
 	executionspace.Labels["etos.eiffel-community.github.io/provider"] = executionspace.Spec.ProviderID
-	executionspace.Labels["app.kubernetes.io/part-of"] = "etos"
+	executionspace.Labels["app.kubernetes.io/part-of"] = etos
 	if executionspace.Labels["app.kubernetes.io/name"] == "" {
 		executionspace.Labels["app.kubernetes.io/name"] = "executionspace-provider"
 	}
