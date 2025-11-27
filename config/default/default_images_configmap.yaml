@@ -3,11 +3,13 @@ kind: ConfigMap
 metadata:
   name: default-etos-service-versions
 data:
-  api: ghcr.io/eiffel-community/etos-api:018a536f
-  sse: ghcr.io/eiffel-community/etos-sse:018a536f
-  logarea: ghcr.io/eiffel-community/etos-logarea:018a536f
-  environmentProvider: ghcr.io/eiffel-community/etos-environment-provider:b7590430
-  suiteRunner:  ghcr.io/eiffel-community/etos-suite-runner:77de800f
-  logListener:  ghcr.io/eiffel-community/etos-log-listener:77de800f
-  suiteStarter: ghcr.io/eiffel-community/etos-suite-starter:76543433
-  testRunner: 3.6.0
+  api: ghcr.io/eiffel-community/etos-api:1a5937dc
+  sse: ghcr.io/eiffel-community/etos-sse:1a5937dc
+  logarea: ghcr.io/eiffel-community/etos-logarea:1a5937dc
+  environmentProvider: ghcr.io/eiffel-community/etos-environment-provider:1c4413d5
+  suiteRunner: ghcr.io/eiffel-community/etos-suite-runner:77de800f
+  logListener: ghcr.io/eiffel-community/etos-log-listener:77de800f
+  suiteStarter: ghcr.io/eiffel-community/etos-suite-starter:6b1146e1
+  testRunner: 3.7.5
+  eventRepositoryAPI: ghcr.io/eiffel-community/eiffel-graphql-api:latest
+  eventRepositoryStorage: ghcr.io/eiffel-community/eiffel-graphql-storage:latest

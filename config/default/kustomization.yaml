@@ -70,7 +70,9 @@ replacements:
          version: v1
          name: clusters.etos.eiffel-community.github.io
        fieldPaths:
-         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.api.default.image
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.api.properties.image.default
+       options:
+         create: true
  - source:
      kind: ConfigMap
      version: v1
@@ -83,7 +85,9 @@ replacements:
          version: v1
          name: clusters.etos.eiffel-community.github.io
        fieldPaths:
-         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.sse.default.image
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.sse.properties.image.default
+       options:
+         create: true
  - source:
      kind: ConfigMap
      version: v1
@@ -96,7 +100,9 @@ replacements:
          version: v1
          name: clusters.etos.eiffel-community.github.io
        fieldPaths:
-         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.logArea.default.image
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.logArea.properties.image.default
+       options:
+         create: true
  - source:
      kind: ConfigMap
      version: v1
@@ -109,7 +115,9 @@ replacements:
          version: v1
          name: clusters.etos.eiffel-community.github.io
        fieldPaths:
-         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.environmentProvider.default.image
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.environmentProvider.properties.image.default
+       options:
+         create: true
  - source:
      kind: ConfigMap
      version: v1
@@ -122,7 +130,9 @@ replacements:
          version: v1
          name: clusters.etos.eiffel-community.github.io
        fieldPaths:
-         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.suiteRunner.default.image
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.suiteRunner.properties.image.default
+       options:
+         create: true
  - source:
      kind: ConfigMap
      version: v1
@@ -135,7 +145,9 @@ replacements:
          version: v1
          name: clusters.etos.eiffel-community.github.io
        fieldPaths:
-         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.suiteRunner.default.logListener.image
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.suiteRunner.properties.logListener.properties.image.default
+       options:
+         create: true
  - source:
      kind: ConfigMap
      version: v1
@@ -148,7 +160,9 @@ replacements:
          version: v1
          name: clusters.etos.eiffel-community.github.io
        fieldPaths:
-         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.suiteStarter.default.image
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.suiteStarter.properties.image.default
+       options:
+         create: true
  - source:
      kind: ConfigMap
      version: v1
@@ -162,6 +176,38 @@ replacements:
          name: clusters.etos.eiffel-community.github.io
        fieldPaths:
          - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.testRunner.default.version
+       options:
+         create: true
+ - source:
+     kind: ConfigMap
+     version: v1
+     name: default-etos-service-versions
+     fieldPath: data.eventRepositoryAPI
+   targets:
+     - select:
+         kind: CustomResourceDefinition
+         group: apiextensions.k8s.io
+         version: v1
+         name: clusters.etos.eiffel-community.github.io
+       fieldPaths:
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.eventRepository.properties.api.properties.image.default
+       options:
+         create: true
+ - source:
+     kind: ConfigMap
+     version: v1
+     name: default-etos-service-versions
+     fieldPath: data.eventRepositoryStorage
+   targets:
+     - select:
+         kind: CustomResourceDefinition
+         group: apiextensions.k8s.io
+         version: v1
+         name: clusters.etos.eiffel-community.github.io
+       fieldPaths:
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.eventRepository.properties.storage.properties.image.default
+       options:
+         create: true
 
  - source: # Uncomment the following block to enable certificates for metrics
      kind: Service

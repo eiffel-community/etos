@@ -117,8 +117,6 @@ spec:
                 description: ETOS describes the deployment of an ETOS cluster.
                 properties:
                   api:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-api:latest
                     description: ETOSAPI describes the deployment of the ETOS API.
                     properties:
                       executionSpaceProviderSecret:
@@ -142,8 +140,6 @@ spec:
                         default: 1
                         format: int32
                         type: integer
-                    required:
-                    - image
                     type: object
                   config:
                     default:
@@ -250,8 +246,6 @@ spec:
                     - encryptionKey
                     type: object
                   environmentProvider:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-environment-provider:latest
                     description: ETOSEnvironmentProvider describes the deployment
                       of an ETOS environment provider.
                     properties:
@@ -262,8 +256,6 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                    required:
-                    - image
                     type: object
                   ingress:
                     description: Ingress configuration.
@@ -282,8 +274,6 @@ spec:
                         type: string
                     type: object
                   logArea:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-log-area:latest
                     description: ETOSLogArea describes th deployment of an ETOS log
                       area API.
                     properties:
@@ -294,12 +284,8 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                    required:
-                    - image
                     type: object
                   sse:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-sse:latest
                     description: ETOSSSE describes th deployment of an ETOS Server
                       Sent Events API.
                     properties:
@@ -310,14 +296,8 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                    required:
-                    - image
                     type: object
                   suiteRunner:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-suite-runner:latest
-                      logListener:
-                        image: ghcr.io/eiffel-community/etos-log-listener:latest
                     description: ETOSSuiteRunner describes the deployment of an ETOS
                       suite runner.
                     properties:
@@ -345,16 +325,11 @@ spec:
                             description: PullPolicy describes a policy for if/when
                               to pull a container image
                             type: string
-                        required:
-                        - image
                         type: object
                     required:
-                    - image
                     - logListener
                     type: object
                   suiteStarter:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-suite-starter:latest
                     description: ETOSSuiteStarter describes the deployment of an ETOS
                       suite starter.
                     properties:
@@ -398,12 +373,8 @@ spec:
                         default: ""
                         description: Provide a custom suite runner template.
                         type: string
-                    required:
-                    - image
                     type: object
                   testRunner:
-                    default:
-                      version: latest
                     description: ETOSTestRunner describes the deployment of an ETOS
                       test runner.
                     properties:
@@ -419,8 +390,6 @@ spec:
                   repository for ETOS.
                 properties:
                   api:
-                    default:
-                      image: registry.nordix.org/eiffel/eiffel-graphql-api:latest
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
@@ -432,8 +401,6 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                    required:
-                    - image
                     type: object
                   deploy:
                     default: false
@@ -535,8 +502,6 @@ spec:
                         type: object
                     type: object
                   storage:
-                    default:
-                      image: registry.nordix.org/eiffel/eiffel-graphql-storage:latest
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
@@ -548,8 +513,6 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                    required:
-                    - image
                     type: object
                 type: object
               messageBus:

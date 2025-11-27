@@ -40,13 +40,11 @@ type EventRepository struct {
 
 	// We do not build the GraphQL API automatically nor publish it remotely.
 	// This will need to be provided to work.
-	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-api:latest"}
 	// +optional
 	API Image `json:"api"`
 
 	// We do not build the GraphQL API automatically nor publish it remotely.
 	// This will need to be provided to work.
-	// +kubebuilder:default={"image": "registry.nordix.org/eiffel/eiffel-graphql-storage:latest"}
 	// +optional
 	Storage Image `json:"storage"`
 	// +kubebuilder:default="etos"
@@ -271,25 +269,18 @@ type ETOSConfig struct {
 
 // ETOS describes the deployment of an ETOS cluster.
 type ETOS struct {
-	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-api:latest"}
 	// +optional
 	API ETOSAPI `json:"api"`
-	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-sse:latest"}
 	// +optional
 	SSE ETOSSSE `json:"sse"`
-	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-log-area:latest"}
 	// +optional
 	LogArea ETOSLogArea `json:"logArea"`
-	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-suite-runner:latest", "logListener": {"image": "ghcr.io/eiffel-community/etos-log-listener:latest"}}
 	// +optional
 	SuiteRunner ETOSSuiteRunner `json:"suiteRunner"`
-	// +kubebuilder:default={"version": "latest"}
 	// +optional
 	TestRunner ETOSTestRunner `json:"testRunner"`
-	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-suite-starter:latest"}
 	// +optional
 	SuiteStarter ETOSSuiteStarter `json:"suiteStarter"`
-	// +kubebuilder:default={"image": "ghcr.io/eiffel-community/etos-environment-provider:latest"}
 	// +optional
 	EnvironmentProvider ETOSEnvironmentProvider `json:"environmentProvider"`
 	Ingress             Ingress                 `json:"ingress,omitempty"`
