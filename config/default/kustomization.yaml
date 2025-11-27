@@ -32,6 +32,7 @@ resources:
 # Only CR(s) which requires webhooks and are applied on namespaces labeled with 'webhooks: enabled' will
 # be able to communicate with the Webhook Server.
 #- ../network-policy
+- default_images_configmap.yaml
 
 # Uncomment the patches line if you enable Metrics
 patches:
@@ -57,6 +58,111 @@ patches:
 # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER' prefix.
 # Uncomment the following replacements to add the cert-manager CA injection annotations
 replacements:
+ - source:
+     kind: ConfigMap
+     version: v1
+     name: default-etos-service-versions
+     fieldPath: data.api
+   targets:
+     - select:
+         kind: CustomResourceDefinition
+         group: apiextensions.k8s.io
+         version: v1
+         name: clusters.etos.eiffel-community.github.io
+       fieldPaths:
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.api.default.image
+ - source:
+     kind: ConfigMap
+     version: v1
+     name: default-etos-service-versions
+     fieldPath: data.sse
+   targets:
+     - select:
+         kind: CustomResourceDefinition
+         group: apiextensions.k8s.io
+         version: v1
+         name: clusters.etos.eiffel-community.github.io
+       fieldPaths:
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.sse.default.image
+ - source:
+     kind: ConfigMap
+     version: v1
+     name: default-etos-service-versions
+     fieldPath: data.logarea
+   targets:
+     - select:
+         kind: CustomResourceDefinition
+         group: apiextensions.k8s.io
+         version: v1
+         name: clusters.etos.eiffel-community.github.io
+       fieldPaths:
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.logArea.default.image
+ - source:
+     kind: ConfigMap
+     version: v1
+     name: default-etos-service-versions
+     fieldPath: data.environmentProvider
+   targets:
+     - select:
+         kind: CustomResourceDefinition
+         group: apiextensions.k8s.io
+         version: v1
+         name: clusters.etos.eiffel-community.github.io
+       fieldPaths:
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.environmentProvider.default.image
+ - source:
+     kind: ConfigMap
+     version: v1
+     name: default-etos-service-versions
+     fieldPath: data.suiteRunner
+   targets:
+     - select:
+         kind: CustomResourceDefinition
+         group: apiextensions.k8s.io
+         version: v1
+         name: clusters.etos.eiffel-community.github.io
+       fieldPaths:
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.suiteRunner.default.image
+ - source:
+     kind: ConfigMap
+     version: v1
+     name: default-etos-service-versions
+     fieldPath: data.logListener
+   targets:
+     - select:
+         kind: CustomResourceDefinition
+         group: apiextensions.k8s.io
+         version: v1
+         name: clusters.etos.eiffel-community.github.io
+       fieldPaths:
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.suiteRunner.default.logListener.image
+ - source:
+     kind: ConfigMap
+     version: v1
+     name: default-etos-service-versions
+     fieldPath: data.suiteStarter
+   targets:
+     - select:
+         kind: CustomResourceDefinition
+         group: apiextensions.k8s.io
+         version: v1
+         name: clusters.etos.eiffel-community.github.io
+       fieldPaths:
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.suiteStarter.default.image
+ - source:
+     kind: ConfigMap
+     version: v1
+     name: default-etos-service-versions
+     fieldPath: data.testRunner
+   targets:
+     - select:
+         kind: CustomResourceDefinition
+         group: apiextensions.k8s.io
+         version: v1
+         name: clusters.etos.eiffel-community.github.io
+       fieldPaths:
+         - .spec.versions.0.schema.openAPIV3Schema.properties.spec.properties.etos.properties.testRunner.default.version
+
  - source: # Uncomment the following block to enable certificates for metrics
      kind: Service
      version: v1
