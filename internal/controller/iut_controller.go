@@ -92,9 +92,10 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 				}
 			}
 		} else {
-			// The IUT is being deleted, update status to reflect this
-			// At this point the environment controller has ownership, so no release
-			// job is being created here.
+			// The IUT is being deleted, update status to reflect this.
+			// Since the IUT controller at this point no longer has ownership of the IUT we will not
+			// initiate and handle any release or cleanup, this is now handled by the environment
+			// controller.
 			if meta.SetStatusCondition(&iut.Status.Conditions,
 				metav1.Condition{
 					Status:  metav1.ConditionFalse,
