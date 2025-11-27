@@ -63,6 +63,9 @@ rules:
   - clusters
   - environmentrequests
   - environments
+  - executionspaces
+  - iuts
+  - logarea
   - providers
   verbs:
   - create
@@ -78,6 +81,9 @@ rules:
   - clusters/finalizers
   - environmentrequests/finalizers
   - environments/finalizers
+  - executionspaces/finalizers
+  - iuts/finalizers
+  - logarea/finalizers
   - providers/finalizers
   - testruns/finalizers
   verbs:
@@ -88,6 +94,9 @@ rules:
   - clusters/status
   - environmentrequests/status
   - environments/status
+  - executionspaces/status
+  - iuts/status
+  - logarea/status
   - providers/status
   - testruns/status
   verbs:
