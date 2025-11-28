@@ -40,13 +40,15 @@ type EventRepository struct {
 
 	// We do not build the GraphQL API automatically nor publish it remotely.
 	// This will need to be provided to work.
+	// +kubebuilder:default={}
 	// +optional
 	API Image `json:"api"`
-
 	// We do not build the GraphQL API automatically nor publish it remotely.
 	// This will need to be provided to work.
+	// +kubebuilder:default={}
 	// +optional
 	Storage Image `json:"storage"`
+
 	// +kubebuilder:default="etos"
 	// +optional
 	EiffelQueueName string `json:"eiffelQueueName,omitempty"`
@@ -219,12 +221,15 @@ type ETOSLogListener struct {
 
 // ETOSSuiteRunner describes the deployment of an ETOS suite runner.
 type ETOSSuiteRunner struct {
-	Image       `json:",inline"`
+	Image `json:",inline"`
+	// +kubebuilder:default={}
+	// +optional
 	LogListener ETOSLogListener `json:"logListener"`
 }
 
 // ETOSTestRunner describes the deployment of an ETOS test runner.
 type ETOSTestRunner struct {
+	// +optional
 	Version string `json:"version"`
 }
 
@@ -269,18 +274,25 @@ type ETOSConfig struct {
 
 // ETOS describes the deployment of an ETOS cluster.
 type ETOS struct {
+	// +kubebuilder:default={}
 	// +optional
 	API ETOSAPI `json:"api"`
+	// +kubebuilder:default={}
 	// +optional
 	SSE ETOSSSE `json:"sse"`
+	// +kubebuilder:default={}
 	// +optional
 	LogArea ETOSLogArea `json:"logArea"`
+	// +kubebuilder:default={}
 	// +optional
 	SuiteRunner ETOSSuiteRunner `json:"suiteRunner"`
+	// +kubebuilder:default={}
 	// +optional
 	TestRunner ETOSTestRunner `json:"testRunner"`
+	// +kubebuilder:default={}
 	// +optional
 	SuiteStarter ETOSSuiteStarter `json:"suiteStarter"`
+	// +kubebuilder:default={}
 	// +optional
 	EnvironmentProvider ETOSEnvironmentProvider `json:"environmentProvider"`
 	Ingress             Ingress                 `json:"ingress,omitempty"`
