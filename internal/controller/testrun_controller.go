@@ -24,6 +24,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -46,7 +47,7 @@ import (
 	"github.com/eiffel-community/etos/internal/controller/status"
 )
 
-var testRunKind = "TestRun"
+const testRunKind = "TestRun"
 
 // TestRunReconciler reconciles a TestRun object
 type TestRunReconciler struct {
@@ -126,7 +127,6 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{RequeueAfter: next}, nil
 		}
 		return ctrl.Result{}, nil
-
 	}
 	clusterNamespacedName := types.NamespacedName{
 		Name:      testrun.Spec.Cluster,
@@ -140,27 +140,127 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	if err := r.reconcile(ctx, cluster, testrun); err != nil {
 		if apierrors.IsConflict(err) {
+			logger.Error(err, "Conflict when updating testrun")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		logger.Error(err, "Reconciliation failed for testrun", "namespace", req.Namespace, "name", req.Name)
-		return r.update(ctx, testrun, metav1.ConditionFalse, err.Error())
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
 func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun) error {
-	// Set initial statuses if not set.
-	// TODO: Move to reconciliation methods
-	if meta.FindStatusCondition(testrun.Status.Conditions, status.StatusActive) == nil {
+	// Check providers availability
+	if err := checkProviders(ctx, r, testrun.Namespace, testrun.Spec.Providers); err != nil {
+		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{
+			Type:    status.StatusActive,
+			Status:  metav1.ConditionFalse,
+			Reason:  status.ReasonFailed,
+			Message: err.Error(),
+		}) {
+			return errors.Join(err, r.Status().Update(ctx, testrun))
+		}
+		return err
+	}
+
+	// Create environment request
+	if updated, err := r.reconcileEnvironmentRequest(ctx, cluster, testrun); updated || err != nil {
+		return err
+	}
+
+	// Check environment status
+	if updated, err := r.checkEnvironment(ctx, testrun); updated || err != nil {
+		return err
+	}
+
+	// Reconcile suite runners
+	jobManager := jobs.NewJob(r.Client, TestRunOwnerKey, testrun.GetName(), testrun.GetNamespace())
+	jobStatus, err := jobManager.Status(ctx)
+	if err != nil {
+		return err
+	}
+	if updated, err := r.reconcileSuiteRunner(ctx, testrun, jobManager, jobStatus); updated || err != nil {
+		return err
+	}
+	if updated, err := r.reconcileActiveStatus(ctx, testrun, jobManager); updated || err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// reconcileActiveStatus will set the active status properly based on active suite runners.
+func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *etosv1alpha1.TestRun, jobManager jobs.Job) (bool, error) {
+	logger := logf.FromContext(ctx)
+
+	conditions := testrun.Status.Conditions
+	if meta.FindStatusCondition(conditions, status.StatusActive) == nil {
 		meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{
 			Type:    status.StatusActive,
 			Status:  metav1.ConditionFalse,
 			Reason:  status.ReasonPending,
 			Message: "Reconciliation started",
 		})
-		return r.Status().Update(ctx, testrun)
+		testrun.Status.Verdict = string(jobs.StatusNone)
+		logger.Info("Setting initial status on testrun")
+		return true, r.Status().Update(ctx, testrun)
 	}
+
+	condition := metav1.ConditionUnknown
+	message := "Unknown status"
+	reason := status.ReasonPending
+
+	if isStatusReason(conditions, status.StatusEnvironment, status.ReasonFailed) {
+		environment := meta.FindStatusCondition(conditions, status.StatusEnvironment)
+		if environment != nil {
+			condition = metav1.ConditionFalse
+			message = environment.Message
+			reason = status.ReasonFailed
+		}
+	}
+	if isStatusReason(conditions, status.StatusSuiteRunner, status.ReasonFailed) {
+		suiteRunner := meta.FindStatusCondition(conditions, status.StatusSuiteRunner)
+		if suiteRunner != nil {
+			condition = metav1.ConditionFalse
+			message = suiteRunner.Message
+			reason = status.ReasonFailed
+		}
+	}
+	if isStatusReason(conditions, status.StatusSuiteRunner, status.ReasonCompleted) {
+		condition = metav1.ConditionFalse
+		reason = status.ReasonCompleted
+		message = "Suite runners finished successfully"
+	}
+	if isStatusReason(conditions, status.StatusSuiteRunner, status.ReasonActive) {
+		condition = metav1.ConditionTrue
+		reason = status.ReasonActive
+		message = "Waiting for suite runners to finish"
+	}
+
+	if condition != metav1.ConditionUnknown {
+		logger.Info("Setting Active status on testrun", "message", message, "reason", reason, "condition", condition)
+		if meta.SetStatusCondition(&testrun.Status.Conditions,
+			metav1.Condition{
+				Type:    status.StatusActive,
+				Status:  condition,
+				Reason:  reason,
+				Message: message,
+			}) {
+			if condition == metav1.ConditionFalse {
+				now := metav1.Now()
+				testrun.Status.CompletionTime = &now
+				return true, errors.Join(r.Status().Update(ctx, testrun), jobManager.Delete(ctx), r.deleteEnvironmentRequests(ctx, testrun))
+			}
+			return true, r.Status().Update(ctx, testrun)
+		}
+	}
+	return false, nil
+}
+
+// reconcileSuiteRunner will check the status of suite runners, create new ones if necessary.
+func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *etosv1alpha1.TestRun, jobManager jobs.Job, jobStatus jobs.Status) (bool, error) {
+	logger := logf.FromContext(ctx)
 	if meta.FindStatusCondition(testrun.Status.Conditions, status.StatusSuiteRunner) == nil {
 		meta.SetStatusCondition(&testrun.Status.Conditions,
 			metav1.Condition{
@@ -169,96 +269,17 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1
 				Reason:  status.ReasonPending,
 				Message: "Reconciliation started",
 			})
-		return r.Status().Update(ctx, testrun)
+		return true, r.Status().Update(ctx, testrun)
 	}
-	if meta.FindStatusCondition(testrun.Status.Conditions, status.StatusEnvironment) == nil {
-		meta.SetStatusCondition(&testrun.Status.Conditions,
-			metav1.Condition{
-				Type:    status.StatusEnvironment,
-				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonPending,
-				Message: "Reconciliation started",
-			})
-		return r.Status().Update(ctx, testrun)
+	if isStatusReason(testrun.Status.Conditions, status.StatusSuiteRunner, status.ReasonFailed) {
+		logger.Info("SuiteRunner has failed, reconciliation canceled")
+		return false, errors.Join(jobManager.Delete(ctx), r.deleteEnvironmentRequests(ctx, testrun))
+	}
+	if !isStatusReason(testrun.Status.Conditions, status.StatusEnvironment, status.ReasonCompleted) {
+		logger.Info("Environment is not ready yet")
+		return false, nil
 	}
 
-	// Check providers availability
-	if err := checkProviders(ctx, r, testrun.Namespace, testrun.Spec.Providers); err != nil {
-		return err
-	}
-
-	// Create environment request
-	err, exit := r.reconcileEnvironmentRequest(ctx, cluster, testrun)
-	if err != nil {
-		return err
-	}
-	if exit {
-		return nil
-	}
-	// Check environment status
-	if err := r.checkEnvironment(ctx, testrun); err != nil {
-		return err
-	}
-	// Reconcile suite runners
-	jobManager := jobs.NewJob(r.Client, TestRunOwnerKey, testrun.GetName(), testrun.GetNamespace())
-	jobStatus, err := jobManager.Status(ctx)
-	if err != nil {
-		return err
-	}
-	if err := r.reconcileSuiteRunner(ctx, testrun, jobManager, jobStatus); err != nil {
-		return err
-	}
-	if err := r.reconcileActiveStatus(ctx, testrun, jobStatus); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// reconcileActiveStatus will set the active status properly based on active suite runners.
-func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *etosv1alpha1.TestRun, jobStatus jobs.Status) error {
-	conditions := &testrun.Status.Conditions
-	switch jobStatus {
-	case jobs.StatusSuccessful:
-		if meta.SetStatusCondition(conditions,
-			metav1.Condition{
-				Type:    status.StatusActive,
-				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonCompleted,
-				Message: "Suite runners finished successfully",
-			}) {
-			now := metav1.Now()
-			testrun.Status.CompletionTime = &now
-			return r.Status().Update(ctx, testrun)
-		}
-	case jobs.StatusFailed:
-		if meta.SetStatusCondition(conditions,
-			metav1.Condition{
-				Type:    status.StatusActive,
-				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonFailed,
-				Message: "Suite runners failed to finish",
-			}) {
-			now := metav1.Now()
-			testrun.Status.CompletionTime = &now
-			return r.Status().Update(ctx, testrun)
-		}
-	case jobs.StatusActive:
-		if meta.SetStatusCondition(conditions,
-			metav1.Condition{
-				Type:    status.StatusActive,
-				Status:  metav1.ConditionTrue,
-				Reason:  status.ReasonActive,
-				Message: "Waiting for suite runners to finish",
-			}) {
-			return r.Status().Update(ctx, testrun)
-		}
-	}
-	return nil
-}
-
-// reconcileSuiteRunner will check the status of suite runners, create new ones if necessary.
-func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *etosv1alpha1.TestRun, jobManager jobs.Job, jobStatus jobs.Status) error {
 	conditions := &testrun.Status.Conditions
 	switch jobStatus {
 	case jobs.StatusFailed:
@@ -274,7 +295,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 				Reason:  status.ReasonFailed,
 				Message: result.Description,
 			}) {
-			return r.Status().Update(ctx, testrun)
+			return true, r.Status().Update(ctx, testrun)
 		}
 	case jobs.StatusSuccessful:
 		result := jobManager.Result(ctx, testrun.Name)
@@ -300,9 +321,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			}
 		}
 		if meta.SetStatusCondition(conditions, condition) {
-			now := metav1.Now()
-			testrun.Status.CompletionTime = &now
-			return errors.Join(r.Status().Update(ctx, testrun), jobManager.Delete(ctx), r.deleteEnvironmentRequests(ctx, testrun))
+			return true, r.Status().Update(ctx, testrun)
 		}
 	case jobs.StatusActive:
 		testrun.Status.Verdict = string(jobs.VerdictNone)
@@ -313,35 +332,54 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 				Reason:  status.ReasonActive,
 				Message: "Job is running",
 			}) {
-			return r.Status().Update(ctx, testrun)
+			return true, r.Status().Update(ctx, testrun)
 		}
 	default:
 		if !testrun.GetDeletionTimestamp().IsZero() {
-			return nil
+			return false, nil
 		}
 		if err := jobManager.Create(ctx, testrun, r.suiteRunnerJob); err != nil {
-			if meta.SetStatusCondition(conditions,
+			// When we create a job the job gets a unique name. If there's an error for that unique name the error
+			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
+			// causing a nasty reconciliation loop (when the testrun gets updated a new reconciliation starts).
+			// We mitigate this by checking that StatusReason is not already Failed.
+			if !isStatusReason(*conditions, status.StatusSuiteRunner, status.ReasonFailed) && meta.SetStatusCondition(conditions,
 				metav1.Condition{
 					Type:    status.StatusSuiteRunner,
 					Status:  metav1.ConditionFalse,
 					Reason:  status.ReasonFailed,
 					Message: err.Error(),
 				}) {
-				return r.Status().Update(ctx, testrun)
+				return true, r.Status().Update(ctx, testrun)
 			}
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return false, nil
 }
 
 // reconcileEnvironmentRequest will check the status of environment requests, create new ones if necessary.
-func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun) (error, bool) {
+func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun) (bool, error) {
 	logger := logf.FromContext(ctx)
+	if meta.FindStatusCondition(testrun.Status.Conditions, status.StatusEnvironment) == nil {
+		meta.SetStatusCondition(&testrun.Status.Conditions,
+			metav1.Condition{
+				Type:    status.StatusEnvironment,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonPending,
+				Message: "Reconciliation started",
+			})
+		return true, r.Status().Update(ctx, testrun)
+	}
+	if isStatusReason(testrun.Status.Conditions, status.StatusEnvironment, status.ReasonFailed) {
+		logger.Info("Environment provisioning failed, reconciliation canceled")
+		return false, r.deleteEnvironmentRequests(ctx, testrun)
+	}
+
 	var environmentRequestList etosv1alpha1.EnvironmentRequestList
 	if err := r.List(ctx, &environmentRequestList, client.InNamespace(testrun.Namespace), client.MatchingFields{TestRunOwnerKey: testrun.Name}); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return err, true
+			return false, err
 		}
 	}
 	testrun.Status.EnvironmentRequests = nil
@@ -353,6 +391,7 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 		}
 		testrun.Status.EnvironmentRequests = append(testrun.Status.EnvironmentRequests, *reqRef)
 	}
+
 	for _, suite := range testrun.Spec.Suites {
 		found := false
 		for _, request := range environmentRequestList.Items {
@@ -361,13 +400,13 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 			}
 		}
 		if !found {
-			request := r.environmentRequest(ctx, cluster, testrun, suite)
+			request := r.environmentRequest(ctx, suite.Name, cluster, testrun, suite.Tests, suite.Dataset)
 			if err := ctrl.SetControllerReference(testrun, request, r.Scheme); err != nil {
-				return err, true
+				return true, err
 			}
 			logger.Info("Creating a new environment request", "request", request.Name)
 			if err := r.Create(ctx, request); err != nil {
-				return err, true
+				return true, err
 			}
 		}
 	}
@@ -380,27 +419,21 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 					Type:    status.StatusEnvironment,
 					Status:  metav1.ConditionFalse,
 					Reason:  status.ReasonFailed,
-					Message: "Failed to create environment for test",
-				}) {
-				return r.Status().Update(ctx, testrun), true
-			}
-			if meta.SetStatusCondition(&testrun.Status.Conditions,
-				metav1.Condition{
-					Type:    status.StatusActive,
-					Status:  metav1.ConditionFalse,
-					Reason:  status.ReasonFailed,
 					Message: condition.Message,
 				}) {
-				now := metav1.Now()
-				testrun.Status.CompletionTime = &now
-				return r.Status().Update(ctx, testrun), true
+				return true, r.Status().Update(ctx, testrun)
 			}
-			return nil, true
+			if environmentRequest.ObjectMeta.DeletionTimestamp.IsZero() {
+				if err := r.Delete(ctx, &environmentRequest); err != nil {
+					logger.Error(err, "failed to delete environment", "environmentRequest", environmentRequest)
+				}
+			}
+			return false, nil
 		} else if condition != nil && condition.Status == metav1.ConditionFalse {
 			logger.Info("Environment request is not finished")
 		}
 	}
-	return nil, false
+	return false, nil
 }
 
 // deleteEnvironmentRequests will delete all environment requests that are a part of a testrun.
@@ -412,43 +445,32 @@ func (r *TestRunReconciler) deleteEnvironmentRequests(ctx context.Context, testr
 		}
 	}
 	for _, environmentRequest := range environmentRequestList.Items {
-		if err := r.Delete(ctx, &environmentRequest, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
-			if !apierrors.IsNotFound(err) {
-				return err
+		if environmentRequest.ObjectMeta.DeletionTimestamp.IsZero() {
+			if err := r.Delete(ctx, &environmentRequest, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
+				if !apierrors.IsNotFound(err) {
+					return err
+				}
 			}
 		}
 	}
 	return nil
 }
 
-// update will set the status condition and update the status of the ETOS testrun.
-// if the update fails due to conflict the reconciliation will requeue.
-func (r *TestRunReconciler) update(ctx context.Context, testrun *etosv1alpha1.TestRun, conditionStatus metav1.ConditionStatus, message string) (ctrl.Result, error) {
-	// TODO: Verify this function.
-	if meta.SetStatusCondition(&testrun.Status.Conditions,
-		metav1.Condition{
-			Type:    status.StatusActive,
-			Status:  conditionStatus,
-			Reason:  status.ReasonActive,
-			Message: message,
-		}) {
-		if err := r.Status().Update(ctx, testrun); err != nil {
-			if apierrors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			return ctrl.Result{}, err
-		}
-	}
-	return ctrl.Result{}, nil
-}
-
 // checkEnvironment will check the status of the environment used for test.
-func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
+func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv1alpha1.TestRun) (bool, error) {
+	logger := logf.FromContext(ctx)
 	var environments etosv1alpha1.EnvironmentList
-	if err := r.List(ctx, &environments, client.InNamespace(testrun.Namespace), client.MatchingFields{TestRunOwnerKey: testrun.Name}); err != nil {
-		return err
+	if err := r.List(
+		ctx,
+		&environments,
+		client.InNamespace(testrun.Namespace),
+		client.MatchingLabels{"etos.eiffel-community.github.io/id": testrun.Spec.ID},
+	); err != nil {
+		logger.Error(err, "Error listing environments for testrun", "testrun", testrun)
+		return false, err
 	}
 	// TODO: this only checks one environment, not all of them if there are many
+	// TODO: Check status of environment as well
 	if len(environments.Items) > 0 {
 		if meta.SetStatusCondition(&testrun.Status.Conditions,
 			metav1.Condition{
@@ -457,14 +479,14 @@ func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv
 				Reason:  status.ReasonCompleted,
 				Message: "Environment ready",
 			}) {
-			return r.Status().Update(ctx, testrun)
+			return true, r.Status().Update(ctx, testrun)
 		}
 	}
-	return nil
+	return false, nil
 }
 
 // environmentRequest is the definition for an environment request.
-func (r TestRunReconciler) environmentRequest(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, suite etosv1alpha1.Suite) *etosv1alpha1.EnvironmentRequest {
+func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, tests []etosv1alpha1.Test, dataset *apiextensionsv1.JSON) *etosv1alpha1.EnvironmentRequest {
 	logger := logf.FromContext(ctx)
 	eventRepository := cluster.Spec.EventRepository.Host
 	if cluster.Spec.ETOS.Config.ETOSEventRepositoryURL != "" {
@@ -520,13 +542,13 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, cluster *etos
 		},
 		Spec: etosv1alpha1.EnvironmentRequestSpec{
 			ID:            string(uuid.NewUUID()),
-			Name:          suite.Name,
+			Name:          name,
 			Identifier:    testrun.Spec.ID,
 			Artifact:      testrun.Spec.Artifact,
 			Identity:      testrun.Spec.Identity,
 			MinimumAmount: 1,
-			MaximumAmount: len(suite.Tests),
-			Dataset:       suite.Dataset,
+			MaximumAmount: len(tests),
+			Dataset:       dataset,
 			Providers: etosv1alpha1.EnvironmentProviders{
 				IUT: etosv1alpha1.IutProvider{
 					ID: testrun.Spec.Providers.IUT,
@@ -540,7 +562,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, cluster *etos
 				},
 			},
 			Splitter: etosv1alpha1.Splitter{
-				Tests: suite.Tests,
+				Tests: tests,
 			},
 			Image:              testrun.Spec.EnvironmentProvider.Image,
 			ServiceAccountName: fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
@@ -555,8 +577,6 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, cluster *etos
 				EtcdPort:                            databasePort,
 				WaitForTimeout:                      cluster.Spec.ETOS.Config.EnvironmentTimeout,
 				EnvironmentProviderEventDataTimeout: cluster.Spec.ETOS.Config.EventDataTimeout,
-				EnvironmentProviderImage:            cluster.Spec.ETOS.EnvironmentProvider.Image.Image,
-				EnvironmentProviderImagePullPolicy:  cluster.Spec.ETOS.EnvironmentProvider.ImagePullPolicy,
 				EnvironmentProviderServiceAccount:   fmt.Sprintf("%s-provider", cluster.Name),
 				EnvironmentProviderTestSuiteTimeout: cluster.Spec.ETOS.Config.TestSuiteTimeout,
 				TestRunnerVersion:                   cluster.Spec.ETOS.TestRunner.Version,
@@ -566,7 +586,6 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, cluster *etos
 }
 
 // suiteRunnerJob is the job definition for an etos suite runner.
-// func (r TestRunReconciler) suiteRunnerJob(testrun *etosv1alpha1.TestRun) *batchv1.Job {
 func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object) (*batchv1.Job, error) {
 	grace := int64(30)
 	backoff := int32(0)
@@ -812,9 +831,6 @@ func (r *TestRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := r.registerOwnerIndexForJob(mgr); err != nil {
 		return err
 	}
-	if err := r.registerOwnerIndexForEnvironment(mgr); err != nil {
-		return err
-	}
 	if err := r.registerOwnerIndexForEnvironmentRequest(mgr); err != nil {
 		return err
 	}
@@ -856,11 +872,6 @@ func (r *TestRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.TypedEnqueueRequestsFromMapFunc(r.findTestrunsForLogAreaProvider),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
-		Watches(
-			&etosv1alpha1.Environment{},
-			handler.TypedEnqueueRequestsFromMapFunc(r.findTestrunsForEnvironment),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		).
 		Complete(r)
 }
 
@@ -876,24 +887,6 @@ func (r *TestRunReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error {
 			return nil
 		}
 
-		return []string{owner.Name}
-	}); err != nil {
-		return err
-	}
-	return nil
-}
-
-// registerOwnerIndexForEnvironment will set an index of the environments that a testrun owns.
-func (r *TestRunReconciler) registerOwnerIndexForEnvironment(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.Environment{}, TestRunOwnerKey, func(rawObj client.Object) []string {
-		environment := rawObj.(*etosv1alpha1.Environment)
-		owner := metav1.GetControllerOf(environment)
-		if owner == nil {
-			return nil
-		}
-		if owner.APIVersion != APIGroupVersionString || owner.Kind != testRunKind {
-			return nil
-		}
 		return []string{owner.Name}
 	}); err != nil {
 		return err
@@ -960,27 +953,4 @@ func (r *TestRunReconciler) findTestrunsForProvider(ctx context.Context, provide
 		}
 	}
 	return requests
-}
-
-// findTestrunsForEnvironment will return reconciliation requests for Environment objects with a specific testrun as
-// owner.
-func (r *TestRunReconciler) findTestrunsForEnvironment(ctx context.Context, environment client.Object) []reconcile.Request {
-	// TODO: Since we are setting controller to false when creating Environment in the environment provider
-	// we need to find the TestRun owner in another way. This way is much more insecure, but since we are going
-	// to create environments from the controllers later we wuill be able to fix this to be more in line with
-	// how registerOwnerIndexForJob does it.
-	refs := environment.GetOwnerReferences()
-	for i := range refs {
-		if refs[i].APIVersion == APIGroupVersionString && refs[i].Kind == testRunKind {
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      refs[i].Name,
-						Namespace: environment.GetNamespace(),
-					},
-				},
-			}
-		}
-	}
-	return nil
 }
