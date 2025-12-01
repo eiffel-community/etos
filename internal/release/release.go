@@ -70,13 +70,13 @@ func ReleaseJob(jobName, name, namespace string, environmentrequest *v1alpha1.En
 }
 
 // ReleaseContainer returns a container specification.
-func ReleaseContainer(name, containerName, namespace, image string, noDelete bool) corev1.Container {
+func ReleaseContainer(name, containerName, namespace, image string, skipDeletingExecutionSpace bool) corev1.Container {
 	args := []string{
 		"-release",
 		fmt.Sprintf("-namespace=%s", namespace),
 		fmt.Sprintf("-name=%s", name),
 	}
-	if noDelete {
+	if skipDeletingExecutionSpace {
 		args = append(args, "-nodelete")
 	}
 	return corev1.Container{
