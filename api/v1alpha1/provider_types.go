@@ -108,6 +108,9 @@ type ProviderSpec struct {
 	// and don't muddle up the yaml with empty data.
 	JSONTas       *JSONTas   `json:"jsontas,omitempty"`
 	JSONTasSource *VarSource `json:"jsontasSource,omitempty"`
+
+	// Image describes the docker image to run when providing a resource.
+	Image string `json:"image,omitempty"`
 }
 
 // ProviderStatus defines the observed state of Provider
