@@ -113,7 +113,7 @@ func CreateExecutionSpace(
 				Kind:               "EnvironmentRequest",
 				Name:               environmentrequest.GetName(),
 				UID:                environmentrequest.GetUID(),
-				APIVersion:         environmentrequest.GetResourceVersion(),
+				APIVersion:         environmentrequest.APIVersion,
 				Controller:         &isController,
 				BlockOwnerDeletion: &blockOwnerDeletion,
 			}},
