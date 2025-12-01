@@ -207,8 +207,8 @@ func (r *ExecutionSpaceReconciler) reconcileExecutionSpaceReleaser(ctx context.C
 				Message: result.Description,
 			}
 		}
-		executionSpaceCondition := meta.FindStatusCondition(*conditions, status.StatusActive)
-		executionSpace.Status.CompletionTime = &executionSpaceCondition.LastTransitionTime
+		now := metav1.Now()
+		executionSpace.Status.CompletionTime = &now
 		if meta.SetStatusCondition(conditions, condition) {
 			return errors.Join(r.Status().Update(ctx, executionSpace), jobManager.Delete(ctx))
 		}
