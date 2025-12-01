@@ -86,6 +86,10 @@ spec:
                   as_json:
                     type: boolean
                   method:
+                    enum:
+                    - GET
+                    - POST
+                    - PUT
                     type: string
                   url:
                     type: string
