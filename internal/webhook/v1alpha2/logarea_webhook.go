@@ -67,8 +67,11 @@ func (d *LogAreaCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 	environmentrequest := &v1alpha1.EnvironmentRequest{}
 	namespacedName := types.NamespacedName{Name: logarea.Spec.EnvironmentRequest, Namespace: logarea.Namespace}
 	if err := d.Get(ctx, namespacedName, environmentrequest); err != nil {
-		logarealog.Error(err, "name", logarea.Name, "namespace", logarea.Namespace, "environmentRequest", namespacedName.Name,
-			"Failed to get environmentrequest in namespace")
+		logarealog.Error(err, "Failed to get environmentrequest in namespace",
+			"name", logarea.Name,
+			"namespace", logarea.Namespace,
+			"environmentRequest", namespacedName.Name,
+		)
 		return err
 	}
 
