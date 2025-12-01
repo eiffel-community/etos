@@ -207,8 +207,8 @@ func (r *LogAreaReconciler) reconcileLogAreaReleaser(ctx context.Context, logare
 				Message: result.Description,
 			}
 		}
-		logAreaCondition := meta.FindStatusCondition(*conditions, status.StatusActive)
-		logarea.Status.CompletionTime = &logAreaCondition.LastTransitionTime
+		now := metav1.Now()
+		logarea.Status.CompletionTime = &now
 		if meta.SetStatusCondition(conditions, condition) {
 			return errors.Join(r.Status().Update(ctx, logarea), jobManager.Delete(ctx))
 		}
