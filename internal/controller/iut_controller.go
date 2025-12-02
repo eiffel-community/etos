@@ -273,7 +273,7 @@ func (r IutReconciler) releaseJob(ctx context.Context, obj client.Object) (*batc
 		return nil, err
 	}
 
-	jobSpec := release.IutReleaser(iut, environmentrequest, image(provider), true)
+	jobSpec := release.IutReleaser(iut, environmentrequest, imageFromProvider(provider), true)
 	return jobSpec, ctrl.SetControllerReference(iut, jobSpec, r.Scheme)
 }
 
