@@ -5,4 +5,5 @@ resources:
 - etos_v1alpha1_environment.yaml
 - etos_v1alpha1_cluster.yaml
 - etos_v1alpha1_environmentrequest.yaml
+- etos_v1alpha2_iut.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
