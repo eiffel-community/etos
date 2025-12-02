@@ -271,7 +271,7 @@ func (r LogAreaReconciler) releaseJob(ctx context.Context, obj client.Object) (*
 		return nil, err
 	}
 
-	jobSpec := release.LogAreaReleaser(logarea, environmentrequest, image(provider), true)
+	jobSpec := release.LogAreaReleaser(logarea, environmentrequest, imageFromProvider(provider), true)
 	return jobSpec, ctrl.SetControllerReference(logarea, jobSpec, r.Scheme)
 }
 
