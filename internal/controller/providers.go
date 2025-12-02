@@ -64,9 +64,8 @@ func getProvider(ctx context.Context, c client.Reader, name, namespace string) (
 
 // image returns an image that can be used to execute provider.
 func image(provider *etosv1alpha1.Provider) string {
-	var image string
 	if provider.Spec.Image != "" {
 		return provider.Spec.Image
 	}
-	return image
+	return ""
 }
