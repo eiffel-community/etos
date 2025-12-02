@@ -35,21 +35,71 @@ type LogAreaSpec struct {
 	// +required
 	ProviderID string `json:"provider_id"`
 
-	// +required
-	Download []string `json:"download"`
+	// LiveLogs is a URI to where live logs of an execution can be found.
+	// +kubebuilder:validation:Type="string"
+	// +kubebuilder:validation:Format="uri"
 	// +required
 	LiveLogs string `json:"livelogs"`
+
+	// Logs provides a map of special instructions for the ETR to apply on the files it creates.
+	// Example instructions include
+	// - prepend: prepend a string to log file name.
+	// - join_character: a character to join 'prepend' and log file name.
 	// +required
 	Logs map[string]string `json:"logs"`
+
+	// Upload defines the log upload instructions for the ETR.
 	// +required
 	Upload Upload `json:"upload"`
 }
 
 type Upload struct {
+	// AsJSON tells a client that the payload should be posted as JSON.
 	AsJSON bool `json:"as_json"`
+
+	// Auth defines authorization instructions for a request.
+	// +optional
+	Auth Auth `json:"auth,omitempty"`
+
+	// URL defines the HTTP(s) URL to send payload to.
+	// +kubebuilder:validation:Type="string"
+	// +kubebuilder:validation:Format="uri"
+	URL string `json:"url"`
+
+	// Method defines the HTTP method for an upload.
 	// +kubebuilder:validation:Enum=GET;POST;PUT
 	Method string `json:"method"`
-	URL    string `json:"url"`
+
+	// Headers define optional headers to send with the payload
+	// +optional
+	Headers map[string]string `json:"headers,omitempty"`
+
+	// Params define optional parameters to send with the payload
+	// +optional
+	Params map[string]string `json:"params,omitempty"`
+}
+
+// Auth defines authorization instructions for a request.
+type Auth struct {
+	// Username defines the username to use when authenticating
+	Username string `json:"username"`
+	// Password defines an encrypted password to use when authenticating
+	Password Decrypt `json:"password"`
+	// AuthType defines the type of authentication to do.
+	// +kubebuilder:validation:Enum=basic;digest
+	AuthType string `json:"type"`
+}
+
+// Decrypt defines decryption instructions for clients.
+type Decrypt struct {
+	// Decrypt defines a JsonTas style json for decrypting a value
+	Decrypt DecryptValue `json:"$decrypt"`
+}
+
+// DecryptValue defines a value to decrypt.
+type DecryptValue struct {
+	// Value defines an encrypted string to decrypt
+	Value string `json:"value"`
 }
 
 // LogAreaStatus defines the observed state of LogArea.
@@ -71,6 +121,7 @@ type LogAreaStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// CompletionTime defines the time that a LogArea was completed.
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
@@ -85,9 +136,13 @@ type LogAreaStatus struct {
 // +kubebuilder:printcolumn:name="Environment",type="string",JSONPath=".metadata.ownerReferences[?(@.kind==\"Environment\")].name"
 // +kubebuilder:printcolumn:name="TestRun",type="string",JSONPath=.metadata.labels.etos\.eiffel-community\.github\.io/id
 type LogArea struct {
+	// TypeMeta describes an individual object in an API response or request
+	// with strings representing the type of the object and its API schema version.
+	// Structures that are versioned or persisted should inline TypeMeta.
 	metav1.TypeMeta `json:",inline"`
 
-	// metadata is a standard object metadata
+	// ObjectMeta is metadata that all persisted resources must have, which includes all objects
+	// users must create.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty,omitzero"`
 
@@ -104,9 +159,16 @@ type LogArea struct {
 
 // LogAreaList contains a list of LogArea
 type LogAreaList struct {
+	// TypeMeta describes an individual object in an API response or request
+	// with strings representing the type of the object and its API schema version.
+	// Structures that are versioned or persisted should inline TypeMeta.
 	metav1.TypeMeta `json:",inline"`
+	// ListMeta describes metadata that synthetic resources must have, including lists and
+	// various status objects. A resource may have only one of {ObjectMeta, ListMeta}.
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []LogArea `json:"items"`
+
+	// Items defines a slice of LogAreas when listing.
+	Items []LogArea `json:"items"`
 }
 
 func init() {

@@ -58,10 +58,6 @@ spec:
           spec:
             description: spec defines the desired state of LogArea
             properties:
-              download:
-                items:
-                  type: string
-                type: array
               environmentRequest:
                 description: EnvironmentRequest is the ID of the environmentrequest
                   which requested this log area.
@@ -72,26 +68,88 @@ spec:
                 pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                 type: string
               livelogs:
+                description: LiveLogs is a URI to where live logs of an execution
+                  can be found.
+                format: uri
                 type: string
               logs:
                 additionalProperties:
                   type: string
+                description: |-
+                  Logs provides a map of special instructions for the ETR to apply on the files it creates.
+                  Example instructions include
+                  - prepend: prepend a string to log file name.
+                  - join_character: a character to join 'prepend' and log file name.
                 type: object
               provider_id:
                 description: ProviderID is the name of the Provider used to create
                   this LogArea.
                 type: string
               upload:
+                description: Upload defines the log upload instructions for the ETR.
                 properties:
                   as_json:
+                    description: AsJSON tells a client that the payload should be
+                      posted as JSON.
                     type: boolean
+                  auth:
+                    description: Auth defines authorization instructions for a request.
+                    properties:
+                      password:
+                        description: Password defines an encrypted password to use
+                          when authenticating
+                        properties:
+                          $decrypt:
+                            description: Decrypt defines a JsonTas style json for
+                              decrypting a value
+                            properties:
+                              value:
+                                description: Value defines an encrypted string to
+                                  decrypt
+                                type: string
+                            required:
+                            - value
+                            type: object
+                        required:
+                        - $decrypt
+                        type: object
+                      type:
+                        description: AuthType defines the type of authentication to
+                          do.
+                        enum:
+                        - basic
+                        - digest
+                        type: string
+                      username:
+                        description: Username defines the username to use when authenticating
+                        type: string
+                    required:
+                    - password
+                    - type
+                    - username
+                    type: object
+                  headers:
+                    additionalProperties:
+                      type: string
+                    description: Headers define optional headers to send with the
+                      payload
+                    type: object
                   method:
+                    description: Method defines the HTTP method for an upload.
                     enum:
                     - GET
                     - POST
                     - PUT
                     type: string
+                  params:
+                    additionalProperties:
+                      type: string
+                    description: Params define optional parameters to send with the
+                      payload
+                    type: object
                   url:
+                    description: URL defines the HTTP(s) URL to send payload to.
+                    format: uri
                     type: string
                 required:
                 - as_json
@@ -99,7 +157,6 @@ spec:
                 - url
                 type: object
             required:
-            - download
             - environmentRequest
             - id
             - livelogs
@@ -111,6 +168,7 @@ spec:
             description: status defines the observed state of LogArea
             properties:
               completionTime:
+                description: CompletionTime defines the time that a LogArea was completed.
                 format: date-time
                 type: string
               conditions:
