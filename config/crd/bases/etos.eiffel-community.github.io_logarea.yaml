@@ -93,6 +93,7 @@ spec:
                       posted as JSON.
                     type: boolean
                   auth:
+                    default: {}
                     description: Auth defines authorization instructions for a request.
                     properties:
                       password:
@@ -123,10 +124,6 @@ spec:
                       username:
                         description: Username defines the username to use when authenticating
                         type: string
-                    required:
-                    - password
-                    - type
-                    - username
                     type: object
                   headers:
                     additionalProperties:

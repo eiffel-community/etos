@@ -55,7 +55,6 @@ var _ = Describe("LogArea Controller", func() {
 						ID:                 "81759996-c0ee-453f-9476-a60c9d1abc8e",
 						EnvironmentRequest: "environmentrequest-sample",
 						ProviderID:         "log-area-provider-sample",
-						Download:           []string{},
 						Logs:               map[string]string{},
 						LiveLogs:           "http://etos/logs",
 						Upload: etosv1alpha2.Upload{

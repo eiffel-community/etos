@@ -59,6 +59,7 @@ type Upload struct {
 
 	// Auth defines authorization instructions for a request.
 	// +optional
+	// +kubebuilder:default={}
 	Auth Auth `json:"auth,omitempty"`
 
 	// URL defines the HTTP(s) URL to send payload to.
@@ -82,12 +83,12 @@ type Upload struct {
 // Auth defines authorization instructions for a request.
 type Auth struct {
 	// Username defines the username to use when authenticating
-	Username string `json:"username"`
+	Username string `json:"username,omitempty"`
 	// Password defines an encrypted password to use when authenticating
-	Password Decrypt `json:"password"`
+	Password Decrypt `json:"password,omitempty"`
 	// AuthType defines the type of authentication to do.
 	// +kubebuilder:validation:Enum=basic;digest
-	AuthType string `json:"type"`
+	AuthType string `json:"type,omitempty"`
 }
 
 // Decrypt defines decryption instructions for clients.
