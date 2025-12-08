@@ -2066,6 +2066,253 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    controller-gen.kubebuilder.io/version: v0.17.2
+  name: logarea.etos.eiffel-community.github.io
+spec:
+  group: etos.eiffel-community.github.io
+  names:
+    kind: LogArea
+    listKind: LogAreaList
+    plural: logarea
+    singular: logarea
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Active")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].message
+      name: Description
+      type: string
+    - jsonPath: .spec.provider_id
+      name: Provider
+      type: string
+    - jsonPath: .metadata.ownerReferences[?(@.kind=="Environment")].name
+      name: Environment
+      type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/id
+      name: TestRun
+      type: string
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: LogArea is the Schema for the logarea API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of LogArea
+            properties:
+              environmentRequest:
+                description: EnvironmentRequest is the ID of the environmentrequest
+                  which requested this log area.
+                type: string
+              id:
+                description: ID is the ID for the LogArea. The ID is a UUID, any version,
+                  and regex matches that.
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+                type: string
+              livelogs:
+                description: LiveLogs is a URI to where live logs of an execution
+                  can be found.
+                format: uri
+                type: string
+              logs:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Logs provides a map of special instructions for the ETR to apply on the files it creates.
+                  Example instructions include
+                  - prepend: prepend a string to log file name.
+                  - join_character: a character to join 'prepend' and log file name.
+                type: object
+              provider_id:
+                description: ProviderID is the name of the Provider used to create
+                  this LogArea.
+                type: string
+              upload:
+                description: Upload defines the log upload instructions for the ETR.
+                properties:
+                  as_json:
+                    description: AsJSON tells a client that the payload should be
+                      posted as JSON.
+                    type: boolean
+                  auth:
+                    default: {}
+                    description: Auth defines authorization instructions for a request.
+                    properties:
+                      password:
+                        description: Password defines an encrypted password to use
+                          when authenticating
+                        properties:
+                          $decrypt:
+                            description: Decrypt defines a JsonTas style json for
+                              decrypting a value
+                            properties:
+                              value:
+                                description: Value defines an encrypted string to
+                                  decrypt
+                                type: string
+                            required:
+                            - value
+                            type: object
+                        required:
+                        - $decrypt
+                        type: object
+                      type:
+                        description: AuthType defines the type of authentication to
+                          do.
+                        enum:
+                        - basic
+                        - digest
+                        type: string
+                      username:
+                        description: Username defines the username to use when authenticating
+                        type: string
+                    type: object
+                  headers:
+                    additionalProperties:
+                      type: string
+                    description: Headers define optional headers to send with the
+                      payload
+                    type: object
+                  method:
+                    description: Method defines the HTTP method for an upload.
+                    enum:
+                    - GET
+                    - POST
+                    - PUT
+                    type: string
+                  params:
+                    additionalProperties:
+                      type: string
+                    description: Params define optional parameters to send with the
+                      payload
+                    type: object
+                  url:
+                    description: URL defines the HTTP(s) URL to send payload to.
+                    format: uri
+                    type: string
+                required:
+                - as_json
+                - method
+                - url
+                type: object
+            required:
+            - environmentRequest
+            - id
+            - livelogs
+            - logs
+            - provider_id
+            - upload
+            type: object
+          status:
+            description: status defines the observed state of LogArea
+            properties:
+              completionTime:
+                description: CompletionTime defines the time that a LogArea was completed.
+                format: date-time
+                type: string
+              conditions:
+                description: |-
+                  conditions represent the current state of the LogArea resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
     controller-gen.kubebuilder.io/version: v0.17.2
   name: providers.etos.eiffel-community.github.io
@@ -3213,6 +3460,77 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-logarea-admin-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - logarea
+  verbs:
+  - '*'
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - logarea/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-logarea-editor-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - logarea
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - logarea/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etos
+  name: etos-logarea-viewer-role
+rules:
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - logarea
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - logarea/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: etos-manager-role
 rules:
 - apiGroups:
@@ -3276,6 +3594,7 @@ rules:
   - environments
   - executionspaces
   - iuts
+  - logarea
   - providers
   verbs:
   - create
@@ -3293,6 +3612,7 @@ rules:
   - environments/finalizers
   - executionspaces/finalizers
   - iuts/finalizers
+  - logarea/finalizers
   - providers/finalizers
   - testruns/finalizers
   verbs:
@@ -3305,6 +3625,7 @@ rules:
   - environments/status
   - executionspaces/status
   - iuts/status
+  - logarea/status
   - providers/status
   - testruns/status
   verbs:
@@ -3614,7 +3935,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:835e5ce1
+        image: ghcr.io/eiffel-community/etos-controller:63bc7d4d
         livenessProbe:
           httpGet:
             path: /healthz
@@ -3858,6 +4179,26 @@ webhooks:
     - UPDATE
     resources:
     - iuts
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: etos-webhook-service
+      namespace: etos-system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha2-logarea
+  failurePolicy: Fail
+  name: mlogarea-v1alpha2.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - logarea
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
