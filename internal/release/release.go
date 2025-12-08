@@ -76,6 +76,8 @@ func ReleaseContainer(name, containerName, namespace, image string, noDelete boo
 		fmt.Sprintf("-namespace=%s", namespace),
 		fmt.Sprintf("-name=%s", name),
 	}
+	// noDelete tells a provider to not delete the resource it is responsible for.
+	// Resource in this case being 'Iut', 'LogArea' or 'ExecutionSpace'
 	if noDelete {
 		args = append(args, "-nodelete")
 	}

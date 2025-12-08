@@ -70,6 +70,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha2-executionspace
+  failurePolicy: Fail
+  name: mexecutionspace-v1alpha2.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - executionspaces
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-etos-eiffel-community-github-io-v1alpha2-iut
   failurePolicy: Fail
   name: miut-v1alpha2.kb.io
