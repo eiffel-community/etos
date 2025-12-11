@@ -112,14 +112,16 @@ class Etos:
         url = f"{self.cluster}/api/{self.version}/testrun"
         self.logger.info("Triggering ETOS using %r", url)
 
+        headers = {}
+        baggage = os.getenv("BAGGAGE")
+        if baggage is not None:
+            headers["baggage"] = baggage
+
         response_json = {}
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
         if isinstance(self.sse_client, SSEV2AlphaClient):
-            response = http.post(
-                url, json=request.model_dump(), headers={"Authorization": f"Bearer {self.apikey}"}
-            )
-        else:
-            response = http.post(url, json=request.model_dump())
+            headers["Authorization"] = f"Bearer {self.apikey}"
+        response = http.post(url, json=request.model_dump(), headers=headers)
         try:
             response.raise_for_status()
             response_json = response.json()

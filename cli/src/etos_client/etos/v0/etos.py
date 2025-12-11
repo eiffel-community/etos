@@ -15,31 +15,30 @@
 # limitations under the License.
 """ETOS v0."""
 
-import os
 import logging
-import time
+import os
 import shutil
-from pathlib import Path
+import time
 from json import JSONDecodeError
+from pathlib import Path
 from typing import Optional
 
+from etos_lib import ETOS as ETOSLibrary
+from etos_lib.lib.http import Http
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
-from etos_lib.lib.http import Http
-from etos_lib import ETOS as ETOSLibrary
 
-from etos_client.types.result import Result, Verdict, Conclusion
 from etos_client.shared.downloader import Downloader
 from etos_client.shared.utilities import directories
 from etos_client.sse.v1.client import SSEClient
+from etos_client.types.result import Conclusion, Result, Verdict
 
-from .events.collector import Collector
-from .test_results import TestResults
 from .event_repository import graphql
-from .test_run import TestRun
-from .schema.response import ResponseSchema
+from .events.collector import Collector
 from .schema.request import RequestSchema
-
+from .schema.response import ResponseSchema
+from .test_results import TestResults
+from .test_run import TestRun
 
 # Max total time for a ping request including delays with backoff factor 0.5 will be:
 # 0.5 + 1.5 + 3.5 + 7.5 + 15.5 = 28.5 (seconds)
@@ -97,9 +96,14 @@ class Etos:
         url = f"{self.cluster}/api/etos"
         self.logger.info("Triggering ETOS using %r", url)
 
+        headers = {}
+        baggage = os.getenv("BAGGAGE")
+        if baggage is not None:
+            headers["baggage"] = baggage
+
         response_json = {}
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
-        response = http.post(url, json=request.model_dump())
+        response = http.post(url, json=request.model_dump(), headers=headers)
         try:
             response.raise_for_status()
             response_json = response.json()
