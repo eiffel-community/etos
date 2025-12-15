@@ -120,7 +120,7 @@ func CreateLogArea(
 				Kind:               "EnvironmentRequest",
 				Name:               environmentrequest.GetName(),
 				UID:                environmentrequest.GetUID(),
-				APIVersion:         environmentrequest.APIVersion,
+				APIVersion:         v1alpha1.GroupVersion.String(),
 				Controller:         &isController,
 				BlockOwnerDeletion: &blockOwnerDeletion,
 			}},
