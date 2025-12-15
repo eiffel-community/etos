@@ -870,6 +870,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Message
       type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/id
+      name: TestRun
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -3935,7 +3938,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:3eca9a53
+        image: ghcr.io/eiffel-community/etos-controller:5fcf8c16
         livenessProbe:
           httpGet:
             path: /healthz
