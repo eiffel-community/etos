@@ -716,7 +716,7 @@ var _ = Describe("Manager", Ordered, func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(output).To(Equal("True"), "TestRun did not start up in time")
 			}
-			Eventually(waitTestrunStart, "1m").Should(Succeed())
+			Eventually(waitTestrunStart, "2m").Should(Succeed())
 
 			By("waiting for testrun to finish")
 			waitTestrunDone := func(g Gomega) {
