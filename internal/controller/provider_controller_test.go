@@ -21,7 +21,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -53,13 +52,8 @@ var _ = Describe("Provider Controller", func() {
 						Namespace: "default",
 					},
 					Spec: etosv1alpha1.ProviderSpec{
-						Type: "iut",
-						JSONTasSource: &etosv1alpha1.VarSource{
-							ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: "cm"},
-								Key:                  "test",
-							},
-						},
+						Type:  "iut",
+						Image: "iut-provider-image",
 					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())

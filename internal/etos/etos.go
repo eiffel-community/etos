@@ -525,7 +525,7 @@ func (r *ETOSDeployment) role(name types.NamespacedName, labelName string) *rbac
 			{
 				APIGroups: []string{"etos.eiffel-community.github.io"},
 				Resources: []string{
-					"environments",
+					"environments", "iuts", "executionspaces", "logarea",
 				},
 				Verbs: []string{
 					"create", "get", "list", "watch", "delete",

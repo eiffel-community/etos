@@ -7,19 +7,4 @@ metadata:
   name: log-area-provider-sample
 spec:
   type: log-area
-  jsontas:
-    log:
-      id: log-area-provider-sample
-      list:
-        available: $this.possible
-        possible:
-          $expand:
-            to: $amount
-            value:
-              download: []  # Disabled
-              livelogs: "http://fake"
-              logs: {}
-              upload:
-                method: GET
-                url: http://etos-executionspace/executionspace/v1alpha/selftest/ping  # always 204 :)
-                as_json: false
+  image: ghcr.io/eiffel-community/log-area-provider:v0.0.1

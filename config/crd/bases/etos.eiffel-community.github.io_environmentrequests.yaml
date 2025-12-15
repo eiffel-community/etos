@@ -360,9 +360,14 @@ spec:
                         type: string
                       testRunner:
                         type: string
+                      testrunnerImage:
+                        description: TestRunnerImage describes the container image
+                          to run in an execution space
+                        type: string
                     required:
                     - id
                     - testRunner
+                    - testrunnerImage
                     type: object
                   iut:
                     properties:

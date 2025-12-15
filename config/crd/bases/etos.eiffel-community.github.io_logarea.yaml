@@ -93,7 +93,6 @@ spec:
                       posted as JSON.
                     type: boolean
                   auth:
-                    default: {}
                     description: Auth defines authorization instructions for a request.
                     properties:
                       password:

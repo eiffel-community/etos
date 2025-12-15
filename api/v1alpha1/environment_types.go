@@ -40,8 +40,7 @@ type EnvironmentSpec struct {
 	Context string `json:"context"`
 
 	// Providers describes which providers were used to create this environment
-	// +optional
-	Providers *Providers `json:"providers,omitempty"`
+	Providers *Providers `json:"providers"`
 
 	Priority   int                   `json:"priority"`
 	Tests      []Test                `json:"recipes"`
