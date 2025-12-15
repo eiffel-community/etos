@@ -47,6 +47,8 @@ type IutReconciler struct {
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=iuts,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=iuts/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=iuts/finalizers,verbs=update
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -63,7 +65,7 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Ownership handoff: If Environment owns this IUT, we relinquish control
-	if hasOwner(iut.OwnerReferences, "Environment") {
+	if ownedByEnvironment(iut.OwnerReferences) {
 		if controllerutil.ContainsFinalizer(iut, providerFinalizer) {
 			// Clean up our finalizer since the environment controller now owns the IUT.
 			controllerutil.RemoveFinalizer(iut, providerFinalizer)

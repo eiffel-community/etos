@@ -62,6 +62,11 @@ var _ = Describe("Environment Controller", func() {
 						Priority:    1,
 						Tests:       []etosv1alpha1.Test{},
 						TestRunner:  "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
+						Providers: &etosv1alpha1.Providers{
+							IUT:            "sample-iut-provider",
+							ExecutionSpace: "sample-execution-space-provider",
+							LogArea:        "sample-log-area-provider",
+						},
 						Iut: &apiextensionsv1.JSON{
 							Raw: []byte("{}"),
 						},

@@ -47,8 +47,9 @@ const (
 	providerFinalizer = "etos.eiffel-community.github.io/managed-by-provider"
 )
 
-// hasOwner checks if a resource kind exists in ownerReferences.
-func hasOwner(ownerReferences []metav1.OwnerReference, kind string) bool {
+// ownedByEnvironment checks if an Environment resource exists in ownerReferences.
+func ownedByEnvironment(ownerReferences []metav1.OwnerReference) bool {
+	kind := "Environment"
 	for _, ownerReference := range ownerReferences {
 		if ownerReference.Kind == kind {
 			return true
