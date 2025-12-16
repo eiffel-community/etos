@@ -1051,12 +1051,6 @@ spec:
                     type: object
                   environmentProviderEventDataTimeout:
                     type: string
-                  environmentProviderImage:
-                    type: string
-                  environmentProviderImagePullPolicy:
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
-                    type: string
                   environmentProviderServiceAccount:
                     type: string
                   environmentProviderTestSuiteTimeout:
@@ -1166,8 +1160,6 @@ spec:
                 - eiffelMessageBus
                 - encryptionKeySecretRef
                 - environmentProviderEventDataTimeout
-                - environmentProviderImage
-                - environmentProviderImagePullPolicy
                 - environmentProviderServiceAccount
                 - environmentProviderTestSuiteTimeout
                 - etcdHost
@@ -3938,7 +3930,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:5fcf8c16
+        image: ghcr.io/eiffel-community/etos-controller:71889439
         livenessProbe:
           httpGet:
             path: /healthz
