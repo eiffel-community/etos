@@ -71,7 +71,7 @@ class Desynced(Exception):
 
 class ServerShutdown(Exception):
     """Server wants the client to shut down."""
-    
+
     def __init__(self, event=None):
         """Initialize with optional shutdown event."""
         super().__init__()
