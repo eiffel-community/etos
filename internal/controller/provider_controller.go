@@ -18,9 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
-	"net/http"
-	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -63,55 +60,6 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	interval := time.Duration(provider.Spec.Healthcheck.IntervalSeconds) * time.Second
-	lastHealthCheckTime := metav1.NewTime(time.Now())
-
-	if provider.Status.LastHealthCheckTime == nil {
-		// run healthcheck on first reconciliation and update status after that
-		provider.Status.LastHealthCheckTime = &lastHealthCheckTime
-	} else {
-		next := provider.Status.LastHealthCheckTime.Time.Add(interval)
-		if time.Until(next) > 0 {
-			// postpone healthcheck if it is too early to do it now
-			return ctrl.Result{RequeueAfter: time.Until(next)}, nil
-		}
-	}
-
-	// We don't check the availability of JSONTas as it is not yet running as a service we can check.
-	if provider.Spec.JSONTas == nil {
-		logger.Info("Healthcheck", "endpoint", fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
-		resp, err := http.Get(fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
-		if err != nil {
-			meta.SetStatusCondition(&provider.Status.Conditions,
-				metav1.Condition{
-					Type:    status.StatusAvailable,
-					Status:  metav1.ConditionFalse,
-					Reason:  status.ReasonFailed,
-					Message: "Could not communicate with host",
-				})
-			if err = r.Status().Update(ctx, provider); err != nil {
-				logger.Error(err, "failed to update provider status")
-				return ctrl.Result{}, err
-			}
-			logger.Info("Provider did not respond", "provider", req.NamespacedName)
-			return ctrl.Result{RequeueAfter: interval}, nil
-		}
-		if resp.StatusCode != 204 {
-			meta.SetStatusCondition(&provider.Status.Conditions,
-				metav1.Condition{
-					Type:    status.StatusAvailable,
-					Status:  metav1.ConditionFalse,
-					Reason:  status.ReasonFailed,
-					Message: fmt.Sprintf("Wrong status code (%d) from health check endpoint", resp.StatusCode),
-				})
-			if err = r.Status().Update(ctx, provider); err != nil {
-				logger.Error(err, "failed to update provider status")
-				return ctrl.Result{}, err
-			}
-			logger.Info("Provider responded with a bad status code", "provider", req.NamespacedName, "status", resp.StatusCode)
-			return ctrl.Result{RequeueAfter: interval}, nil
-		}
-	}
 	meta.SetStatusCondition(&provider.Status.Conditions,
 		metav1.Condition{
 			Type:    status.StatusAvailable,
@@ -124,7 +72,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 	logger.V(2).Info("Provider is available", "provider", req.NamespacedName)
-	return ctrl.Result{RequeueAfter: interval}, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

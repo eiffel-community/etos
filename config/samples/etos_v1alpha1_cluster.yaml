@@ -20,7 +20,7 @@ spec:
     logArea:
       image: "ghcr.io/eiffel-community/etos-logarea:018a536f"
     environmentProvider:
-      image: ghcr.io/eiffel-community/etos-environment-provider:b7590430
+      image: example.com/environmentprovider:v0.0.1
     suiteRunner:
       image: ghcr.io/eiffel-community/etos-suite-runner:77de800f
       logListener:
