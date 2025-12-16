@@ -221,6 +221,18 @@ class Etos:
             end,
         )
         success, msg = TestResults().get_results(events)
+
+        # If GraphQL query for TestSuiteFinished failed, use Shutdown event as fallback
+        if (success is None or msg is None) and events.shutdown:
+            self.logger.info(
+                "TestSuiteFinished not available from GraphQL, using Shutdown event as fallback"
+            )
+            return Result(
+                verdict=Verdict(events.shutdown.get("verdict", "INCONCLUSIVE").upper()),
+                conclusion=Conclusion(events.shutdown.get("conclusion", "FAILED").upper()),
+                reason=events.shutdown.get("description", "Result from Shutdown event"),
+            )
+
         if success is None or msg is None:
             return Result(
                 verdict=Verdict.INCONCLUSIVE,

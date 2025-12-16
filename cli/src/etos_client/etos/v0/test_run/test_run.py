@@ -15,6 +15,7 @@
 # limitations under the License.
 """ETOS test run handler."""
 
+import json
 import logging
 import sys
 import time
@@ -22,7 +23,7 @@ from uuid import UUID
 from typing import Iterator, Union
 from pathlib import Path
 
-from etos_client.sse.v1.protocol import Message, Report, Artifact
+from etos_client.sse.v1.protocol import Message, Report, Artifact, Shutdown
 from etos_client.sse.v1.client import SSEClient
 from etos_client.shared.events import Event
 from etos_client.shared.downloader import Downloader, Downloadable
@@ -84,9 +85,16 @@ class TestRun:
         self.__log_debug_information(response)
         last_log = time.time()
         timer = None
+        shutdown_event = None
         for event in self.__log_until_eof(sse_client, str(response.tercc), end):
             if isinstance(event, (Report, Artifact)):
                 self.download(event)
+            elif isinstance(event, Shutdown):
+                # Capture Shutdown event data for use as fallback if GraphQL query fails
+                try:
+                    shutdown_event = json.loads(event.data)
+                except (json.JSONDecodeError, AttributeError):
+                    self.logger.warning("Failed to parse Shutdown event data")
             if last_log + self.log_interval >= time.time():
                 events = self.__collector.collect_activity(response.tercc)
                 self.__status(events)
@@ -103,6 +111,8 @@ class TestRun:
                 break
         self.__wait(response.tercc, end)
         events = self.__collector.collect(response.tercc)
+        if shutdown_event:
+            events.shutdown = shutdown_event
         self.__announce(events)
         return events
 
