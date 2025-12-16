@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -41,6 +42,12 @@ func main() {
 	provider.RunExecutionSpaceProvider(&genericExecutionSpaceProvider{})
 }
 
+type dataset struct {
+	Dev       bool   `json:"dev,omitempty"`
+	ETRRepo   string `json:"ETR_REPO,omitempty"`
+	ETRBranch string `json:"ETR_BRANCH,omitempty"`
+}
+
 // Provision provisions a new ExecutionSpace.
 func (p *genericExecutionSpaceProvider) Provision(
 	ctx context.Context, logger logr.Logger, cfg provider.ProvisionConfig,
@@ -62,50 +69,61 @@ func (p *genericExecutionSpaceProvider) Provision(
 		"Namespace", environmentRequest.Namespace,
 		"Amount", cfg.MinimumAmount,
 	)
+	environment := map[string]string{
+		"SOURCE_HOST":            hostname,
+		"ETOS_API":               environmentRequest.Spec.Config.EtosApi,
+		"ETR_VERSION":            environmentRequest.Spec.Providers.ExecutionSpace.TestRunner,
+		"ETOS_GRAPHQL_SERVER":    environmentRequest.Spec.Config.GraphQlServer,
+		"ETOS_RABBITMQ_EXCHANGE": environmentRequest.Spec.Config.EtosMessageBus.Exchange,
+		"ETOS_RABBITMQ_HOST":     environmentRequest.Spec.Config.EtosMessageBus.Host,
+		"ETOS_RABBITMQ_PASSWORD": string(
+			encrypt(environmentRequest.Spec.Config.EtosMessageBus.Password.Value, encryptionKey),
+		),
+		"ETOS_RABBITMQ_PORT":     environmentRequest.Spec.Config.EtosMessageBus.Port,
+		"ETOS_RABBITMQ_USERNAME": environmentRequest.Spec.Config.EtosMessageBus.Username,
+		"ETOS_RABBITMQ_VHOST":    environmentRequest.Spec.Config.EtosMessageBus.Vhost,
+		"ETOS_RABBITMQ_SSL":      environmentRequest.Spec.Config.EtosMessageBus.SSL,
+		"RABBITMQ_EXCHANGE":      environmentRequest.Spec.Config.EiffelMessageBus.Exchange,
+		"RABBITMQ_HOST":          environmentRequest.Spec.Config.EiffelMessageBus.Host,
+		"RABBITMQ_PASSWORD": string(
+			encrypt(environmentRequest.Spec.Config.EtosMessageBus.Password.Value, encryptionKey),
+		),
+		"RABBITMQ_PORT":     environmentRequest.Spec.Config.EiffelMessageBus.Port,
+		"RABBITMQ_USERNAME": environmentRequest.Spec.Config.EiffelMessageBus.Username,
+		"RABBITMQ_VHOST":    environmentRequest.Spec.Config.EiffelMessageBus.Vhost,
+		"RABBITMQ_SSL":      environmentRequest.Spec.Config.EiffelMessageBus.SSL,
+	}
+	ds := dataset{}
+	if err := json.Unmarshal(environmentRequest.Spec.Dataset.Raw, &ds); err != nil {
+		return err
+	}
+	if ds.Dev {
+		environment["DEV"] = "true"
+	}
+	if ds.ETRBranch != "" {
+		environment["ETR_BRANCH"] = ds.ETRBranch
+	}
+	if ds.ETRRepo != "" {
+		environment["ETR_REPOSITORY"] = ds.ETRRepo
+	}
+
 	for range cfg.MinimumAmount {
 		id := uuid.NewString()
 		testrunner := environmentRequest.Spec.Providers.ExecutionSpace.TestRunnerImage
 		logger.Info("Creating a generic ExecutionSpace",
 			"id", id, "image", testrunner, "identifier", environmentRequest.Spec.Identifier,
 		)
+		environment["ENVIRONMENT_ID"] = id
+		environment["ENVIRONMENT_URL"] = fmt.Sprintf("%s/v1alpha/testrun/%s", environmentRequest.Spec.Config.EtosApi, id)
 		executionSpace, err := provider.CreateExecutionSpace(ctx, environmentRequest, cfg.Namespace,
 			v1alpha2.ExecutionSpaceSpec{
 				ID:         id,
 				TestRunner: testrunner,
 				Instructions: v1alpha2.Instructions{
-					Identifier: environmentRequest.Spec.Identifier,
-					Image:      testrunner,
-					Parameters: map[string]string{},
-					Environment: map[string]string{
-						"ENVIRONMENT_ID":         id,
-						"ENVIRONMENT_URL":        fmt.Sprintf("%s/v1alpha/testrun/%s", environmentRequest.Spec.Config.EtosApi, id),
-						"SOURCE_HOST":            hostname,
-						"ETOS_API":               environmentRequest.Spec.Config.EtosApi,
-						"ETR_VERSION":            environmentRequest.Spec.Providers.ExecutionSpace.TestRunner,
-						"ETOS_GRAPHQL_SERVER":    environmentRequest.Spec.Config.GraphQlServer,
-						"ETOS_RABBITMQ_EXCHANGE": environmentRequest.Spec.Config.EtosMessageBus.Exchange,
-						"ETOS_RABBITMQ_HOST":     environmentRequest.Spec.Config.EtosMessageBus.Host,
-						"ETOS_RABBITMQ_PASSWORD": string(
-							encrypt(environmentRequest.Spec.Config.EtosMessageBus.Password.Value, encryptionKey),
-						),
-						"ETOS_RABBITMQ_PORT":     environmentRequest.Spec.Config.EtosMessageBus.Port,
-						"ETOS_RABBITMQ_USERNAME": environmentRequest.Spec.Config.EtosMessageBus.Username,
-						"ETOS_RABBITMQ_VHOST":    environmentRequest.Spec.Config.EtosMessageBus.Vhost,
-						"ETOS_RABBITMQ_SSL":      environmentRequest.Spec.Config.EtosMessageBus.SSL,
-						"RABBITMQ_EXCHANGE":      environmentRequest.Spec.Config.EiffelMessageBus.Exchange,
-						"RABBITMQ_HOST":          environmentRequest.Spec.Config.EiffelMessageBus.Host,
-						"RABBITMQ_PASSWORD": string(
-							encrypt(environmentRequest.Spec.Config.EtosMessageBus.Password.Value, encryptionKey),
-						),
-						"RABBITMQ_PORT":     environmentRequest.Spec.Config.EiffelMessageBus.Port,
-						"RABBITMQ_USERNAME": environmentRequest.Spec.Config.EiffelMessageBus.Username,
-						"RABBITMQ_VHOST":    environmentRequest.Spec.Config.EiffelMessageBus.Vhost,
-						"RABBITMQ_SSL":      environmentRequest.Spec.Config.EiffelMessageBus.SSL,
-						// TODO: This is extra for testing.
-						"DEV":            "true",
-						"ETR_BRANCH":     "waiting-etr",
-						"ETR_REPOSITORY": "https://github.com/t-persson/etos-test-runner",
-					},
+					Identifier:  environmentRequest.Spec.Identifier,
+					Image:       testrunner,
+					Parameters:  map[string]string{},
+					Environment: environment,
 				},
 			})
 		if err != nil {
