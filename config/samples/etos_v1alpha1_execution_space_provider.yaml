@@ -7,4 +7,4 @@ metadata:
   name: execution-space-provider-sample
 spec:
   type: execution-space
-  image: ghcr.io/eiffel-community/execution-space-provider:v0.0.1
+  image: example.com/executionspaceprovider:v0.0.1

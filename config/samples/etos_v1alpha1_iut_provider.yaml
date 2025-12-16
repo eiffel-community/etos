@@ -7,4 +7,4 @@ metadata:
   name: iut-provider-sample
 spec:
   type: iut
-  image: ghcr.io/eiffel-community/iut-provider:v0.0.1
+  image: example.com/iutprovider:v0.0.1

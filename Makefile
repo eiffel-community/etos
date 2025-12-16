@@ -14,6 +14,9 @@ endif
 # tools. (i.e. podman)
 CONTAINER_TOOL ?= docker
 
+# PROVIDERS defines the providers that can be built
+PROVIDERS = iutprovider executionspaceprovider logareaprovider environmentprovider
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
@@ -184,6 +187,24 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
+# Generates a rule named $(program_name)-docker to to build the named program
+# and copy the locally compiled binary into a Docker image. The image will be
+# tagged with the name of the program.
+#
+# $1: Name of the program
+define build-docker-image
+.PHONY: $(strip $(1))-docker
+# Including the parameter name!
+EXTRA_DOCKER_ARGS=
+export EXTRA_DOCKER_ARGS
+$(strip $(1))-docker:
+	docker build . \
+    $(EXTRA_DOCKER_ARGS) \
+    -f Dockerfile.provider \
+    --build-arg PROVIDER=$(strip $(1)) \
+    -t ${IMG}
+endef
+
 ##@ Dependencies
 
 ## Location to install dependencies to
@@ -235,6 +256,12 @@ $(ENVTEST): $(LOCALBIN)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+
+# Setup the dynamic commands
+#
+$(foreach provider,$(PROVIDERS), \
+    $(eval $(call build-docker-image,$(provider))) \
+)
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary

@@ -7,4 +7,4 @@ metadata:
   name: log-area-provider-sample
 spec:
   type: log-area
-  image: ghcr.io/eiffel-community/log-area-provider:v0.0.1
+  image: example.com/logareaprovider:v0.0.1
