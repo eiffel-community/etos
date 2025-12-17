@@ -91,10 +91,11 @@ class TestRun:
                 self.download(event)
             elif isinstance(event, Shutdown):
                 # Capture Shutdown event data for use as fallback if GraphQL query fails
-                try:
-                    shutdown_event = json.loads(event.data)
-                except (json.JSONDecodeError, AttributeError):
-                    self.logger.warning("Failed to parse Shutdown event data")
+                shutdown_event = {
+                    "verdict": event.data.verdict,
+                    "conclusion": event.data.conclusion,
+                    "description": event.data.description,
+                }
             if last_log + self.log_interval >= time.time():
                 events = self.__collector.collect_activity(response.tercc)
                 self.__status(events)

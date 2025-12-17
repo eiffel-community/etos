@@ -230,7 +230,7 @@ class Etos:
             return Result(
                 verdict=Verdict(events.shutdown.get("verdict", "INCONCLUSIVE").upper()),
                 conclusion=Conclusion(events.shutdown.get("conclusion", "FAILED").upper()),
-                reason=events.shutdown.get("description", "Result from Shutdown event"),
+                reason=events.shutdown.get("description", "TestSuiteFinished event not yet indexed in GraphQL"),
             )
 
         if success is None or msg is None:
