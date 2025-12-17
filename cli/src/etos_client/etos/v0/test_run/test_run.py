@@ -92,9 +92,9 @@ class TestRun:
             elif isinstance(event, Shutdown):
                 # Capture Shutdown event data for use as fallback if GraphQL query fails
                 shutdown_event = {
-                    "verdict": event.data.verdict,
-                    "conclusion": event.data.conclusion,
-                    "description": event.data.description,
+                    "verdict": event.verdict,
+                    "conclusion": event.conclusion,
+                    "description": event.description,
                 }
             if last_log + self.log_interval >= time.time():
                 events = self.__collector.collect_activity(response.tercc)
