@@ -78,8 +78,6 @@ spec:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
-                required:
-                - image
                 type: object
               id:
                 description: ID is the test suite ID for this execution. Will be generated
@@ -97,8 +95,6 @@ spec:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
-                required:
-                - image
                 type: object
               providers:
                 description: |-
@@ -134,8 +130,6 @@ spec:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
-                required:
-                - image
                 type: object
               suites:
                 items:

@@ -446,7 +446,6 @@ spec:
                 - tests
                 type: object
             required:
-            - image
             - maximumAmount
             - minimumAmount
             - providers
