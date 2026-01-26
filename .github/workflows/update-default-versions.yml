@@ -110,7 +110,6 @@ jobs:
        with:
          branch: main
          commitChange: true
-         valueFile: config/default/default_images_configmap.yaml
          message: |
           Updating default ETOS versions
             - ETOS API: ${{ env.REGISTRY }}/${{ env.API_REPOSITORY }}:${{ needs.apiImage.outputs.version }}
@@ -123,12 +122,28 @@ jobs:
             - ETOS Test Runner: ${{ needs.testRunnerVersion.outputs.version }}
          changes: |
            {
-             "data.api": "${{ env.REGISTRY }}/${{ env.API_REPOSITORY }}:${{ needs.apiImage.outputs.version }}",
-             "data.sse": "${{ env.REGISTRY }}/${{ env.SSE_REPOSITORY }}:${{ needs.sseImage.outputs.version }}",
-             "data.logarea": "${{ env.REGISTRY }}/${{ env.LOGAREA_REPOSITORY }}:${{ needs.logareaImage.outputs.version }}",
-             "data.environmentProvider": "${{ env.REGISTRY }}/${{ env.ENVIRONMENT_PROVIDER_REPOSITORY }}:${{ needs.environmentProviderImage.outputs.version }}",
-             "data.suiteRunner": "${{ env.REGISTRY }}/${{ env.SUITE_RUNNER_REPOSITORY }}:${{ needs.suiteRunnerImage.outputs.version }}",
-             "data.logListener": "${{ env.REGISTRY }}/${{ env.LOG_LISTENER_REPOSITORY }}:${{ needs.logListenerImage.outputs.version }}",
-             "data.suiteStarter": "${{ env.REGISTRY }}/${{ env.SUITE_STARTER_REPOSITORY }}:${{ needs.suiteStarterImage.outputs.version }}",
-             "data.testRunner": "${{ needs.testRunnerVersion.outputs.version }}"
+              "config/crd/defaults/api.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.API_REPOSITORY }}:${{ needs.apiImage.outputs.version }}"
+              },
+              "config/crd/defaults/sse.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.SSE_REPOSITORY }}:${{ needs.sseImage.outputs.version }}"
+              },
+              "config/crd/defaults/logarea.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.LOGAREA_REPOSITORY }}:${{ needs.logareaImage.outputs.version }}"
+              },
+              "config/crd/defaults/environment_provider.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.ENVIRONMENT_PROVIDER_REPOSITORY }}:${{ needs.environmentProviderImage.outputs.version }}"
+              },
+              "config/crd/defaults/suite_runner.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.SUITE_RUNNER_REPOSITORY }}:${{ needs.suiteRunnerImage.outputs.version }}"
+              },
+              "config/crd/defaults/log_listener.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.LOG_LISTENER_REPOSITORY }}:${{ needs.logListenerImage.outputs.version }}"
+              },
+              "config/crd/defaults/suite_starter.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.SUITE_STARTER_REPOSITORY }}:${{ needs.suiteStarterImage.outputs.version }}"
+              },
+              "config/crd/defaults/test_runner.yaml": {
+                ".[0].value": "${{ needs.testRunnerVersion.outputs.version }}"
+              }
            }
