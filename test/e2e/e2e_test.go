@@ -83,6 +83,11 @@ var _ = Describe("Manager", Ordered, func() {
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to create namespace")
 
+		By("installing CRDs")
+		cmd = exec.Command("make", "install")
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
+
 		By("deploying the execution space provider")
 		cmd = exec.Command("kubectl", "create", "-k", executionSpaceProviderKustomization, "-n", clusterNamespace)
 		_, err = utils.Run(cmd)
