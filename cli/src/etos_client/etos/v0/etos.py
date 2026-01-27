@@ -15,6 +15,7 @@
 # limitations under the License.
 """ETOS v0."""
 
+import json
 import logging
 import os
 import shutil
@@ -22,6 +23,7 @@ import time
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 
 from etos_lib import ETOS as ETOSLibrary
 from etos_lib.lib.http import Http
@@ -61,6 +63,8 @@ class Etos:
 
     def __init__(self, args: dict, sse_client: SSEClient):
         """Set up sse client and cluster variables."""
+        self.correlation_id = str(uuid4())
+        self.logger.info("Correlation ID for this ETOS testrun: %s", self.correlation_id)
         self.args = args
         self.cluster = args.get("<cluster>")
         assert self.cluster is not None
@@ -97,9 +101,11 @@ class Etos:
         self.logger.info("Triggering ETOS using %r", url)
 
         headers = {}
-        baggage = os.getenv("BAGGAGE")
-        if baggage is not None:
-            headers["baggage"] = baggage
+        baggage = os.getenv("BAGGAGE") or "{}"
+        baggage = json.loads(baggage)
+        baggage["parent_activity"] = request.parent_activity
+        baggage["correlation_id"] = self.correlation_id
+        headers["baggage"] = json.dumps(baggage)
 
         response_json = {}
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
