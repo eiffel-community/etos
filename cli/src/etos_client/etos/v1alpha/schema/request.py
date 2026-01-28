@@ -14,10 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS v1 request schema."""
+
 import json
+from typing import Optional, Union
 from uuid import UUID
 
-from typing import Optional, Union
 from pydantic import BaseModel, ValidationInfo, field_validator
 
 
@@ -26,6 +27,7 @@ class RequestSchema(BaseModel):
 
     artifact_id: Optional[str]
     artifact_identity: Optional[str]
+    parent_activity: Optional[str]
     test_suite_url: str
     dataset: Optional[Union[dict, list]] = {}
     execution_space_provider: Optional[str] = "default"
@@ -38,6 +40,7 @@ class RequestSchema(BaseModel):
         return RequestSchema(
             artifact_id=args["--identity"],
             artifact_identity=args["--identity"],
+            parent_activity=args["--parent-activity"] or None,
             test_suite_url=args["--test-suite"],
             dataset=args["--dataset"],
             execution_space_provider=args["--execution-space-provider"] or "default",

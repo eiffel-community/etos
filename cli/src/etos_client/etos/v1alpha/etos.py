@@ -37,6 +37,7 @@ from etos_client.etos.v0.test_run import TestRun as V0TestRun
 from etos_client.etos.v1alpha.schema.request import RequestSchema
 from etos_client.etos.v1alpha.schema.response import ResponseSchema
 from etos_client.etos.v1alpha.test_run import TestRun as V1AlphaTestRun
+from etos_client.shared.baggage import Baggage
 from etos_client.shared.downloader import Downloader
 from etos_client.shared.utilities import directories
 from etos_client.sse.v1.client import SSEClient as SSEV1Client
@@ -73,12 +74,24 @@ class Etos:
     def __init__(self, args: dict, sse_client: Union[SSEV1Client, SSEV2AlphaClient]):
         """Set up sse client and cluster variables."""
         self.correlation_id = str(uuid4())
-        self.logger.info("Correlation ID for this ETOS testrun: %s", self
+        self.logger.info("Correlation ID for this ETOS testrun: %s", self.correlation_id)
         self.args = args
         self.cluster = args.get("<cluster>")
         assert self.cluster is not None
         self.sse_client = sse_client
+        self.baggage = Baggage.from_env()
+        self.baggage.add("correlation_id", self.correlation_id)
         self.logger.info("Running ETOS version %s", self.version)
+
+    @property
+    def headers(self) -> dict:
+        """Generate and return headers for ETOS requests."""
+        headers = {}
+        try:
+            headers["baggage"] = self.baggage.string
+        except ValueError:
+            self.logger.warning("Baggage size limit exceeded, dropping baggage")
+        return headers
 
     @property
     def apikey(self) -> str:
@@ -89,6 +102,7 @@ class Etos:
             response = http.post(
                 url,
                 json={"identity": "etos-client", "scope": "post-testrun delete-testrun get-sse"},
+                headers=self.headers,
             )
             try:
                 response.raise_for_status()
@@ -113,18 +127,13 @@ class Etos:
     def __start(self) -> tuple[Optional[ResponseSchema], Optional[str]]:
         """Trigger ETOS, retrying on non-client errors until successful or timeout."""
         request = self.start_request.from_args(self.args)
+        self.baggage.add("parent_activity", request.parent_activity)
         url = f"{self.cluster}/api/{self.version}/testrun"
         self.logger.info("Triggering ETOS using %r", url)
 
-        headers = {}
-        baggage = os.getenv("BAGGAGE") or "{}"
-        baggage = json.loads(baggage)
-        baggage["parent_activity"] = request.parent_activity
-        baggage["correlation_id"] = self.correlation_id
-        headers["baggage"] = json.dumps(baggage)
-
         response_json = {}
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
+        headers = self.headers
         if isinstance(self.sse_client, SSEV2AlphaClient):
             headers["Authorization"] = f"Bearer {self.apikey}"
         response = http.post(url, json=request.model_dump(), headers=headers)
@@ -246,7 +255,7 @@ class Etos:
         url = f"{self.cluster}/api/selftest/ping"
         self.logger.info("Checking connection to ETOS at %r.", url)
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=5)
-        response = http.get(url)
+        response = http.get(url, headers=self.headers)
         try:
             response.raise_for_status()
         except HTTPError:
