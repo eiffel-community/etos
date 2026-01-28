@@ -1,0 +1,149 @@
+name: Update default ETOS versions
+
+on:
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  API_REPOSITORY: eiffel-community/etos-api
+  SSE_REPOSITORY: eiffel-community/etos-sse
+  LOGAREA_REPOSITORY: eiffel-community/etos-logarea
+  ENVIRONMENT_PROVIDER_REPOSITORY: eiffel-community/etos-environment-provider
+  SUITE_RUNNER_REPOSITORY: eiffel-community/etos-suite-runner
+  LOG_LISTENER_REPOSITORY: eiffel-community/etos-log-listener
+  SUITE_STARTER_REPOSITORY: eiffel-community/etos-suite-starter
+  TEST_RUNNER_REPOSITORY: eiffel-community/etos-test-runner
+
+jobs:
+  apiImage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: getVersion
+        run: |
+          VERSION=$(skopeo list-tags docker://${{ env.REGISTRY }}/${{ env.API_REPOSITORY }} | jq -r ".Tags | last")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  sseImage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: getVersion
+        run: |
+          VERSION=$(skopeo list-tags docker://${{ env.REGISTRY }}/${{ env.SSE_REPOSITORY }} | jq -r ".Tags | last")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  logareaImage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: getVersion
+        run: |
+          VERSION=$(skopeo list-tags docker://${{ env.REGISTRY }}/${{ env.LOGAREA_REPOSITORY }} | jq -r ".Tags | last")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  environmentProviderImage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: getVersion
+        run: |
+          VERSION=$(skopeo list-tags docker://${{ env.REGISTRY }}/${{ env.ENVIRONMENT_PROVIDER_REPOSITORY }} | jq -r ".Tags | last")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  suiteRunnerImage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: getVersion
+        run: |
+          VERSION=$(skopeo list-tags docker://${{ env.REGISTRY }}/${{ env.SUITE_RUNNER_REPOSITORY }} | jq -r ".Tags | last")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  logListenerImage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: getVersion
+        run: |
+          VERSION=$(skopeo list-tags docker://${{ env.REGISTRY }}/${{ env.LOG_LISTENER_REPOSITORY }} | jq -r ".Tags | last")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  suiteStarterImage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: getVersion
+        run: |
+          VERSION=$(skopeo list-tags docker://${{ env.REGISTRY }}/${{ env.SUITE_STARTER_REPOSITORY }} | jq -r ".Tags | last")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  testRunnerVersion:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TEST_RUNNER_REPOSITORY }}
+      - name: Get version
+        id: getVersion
+        run: |
+          VERSION=$(gh release view --json tagName --jq .tagName)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.getVersion.outputs.version }}
+  updateManifest:
+    runs-on: ubuntu-latest
+    needs: [apiImage, sseImage, logareaImage, environmentProviderImage, suiteRunnerImage, logListenerImage, suiteStarterImage, testRunnerVersion]
+    steps:
+     - uses: actions/checkout@v4
+     - name: Update manifests
+       uses: fjogeleit/yaml-update-action@main
+       with:
+         branch: main
+         commitChange: true
+         message: |
+          Updating default ETOS versions
+            - ETOS API: ${{ env.REGISTRY }}/${{ env.API_REPOSITORY }}:${{ needs.apiImage.outputs.version }}
+            - ETOS SSE: ${{ env.REGISTRY }}/${{ env.SSE_REPOSITORY }}:${{ needs.sseImage.outputs.version }}
+            - ETOS LogArea: ${{ env.REGISTRY }}/${{ env.LOGAREA_REPOSITORY }}:${{ needs.logareaImage.outputs.version }}
+            - ETOS Environment Provider: ${{ env.REGISTRY }}/${{ env.ENVIRONMENT_PROVIDER_REPOSITORY }}:${{ needs.environmentProviderImage.outputs.version }}
+            - ETOS Suite Runner: ${{ env.REGISTRY }}/${{ env.SUITE_RUNNER_REPOSITORY }}:${{ needs.suiteRunnerImage.outputs.version }}
+            - ETOS Log Listener: ${{ env.REGISTRY }}/${{ env.LOG_LISTENER_REPOSITORY }}:${{ needs.logListenerImage.outputs.version }}
+            - ETOS Suite Starter: ${{ env.REGISTRY }}/${{ env.SUITE_STARTER_REPOSITORY }}:${{ needs.suiteStarterImage.outputs.version }}
+            - ETOS Test Runner: ${{ needs.testRunnerVersion.outputs.version }}
+         changes: |
+           {
+              "config/crd/defaults/api.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.API_REPOSITORY }}:${{ needs.apiImage.outputs.version }}"
+              },
+              "config/crd/defaults/sse.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.SSE_REPOSITORY }}:${{ needs.sseImage.outputs.version }}"
+              },
+              "config/crd/defaults/logarea.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.LOGAREA_REPOSITORY }}:${{ needs.logareaImage.outputs.version }}"
+              },
+              "config/crd/defaults/environment_provider.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.ENVIRONMENT_PROVIDER_REPOSITORY }}:${{ needs.environmentProviderImage.outputs.version }}"
+              },
+              "config/crd/defaults/suite_runner.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.SUITE_RUNNER_REPOSITORY }}:${{ needs.suiteRunnerImage.outputs.version }}"
+              },
+              "config/crd/defaults/log_listener.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.LOG_LISTENER_REPOSITORY }}:${{ needs.logListenerImage.outputs.version }}"
+              },
+              "config/crd/defaults/suite_starter.yaml": {
+                ".[0].value": "${{ env.REGISTRY }}/${{ env.SUITE_STARTER_REPOSITORY }}:${{ needs.suiteStarterImage.outputs.version }}"
+              },
+              "config/crd/defaults/test_runner.yaml": {
+                ".[0].value": "${{ needs.testRunnerVersion.outputs.version }}"
+              }
+           }

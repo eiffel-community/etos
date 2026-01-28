@@ -84,6 +84,7 @@ func (v *Var) Get(ctx context.Context, client client.Client, namespace string) (
 
 // Image configuration.
 type Image struct {
+	// +optional
 	Image string `json:"image"`
 
 	// +kubebuilder:default="IfNotPresent"
