@@ -125,13 +125,13 @@ spec:
                 description: ETOS describes the deployment of an ETOS cluster.
                 properties:
                   api:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-api:latest
+                    default: {}
                     description: ETOSAPI describes the deployment of the ETOS API.
                     properties:
                       executionSpaceProviderSecret:
                         type: string
                       image:
+                        default: ghcr.io/eiffel-community/etos-api:24ce2298
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
@@ -153,8 +153,6 @@ spec:
                         default: 1
                         format: int32
                         type: integer
-                    required:
-                    - image
                     type: object
                   config:
                     default:
@@ -271,20 +269,18 @@ spec:
                     - encryptionKey
                     type: object
                   environmentProvider:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-environment-provider:latest
+                    default: {}
                     description: ETOSEnvironmentProvider describes the deployment
                       of an ETOS environment provider.
                     properties:
                       image:
+                        default: ghcr.io/eiffel-community/etos-environment-provider:b7590430
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                    required:
-                    - image
                     type: object
                   ingress:
                     description: Ingress configuration.
@@ -303,46 +299,40 @@ spec:
                         type: string
                     type: object
                   logArea:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-log-area:latest
+                    default: {}
                     description: ETOSLogArea describes th deployment of an ETOS log
                       area API.
                     properties:
                       image:
+                        default: ghcr.io/eiffel-community/etos-logarea:24ce2298
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                    required:
-                    - image
                     type: object
                   sse:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-sse:latest
+                    default: {}
                     description: ETOSSSE describes th deployment of an ETOS Server
                       Sent Events API.
                     properties:
                       image:
+                        default: ghcr.io/eiffel-community/etos-sse:24ce2298
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                    required:
-                    - image
                     type: object
                   suiteRunner:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-suite-runner:latest
-                      logListener:
-                        image: ghcr.io/eiffel-community/etos-log-listener:latest
+                    default: {}
                     description: ETOSSuiteRunner describes the deployment of an ETOS
                       suite runner.
                     properties:
                       image:
+                        default: ghcr.io/eiffel-community/etos-suite-runner:77de800f
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
@@ -350,6 +340,7 @@ spec:
                           pull a container image
                         type: string
                       logListener:
+                        default: {}
                         description: ETOSLogListener describes the deployment of an
                           ETOS log listener.
                         properties:
@@ -360,22 +351,17 @@ spec:
                             default: ''
                             type: string
                           image:
+                            default: ghcr.io/eiffel-community/etos-log-listener:77de800f
                             type: string
                           imagePullPolicy:
                             default: IfNotPresent
                             description: PullPolicy describes a policy for if/when
                               to pull a container image
                             type: string
-                        required:
-                        - image
                         type: object
-                    required:
-                    - image
-                    - logListener
                     type: object
                   suiteStarter:
-                    default:
-                      image: ghcr.io/eiffel-community/etos-suite-starter:latest
+                    default: {}
                     description: ETOSSuiteStarter describes the deployment of an ETOS
                       suite starter.
                     properties:
@@ -408,6 +394,7 @@ spec:
                         default: ''
                         type: string
                       image:
+                        default: ghcr.io/eiffel-community/etos-suite-starter:6b1146e1
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
@@ -422,19 +409,15 @@ spec:
                         default: ''
                         description: Provide a custom suite runner template.
                         type: string
-                    required:
-                    - image
                     type: object
                   testRunner:
                     default:
-                      version: latest
+                      version: 3.7.6
                     description: ETOSTestRunner describes the deployment of an ETOS
                       test runner.
                     properties:
                       version:
                         type: string
-                    required:
-                    - version
                     type: object
                 type: object
               eventRepository:
@@ -443,22 +426,20 @@ spec:
                   repository for ETOS.
                 properties:
                   api:
-                    default:
-                      image: registry.nordix.org/eiffel/eiffel-graphql-api:latest
+                    default: {}
                     description: 'We do not build the GraphQL API automatically nor
                       publish it remotely.
 
                       This will need to be provided to work.'
                     properties:
                       image:
+                        default: ghcr.io/eiffel-community/eiffel-graphql-api:latest
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                    required:
-                    - image
                     type: object
                   deploy:
                     default: false
@@ -570,22 +551,20 @@ spec:
                         type: object
                     type: object
                   storage:
-                    default:
-                      image: registry.nordix.org/eiffel/eiffel-graphql-storage:latest
+                    default: {}
                     description: 'We do not build the GraphQL API automatically nor
                       publish it remotely.
 
                       This will need to be provided to work.'
                     properties:
                       image:
+                        default: ghcr.io/eiffel-community/eiffel-graphql-storage:latest
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
-                    required:
-                    - image
                     type: object
                 type: object
               messageBus:
@@ -1392,7 +1371,6 @@ spec:
                 - tests
                 type: object
             required:
-            - image
             - maximumAmount
             - minimumAmount
             - providers
@@ -3044,8 +3022,6 @@ spec:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
-                required:
-                - image
                 type: object
               id:
                 description: ID is the test suite ID for this execution. Will be generated
@@ -3063,8 +3039,6 @@ spec:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
-                required:
-                - image
                 type: object
               providers:
                 description: 'Providers to use for test execution. These names must
@@ -3101,8 +3075,6 @@ spec:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
-                required:
-                - image
                 type: object
               suites:
                 items:
