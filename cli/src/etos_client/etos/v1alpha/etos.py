@@ -15,7 +15,6 @@
 # limitations under the License.
 """ETOS v1alpha."""
 
-import json
 import logging
 import os
 import shutil
