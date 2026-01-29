@@ -111,17 +111,7 @@ jobs:
        uses: fjogeleit/yaml-update-action@main
        with:
          branch: main
-         commitChange: true
-         message: |
-          Updating default ETOS versions [skip ci]
-            - ETOS API: ${{ env.REGISTRY }}/${{ env.API_REPOSITORY }}:${{ needs.apiImage.outputs.version }}
-            - ETOS SSE: ${{ env.REGISTRY }}/${{ env.SSE_REPOSITORY }}:${{ needs.sseImage.outputs.version }}
-            - ETOS LogArea: ${{ env.REGISTRY }}/${{ env.LOGAREA_REPOSITORY }}:${{ needs.logareaImage.outputs.version }}
-            - ETOS Environment Provider: ${{ env.REGISTRY }}/${{ env.ENVIRONMENT_PROVIDER_REPOSITORY }}:${{ needs.environmentProviderImage.outputs.version }}
-            - ETOS Suite Runner: ${{ env.REGISTRY }}/${{ env.SUITE_RUNNER_REPOSITORY }}:${{ needs.suiteRunnerImage.outputs.version }}
-            - ETOS Log Listener: ${{ env.REGISTRY }}/${{ env.LOG_LISTENER_REPOSITORY }}:${{ needs.logListenerImage.outputs.version }}
-            - ETOS Suite Starter: ${{ env.REGISTRY }}/${{ env.SUITE_STARTER_REPOSITORY }}:${{ needs.suiteStarterImage.outputs.version }}
-            - ETOS Test Runner: ${{ needs.testRunnerVersion.outputs.version }}
+         commitChange: false
          changes: |
            {
               "config/crd/defaults/api.yaml": {
@@ -149,3 +139,20 @@ jobs:
                 ".[0].value": "${{ needs.testRunnerVersion.outputs.version }}"
               }
            }
+     - name: Commit changes
+       if: github.ref == 'refs/heads/main'
+       run: |
+         git config --global user.name 'github-actions[bot]'
+         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+         git add .
+         git commit -m "Updating default ETOS versions
+
+         - ETOS API: ${{ env.REGISTRY }}/${{ env.API_REPOSITORY }}:${{ needs.apiImage.outputs.version }}
+         - ETOS SSE: ${{ env.REGISTRY }}/${{ env.SSE_REPOSITORY }}:${{ needs.sseImage.outputs.version }}
+         - ETOS LogArea: ${{ env.REGISTRY }}/${{ env.LOGAREA_REPOSITORY }}:${{ needs.logareaImage.outputs.version }}
+         - ETOS Environment Provider: ${{ env.REGISTRY }}/${{ env.ENVIRONMENT_PROVIDER_REPOSITORY }}:${{ needs.environmentProviderImage.outputs.version }}
+         - ETOS Suite Runner: ${{ env.REGISTRY }}/${{ env.SUITE_RUNNER_REPOSITORY }}:${{ needs.suiteRunnerImage.outputs.version }}
+         - ETOS Log Listener: ${{ env.REGISTRY }}/${{ env.LOG_LISTENER_REPOSITORY }}:${{ needs.logListenerImage.outputs.version }}
+         - ETOS Suite Starter: ${{ env.REGISTRY }}/${{ env.SUITE_STARTER_REPOSITORY }}:${{ needs.suiteStarterImage.outputs.version }}
+         - ETOS Test Runner: ${{ needs.testRunnerVersion.outputs.version }}"
+         git push origin main
