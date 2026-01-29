@@ -335,7 +335,6 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 	if err != nil {
 		return nil, err
 	}
-	clusterName := environment.Labels["etos.eiffel-community.github.io/cluster"]
 	var iut etosv1alpha2.Iut
 	if err := r.Get(ctx, types.NamespacedName{Name: environment.Spec.Providers.IUT, Namespace: environment.Namespace}, &iut); err != nil {
 		return nil, err
@@ -360,6 +359,27 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 	if err != nil {
 		return nil, err
 	}
+
+	labels := map[string]string{
+		"app.kubernetes.io/name":                    "environment-releaser",
+		"app.kubernetes.io/part-of":                 "etos",
+		"etos.eiffel-community.github.io/id":        environment.Labels["etos.eiffel-community.github.io/id"],
+		"etos.eiffel-community.github.io/sub-suite": environment.Name,
+	}
+
+	var cluster *etosv1alpha1.Cluster
+	if clusterName := environmentRequest.Labels["etos.eiffel-community.github.io/cluster"]; clusterName != "" {
+		labels["etos.eiffel-community.github.io/cluster"] = clusterName
+		clusterNamespacedName := types.NamespacedName{
+			Name:      clusterName,
+			Namespace: environmentRequest.Namespace,
+		}
+		cluster = &etosv1alpha1.Cluster{}
+		if err := r.Get(ctx, clusterNamespacedName, cluster); err != nil {
+			return nil, err
+		}
+	}
+
 	traceparent, ok := environmentRequest.Annotations["etos.eiffel-community.github.io/traceparent"]
 	if !ok {
 		traceparent = ""
@@ -367,23 +387,11 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 
 	envList := []corev1.EnvVar{
 		{
-			Name:  "REQUEST",
-			Value: environmentRequest.Name,
-		},
-		{
-			Name:  "ENVIRONMENT",
-			Value: environment.Name,
-		},
-		{
-			Name:  "ETOS_ETCD_HOST",
-			Value: databaseHost,
-		},
-		{
 			Name:  "OTEL_CONTEXT",
 			Value: traceparent,
 		},
 	}
-	if cluster != nil && cluster.Spec.OpenTelemetry.Enabled {
+	if cluster.Spec.OpenTelemetry.Enabled {
 		envList = append(envList, corev1.EnvVar{
 			Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
 			Value: cluster.Spec.OpenTelemetry.Endpoint,
@@ -394,18 +402,17 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 		})
 	}
 
+	// Add OTEL variables to all releaser containers
+	iutProvider.Spec.Env = append(iutProvider.Spec.Env, envList...)
+	logAreaProvider.Spec.Env = append(logAreaProvider.Spec.Env, envList...)
+	executionSpaceProvider.Spec.Env = append(executionSpaceProvider.Spec.Env, envList...)
+
 	ttl := int32(300)
 	grace := int64(30)
 	backoff := int32(0)
 	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"etos.eiffel-community.github.io/id":        environment.Labels["etos.eiffel-community.github.io/id"],
-				"etos.eiffel-community.github.io/sub-suite": environment.Name,
-				"etos.eiffel-community.github.io/cluster":   clusterName,
-				"app.kubernetes.io/name":                    "environment-releaser",
-				"app.kubernetes.io/part-of":                 "etos",
-			},
+			Labels:      labels,
 			Annotations: make(map[string]string),
 			Name:        environment.Name,
 			Namespace:   environment.Namespace,
@@ -415,14 +422,8 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 			BackoffLimit:            &backoff,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: environment.Name,
-					Labels: map[string]string{
-						"etos.eiffel-community.github.io/id":        environment.Labels["etos.eiffel-community.github.io/id"],
-						"etos.eiffel-community.github.io/sub-suite": environment.Name,
-						"etos.eiffel-community.github.io/cluster":   clusterName,
-						"app.kubernetes.io/name":                    "environment-releaser",
-						"app.kubernetes.io/part-of":                 "etos",
-					},
+					Name:   environment.Name,
+					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: &grace,
@@ -438,6 +439,7 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 							Name:            "environment-provider",
 							Image:           environmentRequest.Spec.Image.Image,
 							ImagePullPolicy: environmentRequest.Spec.Image.ImagePullPolicy,
+							Env:             envList,
 							Args: []string{
 								"-release",
 								fmt.Sprintf("-name=%s", environment.Name),

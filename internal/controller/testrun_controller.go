@@ -643,6 +643,60 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 	if !ok {
 		traceparent = ""
 	}
+	clusterNamespacedName := types.NamespacedName{
+		Name:      testrun.Spec.Cluster,
+		Namespace: testrun.Namespace,
+	}
+	cluster := &etosv1alpha1.Cluster{}
+	if err := r.Get(ctx, clusterNamespacedName, cluster); err != nil {
+		return nil, err
+	}
+
+	envList := []corev1.EnvVar{
+		{
+			Name:  "ARTIFACT",
+			Value: testrun.Spec.Artifact,
+		},
+		{
+			Name:  "IDENTITY",
+			Value: testrun.Spec.Identity,
+		},
+		{
+			Name:  "ETOS_ROUTING_KEY_TAG",
+			Value: fmt.Sprintf("%s-%s", testrun.Namespace, testrun.Spec.Cluster),
+		},
+		{
+			Name:  "TESTRUN",
+			Value: testrun.Name,
+		},
+		{
+			Name:  "IDENTIFIER",
+			Value: testrun.Spec.ID,
+		},
+		{
+			Name:  "OTEL_CONTEXT",
+			Value: traceparent,
+		},
+		{
+			Name:  "KUBEXIT_NAME",
+			Value: "esr",
+		},
+		{
+			Name:  "KUBEXIT_GRAVEYARD",
+			Value: "/graveyard",
+		},
+	}
+	if cluster.Spec.OpenTelemetry.Enabled {
+		envList = append(envList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
+			Value: cluster.Spec.OpenTelemetry.Endpoint,
+		})
+		envList = append(envList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
+			Value: cluster.Spec.OpenTelemetry.Insecure,
+		})
+	}
+
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -763,40 +817,7 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 									},
 								},
 							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "ARTIFACT",
-									Value: testrun.Spec.Artifact,
-								},
-								{
-									Name:  "IDENTITY",
-									Value: testrun.Spec.Identity,
-								},
-								{
-									Name:  "ETOS_ROUTING_KEY_TAG",
-									Value: fmt.Sprintf("%s-%s", testrun.Namespace, testrun.Spec.Cluster),
-								},
-								{
-									Name:  "TESTRUN",
-									Value: testrun.Name,
-								},
-								{
-									Name:  "IDENTIFIER",
-									Value: testrun.Spec.ID,
-								},
-								{
-									Name:  "OTEL_CONTEXT",
-									Value: traceparent,
-								},
-								{
-									Name:  "KUBEXIT_NAME",
-									Value: "esr",
-								},
-								{
-									Name:  "KUBEXIT_GRAVEYARD",
-									Value: "/graveyard",
-								},
-							},
+							Env: envList,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "graveyard",

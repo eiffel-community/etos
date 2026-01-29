@@ -431,6 +431,7 @@ func (r EnvironmentRequestReconciler) deleteExecutionSpaces(ctx context.Context,
 
 // environmentProviderJob is the job definition for an etos environment provider.
 func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context, obj client.Object) (*batchv1.Job, error) {
+	logger := logf.FromContext(ctx)
 	grace := int64(30)
 	backoff := int32(0)
 
@@ -459,11 +460,26 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 			return nil, err
 		}
 	}
+	traceparent, ok := environmentrequest.Annotations["etos.eiffel-community.github.io/traceparent"]
+	if !ok {
+		traceparent = ""
+	}
 
-	envVarList, err := r.envVarListFrom(ctx, environmentrequest, cluster)
-	if err != nil {
-		logger.Error(err, "Failed to create environment variable list for environment provider")
-		return nil, err
+	envVarList := []corev1.EnvVar{
+		{
+			Name:  "OTEL_CONTEXT",
+			Value: traceparent,
+		},
+	}
+	if cluster != nil && cluster.Spec.OpenTelemetry.Enabled {
+		envVarList = append(envVarList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
+			Value: cluster.Spec.OpenTelemetry.Endpoint,
+		})
+		envVarList = append(envVarList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
+			Value: cluster.Spec.OpenTelemetry.Insecure,
+		})
 	}
 
 	iutProvider, err := getProvider(ctx, r.Client, environmentrequest.Spec.Providers.IUT.ID, environmentrequest.Namespace)
@@ -499,8 +515,10 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 					RestartPolicy:                 "Never",
 					InitContainers: []corev1.Container{
 						{
-							Name:  "iut-provider",
-							Image: imageFromProvider(iutProvider),
+							Name:    "iut-provider",
+							Image:   imageFromProvider(iutProvider),
+							Env:     append(iutProvider.Spec.Env, envVarList...),
+							EnvFrom: iutProvider.Spec.EnvFrom,
 							Args: []string{
 								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
 								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
@@ -508,8 +526,10 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 							},
 						},
 						{
-							Name:  "log-area-provider",
-							Image: imageFromProvider(logAreaProvider),
+							Name:    "log-area-provider",
+							Image:   imageFromProvider(logAreaProvider),
+							Env:     append(logAreaProvider.Spec.Env, envVarList...),
+							EnvFrom: logAreaProvider.Spec.EnvFrom,
 							Args: []string{
 								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
 								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
@@ -517,8 +537,10 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 							},
 						},
 						{
-							Name:  "execution-space-provider",
-							Image: imageFromProvider(executionSpaceProvider),
+							Name:    "execution-space-provider",
+							Image:   imageFromProvider(executionSpaceProvider),
+							Env:     append(executionSpaceProvider.Spec.Env, envVarList...),
+							EnvFrom: executionSpaceProvider.Spec.EnvFrom,
 							Args: []string{
 								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
 								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
@@ -530,6 +552,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 						{
 							Name:            "environment-provider",
 							Image:           environmentrequest.Spec.Image.Image,
+							Env:             envVarList,
 							ImagePullPolicy: environmentrequest.Spec.Image.ImagePullPolicy,
 							Args: []string{
 								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
