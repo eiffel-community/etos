@@ -131,7 +131,7 @@ spec:
                       executionSpaceProviderSecret:
                         type: string
                       image:
-                        default: ghcr.io/eiffel-community/etos-api:24ce2298
+                        default: ghcr.io/eiffel-community/etos-api:a98a4f39
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
@@ -274,7 +274,7 @@ spec:
                       of an ETOS environment provider.
                     properties:
                       image:
-                        default: ghcr.io/eiffel-community/etos-environment-provider:b7590430
+                        default: ghcr.io/eiffel-community/etos-environment-provider:1438611c
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
@@ -304,7 +304,7 @@ spec:
                       area API.
                     properties:
                       image:
-                        default: ghcr.io/eiffel-community/etos-logarea:24ce2298
+                        default: ghcr.io/eiffel-community/etos-logarea:a98a4f39
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
@@ -318,7 +318,7 @@ spec:
                       Sent Events API.
                     properties:
                       image:
-                        default: ghcr.io/eiffel-community/etos-sse:24ce2298
+                        default: ghcr.io/eiffel-community/etos-sse:a98a4f39
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
@@ -332,7 +332,7 @@ spec:
                       suite runner.
                     properties:
                       image:
-                        default: ghcr.io/eiffel-community/etos-suite-runner:77de800f
+                        default: ghcr.io/eiffel-community/etos-suite-runner:08850be7
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
@@ -351,7 +351,7 @@ spec:
                             default: ''
                             type: string
                           image:
-                            default: ghcr.io/eiffel-community/etos-log-listener:77de800f
+                            default: ghcr.io/eiffel-community/etos-log-listener:08850be7
                             type: string
                           imagePullPolicy:
                             default: IfNotPresent
@@ -394,7 +394,7 @@ spec:
                         default: ''
                         type: string
                       image:
-                        default: ghcr.io/eiffel-community/etos-suite-starter:6b1146e1
+                        default: ghcr.io/eiffel-community/etos-suite-starter:2c8133d0
                         type: string
                       imagePullPolicy:
                         default: IfNotPresent
