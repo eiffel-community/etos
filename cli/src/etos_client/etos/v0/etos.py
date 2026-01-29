@@ -22,12 +22,14 @@ import time
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 
 from etos_lib import ETOS as ETOSLibrary
 from etos_lib.lib.http import Http
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
 
+from etos_client.shared.baggage import Baggage
 from etos_client.shared.downloader import Downloader
 from etos_client.shared.utilities import directories
 from etos_client.sse.v1.client import SSEClient
@@ -61,10 +63,24 @@ class Etos:
 
     def __init__(self, args: dict, sse_client: SSEClient):
         """Set up sse client and cluster variables."""
+        self.correlation_id = str(uuid4())
+        self.logger.info("Correlation ID for this ETOS testrun: %s", self.correlation_id)
         self.args = args
         self.cluster = args.get("<cluster>")
         assert self.cluster is not None
         self.sse_client = sse_client
+        self.baggage = Baggage.from_env()
+        self.baggage.add("correlation_id", self.correlation_id)
+
+    @property
+    def headers(self) -> dict:
+        """Generate and return headers for ETOS requests."""
+        headers = {}
+        try:
+            headers["baggage"] = self.baggage.string
+        except ValueError:
+            self.logger.warning("Baggage size limit exceeded, dropping baggage")
+        return headers
 
     def run(self) -> Result:
         """Run ETOS v0."""
@@ -93,17 +109,13 @@ class Etos:
     def __start(self) -> tuple[Optional[ResponseSchema], Optional[str]]:
         """Trigger ETOS, retrying on non-client errors until successful or timeout."""
         request = self.start_request.from_args(self.args)
+        self.baggage.add("parent_activity", str(request.parent_activity))
         url = f"{self.cluster}/api/etos"
         self.logger.info("Triggering ETOS using %r", url)
 
-        headers = {}
-        baggage = os.getenv("BAGGAGE")
-        if baggage is not None:
-            headers["baggage"] = baggage
-
         response_json = {}
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
-        response = http.post(url, json=request.model_dump(), headers=headers)
+        response = http.post(url, json=request.model_dump(), headers=self.headers)
         try:
             response.raise_for_status()
             response_json = response.json()
@@ -166,7 +178,7 @@ class Etos:
         url = f"{self.cluster}/api/selftest/ping"
         self.logger.info("Checking connection to ETOS at %r.", url)
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=5)
-        response = http.get(url)
+        response = http.get(url, headers=self.headers)
         try:
             response.raise_for_status()
         except HTTPError:

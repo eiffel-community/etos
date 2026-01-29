@@ -14,10 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS v0 request schema."""
+
 import json
+from typing import Optional, Union
 from uuid import UUID
 
-from typing import Optional, Union
 from pydantic import BaseModel, ValidationInfo, field_validator
 
 
