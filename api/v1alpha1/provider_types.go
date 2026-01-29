@@ -17,6 +17,9 @@
 package v1alpha1
 
 import (
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,6 +30,75 @@ type ProviderSpec struct {
 
 	// Image describes the docker image to run when providing a resource.
 	Image string `json:"image"`
+
+	// Env and EnvFrom describe environment variables to be passed to the provider container.
+	// +optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
+	// +optional
+	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
+
+	// IutProviderConfig describe the configuration for an IUT provider.
+	// +optional
+	IutProviderConfig *IutProviderConfig `json:"iutProviderConfig,omitempty"`
+
+	// LogAreaProviderConfig describe the configuration for an log area provider.
+	// +optional
+	LogAreaProviderConfig *LogAreaProviderConfig `json:"logAreaProviderConfig,omitempty"`
+
+	// ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
+	// +optional
+	ExecutionSpaceProviderConfig *ExecutionSpaceProviderConfig `json:"executionSpaceProviderConfig,omitempty"`
+}
+
+// IutProviderConfig describe the configuration for an IUT provider.
+type IutProviderConfig struct {
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	apiextensionsv1.JSON `json:",inline"`
+}
+
+// LogAreaProviderConfig describe the configuration for an log area provider.
+type LogAreaProviderConfig struct {
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	apiextensionsv1.JSON `json:",inline"`
+
+	// LiveLogs is a URI to where live logs of an execution can be found.
+	// +kubebuilder:validation:Format="uri"
+	LiveLogs string `json:"livelogs"`
+
+	// Upload defines the log upload instructions for the ETR.
+	Upload etosv1alpha2.Upload `json:"upload"`
+}
+
+// ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
+type ExecutionSpaceProviderConfig struct {
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	apiextensionsv1.JSON `json:",inline"`
+
+	// Dev describes whether or not this provider should run the ETR in dev mode.
+	// While using dev mode the ETR can be installed from github using ETRBranch and ETRRepository.
+	// +kubebuilder:default="false"
+	// +optional
+	Dev string `json:"dev"`
+
+	// ETRBranch describes a git branch to use when running the ETR in dev mode.
+	// Can be used in conjunction with ETRRepository to test a fork, otherwise the
+	// ETRRepository defaults to github.com/eiffel-community/etos.
+	// +optional
+	ETRBranch string `json:"ETR_BRANCH,omitempty"`
+
+	// ETRRepository describes the git repository to fetch an ETR from when running in
+	// dev mode. Defaults to github.com/eiffel-community/etos
+	// +optional
+	ETRRepository string `json:"ETR_REPOSITORY,omitempty"`
 }
 
 // ProviderStatus defines the observed state of Provider

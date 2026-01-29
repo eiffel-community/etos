@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Local ETOS pack."""
+
 from local.commands.command import Command
 from local.commands.kubectl import Kubectl, Resource
 from local.commands.utilities import StdoutEquals, WaitUntil
@@ -55,9 +56,7 @@ class Etos(BasePack):
             ),
             *self.__wait_for_deployments(kubectl),
             kubectl.create(
-                Resource(
-                    filename=self.goer, namespace=self.local_store["cluster_namespace"]
-                )
+                Resource(filename=self.goer, namespace=self.local_store["cluster_namespace"])
             ),
             WaitUntil(
                 StdoutEquals(
@@ -104,9 +103,7 @@ class Etos(BasePack):
                 ),
             ),
             kubectl.delete(
-                Resource(
-                    filename=self.goer, namespace=self.local_store["cluster_namespace"]
-                )
+                Resource(filename=self.goer, namespace=self.local_store["cluster_namespace"])
             ),
             kubectl.delete(
                 Resource(
@@ -128,7 +125,6 @@ class Etos(BasePack):
             ("rabbitmq", "statefulset", "1"),
             ("graphql", "deploy", "1"),
             ("etos-api", "deploy", "1"),
-            ("etcd", "statefulset", "3"),
         ):
             commands.append(
                 WaitUntil(

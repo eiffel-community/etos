@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -562,6 +563,15 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrun
 	if ok {
 		annotations["etos.eiffel-community.github.io/traceparent"] = traceparent
 	}
+	// Using ParseInt directly instead of Atoi since Atoi returns int, not int64
+	environmentTimeout, err := strconv.ParseInt(cluster.Spec.ETOS.Config.EnvironmentTimeout, 10, 0)
+	var deadline int64
+	if err != nil {
+		logger.Error(err, "failed to convert EnvironmentTimeout to int, defaulting to 60")
+		deadline = time.Now().Unix() + int64(60)
+	} else {
+		deadline = time.Now().Unix() + environmentTimeout
+	}
 
 	return &etosv1alpha1.EnvironmentRequest{
 		ObjectMeta: metav1.ObjectMeta{
@@ -602,6 +612,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrun
 			},
 			Image:              testrun.Spec.EnvironmentProvider.Image,
 			ServiceAccountName: fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
+			Deadline:           deadline,
 			Config: etosv1alpha1.EnvironmentProviderJobConfig{
 				EiffelMessageBus:                    eiffelMessageBus,
 				EtosMessageBus:                      etosMessageBus,
@@ -611,7 +622,6 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrun
 				GraphQlServer:                       eventRepository,
 				EtcdHost:                            databaseHost,
 				EtcdPort:                            databasePort,
-				WaitForTimeout:                      cluster.Spec.ETOS.Config.EnvironmentTimeout,
 				EnvironmentProviderEventDataTimeout: cluster.Spec.ETOS.Config.EventDataTimeout,
 				EnvironmentProviderServiceAccount:   fmt.Sprintf("%s-provider", cluster.Name),
 				EnvironmentProviderTestSuiteTimeout: cluster.Spec.ETOS.Config.TestSuiteTimeout,

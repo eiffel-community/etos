@@ -429,9 +429,9 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 					ServiceAccountName:            environmentRequest.Spec.ServiceAccountName,
 					RestartPolicy:                 "Never",
 					InitContainers: []corev1.Container{
-						release.ExecutionSpaceReleaserContainer(&executionSpace, imageFromProvider(executionSpaceProvider), false),
-						release.LogAreaReleaserContainer(&logArea, imageFromProvider(logAreaProvider), false),
-						release.IutReleaserContainer(&iut, imageFromProvider(iutProvider), false),
+						release.ExecutionSpaceReleaserContainer(&executionSpace, executionSpaceProvider, false),
+						release.LogAreaReleaserContainer(&logArea, logAreaProvider, false),
+						release.IutReleaserContainer(&iut, iutProvider, false),
 					},
 					Containers: []corev1.Container{
 						{

@@ -623,19 +623,6 @@ var _ = Describe("Manager", Ordered, func() {
 			}
 			Eventually(verifyAPIReady).Should(Succeed())
 		})
-		It("should deploy ETOS database", func() {
-			By("checking statefulset status for database")
-			etosDatabaseName := fmt.Sprintf("%s-etcd", clusterName)
-			verifyDatabaseReady := func(g Gomega) {
-				cmd := exec.Command("kubectl", "get",
-					"statefulset", etosDatabaseName, "-o", "jsonpath={.status.readyReplicas}",
-					"-n", clusterNamespace)
-				output, err := utils.Run(cmd)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(output).To(Equal("3"), "Incorrect ETOS Database statefulset status")
-			}
-			Eventually(verifyDatabaseReady).Should(Succeed())
-		})
 
 		It("should deploy Goer for execution space provider", func() {
 			By("applying the yaml file")
@@ -693,10 +680,6 @@ var _ = Describe("Manager", Ordered, func() {
 				"etos-encryption-key", "--from-literal", "ETOS_ENCRYPTION_KEY=ZmgcW2Qz43KNJfIuF0vYCoPneViMVyObH4GR8R9JE4g=")
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create an encryption key secret")
-			// Getting an EOF error every now and then from the environment-provider.
-			// I think it is because ETCD reports that it is up, but it is not ready
-			// to accept connections. A wait for ETCD to respond is a better fix.
-			time.Sleep(30 * time.Second)
 		})
 
 		verifyTestrun := func(testrun, name string) {

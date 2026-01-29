@@ -119,15 +119,6 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 
-	etcd := etos.NewETCDDeployment(&cluster.Spec.Database, r.Scheme, r.Client)
-	if err := etcd.Reconcile(ctx, cluster); err != nil {
-		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
-			return ctrl.Result{Requeue: true}, nil
-		}
-		logger.Error(err, "Error reconciling the ETOS database")
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
-	}
-
 	etos := etos.NewETOSDeployment(cluster.Spec.ETOS, r.Scheme, r.Client, eiffelbus.SecretName, etosbus.SecretName)
 	if err := etos.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {

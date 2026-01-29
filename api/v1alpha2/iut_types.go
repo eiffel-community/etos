@@ -32,6 +32,11 @@ type IutSpec struct {
 	// +required
 	Identity string `json:"identity"`
 
+	// Deadline is the end time, in unix epoch, before which the IUT shall have
+	// been released. If not set or set to 0, there is no deadline.
+	// +optional
+	Deadline int64 `json:"deadline"`
+
 	// EnvironmentRequest is the name of the environmentrequest which requested this IUT.
 	// +required
 	EnvironmentRequest string `json:"environmentRequest"`

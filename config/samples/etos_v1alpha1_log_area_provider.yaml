@@ -8,3 +8,9 @@ metadata:
 spec:
   type: log-area
   image: example.com/logareaprovider:v0.0.1
+  logAreaProviderConfig:
+    livelogs: http://cluster-sample-etos-logarea/logarea/v1alpha/$context
+    upload:
+      as_json: false
+      method: POST
+      url: http://cluster-sample-etos-logarea/logarea/v1alpha/upload

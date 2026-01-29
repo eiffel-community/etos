@@ -44,17 +44,16 @@ func (p *genericLogAreaProvider) Provision(
 		"Namespace", environmentRequest.Namespace,
 		"Amount", cfg.MinimumAmount,
 	)
+	logAreaProvider, err := provider.GetProvider(ctx, environmentRequest.Spec.Providers.LogArea.ID, cfg.Namespace)
+	if err != nil {
+		return err
+	}
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic LogArea")
 		if _, err := provider.CreateLogArea(ctx, environmentRequest, cfg.Namespace, v1alpha2.LogAreaSpec{
-			// TODO: These parameters are obviously fake. They work for local testing, but not in a real-world scenario
-			LiveLogs: "http://fake",
+			LiveLogs: logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs,
 			Logs:     map[string]string{},
-			Upload: v1alpha2.Upload{
-				AsJSON: false,
-				Method: "GET",
-				URL:    "http://cluster-sample-etos-api/api/v1alpha/ping",
-			},
+			Upload:   logAreaProvider.Spec.LogAreaProviderConfig.Upload,
 		}); err != nil {
 			return err
 		}
