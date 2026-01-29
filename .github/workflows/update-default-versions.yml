@@ -105,13 +105,15 @@ jobs:
     needs: [apiImage, sseImage, logareaImage, environmentProviderImage, suiteRunnerImage, logListenerImage, suiteStarterImage, testRunnerVersion]
     steps:
      - uses: actions/checkout@v4
+       with:
+         ssh-key: ${{ secrets.DEPLOY_KEY }}
      - name: Update manifests
        uses: fjogeleit/yaml-update-action@main
        with:
          branch: main
          commitChange: true
          message: |
-          Updating default ETOS versions
+          Updating default ETOS versions [skip ci]
             - ETOS API: ${{ env.REGISTRY }}/${{ env.API_REPOSITORY }}:${{ needs.apiImage.outputs.version }}
             - ETOS SSE: ${{ env.REGISTRY }}/${{ env.SSE_REPOSITORY }}:${{ needs.sseImage.outputs.version }}
             - ETOS LogArea: ${{ env.REGISTRY }}/${{ env.LOGAREA_REPOSITORY }}:${{ needs.logareaImage.outputs.version }}
