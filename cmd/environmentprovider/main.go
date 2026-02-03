@@ -223,6 +223,8 @@ func CreateEnvironment(
 		labels["etos.eiffel-community.github.io/id"] = environmentrequest.Spec.Identifier
 	}
 
+	deadline := min(executionSpace.Spec.Deadline, logArea.Spec.Deadline, iut.Spec.Deadline)
+
 	executorJson, err := json.Marshal(executionSpace.Spec)
 	if err != nil {
 		return err
@@ -261,6 +263,7 @@ func CreateEnvironment(
 				LogArea:        logArea.Name,
 				ExecutionSpace: executionSpace.Name,
 			},
+			Deadline:    deadline,
 			SuiteID:     environmentrequest.Spec.Identifier,
 			MainSuiteID: environmentrequest.Spec.ID,
 			Artifact:    environmentrequest.Spec.Artifact,

@@ -39,6 +39,13 @@ func RunLogAreaProvider(provider Provider) {
 	params.amountFunc = GetIUTCount
 
 	ctx := context.TODO()
+	logger := params.logger.WithValues(
+		"providerType", params.providerType,
+		"environmentRequest", params.environmentRequestName,
+		"namespace", params.namespace,
+		"providerName", params.providerName,
+	)
+	ctx = logr.NewContext(ctx, logger)
 	if err := writeTerminationLog(ctx, runProvider, provider, params); err != nil {
 		panic(err)
 	}
@@ -92,7 +99,7 @@ func CreateLogArea(
 	namespace string,
 	spec v1alpha2.LogAreaSpec,
 ) (*v1alpha2.LogArea, error) {
-	logger, _ := logr.FromContext(ctx)
+	logger := logr.FromContextOrDiscard(ctx)
 	var logArea v1alpha2.LogArea
 
 	logger.Info("Getting Kubernetes client")
@@ -127,6 +134,7 @@ func CreateLogArea(
 		},
 		Spec: spec,
 	}
+
 	return &logArea, cli.Create(ctx, &logArea)
 }
 

@@ -41,6 +41,13 @@ func RunIutProvider(provider Provider) {
 	}
 
 	ctx := context.TODO()
+	logger := params.logger.WithValues(
+		"providerType", params.providerType,
+		"environmentRequest", params.environmentRequestName,
+		"namespace", params.namespace,
+		"providerName", params.providerName,
+	)
+	ctx = logr.NewContext(ctx, logger)
 	if err := writeTerminationLog(ctx, runProvider, provider, params); err != nil {
 		panic(err)
 	}
@@ -94,7 +101,7 @@ func CreateIUT(
 	namespace string,
 	spec v1alpha2.IutSpec,
 ) (*v1alpha2.Iut, error) {
-	logger, _ := logr.FromContext(ctx)
+	logger := logr.FromContextOrDiscard(ctx)
 	var iut v1alpha2.Iut
 
 	logger.Info("Getting Kubernetes client")
@@ -130,6 +137,7 @@ func CreateIUT(
 		},
 		Spec: spec,
 	}
+
 	return &iut, cli.Create(ctx, &iut)
 }
 

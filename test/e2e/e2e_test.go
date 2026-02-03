@@ -517,6 +517,12 @@ var _ = Describe("Manager", Ordered, func() {
 				"-n", clusterNamespace)
 			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred())
+			cmd = exec.Command("kubectl", "patch", "cluster", clusterName, "--patch",
+				fmt.Sprintf("{\"spec\": {\"etos\": {\"environmentProvider\": {\"image\": \"%s\"}}}}", environmentProviderImage),
+				"--type", "merge",
+				"-n", clusterNamespace)
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
 		})
 		It("should set cluster ready status true", func() {
 			By("checking Status for Cluster")

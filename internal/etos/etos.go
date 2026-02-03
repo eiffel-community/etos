@@ -110,11 +110,11 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		return err
 	}
 
-	// logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client)
-	// if err := logarea.Reconcile(ctx, cluster); err != nil {
-	// 	logger.Error(err, "ETOS LogArea reconciliation failed")
-	// 	return err
-	// }
+	logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client)
+	if err := logarea.Reconcile(ctx, cluster); err != nil {
+		logger.Error(err, "ETOS LogArea reconciliation failed")
+		return err
+	}
 
 	suitestarter := etossuitestarter.NewETOSSuiteStarterDeployment(r.SuiteStarter, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config, encryption)
 	if err := suitestarter.Reconcile(ctx, cluster); err != nil {

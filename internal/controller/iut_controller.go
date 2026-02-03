@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"errors"
-	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -138,20 +137,6 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, err
-	}
-	// TODO: Verify that this actually is a good place to put this code
-	deadline := time.Unix(iut.Spec.Deadline, 0)
-	if deadline.Before(time.Now()) {
-		if err := r.Delete(ctx, iut, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
-			if !apierrors.IsNotFound(err) {
-				logger.Error(err, "Failed deletion. Ignoring any errors and won't retry")
-			}
-		}
-		return ctrl.Result{}, nil
-	} else if iut.ObjectMeta.DeletionTimestamp.IsZero() {
-		requeueAfter := time.Until(deadline)
-		logger.Info("Requeue IUT when deadline has been reached", "requeueAfter", requeueAfter.String())
-		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 	return ctrl.Result{}, nil
 }

@@ -27,6 +27,11 @@ type ExecutionSpaceSpec struct {
 	// +required
 	ID string `json:"id"`
 
+	// Deadline is the end time, in unix epoch, before which the ExecutionSpace shall have
+	// been released. If not set or set to 0, there is no deadline.
+	// +optional
+	Deadline int64 `json:"deadline"`
+
 	// TestRunner describes the test runner that is launched in this execution space.
 	// +required
 	TestRunner string `json:"test_runner"`

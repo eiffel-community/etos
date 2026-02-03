@@ -56,23 +56,25 @@ type IutProviderConfig struct {
 	// a perfectly generic configuration for all cases. The following field allows any
 	// data-structure to be added to this configuration and it is expected that providers
 	// can handle the data they require themselves.
-	apiextensionsv1.JSON `json:",inline"`
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
 }
 
 // LogAreaProviderConfig describe the configuration for an log area provider.
 type LogAreaProviderConfig struct {
-	// The configuration of a provider is very implementation-specific and we cannot give
-	// a perfectly generic configuration for all cases. The following field allows any
-	// data-structure to be added to this configuration and it is expected that providers
-	// can handle the data they require themselves.
-	apiextensionsv1.JSON `json:",inline"`
-
 	// LiveLogs is a URI to where live logs of an execution can be found.
 	// +kubebuilder:validation:Format="uri"
 	LiveLogs string `json:"livelogs"`
 
 	// Upload defines the log upload instructions for the ETR.
 	Upload etosv1alpha2.Upload `json:"upload"`
+
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
 }
 
 // ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
@@ -81,7 +83,8 @@ type ExecutionSpaceProviderConfig struct {
 	// a perfectly generic configuration for all cases. The following field allows any
 	// data-structure to be added to this configuration and it is expected that providers
 	// can handle the data they require themselves.
-	apiextensionsv1.JSON `json:",inline"`
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
 
 	// Dev describes whether or not this provider should run the ETR in dev mode.
 	// While using dev mode the ETR can be installed from github using ETRBranch and ETRRepository.

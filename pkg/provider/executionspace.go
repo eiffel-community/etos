@@ -38,6 +38,13 @@ func RunExecutionSpaceProvider(provider Provider) {
 	params.amountFunc = GetIUTCount
 
 	ctx := context.TODO()
+	logger := params.logger.WithValues(
+		"providerType", params.providerType,
+		"environmentRequest", params.environmentRequestName,
+		"namespace", params.namespace,
+		"providerName", params.providerName,
+	)
+	ctx = logr.NewContext(ctx, logger)
 	if err := writeTerminationLog(ctx, runProvider, provider, params); err != nil {
 		panic(err)
 	}
@@ -86,7 +93,7 @@ func CreateExecutionSpace(
 	namespace string,
 	spec v1alpha2.ExecutionSpaceSpec,
 ) (*v1alpha2.ExecutionSpace, error) {
-	logger, _ := logr.FromContext(ctx)
+	logger := logr.FromContextOrDiscard(ctx)
 	var executionSpace v1alpha2.ExecutionSpace
 
 	logger.Info("Getting Kubernetes client")
