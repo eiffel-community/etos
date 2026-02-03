@@ -115,7 +115,7 @@ func (p *genericExecutionSpaceProvider) Provision(
 		)
 		environment["ENVIRONMENT_ID"] = id
 		environment["ENVIRONMENT_URL"] = fmt.Sprintf("%s/v1alpha/testrun/%s", environmentRequest.Spec.Config.EtosApi, id)
-		executionSpace, err := provider.CreateExecutionSpace(ctx, environmentRequest, cfg.Namespace,
+		executionSpace, err := provider.CreateExecutionSpace(ctx, environmentRequest, cfg.Namespace, "",
 			v1alpha2.ExecutionSpaceSpec{
 				ID:         id,
 				TestRunner: testrunner,

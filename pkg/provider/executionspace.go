@@ -87,10 +87,13 @@ func GetExecutionSpaces(
 //
 // The spec.ProviderID and spec.EnvironmentRequest fields are automatically populated by this
 // function. It will be overwritten if set.
+// If a name is not provided, a name will be generated based on the EnvironmentRequest name.
+// If a name is provided it is the caller's responsibility to ensure name uniqueness, it will
+// not be guaranteed by this function.
 func CreateExecutionSpace(
 	ctx context.Context,
 	environmentrequest *v1alpha1.EnvironmentRequest,
-	namespace string,
+	namespace, name string,
 	spec v1alpha2.ExecutionSpaceSpec,
 ) (*v1alpha2.ExecutionSpace, error) {
 	logger := logr.FromContextOrDiscard(ctx)
@@ -109,12 +112,18 @@ func CreateExecutionSpace(
 	spec.ProviderID = environmentrequest.Spec.Providers.ExecutionSpace.ID
 	spec.EnvironmentRequest = environmentrequest.Name
 
+	var generateName string
+	if name == "" {
+		generateName = fmt.Sprintf("%s-execution-space-", strings.ToLower(environmentrequest.Spec.Name))
+	}
+
 	isController := false
 	blockOwnerDeletion := true
 	executionSpace = v1alpha2.ExecutionSpace{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:       labels,
-			GenerateName: fmt.Sprintf("%s-execution-space-", strings.ToLower(environmentrequest.Spec.Name)),
+			Name:         name,
+			GenerateName: generateName,
 			Namespace:    namespace,
 			OwnerReferences: []metav1.OwnerReference{{
 				Kind:               "EnvironmentRequest",

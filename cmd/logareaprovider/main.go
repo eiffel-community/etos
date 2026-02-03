@@ -50,7 +50,7 @@ func (p *genericLogAreaProvider) Provision(
 	}
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic LogArea")
-		if _, err := provider.CreateLogArea(ctx, environmentRequest, cfg.Namespace, v1alpha2.LogAreaSpec{
+		if _, err := provider.CreateLogArea(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
 			LiveLogs: logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs,
 			Logs:     map[string]string{},
 			Upload:   logAreaProvider.Spec.LogAreaProviderConfig.Upload,

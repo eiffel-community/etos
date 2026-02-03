@@ -95,10 +95,13 @@ func GetIUTs(ctx context.Context, environmentRequestID, namespace string) (v1alp
 //
 // The spec.ID, spec.Identity, spec.EnvironmentRequest, and spec.ProviderID fields are
 // automatically populated by this function. They will be overwritten if set.
+// If a name is not provided, a name will be generated based on the EnvironmentRequest name.
+// If a name is provided it is the caller's responsibility to ensure name uniqueness, it will
+// not be guaranteed by this function.
 func CreateIUT(
 	ctx context.Context,
 	environmentrequest *v1alpha1.EnvironmentRequest,
-	namespace string,
+	namespace, name string,
 	spec v1alpha2.IutSpec,
 ) (*v1alpha2.Iut, error) {
 	logger := logr.FromContextOrDiscard(ctx)
@@ -119,12 +122,18 @@ func CreateIUT(
 	spec.Identity = environmentrequest.Spec.Identity
 	spec.EnvironmentRequest = environmentrequest.Name
 
+	var generateName string
+	if name == "" {
+		generateName = fmt.Sprintf("%s-iut-", strings.ToLower(environmentrequest.Spec.Name))
+	}
+
 	isController := false
 	blockOwnerDeletion := true
 	iut = v1alpha2.Iut{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:       labels,
-			GenerateName: fmt.Sprintf("%s-iut-", strings.ToLower(environmentrequest.Spec.Name)),
+			Name:         name,
+			GenerateName: generateName,
 			Namespace:    namespace,
 			OwnerReferences: []metav1.OwnerReference{{
 				Kind:               "EnvironmentRequest",

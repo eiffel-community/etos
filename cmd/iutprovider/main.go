@@ -44,7 +44,7 @@ func (p *genericIutProvider) Provision(ctx context.Context, logger logr.Logger, 
 	)
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic IUT")
-		if _, err := provider.CreateIUT(ctx, environmentRequest, cfg.Namespace, v1alpha2.IutSpec{}); err != nil {
+		if _, err := provider.CreateIUT(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.IutSpec{}); err != nil {
 			return err
 		}
 		logger.Info("IUT created")
