@@ -3923,7 +3923,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:2f8cc633
+        image: ghcr.io/eiffel-community/etos-controller:b4ee612b
         livenessProbe:
           httpGet:
             path: /healthz
