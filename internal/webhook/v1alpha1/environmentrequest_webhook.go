@@ -65,7 +65,7 @@ func (d *EnvironmentRequestCustomDefaulter) Default(ctx context.Context, obj run
 		environmentrequest.Spec.ID = string(uuid.NewUUID())
 	}
 	if environmentrequest.Spec.Deadline == 0 {
-		environmentrequest.Spec.Deadline = time.Now().Unix() + int64(environmentrequest.Spec.Timeout)
+		environmentrequest.Spec.Deadline = time.Now().Unix() + environmentrequest.Spec.Timeout
 	}
 
 	return nil
