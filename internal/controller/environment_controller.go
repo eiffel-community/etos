@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -104,6 +105,28 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		logger.Error(err, "Environment reconciliation failed")
 		return ctrl.Result{}, err
+	}
+
+	// Check deadline and delete if exceeded
+	if environment.Spec.Deadline != 0 {
+		convertedDeadline := time.Unix(environment.Spec.Deadline, 0)
+		if time.Now().After(convertedDeadline) {
+			// Deadline exceeded, delete environment
+			logger.Info("Environment deadline exceeded, deleting environment", "deadline", convertedDeadline)
+			if meta.SetStatusCondition(&environment.Status.Conditions,
+				metav1.Condition{
+					Type:    status.StatusActive,
+					Status:  metav1.ConditionFalse,
+					Reason:  status.ReasonFailed,
+					Message: fmt.Sprintf("Environment deadline of %s exceeded", convertedDeadline),
+				}) {
+				if err := r.Delete(ctx, environment); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+		} else {
+			return ctrl.Result{RequeueAfter: time.Until(convertedDeadline)}, nil
+		}
 	}
 
 	return ctrl.Result{}, nil
