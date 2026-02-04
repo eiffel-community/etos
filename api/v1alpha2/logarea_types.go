@@ -27,6 +27,11 @@ type LogAreaSpec struct {
 	// +required
 	ID string `json:"id"`
 
+	// Deadline is the end time, in unix epoch, before which the LogArea shall have
+	// been released. If not set or set to 0, there is no deadline.
+	// +optional
+	Deadline int64 `json:"deadline"`
+
 	// EnvironmentRequest is the ID of the environmentrequest which requested this log area.
 	// +required
 	EnvironmentRequest string `json:"environmentRequest"`
@@ -59,8 +64,7 @@ type Upload struct {
 
 	// Auth defines authorization instructions for a request.
 	// +optional
-	// +kubebuilder:default={}
-	Auth Auth `json:"auth,omitempty"`
+	Auth *Auth `json:"auth,omitempty"`
 
 	// URL defines the HTTP(s) URL to send payload to.
 	// +kubebuilder:validation:Type="string"

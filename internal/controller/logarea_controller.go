@@ -47,6 +47,8 @@ type LogAreaReconciler struct {
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=logarea,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=logarea/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=logarea/finalizers,verbs=update
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -63,7 +65,7 @@ func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Ownership handoff: If Environment owns this LogArea, we relinquish control
-	if hasOwner(logarea.OwnerReferences, "Environment") {
+	if ownedByEnvironment(logarea.OwnerReferences) {
 		if controllerutil.ContainsFinalizer(logarea, providerFinalizer) {
 			// Clean up our finalizer since the environment controller now owns the LogArea.
 			controllerutil.RemoveFinalizer(logarea, providerFinalizer)
@@ -271,7 +273,7 @@ func (r LogAreaReconciler) releaseJob(ctx context.Context, obj client.Object) (*
 		return nil, err
 	}
 
-	jobSpec := release.LogAreaReleaser(logarea, environmentrequest, imageFromProvider(provider), true)
+	jobSpec := release.LogAreaReleaser(logarea, environmentrequest, provider, true)
 	return jobSpec, ctrl.SetControllerReference(logarea, jobSpec, r.Scheme)
 }
 

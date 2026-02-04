@@ -43,9 +43,6 @@ const iutProviderSample = "config/samples/etos_v1alpha1_iut_provider.yaml"
 const executionSpaceProviderSample = "config/samples/etos_v1alpha1_execution_space_provider.yaml"
 const logAreaProviderSample = "config/samples/etos_v1alpha1_log_area_provider.yaml"
 
-const executionSpaceProviderKustomization = "testdata/executionspace"
-const iutProviderKustomization = "testdata/iut"
-
 const goer = "testdata/goer.yaml"
 
 const artifactID = "268dd4db-93da-4232-a544-bf4c0fb26dac"
@@ -87,16 +84,6 @@ var _ = Describe("Manager", Ordered, func() {
 		cmd = exec.Command("make", "install")
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
-
-		By("deploying the execution space provider")
-		cmd = exec.Command("kubectl", "create", "-k", executionSpaceProviderKustomization, "-n", clusterNamespace)
-		_, err = utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to install execution space provider")
-
-		By("deploying the IUT provider")
-		cmd = exec.Command("kubectl", "create", "-k", iutProviderKustomization, "-n", clusterNamespace)
-		_, err = utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to install IUT provider")
 
 		By("deploying the controller-manager")
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", projectImage))
@@ -165,14 +152,6 @@ var _ = Describe("Manager", Ordered, func() {
 
 		By("cleaning up the curl pod for metrics")
 		cmd = exec.Command("kubectl", "delete", "pod", "curl-metrics", "-n", namespace)
-		_, _ = utils.Run(cmd)
-
-		By("undeploying the IUT provider")
-		cmd = exec.Command("kubectl", "delete", "-k", iutProviderKustomization, "-n", clusterNamespace)
-		_, _ = utils.Run(cmd)
-
-		By("undeploying the execution space provider")
-		cmd = exec.Command("kubectl", "delete", "-k", executionSpaceProviderKustomization, "-n", clusterNamespace)
 		_, _ = utils.Run(cmd)
 
 		By("undeploying the controller-manager")
@@ -538,6 +517,12 @@ var _ = Describe("Manager", Ordered, func() {
 				"-n", clusterNamespace)
 			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred())
+			cmd = exec.Command("kubectl", "patch", "cluster", clusterName, "--patch",
+				fmt.Sprintf("{\"spec\": {\"etos\": {\"environmentProvider\": {\"image\": \"%s\"}}}}", environmentProviderImage),
+				"--type", "merge",
+				"-n", clusterNamespace)
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
 		})
 		It("should set cluster ready status true", func() {
 			By("checking Status for Cluster")
@@ -644,19 +629,6 @@ var _ = Describe("Manager", Ordered, func() {
 			}
 			Eventually(verifyAPIReady).Should(Succeed())
 		})
-		It("should deploy ETOS database", func() {
-			By("checking statefulset status for database")
-			etosDatabaseName := fmt.Sprintf("%s-etcd", clusterName)
-			verifyDatabaseReady := func(g Gomega) {
-				cmd := exec.Command("kubectl", "get",
-					"statefulset", etosDatabaseName, "-o", "jsonpath={.status.readyReplicas}",
-					"-n", clusterNamespace)
-				output, err := utils.Run(cmd)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(output).To(Equal("3"), "Incorrect ETOS Database statefulset status")
-			}
-			Eventually(verifyDatabaseReady).Should(Succeed())
-		})
 
 		It("should deploy Goer for execution space provider", func() {
 			By("applying the yaml file")
@@ -714,48 +686,68 @@ var _ = Describe("Manager", Ordered, func() {
 				"etos-encryption-key", "--from-literal", "ETOS_ENCRYPTION_KEY=ZmgcW2Qz43KNJfIuF0vYCoPneViMVyObH4GR8R9JE4g=")
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create an encryption key secret")
-			// Getting an EOF error every now and then from the environment-provider.
-			// I think it is because ETCD reports that it is up, but it is not ready
-			// to accept connections. A wait for ETCD to respond is a better fix.
-			time.Sleep(30 * time.Second)
 		})
 
-		It("should be able to execute a v1alpha testrun", func() {
+		verifyTestrun := func(testrun, name string) {
 			// TODO: This testrun could create a v0 testrun and wait for it to complete, as a way to test
 			// both ETOS versions.
 			By("creating a testrun")
-			cmd := exec.Command("kubectl", "create", "-n", clusterNamespace, "-f", testRunSample)
+			cmd := exec.Command("kubectl", "create", "-n", clusterNamespace, "-f", testrun)
 			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create a testrun")
 
-			By("checking the status field of the testrun")
-			verifyTestRun := func(g Gomega) {
+			By("waiting for testrun to become active")
+			waitTestrunStart := func(g Gomega) {
 				cmd := exec.Command("kubectl", "get",
-					"testrun", "testrun-sample", "-o", "jsonpath={.status.verdict}",
+					"testrun", name, "-o", "jsonpath={.status.conditions[?(@.type==\"Active\")].status}",
 					"-n", clusterNamespace)
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
+				g.Expect(output).To(Equal("True"), "TestRun did not start up in time")
 			}
-			Eventually(verifyTestRun, "5m").Should(Succeed())
+			Eventually(waitTestrunStart, "1m").Should(Succeed())
+
+			By("waiting for testrun to finish")
+			waitTestrunDone := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get",
+					"testrun", name, "-o", "jsonpath={.status.conditions[?(@.type==\"Active\")].status}",
+					"-n", clusterNamespace)
+				output, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(output).To(Equal("False"), "TestRun did not finish in time")
+			}
+			Eventually(waitTestrunDone, "5m").Should(Succeed())
+
+			By("checking that environment creation did not fail")
+			cmd = exec.Command("kubectl", "get",
+				"testrun", name, "-o", "jsonpath={.status.conditions[?(@.type==\"Environment\")].reason}",
+				"-n", clusterNamespace)
+			output, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(output).ToNot(Equal("Failed"), "TestRun environment creation failed")
+
+			By("checking that suite runner did not fail")
+			cmd = exec.Command("kubectl", "get",
+				"testrun", name, "-o", "jsonpath={.status.conditions[?(@.type==\"SuiteRunner\")].reason}",
+				"-n", clusterNamespace)
+			output, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(output).ToNot(Equal("Failed"), "TestRun suite runner failed")
+
+			By("checking that testrun verdict is Passed")
+			cmd = exec.Command("kubectl", "get",
+				"testrun", name, "-o", "jsonpath={.status.verdict}",
+				"-n", clusterNamespace)
+			output, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(output).To(Equal("Passed"), "TestRun status did not become passed")
+		}
+
+		It("should be able to execute a v1alpha testrun", func() {
+			verifyTestrun(testRunSample, "testrun-sample")
 		})
-
 		It("should be able to execute a v1alpha multi-suite testrun", func() {
-			By("creating a testrun")
-			cmd := exec.Command("kubectl", "create", "-n", clusterNamespace, "-f", multiSuiteTestRunSample)
-			_, err := utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to create a multi-suite testrun")
-
-			By("waiting for finished")
-			verifyTestRun := func(g Gomega) {
-				cmd := exec.Command("kubectl", "get",
-					"testrun", "testrun-sample-multi-suite", "-o", "jsonpath={.status.verdict}",
-					"-n", clusterNamespace)
-				output, err := utils.Run(cmd)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
-			}
-			Eventually(verifyTestRun, "5m").Should(Succeed())
+			verifyTestrun(multiSuiteTestRunSample, "testrun-sample-multi-suite")
 		})
 	})
 })

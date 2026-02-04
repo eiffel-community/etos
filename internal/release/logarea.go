@@ -25,23 +25,23 @@ import (
 const LogAreaReleaserName = "log-area-releaser"
 
 // LogAreaReleaser returns an logArea releaser job specification.
-func LogAreaReleaser(logArea *v1alpha2.LogArea, environmentrequest *v1alpha1.EnvironmentRequest, image string, skipDeletingLogArea bool) *batchv1.Job {
+func LogAreaReleaser(logArea *v1alpha2.LogArea, environmentrequest *v1alpha1.EnvironmentRequest, provider *v1alpha1.Provider, skipDeletingLogArea bool) *batchv1.Job {
 	return ReleaseJob(
 		logArea.Name,
 		LogAreaReleaserName,
 		logArea.Namespace,
 		environmentrequest,
-		LogAreaReleaserContainer(logArea, image, skipDeletingLogArea),
+		LogAreaReleaserContainer(logArea, provider, skipDeletingLogArea),
 	)
 }
 
 // LogAreaReleaserContainer returns an logArea releaser container specification.
-func LogAreaReleaserContainer(logArea *v1alpha2.LogArea, image string, skipDeletingLogArea bool) corev1.Container {
+func LogAreaReleaserContainer(logArea *v1alpha2.LogArea, provider *v1alpha1.Provider, skipDeletingLogArea bool) corev1.Container {
 	return ReleaseContainer(
 		logArea.Name,
 		LogAreaReleaserName,
 		logArea.Namespace,
-		image,
+		provider,
 		skipDeletingLogArea,
 	)
 }

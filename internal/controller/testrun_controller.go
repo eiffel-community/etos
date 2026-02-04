@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -392,21 +394,9 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 	}
 
 	for _, suite := range testrun.Spec.Suites {
-		found := false
-		for _, request := range environmentRequestList.Items {
-			if request.Spec.Name == suite.Name {
-				found = true
-			}
-		}
-		if !found {
-			request := r.environmentRequest(ctx, suite.Name, cluster, testrun, suite.Tests, suite.Dataset)
-			if err := ctrl.SetControllerReference(testrun, request, r.Scheme); err != nil {
-				return true, err
-			}
-			logger.Info("Creating a new environment request", "request", request.Name)
-			if err := r.Create(ctx, request); err != nil {
-				return true, err
-			}
+		logger.Info("Creating environmentrequest for suite", "suite", suite.Name)
+		if err := r.createEnvironmentRequests(ctx, suite, environmentRequestList, testrun, cluster); err != nil {
+			return false, err
 		}
 	}
 
@@ -484,8 +474,49 @@ func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv
 	return false, nil
 }
 
+// createEnvironmentRequests creates a new environment request for each unique testrunner in suite.
+func (r TestRunReconciler) createEnvironmentRequests(ctx context.Context, suite etosv1alpha1.Suite, environmentRequests etosv1alpha1.EnvironmentRequestList, testrun *etosv1alpha1.TestRun, cluster *etosv1alpha1.Cluster) error {
+	logger := logf.FromContext(ctx)
+
+	testrunners := map[string][]etosv1alpha1.Test{}
+	for _, test := range suite.Tests {
+		testrunners[test.Execution.TestRunner] = append(testrunners[test.Execution.TestRunner], test)
+	}
+	index := 0
+	for testrunner, tests := range testrunners {
+		index++
+		found := false
+		for _, request := range environmentRequests.Items {
+			testrunnerImage := request.Spec.Providers.ExecutionSpace.TestRunnerImage
+			if strings.HasPrefix(request.Spec.Name, suite.Name) && testrunnerImage == testrunner {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			logger.Info("Creating an environmentrequest for testrunner", "testrunner", testrunner, "suite", suite.Name)
+			var name string
+			if len(testrunners) > 1 {
+				name = fmt.Sprintf("%s-%d", suite.Name, index)
+			} else {
+				name = suite.Name
+			}
+			request := r.environmentRequest(ctx, name, testrunner, cluster, testrun, tests, suite.Dataset)
+			if err := ctrl.SetControllerReference(testrun, request, r.Scheme); err != nil {
+				return err
+			}
+			logger.Info("Creating a new environment request", "request", request.GenerateName)
+			if err := r.Create(ctx, request); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // environmentRequest is the definition for an environment request.
-func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, tests []etosv1alpha1.Test, dataset *apiextensionsv1.JSON) *etosv1alpha1.EnvironmentRequest {
+func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrunner string, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, tests []etosv1alpha1.Test, dataset *apiextensionsv1.JSON) *etosv1alpha1.EnvironmentRequest {
 	logger := logf.FromContext(ctx)
 	eventRepository := cluster.Spec.EventRepository.Host
 	if cluster.Spec.ETOS.Config.ETOSEventRepositoryURL != "" {
@@ -532,6 +563,15 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 	if ok {
 		annotations["etos.eiffel-community.github.io/traceparent"] = traceparent
 	}
+	// Using ParseInt directly instead of Atoi since Atoi returns int, not int64
+	environmentTimeout, err := strconv.ParseInt(cluster.Spec.ETOS.Config.EnvironmentTimeout, 10, 0)
+	var deadline int64
+	if err != nil {
+		logger.Error(err, "failed to convert EnvironmentTimeout to int, defaulting to 60")
+		deadline = time.Now().Unix() + int64(60)
+	} else {
+		deadline = time.Now().Unix() + environmentTimeout
+	}
 
 	return &etosv1alpha1.EnvironmentRequest{
 		ObjectMeta: metav1.ObjectMeta{
@@ -559,8 +599,9 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 					ID: testrun.Spec.Providers.IUT,
 				},
 				ExecutionSpace: etosv1alpha1.ExecutionSpaceProvider{
-					ID:         testrun.Spec.Providers.ExecutionSpace,
-					TestRunner: testrun.Spec.TestRunner.Version,
+					ID:              testrun.Spec.Providers.ExecutionSpace,
+					TestRunner:      testrun.Spec.TestRunner.Version,
+					TestRunnerImage: testrunner,
 				},
 				LogArea: etosv1alpha1.LogAreaProvider{
 					ID: testrun.Spec.Providers.LogArea,
@@ -571,6 +612,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 			},
 			Image:              testrun.Spec.EnvironmentProvider.Image,
 			ServiceAccountName: fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
+			Deadline:           deadline,
 			Config: etosv1alpha1.EnvironmentProviderJobConfig{
 				EiffelMessageBus:                    eiffelMessageBus,
 				EtosMessageBus:                      etosMessageBus,
@@ -580,7 +622,6 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 				GraphQlServer:                       eventRepository,
 				EtcdHost:                            databaseHost,
 				EtcdPort:                            databasePort,
-				WaitForTimeout:                      cluster.Spec.ETOS.Config.EnvironmentTimeout,
 				EnvironmentProviderEventDataTimeout: cluster.Spec.ETOS.Config.EventDataTimeout,
 				EnvironmentProviderServiceAccount:   fmt.Sprintf("%s-provider", cluster.Name),
 				EnvironmentProviderTestSuiteTimeout: cluster.Spec.ETOS.Config.TestSuiteTimeout,
@@ -602,6 +643,60 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 	if !ok {
 		traceparent = ""
 	}
+	clusterNamespacedName := types.NamespacedName{
+		Name:      testrun.Spec.Cluster,
+		Namespace: testrun.Namespace,
+	}
+	cluster := &etosv1alpha1.Cluster{}
+	if err := r.Get(ctx, clusterNamespacedName, cluster); err != nil {
+		return nil, err
+	}
+
+	envList := []corev1.EnvVar{
+		{
+			Name:  "ARTIFACT",
+			Value: testrun.Spec.Artifact,
+		},
+		{
+			Name:  "IDENTITY",
+			Value: testrun.Spec.Identity,
+		},
+		{
+			Name:  "ETOS_ROUTING_KEY_TAG",
+			Value: fmt.Sprintf("%s-%s", testrun.Namespace, testrun.Spec.Cluster),
+		},
+		{
+			Name:  "TESTRUN",
+			Value: testrun.Name,
+		},
+		{
+			Name:  "IDENTIFIER",
+			Value: testrun.Spec.ID,
+		},
+		{
+			Name:  "OTEL_CONTEXT",
+			Value: traceparent,
+		},
+		{
+			Name:  "KUBEXIT_NAME",
+			Value: "esr",
+		},
+		{
+			Name:  "KUBEXIT_GRAVEYARD",
+			Value: "/graveyard",
+		},
+	}
+	if cluster.Spec.OpenTelemetry.Enabled {
+		envList = append(envList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
+			Value: cluster.Spec.OpenTelemetry.Endpoint,
+		})
+		envList = append(envList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
+			Value: cluster.Spec.OpenTelemetry.Insecure,
+		})
+	}
+
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -722,40 +817,7 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 									},
 								},
 							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "ARTIFACT",
-									Value: testrun.Spec.Artifact,
-								},
-								{
-									Name:  "IDENTITY",
-									Value: testrun.Spec.Identity,
-								},
-								{
-									Name:  "ETOS_ROUTING_KEY_TAG",
-									Value: fmt.Sprintf("%s-%s", testrun.Namespace, testrun.Spec.Cluster),
-								},
-								{
-									Name:  "TESTRUN",
-									Value: testrun.Name,
-								},
-								{
-									Name:  "IDENTIFIER",
-									Value: testrun.Spec.ID,
-								},
-								{
-									Name:  "OTEL_CONTEXT",
-									Value: traceparent,
-								},
-								{
-									Name:  "KUBEXIT_NAME",
-									Value: "esr",
-								},
-								{
-									Name:  "KUBEXIT_GRAVEYARD",
-									Value: "/graveyard",
-								},
-							},
+							Env: envList,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "graveyard",

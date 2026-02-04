@@ -16,7 +16,9 @@ spec:
   suites:
   - name: testrun-sample
     dataset:
-      test: Hello
+      dev: true
+      ETR_BRANCH: "waiting-etr"
+      ETR_REPO: "https://github.com/t-persson/etos-test-runner"
     tests:
     - environment: {}
       execution:

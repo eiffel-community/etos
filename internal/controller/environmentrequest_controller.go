@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"github.com/eiffel-community/etos/internal/controller/status"
 )
@@ -57,6 +58,9 @@ type EnvironmentRequestReconciler struct {
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests/finalizers,verbs=update
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=iuts,verbs=get;list;delete
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=executionspaces,verbs=get;list;delete
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=logarea,verbs=get;list;delete
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers,verbs=get;watch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers/status,verbs=get
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
@@ -168,7 +172,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	}
 	switch jobStatus {
 	case jobs.StatusFailed:
-		result := jobManager.Result(ctx, environmentrequest.Name)
+		result := jobManager.Result(ctx, "environment-provider", "iut-provider", "execution-space-provider", "log-area-provider")
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusReady,
@@ -181,7 +185,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			return r.Status().Update(ctx, environmentrequest)
 		}
 	case jobs.StatusSuccessful:
-		result := jobManager.Result(ctx, environmentrequest.Name)
+		result := jobManager.Result(ctx, "environment-provider", "iut-provider", "execution-space-provider", "log-area-provider")
 		var condition metav1.Condition
 		if result.Conclusion == jobs.ConclusionFailed {
 			condition = metav1.Condition{
@@ -201,7 +205,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 		if meta.SetStatusCondition(conditions, condition) {
 			environmentRequestCondition := meta.FindStatusCondition(environmentrequest.Status.Conditions, status.StatusReady)
 			environmentrequest.Status.CompletionTime = &environmentRequestCondition.LastTransitionTime
-			return errors.Join(r.Status().Update(ctx, environmentrequest), jobManager.Delete(ctx))
+			return errors.Join(r.Status().Update(ctx, environmentrequest), jobManager.Delete(ctx), r.cleanupUnused(ctx, environmentrequest))
 		}
 	case jobs.StatusActive:
 		if meta.SetStatusCondition(conditions,
@@ -238,173 +242,46 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	return nil
 }
 
-// envVarListFrom creates a list of EnvVar key-value pairs from an EnvironmentRequest instance
-func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest, cluster *etosv1alpha1.Cluster) ([]corev1.EnvVar, error) {
-	etosEncryptionKey, err := environmentrequest.Spec.Config.EncryptionKey.Get(ctx, r.Client, environmentrequest.Namespace)
-	if err != nil {
-		return nil, err
+// cleanupUnused deletes IUTs, LogAreas and ExecutionSpaces without Environments i.e. danglig resources.
+func (r EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
+	logger := logf.FromContext(ctx)
+	var iuts etosv1alpha2.IutList
+	if err := r.List(ctx, &iuts, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}); err != nil {
+		logger.Error(err, fmt.Sprintf("could not list IUTs for environmentrequest %s", environmentrequest.Name), "id", environmentrequest.Spec.ID)
+		return err
 	}
-	etosRabbitMQPassword, err := environmentrequest.Spec.Config.EtosMessageBus.Password.Get(ctx, r.Client, environmentrequest.Namespace)
-	if err != nil {
-		return nil, err
+	for _, iut := range iuts.Items {
+		if !ownedByEnvironment(iut.ObjectMeta.OwnerReferences) {
+			if err := r.Delete(ctx, &iut); err != nil {
+				return err
+			}
+		}
 	}
-	eiffelRabbitMQPassword, err := environmentrequest.Spec.Config.EiffelMessageBus.Password.Get(ctx, r.Client, environmentrequest.Namespace)
-	if err != nil {
-		return nil, err
+	var executionSpaces etosv1alpha2.ExecutionSpaceList
+	if err := r.List(ctx, &executionSpaces, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}); err != nil {
+		logger.Error(err, fmt.Sprintf("could not list execution spaces for environmentrequest %s", environmentrequest.Name), "id", environmentrequest.Spec.ID)
+		return err
 	}
-	traceparent, ok := environmentrequest.Annotations["etos.eiffel-community.github.io/traceparent"]
-	if !ok {
-		traceparent = ""
+	for _, executionSpace := range executionSpaces.Items {
+		if !ownedByEnvironment(executionSpace.ObjectMeta.OwnerReferences) {
+			if err := r.Delete(ctx, &executionSpace); err != nil {
+				return err
+			}
+		}
 	}
-	envList := []corev1.EnvVar{
-		{
-			Name:  "REQUEST",
-			Value: environmentrequest.Name,
-		},
-		{
-			Name:  "ETOS_API",
-			Value: environmentrequest.Spec.Config.EtosApi,
-		},
-		{
-			Name:  "ETOS_GRAPHQL_SERVER",
-			Value: environmentrequest.Spec.Config.GraphQlServer,
-		},
-		{
-			Name:  "ETOS_ENCRYPTION_KEY",
-			Value: string(etosEncryptionKey),
-		},
-		{
-			Name:  "ETOS_ETCD_HOST",
-			Value: environmentrequest.Spec.Config.EtcdHost,
-		},
-		{
-			Name:  "ETOS_ETCD_PORT",
-			Value: environmentrequest.Spec.Config.EtcdPort,
-		},
-		{
-			Name:  "ETOS_EVENT_DATA_TIMEOUT",
-			Value: environmentrequest.Spec.Config.EnvironmentProviderEventDataTimeout,
-		},
-		// Duplicate wait timeout variables will be possible to remove when this issue is solved: https://github.com/eiffel-community/etos/issues/304
-		{
-			Name:  "ETOS_WAIT_FOR_IUT_TIMEOUT",
-			Value: environmentrequest.Spec.Config.WaitForTimeout,
-		},
-		{
-			Name:  "ENVIRONMENT_PROVIDER_WAIT_FOR_IUT_TIMEOUT",
-			Value: environmentrequest.Spec.Config.WaitForTimeout,
-		},
-		{
-			Name:  "ETOS_WAIT_FOR_EXECUTION_SPACE_TIMEOUT",
-			Value: environmentrequest.Spec.Config.WaitForTimeout,
-		},
-		{
-			Name:  "ENVIRONMENT_PROVIDER_WAIT_FOR_EXECUTION_SPACE_TIMEOUT",
-			Value: environmentrequest.Spec.Config.WaitForTimeout,
-		},
-		{
-			Name:  "ETOS_WAIT_FOR_LOG_AREA_TIMEOUT",
-			Value: environmentrequest.Spec.Config.WaitForTimeout,
-		},
-		{
-			Name:  "ENVIRONMENT_PROVIDER_WAIT_FOR_LOG_AREA_TIMEOUT",
-			Value: environmentrequest.Spec.Config.WaitForTimeout,
-		},
-		{
-			Name:  "TEST_SUITE_TIMEOUT",
-			Value: environmentrequest.Spec.Config.EnvironmentProviderTestSuiteTimeout,
-		},
-		{
-			// Optional when environmentrequest is not issued by testrun, i. e. created separately.
-			// When the environment request is issued by a testrun, this variable is propagated
-			// further from environment provider to test runner.
-			Name:  "ETR_VERSION",
-			Value: environmentrequest.Spec.Config.TestRunnerVersion,
-		},
-
-		// Eiffel Message Bus variables
-		{
-			Name:  "RABBITMQ_HOST",
-			Value: environmentrequest.Spec.Config.EiffelMessageBus.Host,
-		},
-		{
-			Name:  "RABBITMQ_VHOST",
-			Value: environmentrequest.Spec.Config.EiffelMessageBus.Vhost,
-		},
-		{
-			Name:  "RABBITMQ_PORT",
-			Value: environmentrequest.Spec.Config.EiffelMessageBus.Port,
-		},
-		{
-			Name:  "RABBITMQ_SSL",
-			Value: environmentrequest.Spec.Config.EiffelMessageBus.SSL,
-		},
-		{
-			Name:  "RABBITMQ_EXCHANGE",
-			Value: environmentrequest.Spec.Config.EiffelMessageBus.Exchange,
-		},
-		{
-			Name:  "RABBITMQ_USERNAME",
-			Value: environmentrequest.Spec.Config.EiffelMessageBus.Username,
-		},
-		{
-			Name:  "RABBITMQ_PASSWORD",
-			Value: string(eiffelRabbitMQPassword),
-		},
-		{
-			Name:  "RABBITMQ_ROUTING_KEY",
-			Value: environmentrequest.Spec.Config.RoutingKeyTag,
-		},
-
-		// ETOS Message Bus variables
-		{
-			Name:  "ETOS_RABBITMQ_HOST",
-			Value: environmentrequest.Spec.Config.EtosMessageBus.Host,
-		},
-		{
-			Name:  "ETOS_RABBITMQ_VHOST",
-			Value: environmentrequest.Spec.Config.EtosMessageBus.Vhost,
-		},
-		{
-			Name:  "ETOS_RABBITMQ_PORT",
-			Value: environmentrequest.Spec.Config.EtosMessageBus.Port,
-		},
-		{
-			Name:  "ETOS_RABBITMQ_SSL",
-			Value: environmentrequest.Spec.Config.EtosMessageBus.SSL,
-		},
-		{
-			Name:  "ETOS_RABBITMQ_EXCHANGE",
-			Value: environmentrequest.Spec.Config.EtosMessageBus.Exchange,
-		},
-		{
-			Name:  "ETOS_RABBITMQ_USERNAME",
-			Value: environmentrequest.Spec.Config.EtosMessageBus.Username,
-		},
-		{
-			Name:  "ETOS_RABBITMQ_PASSWORD",
-			Value: string(etosRabbitMQPassword),
-		},
-		{
-			Name:  "ETOS_ROUTING_KEY_TAG",
-			Value: environmentrequest.Spec.Config.RoutingKeyTag,
-		},
-		{
-			Name:  "OTEL_CONTEXT",
-			Value: traceparent,
-		},
+	var logAreas etosv1alpha2.LogAreaList
+	if err := r.List(ctx, &logAreas, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}); err != nil {
+		logger.Error(err, fmt.Sprintf("could not list log areas for environmentrequest %s", environmentrequest.Name), "id", environmentrequest.Spec.ID)
+		return err
 	}
-	if cluster != nil && cluster.Spec.OpenTelemetry.Enabled {
-		envList = append(envList, corev1.EnvVar{
-			Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
-			Value: cluster.Spec.OpenTelemetry.Endpoint,
-		})
-		envList = append(envList, corev1.EnvVar{
-			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
-			Value: cluster.Spec.OpenTelemetry.Insecure,
-		})
+	for _, logArea := range logAreas.Items {
+		if !ownedByEnvironment(logArea.ObjectMeta.OwnerReferences) {
+			if err := r.Delete(ctx, &logArea); err != nil {
+				return err
+			}
+		}
 	}
-	return envList, nil
+	return nil
 }
 
 // reconcileDeletion checks for active environments and deletes them, causing them to clean up, and then, when all environments
@@ -434,12 +311,18 @@ func (r EnvironmentRequestReconciler) reconcileDeletion(ctx context.Context, env
 	var allErr error
 	environments, err := r.deleteEnvironments(ctx, *environmentrequest)
 	allErr = errors.Join(allErr, err)
+	iuts, err := r.deleteIuts(ctx, *environmentrequest)
+	allErr = errors.Join(allErr, err)
+	logAreas, err := r.deleteLogAreas(ctx, *environmentrequest)
+	allErr = errors.Join(allErr, err)
+	executionSpaces, err := r.deleteExecutionSpaces(ctx, *environmentrequest)
+	allErr = errors.Join(allErr, err)
 
 	if allErr != nil {
 		return ctrl.Result{Requeue: true}, nil
 	}
-	if (environments) != 0 {
-		logger.Info("Waiting for Environments to get deleted", "environments", environments)
+	if (environments + iuts + logAreas + executionSpaces) != 0 {
+		logger.Info("Waiting for Environments to get deleted", "environments", environments, "iuts", iuts, "logareas", logAreas, "executionspaces", executionSpaces)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
@@ -477,6 +360,75 @@ func (r EnvironmentRequestReconciler) deleteEnvironments(ctx context.Context, en
 	return len(environments.Items), allErr
 }
 
+// deleteIuts deletes a list of iuts.
+func (r EnvironmentRequestReconciler) deleteIuts(ctx context.Context, environmentrequest etosv1alpha1.EnvironmentRequest) (int, error) {
+	logger := logf.FromContext(ctx)
+	var iuts etosv1alpha2.IutList
+	if err := r.List(ctx, &iuts, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier}); err != nil {
+		logger.Error(err, fmt.Sprintf("could not list iuts for environmentrequest %s", environmentrequest.Name))
+		return -1, err
+	}
+	var err error
+	var allErr error
+	for _, iut := range iuts.Items {
+		if iut.ObjectMeta.DeletionTimestamp.IsZero() {
+			if err = r.Delete(ctx, &iut); err != nil {
+				if !apierrors.IsNotFound(err) {
+					logger.Error(err, "failed to delete iut", "iut", iut)
+					allErr = errors.Join(allErr, err)
+				}
+			}
+		}
+	}
+	return len(iuts.Items), allErr
+}
+
+// deleteLogAreas deletes a list of log areas.
+func (r EnvironmentRequestReconciler) deleteLogAreas(ctx context.Context, environmentrequest etosv1alpha1.EnvironmentRequest) (int, error) {
+	logger := logf.FromContext(ctx)
+	var logAreas etosv1alpha2.LogAreaList
+	if err := r.List(ctx, &logAreas, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier}); err != nil {
+		logger.Error(err, fmt.Sprintf("could not list iuts for environmentrequest %s", environmentrequest.Name))
+		return -1, err
+	}
+	var err error
+	var allErr error
+	for _, logArea := range logAreas.Items {
+		if logArea.ObjectMeta.DeletionTimestamp.IsZero() {
+			if err = r.Delete(ctx, &logArea); err != nil {
+				if !apierrors.IsNotFound(err) {
+					logger.Error(err, "failed to delete logArea", "logArea", logArea)
+					allErr = errors.Join(allErr, err)
+				}
+			}
+		}
+	}
+	return len(logAreas.Items), allErr
+}
+
+// deleteExecutionSpaces deletes a list of execution spaces.
+func (r EnvironmentRequestReconciler) deleteExecutionSpaces(ctx context.Context, environmentrequest etosv1alpha1.EnvironmentRequest) (int, error) {
+	logger := logf.FromContext(ctx)
+	var executionSpaces etosv1alpha2.ExecutionSpaceList
+	if err := r.List(ctx, &executionSpaces, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier}); err != nil {
+		logger.Error(err, fmt.Sprintf("could not list iuts for environmentrequest %s", environmentrequest.Name))
+		return -1, err
+	}
+	var err error
+	var allErr error
+	for _, executionSpace := range executionSpaces.Items {
+		if executionSpace.ObjectMeta.DeletionTimestamp.IsZero() {
+			if err = r.Delete(ctx, &executionSpace); err != nil {
+				if !apierrors.IsNotFound(err) {
+					logger.Error(err, "failed to delete executionSpace", "executionSpace", executionSpace)
+					allErr = errors.Join(allErr, err)
+				}
+			}
+		}
+	}
+	return len(executionSpaces.Items), allErr
+}
+
 // environmentProviderJob is the job definition for an etos environment provider.
 func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context, obj client.Object) (*batchv1.Job, error) {
 	logger := logf.FromContext(ctx)
@@ -491,7 +443,6 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 		"app.kubernetes.io/name":    "environment-provider",
 		"app.kubernetes.io/part-of": "etos",
 	}
-	// The Identifier spec field has 'omitempty', which means it can be an empty string.
 	if environmentrequest.Spec.Identifier != "" {
 		labels["etos.eiffel-community.github.io/id"] = environmentrequest.Spec.Identifier
 	}
@@ -509,10 +460,38 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 			return nil, err
 		}
 	}
+	traceparent, ok := environmentrequest.Annotations["etos.eiffel-community.github.io/traceparent"]
+	if !ok {
+		traceparent = ""
+	}
 
-	envVarList, err := r.envVarListFrom(ctx, environmentrequest, cluster)
+	envVarList := []corev1.EnvVar{
+		{
+			Name:  "OTEL_CONTEXT",
+			Value: traceparent,
+		},
+	}
+	if cluster != nil && cluster.Spec.OpenTelemetry.Enabled {
+		envVarList = append(envVarList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
+			Value: cluster.Spec.OpenTelemetry.Endpoint,
+		})
+		envVarList = append(envVarList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
+			Value: cluster.Spec.OpenTelemetry.Insecure,
+		})
+	}
+
+	iutProvider, err := getProvider(ctx, r.Client, environmentrequest.Spec.Providers.IUT.ID, environmentrequest.Namespace)
 	if err != nil {
-		logger.Error(err, "Failed to create environment variable list for environment provider")
+		return nil, err
+	}
+	logAreaProvider, err := getProvider(ctx, r.Client, environmentrequest.Spec.Providers.LogArea.ID, environmentrequest.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	executionSpaceProvider, err := getProvider(ctx, r.Client, environmentrequest.Spec.Providers.ExecutionSpace.ID, environmentrequest.Namespace)
+	if err != nil {
 		return nil, err
 	}
 
@@ -534,11 +513,51 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 					ServiceAccountName:            environmentrequest.Spec.ServiceAccountName,
 					TerminationGracePeriodSeconds: &grace,
 					RestartPolicy:                 "Never",
+					InitContainers: []corev1.Container{
+						{
+							Name:    "iut-provider",
+							Image:   imageFromProvider(iutProvider),
+							Env:     append(iutProvider.Spec.Env, envVarList...),
+							EnvFrom: iutProvider.Spec.EnvFrom,
+							Args: []string{
+								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
+								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
+								fmt.Sprintf("-provider=%s", iutProvider.Name),
+							},
+						},
+						{
+							Name:    "log-area-provider",
+							Image:   imageFromProvider(logAreaProvider),
+							Env:     append(logAreaProvider.Spec.Env, envVarList...),
+							EnvFrom: logAreaProvider.Spec.EnvFrom,
+							Args: []string{
+								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
+								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
+								fmt.Sprintf("-provider=%s", logAreaProvider.Name),
+							},
+						},
+						{
+							Name:    "execution-space-provider",
+							Image:   imageFromProvider(executionSpaceProvider),
+							Env:     append(executionSpaceProvider.Spec.Env, envVarList...),
+							EnvFrom: executionSpaceProvider.Spec.EnvFrom,
+							Args: []string{
+								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
+								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
+								fmt.Sprintf("-provider=%s", executionSpaceProvider.Name),
+							},
+						},
+					},
 					Containers: []corev1.Container{
 						{
-							Name:            environmentrequest.Name,
+							Name:            "environment-provider",
 							Image:           environmentrequest.Spec.Image.Image,
+							Env:             envVarList,
 							ImagePullPolicy: environmentrequest.Spec.Image.ImagePullPolicy,
+							Args: []string{
+								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
+								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
+							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),
@@ -549,7 +568,6 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
-							Env: envVarList,
 						},
 					},
 				},

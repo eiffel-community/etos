@@ -114,6 +114,13 @@ func WriteResult(logger logr.Logger, result jobs.Result) error {
 	return os.WriteFile(terminationLog, b, os.ModePerm)
 }
 
+// SetKubernetesClient sets up a new Kubernetes client, typically used for special
+// use-cases I.e. adding custom configurations or for testing where a mock client
+// is used.
+func SetKubernetesClient(c client.Client) {
+	cli = c
+}
+
 // KubernetesClient creates a new Kubernetes client or reuses an already created.
 func KubernetesClient() (client.Client, error) {
 	var err error
@@ -144,6 +151,23 @@ func EnvironmentRequest(
 		return nil, err
 	}
 	return &request, nil
+}
+
+// GetProvider gets a provider from Kubernetes by name and namespace.
+func GetProvider(ctx context.Context, providerName, namespace string) (*v1alpha1.Provider, error) {
+	cli, err := KubernetesClient()
+	if err != nil {
+		return nil, err
+	}
+	var provider v1alpha1.Provider
+	if err := cli.Get(
+		ctx,
+		types.NamespacedName{Name: providerName, Namespace: namespace},
+		&provider,
+	); err != nil {
+		return nil, err
+	}
+	return &provider, nil
 }
 
 // runProvider runs a provider.

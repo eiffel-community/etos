@@ -17,100 +17,91 @@
 package v1alpha1
 
 import (
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// JSONTasList is the List command in the JSONTas provider.
-type JSONTasList struct {
-	Possible  *apiextensionsv1.JSON `json:"possible"`
-	Available *apiextensionsv1.JSON `json:"available"`
-}
-
-// Stage is the definition of a stage where to execute steps.
-type Stage struct {
-	// +kubebuilder:default={}
-	// +optional
-	Steps *apiextensionsv1.JSON `json:"steps"`
-}
-
-// JSONTasIUTPrepareStages defines the preparation stages required for an IUT.
-type JSONTasPrepareStages struct {
-	// Underscore used in these due to backwards compatibility
-	EnvironmentProvider Stage `json:"environment_provider"`
-	SuiteRunner         Stage `json:"suite_runner"`
-	TestRunner          Stage `json:"test_runner"`
-}
-
-// JSONTasIUTPrepare defines the preparation required for an IUT.
-type JSONTasIUTPrepare struct {
-	Stages JSONTasPrepareStages `json:"stages"`
-}
-
-// JSONTasIut is the IUT provider definition for the JSONTas provider.
-type JSONTasIut struct {
-	ID       string                `json:"id"`
-	Checkin  *apiextensionsv1.JSON `json:"checkin,omitempty"`
-	Checkout *apiextensionsv1.JSON `json:"checkout,omitempty"`
-	List     JSONTasList           `json:"list"`
-	Prepare  JSONTasIUTPrepare     `json:"prepare,omitempty"`
-}
-
-// JSONTasExecutionSpace is the execution space provider definition for the JSONTas provider
-type JSONTasExecutionSpace struct {
-	ID       string                `json:"id"`
-	Checkin  *apiextensionsv1.JSON `json:"checkin,omitempty"`
-	Checkout *apiextensionsv1.JSON `json:"checkout,omitempty"`
-	List     JSONTasList           `json:"list"`
-}
-
-// JSONTasLogArea is the log area provider definition for the JSONTas provider
-type JSONTasLogArea struct {
-	ID       string                `json:"id"`
-	Checkin  *apiextensionsv1.JSON `json:"checkin,omitempty"`
-	Checkout *apiextensionsv1.JSON `json:"checkout,omitempty"`
-	List     JSONTasList           `json:"list"`
-}
-
-// JSONTas defines the definitions that a JSONTas provider shall use.
-type JSONTas struct {
-	Image string `json:"image,omitempty"`
-	// These are pointers so that they become nil in the Provider object in Kubernetes
-	// and don't muddle up the yaml with empty data.
-	Iut            *JSONTasIut            `json:"iut,omitempty"`
-	ExecutionSpace *JSONTasExecutionSpace `json:"execution_space,omitempty"`
-	LogArea        *JSONTasLogArea        `json:"log,omitempty"`
-}
-
-// Healthcheck defines the health check endpoint and interval for providers.
-// The defaults of this should work most of the time.
-type Healthcheck struct {
-	// +kubebuilder:default=/v1alpha1/selftest/ping
-	// +optional
-	Endpoint string `json:"endpoint"`
-	// +kubebuilder:default=30
-	// +optional
-	IntervalSeconds int `json:"intervalSeconds"`
-}
 
 // ProviderSpec defines the desired state of Provider
 type ProviderSpec struct {
 	// +kubebuilder:validation:Enum=execution-space;iut;log-area
 	Type string `json:"type"`
-	// +optional
-	Host string `json:"host,omitempty"`
-
-	// +kubebuilder:default={}
-	// +optional
-	Healthcheck *Healthcheck `json:"healthCheck,omitempty"`
-
-	// These are pointers so that they become nil in the Provider object in Kubernetes
-	// and don't muddle up the yaml with empty data.
-	JSONTas       *JSONTas   `json:"jsontas,omitempty"`
-	JSONTasSource *VarSource `json:"jsontasSource,omitempty"`
 
 	// Image describes the docker image to run when providing a resource.
-	Image string `json:"image,omitempty"`
+	Image string `json:"image"`
+
+	// Env and EnvFrom describe environment variables to be passed to the provider container.
+	// +optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
+	// +optional
+	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
+
+	// IutProviderConfig describe the configuration for an IUT provider.
+	// +optional
+	IutProviderConfig *IutProviderConfig `json:"iutProviderConfig,omitempty"`
+
+	// LogAreaProviderConfig describe the configuration for an log area provider.
+	// +optional
+	LogAreaProviderConfig *LogAreaProviderConfig `json:"logAreaProviderConfig,omitempty"`
+
+	// ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
+	// +optional
+	ExecutionSpaceProviderConfig *ExecutionSpaceProviderConfig `json:"executionSpaceProviderConfig,omitempty"`
+}
+
+// IutProviderConfig describe the configuration for an IUT provider.
+type IutProviderConfig struct {
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
+}
+
+// LogAreaProviderConfig describe the configuration for an log area provider.
+type LogAreaProviderConfig struct {
+	// LiveLogs is a URI to where live logs of an execution can be found.
+	// +kubebuilder:validation:Format="uri"
+	LiveLogs string `json:"livelogs"`
+
+	// Upload defines the log upload instructions for the ETR.
+	Upload etosv1alpha2.Upload `json:"upload"`
+
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
+}
+
+// ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
+type ExecutionSpaceProviderConfig struct {
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
+
+	// Dev describes whether or not this provider should run the ETR in dev mode.
+	// While using dev mode the ETR can be installed from github using ETRBranch and ETRRepository.
+	// +kubebuilder:default="false"
+	// +optional
+	Dev string `json:"dev"`
+
+	// ETRBranch describes a git branch to use when running the ETR in dev mode.
+	// Can be used in conjunction with ETRRepository to test a fork, otherwise the
+	// ETRRepository defaults to github.com/eiffel-community/etos.
+	// +optional
+	ETRBranch string `json:"ETR_BRANCH,omitempty"`
+
+	// ETRRepository describes the git repository to fetch an ETR from when running in
+	// dev mode. Defaults to github.com/eiffel-community/etos
+	// +optional
+	ETRRepository string `json:"ETR_REPOSITORY,omitempty"`
 }
 
 // ProviderStatus defines the observed state of Provider

@@ -30,26 +30,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-etos-eiffel-community-github-io-v1alpha1-provider
-  failurePolicy: Fail
-  name: mprovider-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - etos.eiffel-community.github.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - providers
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /mutate-etos-eiffel-community-github-io-v1alpha1-testrun
   failurePolicy: Fail
   name: mtestrun-v1alpha1.kb.io
@@ -130,26 +110,6 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: validating-webhook-configuration
 webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-etos-eiffel-community-github-io-v1alpha1-provider
-  failurePolicy: Fail
-  name: vprovider-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - etos.eiffel-community.github.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - providers
-  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:
