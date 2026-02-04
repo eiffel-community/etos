@@ -85,11 +85,10 @@ func (v *Var) Get(ctx context.Context, client client.Client, namespace string) (
 // Image configuration.
 type Image struct {
 	// +optional
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 
-	// +kubebuilder:default="IfNotPresent"
 	// +optional
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // Ingress configuration.

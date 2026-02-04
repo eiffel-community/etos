@@ -23,6 +23,7 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -51,13 +52,14 @@ type ETOSApiDeployment struct {
 	Scheme           *runtime.Scheme
 	rabbitmqSecret   string
 	messagebusSecret string
-	configSecret     string
+	etosSecret       string
 	restartRequired  bool
+	cfg              config.Config
 }
 
 // NewETOSApiDeployment will create a new ETOS API reconciler.
-func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string, config string) *ETOSApiDeployment {
-	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config, false}
+func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, scheme *runtime.Scheme, client client.Client, rabbitmqSecret, messagebusSecret, etosSecret string, cfg config.Config) *ETOSApiDeployment {
+	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, etosSecret, false, cfg}
 }
 
 // Reconcile will reconcile the ETOS API to its expected state.
@@ -290,7 +292,7 @@ func (r *ETOSApiDeployment) config(ctx context.Context, name types.NamespacedNam
 		return nil, err
 	}
 	config := &corev1.Secret{}
-	if err := r.Get(ctx, types.NamespacedName{Name: r.configSecret, Namespace: name.Namespace}, config); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: r.etosSecret, Namespace: name.Namespace}, config); err != nil {
 		return nil, err
 	}
 	data := map[string][]byte{}
@@ -445,8 +447,8 @@ func (r *ETOSApiDeployment) container(name types.NamespacedName, secretName stri
 	}
 	return corev1.Container{
 		Name:            name.Name,
-		Image:           r.Image.Image,
-		ImagePullPolicy: r.ImagePullPolicy,
+		Image:           config.ImageOrDefault(r.cfg.API, r.Image),
+		ImagePullPolicy: config.PullPolicyOrDefault(r.cfg.API, r.Image),
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("256Mi"),

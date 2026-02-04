@@ -1,3 +1,0 @@
-- op: replace
-  path: /spec/versions/0/schema/openAPIV3Schema/properties/spec/properties/etos/properties/logArea/properties/image/default
-  value: ghcr.io/eiffel-community/etos-logarea:a98a4f39
