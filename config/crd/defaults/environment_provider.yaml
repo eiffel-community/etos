@@ -1,3 +1,0 @@
-- op: replace
-  path: /spec/versions/0/schema/openAPIV3Schema/properties/spec/properties/etos/properties/environmentProvider/properties/image/default
-  value: ghcr.io/eiffel-community/etos-environment-provider:1438611c

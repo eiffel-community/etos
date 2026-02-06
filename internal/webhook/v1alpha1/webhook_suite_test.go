@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -109,7 +110,8 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = SetupTestRunWebhookWithManager(mgr)
+	cfg := config.New()
+	err = SetupTestRunWebhookWithManager(mgr, cfg)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = SetupProviderWebhookWithManager(mgr)

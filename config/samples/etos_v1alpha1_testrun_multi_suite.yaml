@@ -43,7 +43,7 @@ spec:
         command: exit 0
         environment: {}
         execute:
-        - sleep 30
+        - sleep 40
         parameters: {}
         testRunner: ghcr.io/eiffel-community/etos-base-test-runner:debian-bookworm
       id: c2c93da1-53c7-42f2-881c-60a579e57630

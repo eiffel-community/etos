@@ -23,6 +23,7 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,14 +46,15 @@ type ETOSSuiteStarterDeployment struct {
 	Scheme           *runtime.Scheme
 	rabbitmqSecret   string
 	messagebusSecret string
-	etosConfig       *corev1.Secret
+	etosSecret       *corev1.Secret
 	encryptionSecret *corev1.Secret
 	restartRequired  bool
+	cfg              config.Config
 }
 
 // NewETOSSuiteStarterDeployment will create a new ETOS SuiteStarter reconciler.
-func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, scheme *runtime.Scheme, client client.Client, rabbitmqSecret, messagebusSecret string, config *corev1.Secret, encryption *corev1.Secret) *ETOSSuiteStarterDeployment {
-	return &ETOSSuiteStarterDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, config, encryption, false}
+func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, scheme *runtime.Scheme, client client.Client, rabbitmqSecret, messagebusSecret string, etosSecret *corev1.Secret, encryption *corev1.Secret, cfg config.Config) *ETOSSuiteStarterDeployment {
+	return &ETOSSuiteStarterDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, etosSecret, encryption, false, cfg}
 }
 
 // Reconcile will reconcile the ETOS suite starter to its expected state.
@@ -369,9 +371,9 @@ func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, l
 func (r *ETOSSuiteStarterDeployment) config(ctx context.Context, name types.NamespacedName, secretName string, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
 	routingKey := fmt.Sprintf("eiffel.*.EiffelTestExecutionRecipeCollectionCreatedEvent.%s.*", cluster.Spec.ETOS.Config.RoutingKeyTag)
 	data := map[string][]byte{
-		"SUITE_RUNNER":                  []byte(cluster.Spec.ETOS.SuiteRunner.Image.Image),
-		"LOG_LISTENER":                  []byte(cluster.Spec.ETOS.SuiteRunner.LogListener.Image.Image),
-		"ETOS_CONFIGMAP":                []byte(r.etosConfig.ObjectMeta.Name),
+		"SUITE_RUNNER":                  []byte(config.ImageOrDefault(r.cfg.SuiteRunner, cluster.Spec.ETOS.SuiteRunner.Image)),
+		"LOG_LISTENER":                  []byte(config.ImageOrDefault(r.cfg.LogListener, cluster.Spec.ETOS.SuiteRunner.LogListener.Image)),
+		"ETOS_CONFIGMAP":                []byte(r.etosSecret.ObjectMeta.Name),
 		"ETOS_RABBITMQ_SECRET":          []byte(secretName),
 		"ETOS_ESR_TTL":                  []byte(r.Config.TTL),
 		"ETOS_TERMINATION_GRACE_PERIOD": []byte(r.Config.GracePeriod),
@@ -395,7 +397,7 @@ func (r *ETOSSuiteStarterDeployment) config(ctx context.Context, name types.Name
 	}
 	maps.Copy(data, eiffel.Data)
 	maps.Copy(data, etos.Data)
-	maps.Copy(data, r.etosConfig.Data)
+	maps.Copy(data, r.etosSecret.Data)
 	return &corev1.Secret{
 		ObjectMeta: r.meta(name),
 		Data:       data,
@@ -426,7 +428,7 @@ func (r *ETOSSuiteStarterDeployment) mergedSecret(ctx context.Context, name type
 	data := map[string][]byte{}
 	maps.Copy(data, eiffel.Data)
 	maps.Copy(data, etos.Data)
-	maps.Copy(data, r.etosConfig.Data)
+	maps.Copy(data, r.etosSecret.Data)
 	maps.Copy(data, r.encryptionSecret.Data)
 	// Used by the LogListener and the CreateQueue initContainer.
 	data["ETOS_RABBITMQ_QUEUE_NAME"] = []byte(cluster.Spec.ETOS.SuiteRunner.LogListener.ETOSQueueName)
@@ -553,8 +555,8 @@ func (r *ETOSSuiteStarterDeployment) deployment(name types.NamespacedName, secre
 func (r *ETOSSuiteStarterDeployment) container(name types.NamespacedName, secretName string) corev1.Container {
 	return corev1.Container{
 		Name:            name.Name,
-		Image:           r.Image.Image,
-		ImagePullPolicy: r.ImagePullPolicy,
+		Image:           config.ImageOrDefault(r.cfg.SuiteStarter, r.Image),
+		ImagePullPolicy: config.PullPolicyOrDefault(r.cfg.SuiteStarter, r.Image),
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("256Mi"),

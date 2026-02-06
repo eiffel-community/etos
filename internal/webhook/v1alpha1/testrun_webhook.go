@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 )
 
 // nolint:unused
@@ -40,13 +41,13 @@ import (
 var testrunlog = logf.Log.WithName("testrun-resource")
 
 // SetupTestRunWebhookWithManager registers the webhook for TestRun in the manager.
-func SetupTestRunWebhookWithManager(mgr ctrl.Manager) error {
+func SetupTestRunWebhookWithManager(mgr ctrl.Manager, cfg config.Config) error {
 	if cli == nil {
 		cli = mgr.GetClient()
 	}
 	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha1.TestRun{}).
 		WithValidator(&TestRunCustomValidator{}).
-		WithDefaulter(&TestRunCustomDefaulter{}).
+		WithDefaulter(&TestRunCustomDefaulter{cfg}).
 		Complete()
 }
 
@@ -57,7 +58,9 @@ func SetupTestRunWebhookWithManager(mgr ctrl.Manager) error {
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
-type TestRunCustomDefaulter struct{}
+type TestRunCustomDefaulter struct {
+	cfg config.Config
+}
 
 var _ webhook.CustomDefaulter = &TestRunCustomDefaulter{}
 
@@ -105,20 +108,33 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 	}
 
 	if testrun.Spec.SuiteRunner == nil && cluster != nil {
-		testrunlog.Info("Loading suite runner image from cluster", "suiteRunner", cluster.Spec.ETOS.SuiteRunner.Image)
-		testrun.Spec.SuiteRunner = &etosv1alpha1.SuiteRunner{Image: &cluster.Spec.ETOS.SuiteRunner.Image}
+		image := etosv1alpha1.Image{
+			Image:           config.ImageOrDefault(d.cfg.SuiteRunner, cluster.Spec.ETOS.SuiteRunner.Image),
+			ImagePullPolicy: config.PullPolicyOrDefault(d.cfg.SuiteRunner, cluster.Spec.ETOS.SuiteRunner.Image),
+		}
+		testrunlog.Info("Loading suite runner image from cluster", "suiteRunner", image)
+		testrun.Spec.SuiteRunner = &etosv1alpha1.SuiteRunner{Image: &image}
 	}
 	if testrun.Spec.LogListener == nil && cluster != nil {
-		testrunlog.Info("Loading log listener image from cluster", "logListener", cluster.Spec.ETOS.SuiteRunner.LogListener.Image)
-		testrun.Spec.LogListener = &etosv1alpha1.LogListener{Image: &cluster.Spec.ETOS.SuiteRunner.LogListener.Image}
+		image := etosv1alpha1.Image{
+			Image:           config.ImageOrDefault(d.cfg.LogListener, cluster.Spec.ETOS.SuiteRunner.LogListener.Image),
+			ImagePullPolicy: config.PullPolicyOrDefault(d.cfg.LogListener, cluster.Spec.ETOS.SuiteRunner.LogListener.Image),
+		}
+		testrunlog.Info("Loading log listener image from cluster", "logListener", image)
+		testrun.Spec.LogListener = &etosv1alpha1.LogListener{Image: &image}
 	}
 	if testrun.Spec.EnvironmentProvider == nil && cluster != nil {
-		testrunlog.Info("Loading environment provider image from cluster", "environmentProvider", cluster.Spec.ETOS.EnvironmentProvider.Image)
-		testrun.Spec.EnvironmentProvider = &etosv1alpha1.EnvironmentProvider{Image: &cluster.Spec.ETOS.EnvironmentProvider.Image}
+		image := etosv1alpha1.Image{
+			Image:           config.ImageOrDefault(d.cfg.EnvironmentProvider, cluster.Spec.ETOS.EnvironmentProvider.Image),
+			ImagePullPolicy: config.PullPolicyOrDefault(d.cfg.EnvironmentProvider, cluster.Spec.ETOS.EnvironmentProvider.Image),
+		}
+		testrunlog.Info("Loading environment provider image from cluster", "environmentProvider", image)
+		testrun.Spec.EnvironmentProvider = &etosv1alpha1.EnvironmentProvider{Image: &image}
 	}
 	if testrun.Spec.TestRunner == nil && cluster != nil {
-		testrunlog.Info("Loading test runner version from cluster", "testRunner", cluster.Spec.ETOS.TestRunner.Version)
-		testrun.Spec.TestRunner = &etosv1alpha1.TestRunner{Version: cluster.Spec.ETOS.TestRunner.Version}
+		testRunnerVersion := config.VersionOrDefault(d.cfg.TestRunner, cluster.Spec.ETOS.TestRunner.Version)
+		testrunlog.Info("Loading test runner version from cluster", "testRunner", testRunnerVersion)
+		testrun.Spec.TestRunner = &etosv1alpha1.TestRunner{Version: testRunnerVersion}
 	}
 
 	addLabel := true
