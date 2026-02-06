@@ -170,10 +170,11 @@ func VerifyClusterDefaults() {
 			By("checking if the version value is added to the ETOS TestRunner")
 			verifySecretValue := func(g Gomega) {
 				cmd := exec.Command("kubectl", "get", fmt.Sprintf("secret/%s-cfg", clusterName), "-n",
-					clusterNamespace, "-o", fmt.Sprintf("jsonpath={.data.ETR_VERSION}"))
+					clusterNamespace, "-o", "jsonpath={.data.ETR_VERSION}")
 				secretOutput, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(secretOutput).To(Equal(base64.StdEncoding.EncodeToString([]byte("1.2.3"))), "Incorrect secret value in the deployment")
+				g.Expect(secretOutput).To(Equal(base64.StdEncoding.EncodeToString([]byte("1.2.3"))),
+					"Incorrect secret value in the deployment")
 			}
 			Eventually(verifySecretValue).Should(Succeed())
 		})
@@ -209,10 +210,13 @@ func VerifyClusterDefaults() {
 			By("checking if the default version value is added to the ETOS TestRunner")
 			verifySecretValue := func(g Gomega) {
 				cmd := exec.Command("kubectl", "get", fmt.Sprintf("secret/%s-cfg", clusterName), "-n",
-					clusterNamespace, "-o", fmt.Sprintf("jsonpath={.data.ETR_VERSION}"))
+					clusterNamespace, "-o", "jsonpath={.data.ETR_VERSION}")
 				secretOutput, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(secretOutput).To(Equal(base64.StdEncoding.EncodeToString([]byte(defaults.TestRunner.Version))), "Incorrect secret value in the deployment")
+				g.Expect(secretOutput).To(Equal(
+					base64.StdEncoding.EncodeToString([]byte(defaults.TestRunner.Version))),
+					"Incorrect secret value in the deployment",
+				)
 			}
 			Eventually(verifySecretValue).Should(Succeed())
 		})
@@ -315,12 +319,14 @@ func waitVerifySecretValue(secretKey, imageName, pullPolicy string) {
 			clusterNamespace, "-o", fmt.Sprintf("jsonpath={.data.%s}", secretKey))
 		secretOutput, err := utils.Run(cmd)
 		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(secretOutput).To(Equal(base64.StdEncoding.EncodeToString([]byte(imageName))), "Incorrect secret value in the deployment")
+		g.Expect(secretOutput).To(Equal(base64.StdEncoding.EncodeToString([]byte(imageName))),
+			"Incorrect secret value in the deployment")
 		cmd = exec.Command("kubectl", "get", fmt.Sprintf("secret/%s-cfg", clusterName), "-n",
 			clusterNamespace, "-o", fmt.Sprintf("jsonpath={.data.%s_PULL_POLICY}", secretKey))
 		secretOutput, err = utils.Run(cmd)
 		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(secretOutput).To(Equal(base64.StdEncoding.EncodeToString([]byte(pullPolicy))), "Incorrect secret value in the deployment")
+		g.Expect(secretOutput).To(Equal(base64.StdEncoding.EncodeToString([]byte(pullPolicy))),
+			"Incorrect secret value in the deployment")
 	}
 	Eventually(verifySecretValue).Should(Succeed())
 }

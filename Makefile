@@ -75,7 +75,7 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 		echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
 		exit 1; \
 	}
-	go test ./test/e2e/ -v -ginkgo.v
+	go test ./test/e2e/ -timeout 0 -v -ginkgo.v -ginkgo.timeout=20m
 
 .PHONY: deploy-local
 deploy-local: manifests generate

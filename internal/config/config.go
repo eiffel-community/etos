@@ -89,6 +89,9 @@ func PullPolicyOrDefault(service Service, image etosv1alpha1.Image) corev1.PullP
 // Panics if the file cannot be read or unmarshalled.
 func loadDefaults(file string) Service {
 	data, err := Defaults.ReadFile(file)
+	if err != nil {
+		panic(err)
+	}
 	var service Service
 	if err = yaml.Unmarshal(data, &service); err != nil {
 		panic(err)
