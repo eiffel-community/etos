@@ -22,6 +22,7 @@ import (
 	"maps"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	etosapi "github.com/eiffel-community/etos/internal/etos/api"
 	etossuitestarter "github.com/eiffel-community/etos/internal/etos/suitestarter"
 	"github.com/go-logr/logr"
@@ -45,11 +46,12 @@ type ETOSDeployment struct {
 	Scheme           *runtime.Scheme
 	rabbitmqSecret   string
 	messagebusSecret string
+	cfg              config.Config
 }
 
 // NewETOSDeployment will create a new ETOSDeployment reconciler.
-func NewETOSDeployment(spec etosv1alpha1.ETOS, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string) *ETOSDeployment {
-	return &ETOSDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret}
+func NewETOSDeployment(spec etosv1alpha1.ETOS, scheme *runtime.Scheme, client client.Client, rabbitmqSecret string, messagebusSecret string, cfg config.Config) *ETOSDeployment {
+	return &ETOSDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, cfg}
 }
 
 // Reconcile will reconcile ETOS to its expected state.
@@ -98,25 +100,25 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		return err
 	}
 
-	api := etosapi.NewETOSApiDeployment(r.API, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config.ObjectMeta.Name)
+	api := etosapi.NewETOSApiDeployment(r.API, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config.ObjectMeta.Name, r.cfg)
 	if err := api.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS API reconciliation failed")
 		return err
 	}
 
-	sse := etosapi.NewETOSSSEDeployment(r.SSE, r.Scheme, r.Client)
+	sse := etosapi.NewETOSSSEDeployment(r.SSE, r.Scheme, r.Client, r.cfg)
 	if err := sse.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS SSE reconciliation failed")
 		return err
 	}
 
-	logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client)
+	logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client, r.cfg)
 	if err := logarea.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS LogArea reconciliation failed")
 		return err
 	}
 
-	suitestarter := etossuitestarter.NewETOSSuiteStarterDeployment(r.SuiteStarter, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config, encryption)
+	suitestarter := etossuitestarter.NewETOSSuiteStarterDeployment(r.SuiteStarter, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, config, encryption, r.cfg)
 	if err := suitestarter.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS SuiteStarter reconciliation failed")
 		return err
@@ -380,13 +382,13 @@ func (r *ETOSDeployment) config(name types.NamespacedName, cluster *etosv1alpha1
 		"ENVIRONMENT_PROVIDER_SERVICE_ACCOUNT":   []byte(fmt.Sprintf("%s-provider", cluster.Name)),
 		"SOURCE_HOST":                            []byte(r.Config.Source),
 		"ETOS_API":                               []byte(etosApi),
-		"SUITE_RUNNER_IMAGE":                     []byte(cluster.Spec.ETOS.SuiteRunner.Image.Image),
-		"SUITE_RUNNER_IMAGE_PULL_POLICY":         []byte(cluster.Spec.ETOS.SuiteRunner.ImagePullPolicy),
-		"LOG_LISTENER_IMAGE":                     []byte(cluster.Spec.ETOS.SuiteRunner.LogListener.Image.Image),
-		"LOG_LISTENER_IMAGE_PULL_POLICY":         []byte(cluster.Spec.ETOS.SuiteRunner.LogListener.ImagePullPolicy),
-		"ENVIRONMENT_PROVIDER_IMAGE":             []byte(cluster.Spec.ETOS.EnvironmentProvider.Image.Image),
-		"ENVIRONMENT_PROVIDER_IMAGE_PULL_POLICY": []byte(cluster.Spec.ETOS.EnvironmentProvider.ImagePullPolicy),
-		"ETR_VERSION":                            []byte(cluster.Spec.ETOS.TestRunner.Version),
+		"SUITE_RUNNER_IMAGE":                     []byte(config.ImageOrDefault(r.cfg.SuiteRunner, cluster.Spec.ETOS.SuiteRunner.Image)),
+		"SUITE_RUNNER_IMAGE_PULL_POLICY":         []byte(config.PullPolicyOrDefault(r.cfg.SuiteRunner, cluster.Spec.ETOS.SuiteRunner.Image)),
+		"LOG_LISTENER_IMAGE":                     []byte(config.ImageOrDefault(r.cfg.LogListener, cluster.Spec.ETOS.SuiteRunner.LogListener.Image)),
+		"LOG_LISTENER_IMAGE_PULL_POLICY":         []byte(config.PullPolicyOrDefault(r.cfg.LogListener, cluster.Spec.ETOS.SuiteRunner.LogListener.Image)),
+		"ENVIRONMENT_PROVIDER_IMAGE":             []byte(config.ImageOrDefault(r.cfg.EnvironmentProvider, cluster.Spec.ETOS.EnvironmentProvider.Image)),
+		"ENVIRONMENT_PROVIDER_IMAGE_PULL_POLICY": []byte(config.PullPolicyOrDefault(r.cfg.EnvironmentProvider, cluster.Spec.ETOS.EnvironmentProvider.Image)),
+		"ETR_VERSION":                            []byte(config.VersionOrDefault(r.cfg.TestRunner, cluster.Spec.ETOS.TestRunner.Version)),
 		"ETOS_ROUTING_KEY_TAG":                   []byte(cluster.Spec.ETOS.Config.RoutingKeyTag),
 
 		"ETOS_ETCD_HOST": []byte(cluster.Spec.Database.Etcd.Host),

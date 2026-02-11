@@ -584,7 +584,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 				EnvironmentProviderEventDataTimeout: cluster.Spec.ETOS.Config.EventDataTimeout,
 				EnvironmentProviderServiceAccount:   fmt.Sprintf("%s-provider", cluster.Name),
 				EnvironmentProviderTestSuiteTimeout: cluster.Spec.ETOS.Config.TestSuiteTimeout,
-				TestRunnerVersion:                   cluster.Spec.ETOS.TestRunner.Version,
+				TestRunnerVersion:                   testrun.Spec.TestRunner.Version,
 			},
 		},
 	}
