@@ -18,7 +18,7 @@ package config
 import (
 	"fmt"
 
-	. "github.com/eiffel-community/etos"
+	"github.com/eiffel-community/etos"
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
@@ -88,7 +88,7 @@ func PullPolicyOrDefault(service Service, image etosv1alpha1.Image) corev1.PullP
 // loadDefaults loads the default configuration for a service from a YAML file.
 // Panics if the file cannot be read or unmarshalled.
 func loadDefaults(file string) Service {
-	data, err := Defaults.ReadFile(file)
+	data, err := etos.Defaults.ReadFile(file)
 	if err != nil {
 		panic(err)
 	}
