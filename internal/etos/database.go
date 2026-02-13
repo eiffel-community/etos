@@ -80,7 +80,7 @@ func (r *ETCDDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 
 // reconcileStatefulset will reconcile the ETCD statefulset to its expected state.
 func (r *ETCDDeployment) reconcileStatefulset(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
-	target := r.statefulset(name)
+	target := r.statefulset(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -104,7 +104,7 @@ func (r *ETCDDeployment) reconcileStatefulset(ctx context.Context, name types.Na
 
 // reconcileService will reconcile the ETCD service to its expected state.
 func (r *ETCDDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
-	target := r.headlessService(name)
+	target := r.headlessService(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -130,7 +130,7 @@ func (r *ETCDDeployment) reconcileService(ctx context.Context, name types.Namesp
 func (r *ETCDDeployment) reconcileClientService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s-client", name.Name)
-	target := r.service(name, labelName)
+	target := r.service(name, labelName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -153,10 +153,10 @@ func (r *ETCDDeployment) reconcileClientService(ctx context.Context, name types.
 }
 
 // statefulset creates a statefulset resource definition for ETCD.
-func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.StatefulSet {
+func (r *ETCDDeployment) statefulset(name types.NamespacedName, clusterName string) *appsv1.StatefulSet {
 
 	return &appsv1.StatefulSet{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -175,7 +175,7 @@ func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.Stateful
 			},
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{r.volumeClaim(name)},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name),
+				ObjectMeta: r.meta(name, clusterName),
 				Spec: corev1.PodSpec{
 					Volumes:    []corev1.Volume{r.volume(name)},
 					Containers: []corev1.Container{r.container(name)},
@@ -186,9 +186,9 @@ func (r *ETCDDeployment) statefulset(name types.NamespacedName) *appsv1.Stateful
 }
 
 // headlessService creates a headless service resource definition for ETCD.
-func (r *ETCDDeployment) headlessService(name types.NamespacedName) *corev1.Service {
+func (r *ETCDDeployment) headlessService(name types.NamespacedName, clusterName string) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: corev1.ServiceSpec{
 			Ports:                    r.ports(),
 			ClusterIP:                "None",
@@ -202,9 +202,9 @@ func (r *ETCDDeployment) headlessService(name types.NamespacedName) *corev1.Serv
 }
 
 // service creates a service resource definition for ETCD.
-func (r *ETCDDeployment) service(name types.NamespacedName, labelName string) *corev1.Service {
+func (r *ETCDDeployment) service(name types.NamespacedName, labelName, clusterName string) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: corev1.ServiceSpec{
 			Ports: r.clientPorts(),
 			Selector: map[string]string{
@@ -216,11 +216,12 @@ func (r *ETCDDeployment) service(name types.NamespacedName, labelName string) *c
 }
 
 // meta creates a common meta resource definition for ETCD.
-func (r *ETCDDeployment) meta(name types.NamespacedName) metav1.ObjectMeta {
+func (r *ETCDDeployment) meta(name types.NamespacedName, clusterName string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Labels: map[string]string{
-			"app.kubernetes.io/name":    name.Name,
-			"app.kubernetes.io/part-of": "etos",
+			"app.kubernetes.io/name":                  name.Name,
+			"app.kubernetes.io/part-of":               "etos",
+			"etos.eiffel-community.github.io/cluster": clusterName,
 		},
 		Annotations: make(map[string]string),
 		Name:        name.Name,

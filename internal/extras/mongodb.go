@@ -101,7 +101,7 @@ func (r *MongoDBDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 
 // reconcileSecret will reconcile the MongoDB secret to its expected state.
 func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	target := r.secret(name)
+	target := r.secret(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -134,7 +134,7 @@ func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, logger logr.Log
 
 // reconcileStatefulset will reconcile the MongoDB statefulset to its expected state.
 func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
-	target := r.statefulset(name)
+	target := r.statefulset(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -166,7 +166,7 @@ func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, logger log
 
 // reconcileService will reconcile the MongoDB service to its expected state.
 func (r *MongoDBDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
-	target := r.service(name)
+	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -191,24 +191,24 @@ func (r *MongoDBDeployment) reconcileService(ctx context.Context, logger logr.Lo
 }
 
 // secret will create a secret resource definition for MongoDB.
-func (r *MongoDBDeployment) secret(name types.NamespacedName) *corev1.Secret {
+func (r *MongoDBDeployment) secret(name types.NamespacedName, clusterName string) *corev1.Secret {
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Data:       r.secretData(),
 	}
 }
 
 // statefulset will create a statefulset resource definition for MongoDB.
-func (r *MongoDBDeployment) statefulset(name types.NamespacedName) *appsv1.StatefulSet {
+func (r *MongoDBDeployment) statefulset(name types.NamespacedName, clusterName string) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": name.Name},
 			},
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{r.volumeClaim(name)},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name),
+				ObjectMeta: r.meta(name, clusterName),
 				Spec: corev1.PodSpec{
 					Volumes:    []corev1.Volume{r.volume(name)},
 					Containers: []corev1.Container{r.container(name)},
@@ -219,9 +219,9 @@ func (r *MongoDBDeployment) statefulset(name types.NamespacedName) *appsv1.State
 }
 
 // service will create a service resource definition for MongoDB.
-func (r *MongoDBDeployment) service(name types.NamespacedName) *corev1.Service {
+func (r *MongoDBDeployment) service(name types.NamespacedName, clusterName string) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: corev1.ServiceSpec{
 			Ports:    r.ports(),
 			Selector: map[string]string{"app.kubernetes.io/name": name.Name},
@@ -238,10 +238,11 @@ func (r *MongoDBDeployment) secretData() map[string][]byte {
 }
 
 // meta will create a common meta object for MongoDB.
-func (r *MongoDBDeployment) meta(name types.NamespacedName) metav1.ObjectMeta {
+func (r *MongoDBDeployment) meta(name types.NamespacedName, clusterName string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Labels: map[string]string{
-			"app.kubernetes.io/name": name.Name,
+			"app.kubernetes.io/name":                  name.Name,
+			"etos.eiffel-community.github.io/cluster": clusterName,
 		},
 		Annotations: make(map[string]string),
 		Name:        name.Name,
