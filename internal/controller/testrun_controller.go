@@ -610,9 +610,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"etos.eiffel-community.github.io/id": testrun.Spec.ID,
-				"app.kubernetes.io/name":             "suite-runner",
-				"app.kubernetes.io/part-of":          "etos",
+				"etos.eiffel-community.github.io/id":      testrun.Spec.ID,
+				"etos.eiffel-community.github.io/cluster": testrun.Spec.Cluster,
+				"app.kubernetes.io/name":                  "suite-runner",
+				"app.kubernetes.io/part-of":               "etos",
 			},
 			Annotations: make(map[string]string),
 			Name:        testrun.Name,
@@ -624,9 +625,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 				ObjectMeta: metav1.ObjectMeta{
 					Name: testrun.Name,
 					Labels: map[string]string{
-						"etos.eiffel-community.github.io/id": testrun.Spec.ID,
-						"app.kubernetes.io/name":             "suite-runner",
-						"app.kubernetes.io/part-of":          "etos",
+						"etos.eiffel-community.github.io/id":      testrun.Spec.ID,
+						"etos.eiffel-community.github.io/cluster": testrun.Spec.Cluster,
+						"app.kubernetes.io/name":                  "suite-runner",
+						"app.kubernetes.io/part-of":               "etos",
 					},
 				},
 				Spec: corev1.PodSpec{
