@@ -92,7 +92,7 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 
 // reconcileDeployment will reconcile the ETOS SSE deployment to its expected state.
 func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
-	target := r.deployment(name)
+	target := r.deployment(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -120,7 +120,7 @@ func (r *ETOSSSEDeployment) reconcileRole(ctx context.Context, logger logr.Logge
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s:sa:esr-reader", name.Name)
 
-	target := r.role(name, labelName)
+	target := r.role(name, labelName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -141,7 +141,7 @@ func (r *ETOSSSEDeployment) reconcileRole(ctx context.Context, logger logr.Logge
 
 // reconcileServiceAccount will reconcile the ETOS SSE service account to its expected state.
 func (r *ETOSSSEDeployment) reconcileServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
-	target := r.serviceaccount(name)
+	target := r.serviceaccount(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -162,7 +162,7 @@ func (r *ETOSSSEDeployment) reconcileServiceAccount(ctx context.Context, logger 
 
 // reconcileRolebinding will reconcile the ETOS SSE service account rolebinding to its expected state.
 func (r *ETOSSSEDeployment) reconcileRolebinding(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
-	target := r.rolebinding(name)
+	target := r.rolebinding(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -183,7 +183,7 @@ func (r *ETOSSSEDeployment) reconcileRolebinding(ctx context.Context, logger log
 
 // reconcileService will reconcile the ETOS SSE service to its expected state.
 func (r *ETOSSSEDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
-	target := r.service(name)
+	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -202,8 +202,8 @@ func (r *ETOSSSEDeployment) reconcileService(ctx context.Context, logger logr.Lo
 }
 
 // role creates a role resource definition for the ETOS SSE service.
-func (r *ETOSSSEDeployment) role(name types.NamespacedName, labelName string) *rbacv1.Role {
-	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace})
+func (r *ETOSSSEDeployment) role(name types.NamespacedName, labelName, clusterName string) *rbacv1.Role {
+	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace}, clusterName)
 	meta.Name = name.Name
 	meta.Annotations["rbac.authorization.kubernetes.io/autoupdate"] = "true"
 	return &rbacv1.Role{
@@ -234,16 +234,16 @@ func (r *ETOSSSEDeployment) role(name types.NamespacedName, labelName string) *r
 }
 
 // serviceaccount creates a serviceaccount resource definition for the ETOS SSE service.
-func (r *ETOSSSEDeployment) serviceaccount(name types.NamespacedName) *corev1.ServiceAccount {
+func (r *ETOSSSEDeployment) serviceaccount(name types.NamespacedName, clusterName string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 	}
 }
 
 // rolebinding creates a rolebinding resource definition for the ETOS SSE service.
-func (r *ETOSSSEDeployment) rolebinding(name types.NamespacedName) *rbacv1.RoleBinding {
+func (r *ETOSSSEDeployment) rolebinding(name types.NamespacedName, clusterName string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.SchemeGroupVersion.Group,
 			Kind:     "Role",
@@ -259,9 +259,9 @@ func (r *ETOSSSEDeployment) rolebinding(name types.NamespacedName) *rbacv1.RoleB
 }
 
 // deployment creates a deployment resource definition for the ETOS SSE service.
-func (r *ETOSSSEDeployment) deployment(name types.NamespacedName) *appsv1.Deployment {
+func (r *ETOSSSEDeployment) deployment(name types.NamespacedName, clusterName string) *appsv1.Deployment {
 	return &appsv1.Deployment{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -271,7 +271,7 @@ func (r *ETOSSSEDeployment) deployment(name types.NamespacedName) *appsv1.Deploy
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name),
+				ObjectMeta: r.meta(name, clusterName),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
 					Containers:         []corev1.Container{r.container(name)},
@@ -282,9 +282,9 @@ func (r *ETOSSSEDeployment) deployment(name types.NamespacedName) *appsv1.Deploy
 }
 
 // service creates a service resource definition for the ETOS SSE service.
-func (r *ETOSSSEDeployment) service(name types.NamespacedName) *corev1.Service {
+func (r *ETOSSSEDeployment) service(name types.NamespacedName, clusterName string) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: corev1.ServiceSpec{
 			Ports: r.ports(),
 			Selector: map[string]string{
@@ -349,12 +349,13 @@ func (r *ETOSSSEDeployment) environment() []corev1.EnvVar {
 }
 
 // meta creates a common meta resource definition for the ETOS SSE service.
-func (r *ETOSSSEDeployment) meta(name types.NamespacedName) metav1.ObjectMeta {
+func (r *ETOSSSEDeployment) meta(name types.NamespacedName, clusterName string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Labels: map[string]string{
-			"app.kubernetes.io/name":      name.Name,
-			"app.kubernetes.io/part-of":   "etos",
-			"app.kubernetes.io/component": "sse",
+			"app.kubernetes.io/name":                  name.Name,
+			"app.kubernetes.io/part-of":               "etos",
+			"app.kubernetes.io/component":             "sse",
+			"etos.eiffel-community.github.io/cluster": clusterName,
 		},
 		Annotations: make(map[string]string),
 		Name:        name.Name,

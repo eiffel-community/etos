@@ -108,7 +108,7 @@ func (r *ETOSApiDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 // reconcileConfig will reconcile the secret to use as configuration for the ETOS API.
 func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
-	target, err := r.config(ctx, name)
+	target, err := r.config(ctx, name, owner.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, logger logr.Log
 
 // reconcileDeployment will reconcile the ETOS API deployment to its expected state.
 func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
-	target := r.deployment(name, secretName)
+	target := r.deployment(name, secretName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -169,7 +169,7 @@ func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, logger logr
 // reconcileSecret will reconcile the ETOS API service account secret to its expected state.
 func (r *ETOSApiDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
 	tokenName := types.NamespacedName{Name: fmt.Sprintf("%s-token", name.Name), Namespace: name.Namespace}
-	target := r.secret(tokenName, name)
+	target := r.secret(tokenName, name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -197,7 +197,7 @@ func (r *ETOSApiDeployment) reconcileRole(ctx context.Context, logger logr.Logge
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s:sa:esr-handler", name.Name)
 
-	target := r.role(name, labelName)
+	target := r.role(name, labelName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -218,7 +218,7 @@ func (r *ETOSApiDeployment) reconcileRole(ctx context.Context, logger logr.Logge
 
 // reconcileServiceAccount will reconcile the ETOS API service account to its expected state.
 func (r *ETOSApiDeployment) reconcileServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
-	target := r.serviceaccount(name)
+	target := r.serviceaccount(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -239,7 +239,7 @@ func (r *ETOSApiDeployment) reconcileServiceAccount(ctx context.Context, logger 
 
 // reconcileRolebinding will reconcile the ETOS API service account role binding to its expected state.
 func (r *ETOSApiDeployment) reconcileRolebinding(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
-	target := r.rolebinding(name)
+	target := r.rolebinding(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -260,7 +260,7 @@ func (r *ETOSApiDeployment) reconcileRolebinding(ctx context.Context, logger log
 
 // reconcileService will reconcile the ETOS API service to its expected state.
 func (r *ETOSApiDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
-	target := r.service(name)
+	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -280,7 +280,7 @@ func (r *ETOSApiDeployment) reconcileService(ctx context.Context, logger logr.Lo
 }
 
 // config creates a new Secret to be used as configuration for the ETOS API.
-func (r *ETOSApiDeployment) config(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+func (r *ETOSApiDeployment) config(ctx context.Context, name types.NamespacedName, clusterName string) (*corev1.Secret, error) {
 	eiffel := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
 		return nil, err
@@ -298,14 +298,14 @@ func (r *ETOSApiDeployment) config(ctx context.Context, name types.NamespacedNam
 	maps.Copy(data, etos.Data)
 	maps.Copy(data, config.Data)
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Data:       data,
 	}, nil
 }
 
 // secret creates a secret resource definition for the ETOS API.
-func (r *ETOSApiDeployment) secret(name, serviceAccountName types.NamespacedName) *corev1.Secret {
-	meta := r.meta(name)
+func (r *ETOSApiDeployment) secret(name, serviceAccountName types.NamespacedName, clusterName string) *corev1.Secret {
+	meta := r.meta(name, clusterName)
 	meta.Annotations["kubernetes.io/service-account.name"] = serviceAccountName.Name
 	return &corev1.Secret{
 		ObjectMeta: meta,
@@ -314,8 +314,8 @@ func (r *ETOSApiDeployment) secret(name, serviceAccountName types.NamespacedName
 }
 
 // role creates a role resource definition for the ETOS API.
-func (r *ETOSApiDeployment) role(name types.NamespacedName, labelName string) *rbacv1.Role {
-	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace})
+func (r *ETOSApiDeployment) role(name types.NamespacedName, labelName, clusterName string) *rbacv1.Role {
+	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace}, clusterName)
 	meta.Name = name.Name
 	meta.Annotations["rbac.authorization.kubernetes.io/autoupdate"] = "true"
 	return &rbacv1.Role{
@@ -364,16 +364,16 @@ func (r *ETOSApiDeployment) role(name types.NamespacedName, labelName string) *r
 }
 
 // serviceaccount creates a service account resource definition for the ETOS API.
-func (r *ETOSApiDeployment) serviceaccount(name types.NamespacedName) *corev1.ServiceAccount {
+func (r *ETOSApiDeployment) serviceaccount(name types.NamespacedName, clusterName string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 	}
 }
 
 // rolebinding creates a rolebinding resource definition for the ETOS API.
-func (r *ETOSApiDeployment) rolebinding(name types.NamespacedName) *rbacv1.RoleBinding {
+func (r *ETOSApiDeployment) rolebinding(name types.NamespacedName, clusterName string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.SchemeGroupVersion.Group,
 			Kind:     "Role",
@@ -389,9 +389,9 @@ func (r *ETOSApiDeployment) rolebinding(name types.NamespacedName) *rbacv1.RoleB
 }
 
 // deployment creates a deployment resource definition for the ETOS API.
-func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName string) *appsv1.Deployment {
+func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName, clusterName string) *appsv1.Deployment {
 	return &appsv1.Deployment{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: appsv1.DeploymentSpec{
 			Replicas: r.Replicas,
 			Selector: &metav1.LabelSelector{
@@ -402,7 +402,7 @@ func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName str
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name),
+				ObjectMeta: r.meta(name, clusterName),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
 					Containers:         []corev1.Container{r.container(name, secretName)},
@@ -414,9 +414,9 @@ func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName str
 }
 
 // service creates a service resource definition for the ETOS API.
-func (r *ETOSApiDeployment) service(name types.NamespacedName) *corev1.Service {
+func (r *ETOSApiDeployment) service(name types.NamespacedName, clusterName string) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: corev1.ServiceSpec{
 			Ports: r.ports(),
 			Selector: map[string]string{
@@ -547,12 +547,13 @@ func (r *ETOSApiDeployment) environment() []corev1.EnvVar {
 }
 
 // meta creates the common meta resource for the ETOS API deployment.
-func (r *ETOSApiDeployment) meta(name types.NamespacedName) metav1.ObjectMeta {
+func (r *ETOSApiDeployment) meta(name types.NamespacedName, clusterName string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Labels: map[string]string{
-			"app.kubernetes.io/name":      name.Name,
-			"app.kubernetes.io/part-of":   "etos",
-			"app.kubernetes.io/component": "api",
+			"app.kubernetes.io/name":                  name.Name,
+			"app.kubernetes.io/part-of":               "etos",
+			"app.kubernetes.io/component":             "api",
+			"etos.eiffel-community.github.io/cluster": clusterName,
 		},
 		Annotations: make(map[string]string),
 		Name:        name.Name,

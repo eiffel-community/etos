@@ -127,7 +127,7 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 
 // reconcileIngress will reconcile the ETOS ingress to its expected state.
 func (r *ETOSDeployment) reconcileIngress(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*networkingv1.Ingress, error) {
-	target := r.ingress(name)
+	target := r.ingress(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -162,7 +162,7 @@ func (r *ETOSDeployment) reconcileRole(ctx context.Context, logger logr.Logger, 
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s:sa:environment-provider", name.Name)
 
-	target := r.role(name, labelName)
+	target := r.role(name, labelName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -185,7 +185,7 @@ func (r *ETOSDeployment) reconcileRole(ctx context.Context, logger logr.Logger, 
 func (r *ETOSDeployment) reconcileServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
 	name.Name = fmt.Sprintf("%s-provider", name.Name)
 
-	target := r.serviceaccount(name)
+	target := r.serviceaccount(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -208,7 +208,7 @@ func (r *ETOSDeployment) reconcileServiceAccount(ctx context.Context, logger log
 func (r *ETOSDeployment) reconcileRolebinding(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
 	name.Name = fmt.Sprintf("%s-provider", name.Name)
 
-	target := r.rolebinding(name)
+	target := r.rolebinding(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -253,7 +253,7 @@ func (r *ETOSDeployment) reconcileConfig(ctx context.Context, logger logr.Logger
 // reconcileSecret will reconcile the secret to its expected state.
 func (r *ETOSDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-encryption-key", name.Name), Namespace: name.Namespace}
-	target, err := r.secret(ctx, name)
+	target, err := r.secret(ctx, name, owner.GetName())
 	if err != nil {
 		return target, err
 	}
@@ -282,7 +282,7 @@ func (r *ETOSDeployment) reconcileSecret(ctx context.Context, logger logr.Logger
 // reconcileEnvironmentProviderConfig will reconcile the secret to use as configuration for the ETOS environment provider.
 func (r *ETOSDeployment) reconcileEnvironmentProviderConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, encryptionKeyName, configmapName string, owner metav1.Object) (*corev1.Secret, error) {
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-environment-provider-cfg", name.Name), Namespace: name.Namespace}
-	target, err := r.environmentProviderConfig(ctx, name, encryptionKeyName, configmapName)
+	target, err := r.environmentProviderConfig(ctx, name, encryptionKeyName, configmapName, owner.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +305,7 @@ func (r *ETOSDeployment) reconcileEnvironmentProviderConfig(ctx context.Context,
 }
 
 // config creates a new Secret to be used as configuration for the ETOS API.
-func (r *ETOSDeployment) environmentProviderConfig(ctx context.Context, name types.NamespacedName, encryptionKeyName, configmapName string) (*corev1.Secret, error) {
+func (r *ETOSDeployment) environmentProviderConfig(ctx context.Context, name types.NamespacedName, encryptionKeyName, configmapName, clusterName string) (*corev1.Secret, error) {
 	eiffel := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
 		return nil, err
@@ -328,14 +328,14 @@ func (r *ETOSDeployment) environmentProviderConfig(ctx context.Context, name typ
 	maps.Copy(data, encryption.Data)
 	maps.Copy(data, config.Data)
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Data:       data,
 	}, nil
 }
 
 // ingress creates an ingress resource definition for ETOS.
-func (r *ETOSDeployment) ingress(name types.NamespacedName) *networkingv1.Ingress {
-	meta := r.meta(name)
+func (r *ETOSDeployment) ingress(name types.NamespacedName, clusterName string) *networkingv1.Ingress {
+	meta := r.meta(name, clusterName)
 
 	if meta.Annotations == nil {
 		meta.Annotations = make(map[string]string)
@@ -416,19 +416,19 @@ func (r *ETOSDeployment) config(name types.NamespacedName, cluster *etosv1alpha1
 		data["TZ"] = []byte(r.Config.Timezone)
 	}
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, cluster.GetName()),
 		Data:       data,
 	}
 }
 
 // secret creates a secret definition for ETOS.
-func (r *ETOSDeployment) secret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+func (r *ETOSDeployment) secret(ctx context.Context, name types.NamespacedName, clusterName string) (*corev1.Secret, error) {
 	value, err := r.Config.EncryptionKey.Get(ctx, r.Client, name.Namespace)
 	if err != nil {
 		return nil, err
 	}
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Data: map[string][]byte{
 			"ETOS_ENCRYPTION_KEY": value,
 		},
@@ -436,10 +436,11 @@ func (r *ETOSDeployment) secret(ctx context.Context, name types.NamespacedName) 
 }
 
 // meta creates a common meta object for kubernetes resources.
-func (r *ETOSDeployment) meta(name types.NamespacedName) metav1.ObjectMeta {
+func (r *ETOSDeployment) meta(name types.NamespacedName, clusterName string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Labels: map[string]string{
-			"app.kubernetes.io/name": name.Name,
+			"app.kubernetes.io/name":                  name.Name,
+			"etos.eiffel-community.github.io/cluster": clusterName,
 		},
 		Annotations: make(map[string]string),
 		Name:        name.Name,
@@ -502,8 +503,8 @@ func (r *ETOSDeployment) ingressRule(name types.NamespacedName) networkingv1.Ing
 }
 
 // role creates a role resource definition for the ETOS API.
-func (r *ETOSDeployment) role(name types.NamespacedName, labelName string) *rbacv1.Role {
-	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace})
+func (r *ETOSDeployment) role(name types.NamespacedName, labelName, clusterName string) *rbacv1.Role {
+	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace}, clusterName)
 	meta.Name = name.Name
 	meta.Annotations["rbac.authorization.kubernetes.io/autoupdate"] = "true"
 	return &rbacv1.Role{
@@ -554,16 +555,16 @@ func (r *ETOSDeployment) role(name types.NamespacedName, labelName string) *rbac
 }
 
 // serviceaccount creates a service account resource definition for the ETOS API.
-func (r *ETOSDeployment) serviceaccount(name types.NamespacedName) *corev1.ServiceAccount {
+func (r *ETOSDeployment) serviceaccount(name types.NamespacedName, clusterName string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 	}
 }
 
 // rolebinding creates a rolebinding resource definition for the ETOS API.
-func (r *ETOSDeployment) rolebinding(name types.NamespacedName) *rbacv1.RoleBinding {
+func (r *ETOSDeployment) rolebinding(name types.NamespacedName, clusterName string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.SchemeGroupVersion.Group,
 			Kind:     "Role",
