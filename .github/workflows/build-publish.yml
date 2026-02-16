@@ -54,9 +54,7 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
-    name: >-
-      Sign the Python distribution with Sigstore
-name: Sign the Python distribution with Sigstore
+    name: Sign the Python distribution with Sigstore
     needs:
     - publish-to-pypi
     runs-on: ubuntu-latest
