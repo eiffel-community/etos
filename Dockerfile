@@ -2,6 +2,7 @@
 FROM docker.io/golang:1.23 AS builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG DEFAULTS_PATH="defaults"
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -15,6 +16,8 @@ RUN go mod download
 COPY cmd/main.go cmd/main.go
 COPY api/ api/
 COPY internal/ internal/
+COPY defaults.go defaults.go
+COPY ${DEFAULTS_PATH} defaults
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command

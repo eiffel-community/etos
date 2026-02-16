@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -46,11 +47,12 @@ type ETOSLogAreaDeployment struct {
 	etosv1alpha1.ETOSLogArea
 	client.Client
 	Scheme *runtime.Scheme
+	cfg    config.Config
 }
 
 // NewETOSLogAreaDeployment will create a new ETOS logarea reconciler.
-func NewETOSLogAreaDeployment(spec etosv1alpha1.ETOSLogArea, scheme *runtime.Scheme, client client.Client) *ETOSLogAreaDeployment {
-	return &ETOSLogAreaDeployment{spec, client, scheme}
+func NewETOSLogAreaDeployment(spec etosv1alpha1.ETOSLogArea, scheme *runtime.Scheme, client client.Client, cfg config.Config) *ETOSLogAreaDeployment {
+	return &ETOSLogAreaDeployment{spec, client, scheme, cfg}
 }
 
 // Reconcile will reconcile the ETOS logarea to its expected state.
@@ -205,8 +207,8 @@ func (r *ETOSLogAreaDeployment) container(name types.NamespacedName, cluster *et
 	}
 	return corev1.Container{
 		Name:            name.Name,
-		Image:           r.Image.Image,
-		ImagePullPolicy: r.ImagePullPolicy,
+		Image:           config.ImageOrDefault(r.cfg.LogArea, r.Image),
+		ImagePullPolicy: config.PullPolicyOrDefault(r.cfg.LogArea, r.Image),
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("128Mi"),

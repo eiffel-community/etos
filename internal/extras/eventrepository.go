@@ -23,6 +23,7 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/config"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -48,11 +49,12 @@ type EventRepositoryDeployment struct {
 	rabbitmqSecret  string
 	mongodbSecret   string
 	restartRequired bool
+	cfg             config.Config
 }
 
 // NewEventRepositoryDeployment will create a new event repository reconciler.
-func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *runtime.Scheme, client client.Client, mongodb *MongoDBDeployment, rabbitmqSecret string) *EventRepositoryDeployment {
-	return &EventRepositoryDeployment{spec, client, scheme, mongodb.URL, rabbitmqSecret, mongodb.SecretName, false}
+func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *runtime.Scheme, client client.Client, mongodb *MongoDBDeployment, rabbitmqSecret string, cfg config.Config) *EventRepositoryDeployment {
+	return &EventRepositoryDeployment{spec, client, scheme, mongodb.URL, rabbitmqSecret, mongodb.SecretName, false, cfg}
 }
 
 // Reconcile will reconcile the event repository to its expected state.
@@ -314,8 +316,8 @@ func (r *EventRepositoryDeployment) containers(name types.NamespacedName, secret
 	return []corev1.Container{
 		{
 			Name:            fmt.Sprintf("%s-api", name.Name),
-			Image:           r.API.Image,
-			ImagePullPolicy: r.API.ImagePullPolicy,
+			Image:           config.ImageOrDefault(r.cfg.EventRepositoryAPI, r.API),
+			ImagePullPolicy: config.PullPolicyOrDefault(r.cfg.EventRepositoryAPI, r.API),
 			Ports: []corev1.ContainerPort{
 				{
 					Name:          "amqp",
@@ -334,8 +336,8 @@ func (r *EventRepositoryDeployment) containers(name types.NamespacedName, secret
 			},
 		}, {
 			Name:            fmt.Sprintf("%s-storage", name.Name),
-			Image:           r.Storage.Image,
-			ImagePullPolicy: r.Storage.ImagePullPolicy,
+			Image:           config.ImageOrDefault(r.cfg.EventRepositoryStorage, r.Storage),
+			ImagePullPolicy: config.PullPolicyOrDefault(r.cfg.EventRepositoryStorage, r.Storage),
 			Command: []string{
 				"python3",
 				"-m",

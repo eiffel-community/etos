@@ -1,3 +1,0 @@
-- op: replace
-  path: /spec/versions/0/schema/openAPIV3Schema/properties/spec/properties/etos/properties/testRunner/default/version
-  value: "3.7.6"

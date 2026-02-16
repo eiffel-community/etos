@@ -117,7 +117,6 @@ spec:
                 description: ETOS describes the deployment of an ETOS cluster.
                 properties:
                   api:
-                    default: {}
                     description: ETOSAPI describes the deployment of the ETOS API.
                     properties:
                       executionSpaceProviderSecret:
@@ -125,7 +124,6 @@ spec:
                       image:
                         type: string
                       imagePullPolicy:
-                        default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
@@ -247,14 +245,12 @@ spec:
                     - encryptionKey
                     type: object
                   environmentProvider:
-                    default: {}
                     description: ETOSEnvironmentProvider describes the deployment
                       of an ETOS environment provider.
                     properties:
                       image:
                         type: string
                       imagePullPolicy:
-                        default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
@@ -276,40 +272,34 @@ spec:
                         type: string
                     type: object
                   logArea:
-                    default: {}
                     description: ETOSLogArea describes th deployment of an ETOS log
                       area API.
                     properties:
                       image:
                         type: string
                       imagePullPolicy:
-                        default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
                     type: object
                   sse:
-                    default: {}
                     description: ETOSSSE describes th deployment of an ETOS Server
                       Sent Events API.
                     properties:
                       image:
                         type: string
                       imagePullPolicy:
-                        default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
                     type: object
                   suiteRunner:
-                    default: {}
                     description: ETOSSuiteRunner describes the deployment of an ETOS
                       suite runner.
                     properties:
                       image:
                         type: string
                       imagePullPolicy:
-                        default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
@@ -327,14 +317,12 @@ spec:
                           image:
                             type: string
                           imagePullPolicy:
-                            default: IfNotPresent
                             description: PullPolicy describes a policy for if/when
                               to pull a container image
                             type: string
                         type: object
                     type: object
                   suiteStarter:
-                    default: {}
                     description: ETOSSuiteStarter describes the deployment of an ETOS
                       suite starter.
                     properties:
@@ -366,7 +354,6 @@ spec:
                       image:
                         type: string
                       imagePullPolicy:
-                        default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
@@ -380,7 +367,6 @@ spec:
                         type: string
                     type: object
                   testRunner:
-                    default: {}
                     description: ETOSTestRunner describes the deployment of an ETOS
                       test runner.
                     properties:
@@ -394,7 +380,6 @@ spec:
                   repository for ETOS.
                 properties:
                   api:
-                    default: {}
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
@@ -402,7 +387,6 @@ spec:
                       image:
                         type: string
                       imagePullPolicy:
-                        default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
@@ -507,7 +491,6 @@ spec:
                         type: object
                     type: object
                   storage:
-                    default: {}
                     description: |-
                       We do not build the GraphQL API automatically nor publish it remotely.
                       This will need to be provided to work.
@@ -515,7 +498,6 @@ spec:
                       image:
                         type: string
                       imagePullPolicy:
-                        default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string

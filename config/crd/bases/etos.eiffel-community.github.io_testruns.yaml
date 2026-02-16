@@ -74,7 +74,6 @@ spec:
                   image:
                     type: string
                   imagePullPolicy:
-                    default: IfNotPresent
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
@@ -91,7 +90,6 @@ spec:
                   image:
                     type: string
                   imagePullPolicy:
-                    default: IfNotPresent
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
@@ -126,7 +124,6 @@ spec:
                   image:
                     type: string
                   imagePullPolicy:
-                    default: IfNotPresent
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
