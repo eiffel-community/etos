@@ -17,7 +17,7 @@
 # Installation Guide
 
 For a production-like environment, you can install ETOS on a Kubernetes cluster.
-While these instructions will give you a servicable ETOS instance, it is recommended to use a more robust installation method for production environments.
+While these instructions will give you a serviceable ETOS instance, it is recommended to use a more robust installation method for production environments.
 Please read the [production considerations](production.md) for more information on how to install ETOS in a production environment.
 
 ### Prerequisites

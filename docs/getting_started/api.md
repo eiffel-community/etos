@@ -70,11 +70,11 @@ The response will contain the ID of the created testrun, which event repository 
   "tercc": "12345678-1234-1234-1234-123456789012",
   "event_repository": "https://my-event-repository.com",
   "artifact_id": "12345678-1234-1234-1234-123456789012",
-  "artifact_identity": "pkg:docker/my-image@sha256:1234567890abcdef",
+  "artifact_identity": "pkg:docker/my-image@sha256:1234567890abcdef"
 }
 ```
 
-Now that the testrun has been started, you have to follow the testrun by quering the event repository for Eiffel events that denote if the testrun is finished.
+Now that the testrun has been started, you have to follow the testrun by querying the event repository for Eiffel events that denote if the testrun is finished.
 
 Here's a query that you can use to check if the testrun is finished:
 

@@ -38,7 +38,7 @@ We should also take care to follow the [production guide](../installation/produc
 
 In addition to the production considerations, there may be other things that are required for ETOS to run as expected.
 
-ETOS will deploy a servicable version with the Cluster specification that also adds `Providers` to the cluster. These `providers` make sure that we can configure IUTs, execution spaces and log areas to our preferences.  
+ETOS will deploy a serviceable version with the Cluster specification that also adds `Providers` to the cluster. These `providers` make sure that we can configure IUTs, execution spaces and log areas to our preferences.  
 The default providers that ETOS will deploy are a generic IUT provider which does nothing of note, an execution space provider that tells ETOS to start tests in Kubernetes and a log area deployed by the ETOS API.
 
 ### Custom providers
@@ -69,7 +69,7 @@ For a guide on how to create a custom provider please look [here](../getting_sta
 
 ## GraphQL queries and artifacts
 
-It is the reponsibility of the system engineer to make sure that there is an event repository available to ETOS. ETOS only supports the [Eiffel GraphQL API](https://github.com/eiffel-community/eiffel-graphql-api) at the moment so that is what is necessary.
+It is the responsibility of the system engineer to make sure that there is an event repository available to ETOS. ETOS only supports the [Eiffel GraphQL API](https://github.com/eiffel-community/eiffel-graphql-api) at the moment so that is what is necessary.
 
 In order for the test engineers to properly execute tests using ETOS, there needs to be [EiffelArtifactCreatedEvents](https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelArtifactCreatedEvent.md) available in the event repository.
 The identity of the IUT is the `meta.id` of the event and is a required input when running tests.
