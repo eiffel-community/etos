@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/uuid"
 
@@ -62,6 +63,9 @@ func (d *EnvironmentRequestCustomDefaulter) Default(ctx context.Context, obj run
 
 	if environmentrequest.Spec.ID == "" {
 		environmentrequest.Spec.ID = string(uuid.NewUUID())
+	}
+	if environmentrequest.Spec.Deadline == 0 {
+		environmentrequest.Spec.Deadline = time.Now().Unix() + environmentrequest.Spec.Timeout
 	}
 
 	return nil
