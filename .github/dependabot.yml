@@ -4,6 +4,8 @@ updates:
     directory: "/cli"
     schedule:
       interval: "weekly"
+    allow:
+      - dependency-name: "etos_lib"
     groups:
       etos-lib:
         patterns:
