@@ -3,7 +3,8 @@ name: Build and publish
 on:
   push:
     branches: [ "main" ]
-    tags: ["*"]
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -53,9 +54,7 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
-    name: >-
-      Sign the Python distribution with Sigstore
-      and upload them to GitHub Release
+    name: Sign the Python distribution with Sigstore
     needs:
     - publish-to-pypi
     runs-on: ubuntu-latest
