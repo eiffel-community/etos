@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -111,6 +112,27 @@ type ProviderSpec struct {
 
 	// Image describes the docker image to run when providing a resource.
 	Image string `json:"image,omitempty"`
+
+	// LogAreaProviderConfig describe the configuration for an log area provider.
+	// +optional
+	LogAreaProviderConfig *LogAreaProviderConfig `json:"logAreaProviderConfig,omitempty"`
+}
+
+// LogAreaProviderConfig describe the configuration for an log area provider.
+type LogAreaProviderConfig struct {
+	// LiveLogs is a URI to where live logs of an execution can be found.
+	// +kubebuilder:validation:Format="uri"
+	LiveLogs string `json:"livelogs"`
+
+	// Upload defines the log upload instructions for the ETR.
+	Upload etosv1alpha2.Upload `json:"upload"`
+
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
 }
 
 // ProviderStatus defines the observed state of Provider
