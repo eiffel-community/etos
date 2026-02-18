@@ -16,7 +16,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "etos_lib",
+    "etos_lib==5.1.4",
     "docopt~=0.6",
     "pydantic~=2.6",
 ]
