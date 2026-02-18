@@ -63,7 +63,7 @@ func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Ownership handoff: If Environment owns this LogArea, we relinquish control
-	if hasOwner(logarea.OwnerReferences, "Environment") {
+	if ownedByEnvironment(logarea.OwnerReferences) {
 		if controllerutil.ContainsFinalizer(logarea, providerFinalizer) {
 			// Clean up our finalizer since the environment controller now owns the LogArea.
 			controllerutil.RemoveFinalizer(logarea, providerFinalizer)

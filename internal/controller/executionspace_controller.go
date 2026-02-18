@@ -63,7 +63,7 @@ func (r *ExecutionSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Ownership handoff: If Environment owns this ExecutionSpace, we relinquish control
-	if hasOwner(executionSpace.OwnerReferences, "Environment") {
+	if ownedByEnvironment(executionSpace.OwnerReferences) {
 		if controllerutil.ContainsFinalizer(executionSpace, providerFinalizer) {
 			// Clean up our finalizer since the environment controller now owns the ExecutionSpace
 			controllerutil.RemoveFinalizer(executionSpace, providerFinalizer)
