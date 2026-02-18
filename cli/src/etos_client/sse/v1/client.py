@@ -72,6 +72,11 @@ class Desynced(Exception):
 class ServerShutdown(Exception):
     """Server wants the client to shut down."""
 
+    def __init__(self, event=None):
+        """Initialize with optional shutdown event."""
+        super().__init__()
+        self.event = event
+
 
 class NoResponse(HTTPError):
     """No response from the SSE server."""
@@ -203,7 +208,7 @@ class SSEClient:
         for event_str in self.__read(stream):
             event = self.__parse_event(event_str)
             if isinstance(event, Shutdown):
-                raise ServerShutdown
+                raise ServerShutdown(event)
 
             if event.id is None:
                 yield event
@@ -251,8 +256,10 @@ class SSEClient:
             except (Desynced, JSONDecodeError):
                 self.logger.warning("Desynced event stream. Reconnecting")
                 self.reset()
-            except ServerShutdown:
+            except ServerShutdown as e:
                 self.logger.info("SSE server has requested a shut down")
+                if e.event:
+                    yield e.event
                 self.close()  # close sets __shutdown to True, exiting the while loop.
             except HTTPError:
                 self.logger.debug("HTTP error from the SSE server, reconnecting", exc_info=True)

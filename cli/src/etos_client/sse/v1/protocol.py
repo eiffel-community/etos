@@ -40,6 +40,21 @@ class Ping(ServerEvent):
 class Shutdown(ServerEvent):
     """A shutdown event from the SSE server."""
 
+    def __init__(self, event: dict) -> None:
+        """Initialize a shutdown event by loading an expected json string."""
+        super().__init__(event)
+
+        try:
+            shutdown_data = json.loads(self.data)
+            self.verdict = shutdown_data.get("verdict", "INCONCLUSIVE")
+            self.conclusion = shutdown_data.get("conclusion", "FAILED")
+            self.description = shutdown_data.get("description", "")
+        except (json.JSONDecodeError, AttributeError):
+            # If data is not valid JSON, set default values
+            self.verdict = "INCONCLUSIVE"
+            self.conclusion = "FAILED"
+            self.description = ""
+
 
 class Error(ServerEvent):
     """An error from the SSE server."""

@@ -47,3 +47,4 @@ class Events(BaseModel):
     activity: Activity = Activity()
     tercc: Optional[dict] = None
     main_suites: list[TestSuite] = []
+    shutdown: Optional[dict] = None
