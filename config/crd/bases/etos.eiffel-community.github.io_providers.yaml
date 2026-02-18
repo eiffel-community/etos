@@ -244,6 +244,97 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
+              logAreaProviderConfig:
+                description: LogAreaProviderConfig describe the configuration for
+                  an log area provider.
+                properties:
+                  custom:
+                    description: |-
+                      The configuration of a provider is very implementation-specific and we cannot give
+                      a perfectly generic configuration for all cases. The following field allows any
+                      data-structure to be added to this configuration and it is expected that providers
+                      can handle the data they require themselves.
+                    x-kubernetes-preserve-unknown-fields: true
+                  livelogs:
+                    description: LiveLogs is a URI to where live logs of an execution
+                      can be found.
+                    format: uri
+                    type: string
+                  upload:
+                    description: Upload defines the log upload instructions for the
+                      ETR.
+                    properties:
+                      as_json:
+                        description: AsJSON tells a client that the payload should
+                          be posted as JSON.
+                        type: boolean
+                      auth:
+                        default: {}
+                        description: Auth defines authorization instructions for a
+                          request.
+                        properties:
+                          password:
+                            description: Password defines an encrypted password to
+                              use when authenticating
+                            properties:
+                              $decrypt:
+                                description: Decrypt defines a JsonTas style json
+                                  for decrypting a value
+                                properties:
+                                  value:
+                                    description: Value defines an encrypted string
+                                      to decrypt
+                                    type: string
+                                required:
+                                - value
+                                type: object
+                            required:
+                            - $decrypt
+                            type: object
+                          type:
+                            description: AuthType defines the type of authentication
+                              to do.
+                            enum:
+                            - basic
+                            - digest
+                            type: string
+                          username:
+                            description: Username defines the username to use when
+                              authenticating
+                            type: string
+                        type: object
+                      headers:
+                        additionalProperties:
+                          type: string
+                        description: Headers define optional headers to send with
+                          the payload
+                        type: object
+                      method:
+                        description: Method defines the HTTP method for an upload.
+                        enum:
+                        - GET
+                        - POST
+                        - PUT
+                        type: string
+                      params:
+                        additionalProperties:
+                          type: string
+                        description: Params define optional parameters to send with
+                          the payload
+                        type: object
+                      url:
+                        description: URL defines the HTTP(s) URL to send payload to.
+                        format: uri
+                        type: string
+                    required:
+                    - as_json
+                    - method
+                    - url
+                    type: object
+                required:
+                - livelogs
+                - upload
+                type: object
               type:
                 enum:
                 - execution-space
