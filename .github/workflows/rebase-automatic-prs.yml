@@ -9,7 +9,7 @@ jobs:
       - uses: peter-evans/rebase@v4
         with:
           base: main
-          # Only include that were automatically created by ETOS
+          # Only include PRs that were automatically created by ETOS
           include-labels: |
             automated-pr
           # Only include PRs created the ETOS pull request bot
