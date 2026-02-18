@@ -1,0 +1,19 @@
+name: Automatic Rebase
+on:
+  push:
+    branches: [main]
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: peter-evans/rebase@v4
+        with:
+          base: main
+          # Only include that were automatically created by ETOS
+          include-labels: |
+            automated-pr
+          # Only include PRs created the ETOS pull request bot
+          head: 'etos-pull-request-permissions:*'
+          # Since we are only targeting PRs created by ETOS, we can safely use the "theirs" strategy to resolve any conflicts that may arise during the rebase.
+          # This means that if there are any conflicts, the changes from the PR will be kept, and the changes from the base branch (main) will be discarded.
+          rebase-options: '-Xtheirs'
