@@ -190,7 +190,9 @@ def check_pull_request(gh: Cli, pull_request: str, label: str) -> bool:
 def main(command: COMMAND, repository: str, label: str):
     """Main function to check or clean up labels on pull requests."""
     gh = Cli(repository)
-    for pull_request in gh.pull_requests(label, "etos-pull-request-permissions"):
+    for pull_request in gh.pull_requests(
+        "automated-pr", "etos-pull-request-permissions"
+    ):
         if command == COMMAND.check:
             if not check_pull_request(gh, pull_request, label):
                 print(f"Failed to check pull request {pull_request}")
