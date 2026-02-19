@@ -86,10 +86,10 @@ class Cli:
             print(f"Error running command: {e}")
             return False
 
-    def pull_requests(self) -> list[str]:
+    def pull_requests(self, label: str, author: str) -> list[str]:
         """Get a list of pull requests in the repository."""
         try:
-            proc = self._list()
+            proc = self._list(label, author)
             pull_requests = proc.stdout.decode().splitlines()
             return [pr.split("\t")[0] for pr in pull_requests]
         except CalledProcessError as e:
@@ -112,7 +112,7 @@ class Cli:
         ]
         return run(cmd, stdout=PIPE, check=True)
 
-    def _list(self) -> CompletedProcess:
+    def _list(self, label: str, author: str) -> CompletedProcess:
         """List pull requests in the repository."""
         cmd = [
             "gh",
@@ -120,6 +120,10 @@ class Cli:
             "list",
             "--repo",
             self.repo,
+            "--label",
+            label,
+            "--author",
+            author,
         ]
         return run(cmd, stdout=PIPE, check=True)
 
@@ -176,7 +180,7 @@ def check_pull_request(gh: Cli, pull_request: str, label: str) -> bool:
 def main(command: COMMAND, repository: str, label: str):
     """Main function to check or clean up labels on pull requests."""
     gh = Cli(repository)
-    for pull_request in gh.pull_requests():
+    for pull_request in gh.pull_requests(label, "etos-pull-request-permissions"):
         if command == COMMAND.check:
             if not check_pull_request(gh, pull_request, label):
                 print(f"Failed to check pull request {pull_request}")
