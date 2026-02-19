@@ -35,6 +35,7 @@ jobs:
           # This means that if there are any conflicts, the changes from the PR will be kept, and the changes from the base branch (main) will be discarded.
           rebase-options: '-Xtheirs'
       - name: Cleanup labels
+        if: always()
         run: python ${GITHUB_WORKSPACE}/scripts/rebase_labels.py cleanup ${{ github.repository }} ${{ env.LABEL }}
         env:
           GH_TOKEN: ${{ github.token }}
