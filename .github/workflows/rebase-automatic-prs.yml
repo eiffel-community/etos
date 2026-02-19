@@ -2,18 +2,38 @@ name: Automatic Rebase
 on:
   push:
     branches: [main]
+
+# Setting concurrency to ensure that only one rebase workflow runs at a time.
+concurrency:
+  group: automatic-rebase
+  cancel-in-progress: false
+
+env:
+  LABEL: automated-rebase
+
 jobs:
   rebase:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set rebase labels
+        run: python ${GITHUB_WORKSPACE}/scripts/rebase_labels.py check ${{ github.repository }} ${{ env.LABEL }}
+        env:
+          GH_TOKEN: ${{ github.token }}
       - uses: peter-evans/rebase@v4
         with:
           base: main
           # Only include PRs that were automatically created by ETOS
           include-labels: |
+            ${{ env.LABEL }}
             automated-pr
           # Only include PRs created by the ETOS pull request bot
           head: 'etos-pull-request-permissions:*'
           # Since we are only targeting PRs created by ETOS, we can safely use the "theirs" strategy to resolve any conflicts that may arise during the rebase.
           # This means that if there are any conflicts, the changes from the PR will be kept, and the changes from the base branch (main) will be discarded.
           rebase-options: '-Xtheirs'
+      - name: Cleanup labels
+        run: python ${GITHUB_WORKSPACE}/scripts/rebase_labels.py cleanup ${{ github.repository }} ${{ env.LABEL }}
+        env:
+          GH_TOKEN: ${{ github.token }}
