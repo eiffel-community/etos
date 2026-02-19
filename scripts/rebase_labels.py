@@ -31,9 +31,7 @@ class Cli:
         """Initialize the Cli with the given repository."""
         self.repo = repo
 
-    def wait_for_merge_status(
-        self, pull_request: str, timeout: int = 60
-    ) -> MERGEABLE_STATE:
+    def wait_for_merge_status(self, pull_request: str, timeout: int = 60) -> MERGEABLE_STATE:
         """Wait for the status of the pull request to be updated, and return the status."""
         end = time.time() + timeout
         while time.time() < end:
@@ -48,6 +46,7 @@ class Cli:
 
     def get_mergeable_state(self, pull_request: str) -> Optional[MERGEABLE_STATE]:
         """Get the status of a pull request."""
+        output = None
         try:
             proc = self._view(pull_request, "--json", "mergeable", "--jq", ".mergeable")
             output = proc.stdout.decode().strip()
@@ -55,13 +54,14 @@ class Cli:
         except CalledProcessError as e:
             print(f"Error running command: {e}")
             return None
+        except KeyError:
+            print(f"Unexpected mergeable state: {output}")
+            return None
 
     def has_label(self, pull_request: str, label: str) -> bool:
         """Check if a pull request has a specific label."""
         try:
-            proc = self._view(
-                pull_request, "--json", "labels", "--jq", ".labels[].name"
-            )
+            proc = self._view(pull_request, "--json", "labels", "--jq", ".labels[].name")
             labels = proc.stdout.decode().splitlines()
             return label in labels
         except CalledProcessError as e:
@@ -151,9 +151,7 @@ def remove_label_if_necessary(gh: Cli, pull_request: str, label: str) -> bool:
     if gh.has_label(pull_request, label):
         print(f"Pull request {pull_request} has label {label}, removing it...")
         return gh.remove_label(pull_request, label)
-    print(
-        f"Pull request {pull_request} does not have label {label}, no need to remove it"
-    )
+    print(f"Pull request {pull_request} does not have label {label}, no need to remove it")
     return True
 
 
