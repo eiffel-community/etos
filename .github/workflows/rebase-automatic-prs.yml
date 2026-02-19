@@ -2,6 +2,7 @@ name: Automatic Rebase
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 # Setting concurrency to ensure that only one rebase workflow runs at a time.
 concurrency:
