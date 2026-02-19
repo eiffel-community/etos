@@ -52,6 +52,7 @@ class Cli:
             return MERGEABLE_STATE[output]  # Validate that the output is a valid status
         except CalledProcessError as e:
             print(f"Error running command: {e}")
+            print(e.stderr.decode())
             return None
         except KeyError:
             print(f"Unexpected mergeable state: {output}")
@@ -65,6 +66,7 @@ class Cli:
             return label in labels
         except CalledProcessError as e:
             print(f"Error running command: {e}")
+            print(e.stderr.decode())
         return False
 
     def add_label(self, pull_request: str, label: str) -> bool:
@@ -74,6 +76,7 @@ class Cli:
             return True
         except CalledProcessError as e:
             print(f"Error running command: {e}")
+            print(e.stderr.decode())
             return False
 
     def remove_label(self, pull_request: str, label: str) -> bool:
@@ -83,6 +86,7 @@ class Cli:
             return True
         except CalledProcessError as e:
             print(f"Error running command: {e}")
+            print(e.stderr.decode())
             return False
 
     def pull_requests(self, label: str, author: str) -> list[str]:
@@ -93,6 +97,7 @@ class Cli:
             return [pr.split("\t")[0] for pr in pull_requests]
         except CalledProcessError as e:
             print(f"Error running command: {e}")
+            print(e.stderr.decode())
             return []
         except IndexError:
             print("No pull requests found")
@@ -109,7 +114,7 @@ class Cli:
             pull_request,
             *args,
         ]
-        return run(cmd, stdout=PIPE, check=True)
+        return run(cmd, stdout=PIPE, stderr=PIPE, check=True)
 
     def _list(self, label: str, author: str) -> CompletedProcess:
         """List pull requests in the repository."""
@@ -124,7 +129,7 @@ class Cli:
             "--author",
             author,
         ]
-        return run(cmd, stdout=PIPE, check=True)
+        return run(cmd, stdout=PIPE, stderr=PIPE, check=True)
 
     def _view(self, pull_request: str, *args) -> CompletedProcess:
         """View a pull request with the given arguments."""
@@ -137,7 +142,7 @@ class Cli:
             pull_request,
             *args,
         ]
-        return run(cmd, stdout=PIPE, check=True)
+        return run(cmd, stdout=PIPE, stderr=PIPE, check=True)
 
 
 def add_label_if_necessary(gh: Cli, pull_request: str, label: str) -> bool:
