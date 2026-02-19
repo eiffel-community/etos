@@ -18,7 +18,6 @@ import enum
 import sys
 import time
 from subprocess import PIPE, CalledProcessError, CompletedProcess, run
-from typing import Optional
 
 MERGEABLE_STATE = enum.Enum("MERGEABLE_STATE", ["UNKNOWN", "CONFLICTING", "MERGEABLE"])
 COMMAND = enum.Enum("COMMAND", ["check", "cleanup"])
@@ -44,7 +43,7 @@ class Cli:
             f"Timed out waiting for status of pull request {pull_request} to be updated"
         )
 
-    def get_mergeable_state(self, pull_request: str) -> Optional[MERGEABLE_STATE]:
+    def get_mergeable_state(self, pull_request: str) -> MERGEABLE_STATE | None:
         """Get the status of a pull request."""
         output = None
         try:
