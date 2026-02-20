@@ -16,15 +16,27 @@ jobs:
   rebase:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          owner: ${{ github.repository_owner }}
+          repositories: etos
+          app-id: ${{ vars.GHPR_APP_ID }}
+          private-key: ${{ secrets.GHPR_PRIVATE_KEY }}
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository }}
+          token: ${{ steps.generate-token.outputs.token }}
       - name: Set rebase labels
         run: python ${GITHUB_WORKSPACE}/scripts/rebase_labels.py check ${{ github.repository }} ${{ env.LABEL }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
       - uses: peter-evans/rebase@v4
         with:
           base: main
+          token: ${{ steps.generate-token.outputs.token }}
           # Only include PRs that were automatically created by ETOS
           include-labels: |
             ${{ env.LABEL }}
@@ -38,4 +50,4 @@ jobs:
         if: always()
         run: python ${GITHUB_WORKSPACE}/scripts/rebase_labels.py cleanup ${{ github.repository }} ${{ env.LABEL }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
