@@ -485,7 +485,7 @@ func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv
 }
 
 // environmentRequest is the definition for an environment request.
-func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, tests []etosv1alpha1.Test, dataset *apiextensionsv1.JSON) *etosv1alpha1.EnvironmentRequest {
+func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrunner string, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, tests []etosv1alpha1.Test, dataset *apiextensionsv1.JSON) *etosv1alpha1.EnvironmentRequest {
 	logger := logf.FromContext(ctx)
 	eventRepository := cluster.Spec.EventRepository.Host
 	if cluster.Spec.ETOS.Config.ETOSEventRepositoryURL != "" {
@@ -559,8 +559,9 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 					ID: testrun.Spec.Providers.IUT,
 				},
 				ExecutionSpace: etosv1alpha1.ExecutionSpaceProvider{
-					ID:         testrun.Spec.Providers.ExecutionSpace,
-					TestRunner: testrun.Spec.TestRunner.Version,
+					ID:              testrun.Spec.Providers.ExecutionSpace,
+					TestRunner:      testrun.Spec.TestRunner.Version,
+					TestRunnerImage: testrunner,
 				},
 				LogArea: etosv1alpha1.LogAreaProvider{
 					ID: testrun.Spec.Providers.LogArea,
