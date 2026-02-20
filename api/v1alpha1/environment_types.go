@@ -40,7 +40,8 @@ type EnvironmentSpec struct {
 	Context string `json:"context"`
 
 	// Providers describes which providers were used to create this environment
-	Providers *Providers `json:"providers"`
+	// +optional
+	Providers *Providers `json:"providers,omitempty"`
 
 	// Deadline is the end time, in unix epoch, before which the environment shall have
 	// been released. If not set or set to 0, there is no deadline.

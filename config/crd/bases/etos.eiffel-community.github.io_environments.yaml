@@ -170,7 +170,6 @@ spec:
             - log_area
             - name
             - priority
-            - providers
             - recipes
             - sub_suite_id
             - suite_id
