@@ -63,7 +63,7 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Ownership handoff: If Environment owns this IUT, we relinquish control
-	if hasOwner(iut.OwnerReferences, "Environment") {
+	if ownedByEnvironment(iut.OwnerReferences) {
 		if controllerutil.ContainsFinalizer(iut, providerFinalizer) {
 			// Clean up our finalizer since the environment controller now owns the IUT.
 			controllerutil.RemoveFinalizer(iut, providerFinalizer)
