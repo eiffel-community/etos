@@ -410,6 +410,7 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 		}
 	}
 
+	allCompleted := len(environmentRequestList.Items) == len(testrun.Spec.Suites)
 	for _, environmentRequest := range environmentRequestList.Items {
 		condition := meta.FindStatusCondition(environmentRequest.Status.Conditions, status.StatusReady)
 		if condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == status.ReasonFailed {
@@ -428,8 +429,19 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 				}
 			}
 			return false, nil
-		} else if condition != nil && condition.Status == metav1.ConditionFalse {
-			logger.Info("Environment request is not finished")
+		} else if condition == nil || condition.Status != metav1.ConditionTrue {
+			allCompleted = false
+		}
+	}
+	if allCompleted {
+		if meta.SetStatusCondition(&testrun.Status.Conditions,
+			metav1.Condition{
+				Type:    status.StatusEnvironment,
+				Status:  metav1.ConditionTrue,
+				Reason:  status.ReasonCompleted,
+				Message: "All environments provisioned",
+			}) {
+			return true, r.Status().Update(ctx, testrun)
 		}
 	}
 	return false, nil
@@ -468,9 +480,7 @@ func (r *TestRunReconciler) checkEnvironment(ctx context.Context, testrun *etosv
 		logger.Error(err, "Error listing environments for testrun", "testrun", testrun)
 		return false, err
 	}
-	// TODO: this only checks one environment, not all of them if there are many
-	// TODO: Check status of environment as well
-	if len(environments.Items) > 0 {
+	if len(environments.Items) >= len(testrun.Spec.Suites) {
 		if meta.SetStatusCondition(&testrun.Status.Conditions,
 			metav1.Condition{
 				Type:    status.StatusEnvironment,
