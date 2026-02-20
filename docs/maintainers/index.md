@@ -22,7 +22,7 @@ The following document is aimed at maintainers and contributors to the ETOS proj
 There are two types of "tracks" for ETOS releases: stable and development.
 The stable track is for releases that are considered stable and ready for production use, while the development track is for releases that are still in development and may contain breaking changes.
 
-When an ETOS service has any change merged a bot will automatically create a pull request to update the default version of that service in the [ETOS](https://github.com/eiffel-community/etos) repository. This pull request can then be merged by a maintainer at their leasure.
+When an ETOS service has any change merged a bot will automatically create a pull request to update the default version of that service in the [ETOS](https://github.com/eiffel-community/etos) repository. This pull request can then be merged by a maintainer at their leisure.
 If you have contributed by writing code for an ETOS service, you can track this pull request to see when your contribution will be included.
 
 The [ETOS test runner](https://github.com/eiffel-community/etos-test-runner) is a special case since it is built as a python package and uploaded only when a new release is created in the ETOS test runner repository. This means that in order for changes from the test runner to become available a new release must be created.
