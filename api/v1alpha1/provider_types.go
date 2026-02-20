@@ -111,6 +111,20 @@ type ProviderSpec struct {
 
 	// Image describes the docker image to run when providing a resource.
 	Image string `json:"image,omitempty"`
+
+	// IutProviderConfig describe the configuration for an IUT provider.
+	// +optional
+	IutProviderConfig *IutProviderConfig `json:"iutProviderConfig,omitempty"`
+}
+
+// IutProviderConfig describe the configuration for an IUT provider.
+type IutProviderConfig struct {
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
 }
 
 // ProviderStatus defines the observed state of Provider
