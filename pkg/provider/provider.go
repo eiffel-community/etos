@@ -146,6 +146,23 @@ func EnvironmentRequest(
 	return &request, nil
 }
 
+// GetProvider gets a provider from Kubernetes by name and namespace.
+func GetProvider(ctx context.Context, providerName, namespace string) (*v1alpha1.Provider, error) {
+	cli, err := KubernetesClient()
+	if err != nil {
+		return nil, err
+	}
+	var provider v1alpha1.Provider
+	if err := cli.Get(
+		ctx,
+		types.NamespacedName{Name: providerName, Namespace: namespace},
+		&provider,
+	); err != nil {
+		return nil, err
+	}
+	return &provider, nil
+}
+
 // runProvider runs a provider.
 //
 // If the releaseEnvironment parameter is set then it will run Release
