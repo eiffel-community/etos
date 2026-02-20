@@ -61,6 +61,12 @@ spec:
               context:
                 pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                 type: string
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the environment shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
               executor:
                 x-kubernetes-preserve-unknown-fields: true
               iut:
@@ -164,6 +170,7 @@ spec:
             - log_area
             - name
             - priority
+            - providers
             - recipes
             - sub_suite_id
             - suite_id

@@ -76,6 +76,19 @@ type EnvironmentRequestSpec struct {
 	Identity      string `json:"identity,omitempty"`
 	MinimumAmount int    `json:"minimumAmount"`
 	MaximumAmount int    `json:"maximumAmount"`
+
+	// Deadline is the end time, in unix epoch, before which the environment request shall have
+	// finished before it is cancelled
+	// If deadline is not set, then deadline is set to Now + Timeout(see below)
+	// +optional
+	Deadline int64 `json:"deadline"`
+
+	// Timeout is the time, in seconds, the environment request is allowed to take.
+	// If both timeout and deadline is set, then deadline takes precedence.
+	// +optional
+	// +kubebuilder:default=60
+	Timeout int64 `json:"timeout"`
+
 	// TODO: Dataset per provider?
 	Dataset *apiextensionsv1.JSON `json:"dataset,omitempty"`
 

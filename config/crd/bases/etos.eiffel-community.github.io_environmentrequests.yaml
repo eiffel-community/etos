@@ -329,6 +329,13 @@ spec:
                 type: string
               dataset:
                 x-kubernetes-preserve-unknown-fields: true
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the environment request shall have
+                  finished before it is cancelled
+                  If deadline is not set, then deadline is set to Now + Timeout(see below)
+                format: int64
+                type: integer
               id:
                 description: ID is the ID for the environments generated. Will be
                   generated if nil. The ID is a UUID, any version, and regex matches
@@ -444,6 +451,13 @@ spec:
                 required:
                 - tests
                 type: object
+              timeout:
+                default: 60
+                description: |-
+                  Timeout is the time, in seconds, the environment request is allowed to take.
+                  If both timeout and deadline is set, then deadline takes precedence.
+                format: int64
+                type: integer
             required:
             - maximumAmount
             - minimumAmount
