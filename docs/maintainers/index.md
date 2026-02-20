@@ -47,7 +47,6 @@ Once the new version of ETOS has been tested and is considered stable, a maintai
 1. Once the new version is considered stable, create a new release on github, setting a new git tag.
 2. The new stable version of ETOS is now available and can be used for production use.
 
-
 # Versioning
 
 ETOS follows semantic versioning, which means that the version number is in the format of `MAJOR.MINOR.PATCH`.
