@@ -538,7 +538,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 	var deadline int64
 	if err != nil {
 		logger.Error(err, "failed to convert EnvironmentTimeout to int, defaulting to 60")
-		deadline = time.Now().Unix() + int64(60)
+		deadline = time.Now().Unix() + 60
 	} else {
 		deadline = time.Now().Unix() + environmentTimeout
 	}
