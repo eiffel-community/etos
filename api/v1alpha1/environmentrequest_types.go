@@ -33,6 +33,8 @@ type LogAreaProvider struct {
 type ExecutionSpaceProvider struct {
 	ID         string `json:"id"`
 	TestRunner string `json:"testRunner"`
+	// TestRunnerImage describes the container image to run in an execution space
+	TestRunnerImage string `json:"testrunnerImage"`
 }
 
 type EnvironmentProviders struct {
