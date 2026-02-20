@@ -25,23 +25,23 @@ import (
 const IutReleaserName = "iut-releaser"
 
 // IutReleaser returns an IUT releaser job specification.
-func IutReleaser(iut *v1alpha2.Iut, environmentrequest *v1alpha1.EnvironmentRequest, image string, skipDeletingIut bool) *batchv1.Job {
+func IutReleaser(iut *v1alpha2.Iut, environmentrequest *v1alpha1.EnvironmentRequest, provider *v1alpha1.Provider, skipDeletingIut bool) *batchv1.Job {
 	return ReleaseJob(
 		iut.Name,
 		IutReleaserName,
 		iut.Namespace,
 		environmentrequest,
-		IutReleaserContainer(iut, image, skipDeletingIut),
+		IutReleaserContainer(iut, provider, skipDeletingIut),
 	)
 }
 
 // IutReleaserContainer returns an IUT releaser container specification.
-func IutReleaserContainer(iut *v1alpha2.Iut, image string, skipDeletingIut bool) corev1.Container {
+func IutReleaserContainer(iut *v1alpha2.Iut, provider *v1alpha1.Provider, skipDeletingIut bool) corev1.Container {
 	return ReleaseContainer(
 		iut.Name,
 		IutReleaserName,
 		iut.Namespace,
-		image,
+		provider,
 		skipDeletingIut,
 	)
 }

@@ -25,23 +25,23 @@ import (
 const ExecutionSpaceReleaserName = "execution-space-releaser"
 
 // ExecutionSpaceReleaser returns an ExecutionSpace releaser job specification.
-func ExecutionSpaceReleaser(executionSpace *v1alpha2.ExecutionSpace, environmentrequest *v1alpha1.EnvironmentRequest, image string, skipDeletingExecutionSpace bool) *batchv1.Job {
+func ExecutionSpaceReleaser(executionSpace *v1alpha2.ExecutionSpace, environmentrequest *v1alpha1.EnvironmentRequest, provider *v1alpha1.Provider, skipDeletingExecutionSpace bool) *batchv1.Job {
 	return ReleaseJob(
 		executionSpace.Name,
 		ExecutionSpaceReleaserName,
 		executionSpace.Namespace,
 		environmentrequest,
-		ExecutionSpaceReleaserContainer(executionSpace, image, skipDeletingExecutionSpace),
+		ExecutionSpaceReleaserContainer(executionSpace, provider, skipDeletingExecutionSpace),
 	)
 }
 
 // ExecutionSpaceReleaserContainer returns an ExecutionSpace releaser container specification.
-func ExecutionSpaceReleaserContainer(executionSpace *v1alpha2.ExecutionSpace, image string, skipDeletingExecutionSpace bool) corev1.Container {
+func ExecutionSpaceReleaserContainer(executionSpace *v1alpha2.ExecutionSpace, provider *v1alpha1.Provider, skipDeletingExecutionSpace bool) corev1.Container {
 	return ReleaseContainer(
 		executionSpace.Name,
 		ExecutionSpaceReleaserName,
 		executionSpace.Namespace,
-		image,
+		provider,
 		skipDeletingExecutionSpace,
 	)
 }
