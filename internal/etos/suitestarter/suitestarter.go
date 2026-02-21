@@ -143,7 +143,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerRole(ctx context.Contex
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s:sa:testrun-reader", name.Name)
 
-	target := r.testRunReaderRole(name, labelName)
+	target := r.testRunReaderRole(name, labelName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -219,7 +219,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileConfig(ctx context.Context, logger
 // reconcileTemplate will reconcile the ETOS SuiteRunner template to its expected state.
 func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, logger logr.Logger, saName types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
 	name := types.NamespacedName{Name: fmt.Sprintf("%s-template", saName.Name), Namespace: saName.Namespace}
-	target := r.suiteRunnerTemplate(name, saName)
+	target := r.suiteRunnerTemplate(name, saName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -246,7 +246,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, logg
 
 // reconcileDeployment will reconcile the ETOS SuiteStarter deployment to its expected state.
 func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, secretName string, suiteRunnerTemplate string, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
-	target := r.deployment(name, secretName, suiteRunnerTemplate)
+	target := r.deployment(name, secretName, suiteRunnerTemplate, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -278,7 +278,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, lo
 // reconcileSecret will reconcile the ETOS SuiteStarter service account secret to its expected state.
 func (r *ETOSSuiteStarterDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
 	tokenName := types.NamespacedName{Name: fmt.Sprintf("%s-token", name.Name), Namespace: name.Namespace}
-	target := r.secret(tokenName, name)
+	target := r.secret(tokenName, name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -306,7 +306,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileRole(ctx context.Context, logger l
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s:sa:esr-handler", name.Name)
 
-	target := r.role(name, labelName)
+	target := r.role(name, labelName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -327,7 +327,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileRole(ctx context.Context, logger l
 
 // reconcileServiceAccount will reconcile the ETOS SuiteStarter service account to its expected state.
 func (r *ETOSSuiteStarterDeployment) reconcileServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) error {
-	target := r.serviceaccount(name)
+	target := r.serviceaccount(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return err
 	}
@@ -348,7 +348,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileServiceAccount(ctx context.Context
 
 // reconcileRolebinding will reconcile the ETOS SuiteStarter service account role binding to its expected state.
 func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, logger logr.Logger, name types.NamespacedName, roleName string, owner metav1.Object) error {
-	target := r.rolebinding(name, roleName)
+	target := r.rolebinding(name, roleName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return err
 	}
@@ -399,14 +399,14 @@ func (r *ETOSSuiteStarterDeployment) config(ctx context.Context, name types.Name
 	maps.Copy(data, etos.Data)
 	maps.Copy(data, r.etosSecret.Data)
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, cluster.GetName()),
 		Data:       data,
 	}, nil
 }
 
 // secret creates a secret resource definition for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) secret(name, serviceAccountName types.NamespacedName) *corev1.Secret {
-	meta := r.meta(name)
+func (r *ETOSSuiteStarterDeployment) secret(name, serviceAccountName types.NamespacedName, clusterName string) *corev1.Secret {
+	meta := r.meta(name, clusterName)
 	meta.Annotations["kubernetes.io/service-account.name"] = serviceAccountName.Name
 	return &corev1.Secret{
 		ObjectMeta: meta,
@@ -436,14 +436,14 @@ func (r *ETOSSuiteStarterDeployment) mergedSecret(ctx context.Context, name type
 		data["ETOS_RABBITMQ_QUEUE_PARAMS"] = []byte(cluster.Spec.ETOS.SuiteRunner.LogListener.ETOSQueueParams)
 	}
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, cluster.GetName()),
 		Data:       data,
 	}, nil
 }
 
 // role creates a role resource definition for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) role(name types.NamespacedName, labelName string) *rbacv1.Role {
-	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace})
+func (r *ETOSSuiteStarterDeployment) role(name types.NamespacedName, labelName, clusterName string) *rbacv1.Role {
+	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace}, clusterName)
 	meta.Name = name.Name
 	meta.Annotations["rbac.authorization.kubernetes.io/autoupdate"] = "true"
 	return &rbacv1.Role{
@@ -474,8 +474,8 @@ func (r *ETOSSuiteStarterDeployment) role(name types.NamespacedName, labelName s
 }
 
 // testRunReader creates a role resource definition giving read permissions for testrun resource
-func (r *ETOSSuiteStarterDeployment) testRunReaderRole(name types.NamespacedName, labelName string) *rbacv1.Role {
-	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace})
+func (r *ETOSSuiteStarterDeployment) testRunReaderRole(name types.NamespacedName, labelName, clusterName string) *rbacv1.Role {
+	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace}, clusterName)
 	meta.Name = name.Name
 	meta.Annotations["rbac.authorization.kubernetes.io/autoupdate"] = "true"
 	return &rbacv1.Role{
@@ -495,16 +495,16 @@ func (r *ETOSSuiteStarterDeployment) testRunReaderRole(name types.NamespacedName
 }
 
 // serviceaccount creates a service account resource definition for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) serviceaccount(name types.NamespacedName) *corev1.ServiceAccount {
+func (r *ETOSSuiteStarterDeployment) serviceaccount(name types.NamespacedName, clusterName string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 	}
 }
 
 // rolebinding creates a rolebinding resource definition for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) rolebinding(name types.NamespacedName, roleName string) *rbacv1.RoleBinding {
+func (r *ETOSSuiteStarterDeployment) rolebinding(name types.NamespacedName, roleName, clusterName string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.SchemeGroupVersion.Group,
 			Kind:     "Role",
@@ -520,9 +520,9 @@ func (r *ETOSSuiteStarterDeployment) rolebinding(name types.NamespacedName, role
 }
 
 // deployment creates a deployment resource definition for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) deployment(name types.NamespacedName, secretName string, suiteRunnerTemplate string) *appsv1.Deployment {
+func (r *ETOSSuiteStarterDeployment) deployment(name types.NamespacedName, secretName, suiteRunnerTemplate, clusterName string) *appsv1.Deployment {
 	return &appsv1.Deployment{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: appsv1.DeploymentSpec{
 			Replicas: r.Replicas,
 			Selector: &metav1.LabelSelector{
@@ -533,7 +533,7 @@ func (r *ETOSSuiteStarterDeployment) deployment(name types.NamespacedName, secre
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name),
+				ObjectMeta: r.meta(name, clusterName),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
 					Containers:         []corev1.Container{r.container(name, secretName)},
@@ -587,7 +587,7 @@ func (r *ETOSSuiteStarterDeployment) container(name types.NamespacedName, secret
 }
 
 // suiteRunnerTemplate creates a secret resource for the ETOS SuiteStarter.
-func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.NamespacedName, saName types.NamespacedName) *corev1.Secret {
+func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.NamespacedName, saName types.NamespacedName, clusterName string) *corev1.Secret {
 	data := map[string][]byte{
 		"suite_runner_template.yaml": []byte(fmt.Sprintf(`
       apiVersion: batch/v1
@@ -715,18 +715,19 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
     `, saName.Name)),
 	}
 	return &corev1.Secret{
-		ObjectMeta: r.meta(templateName),
+		ObjectMeta: r.meta(templateName, clusterName),
 		Data:       data,
 	}
 }
 
 // meta creates the common meta resource for the ETOS SuiteStarter deployment.
-func (r *ETOSSuiteStarterDeployment) meta(name types.NamespacedName) metav1.ObjectMeta {
+func (r *ETOSSuiteStarterDeployment) meta(name types.NamespacedName, clusterName string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Labels: map[string]string{
-			"app.kubernetes.io/name":      name.Name,
-			"app.kubernetes.io/part-of":   "etos",
-			"app.kubernetes.io/component": "suitestarter",
+			"app.kubernetes.io/name":                  name.Name,
+			"app.kubernetes.io/part-of":               "etos",
+			"app.kubernetes.io/component":             "suitestarter",
+			"etos.eiffel-community.github.io/cluster": clusterName,
 		},
 		Annotations: make(map[string]string),
 		Name:        name.Name,
