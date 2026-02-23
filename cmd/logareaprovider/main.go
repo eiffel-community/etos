@@ -48,6 +48,9 @@ func (p *genericLogAreaProvider) Provision(
 	if err != nil {
 		return err
 	}
+	if logAreaProvider.Spec.LogAreaProviderConfig == nil {
+		return errors.New("LogAreaProviderConfig is nil, and shouldn't be.")
+	}
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic LogArea")
 		if _, err := provider.CreateLogArea(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
