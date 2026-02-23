@@ -273,7 +273,10 @@ func (r IutReconciler) releaseJob(ctx context.Context, obj client.Object) (*batc
 		return nil, err
 	}
 
-	jobSpec := release.IutReleaser(iut, environmentrequest, provider, true)
+	jobSpec, err := release.IutReleaser(iut, environmentrequest, provider, true)
+	if err != nil {
+		return nil, err
+	}
 	return jobSpec, ctrl.SetControllerReference(iut, jobSpec, r.Scheme)
 }
 

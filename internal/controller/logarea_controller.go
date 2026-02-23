@@ -271,7 +271,10 @@ func (r LogAreaReconciler) releaseJob(ctx context.Context, obj client.Object) (*
 		return nil, err
 	}
 
-	jobSpec := release.LogAreaReleaser(logarea, environmentrequest, provider, true)
+	jobSpec, err := release.LogAreaReleaser(logarea, environmentrequest, provider, true)
+	if err != nil {
+		return nil, err
+	}
 	return jobSpec, ctrl.SetControllerReference(logarea, jobSpec, r.Scheme)
 }
 
