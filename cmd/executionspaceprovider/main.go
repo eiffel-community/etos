@@ -161,7 +161,7 @@ func (p *genericExecutionSpaceProvider) start(
 		args = append(args, fmt.Sprintf("%s=%s", key, value))
 	}
 	var backoffLimit int32 = 0
-	var parallell int32 = 1
+	var parallel int32 = 1
 	var completions int32 = 1
 
 	labels := map[string]string{
@@ -187,7 +187,7 @@ func (p *genericExecutionSpaceProvider) start(
 		Spec: batchv1.JobSpec{
 			BackoffLimit: &backoffLimit,
 			Completions:  &completions,
-			Parallelism:  &parallell,
+			Parallelism:  &parallel,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
