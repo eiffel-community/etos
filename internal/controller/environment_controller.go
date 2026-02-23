@@ -96,7 +96,6 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if environment.Spec.Deadline != 0 && environment.ObjectMeta.DeletionTimestamp.IsZero() {
 		convertedDeadline := time.Unix(environment.Spec.Deadline, 0)
 		if time.Now().After(convertedDeadline) {
-			// Deadline exceeded, delete environment
 			logger.Info("Environment deadline exceeded, deleting environment", "deadline", convertedDeadline)
 			if meta.SetStatusCondition(&environment.Status.Conditions,
 				metav1.Condition{
