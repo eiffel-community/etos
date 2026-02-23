@@ -93,7 +93,7 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Check deadline and delete if exceeded
-	if environment.Spec.Deadline != 0 {
+	if environment.Spec.Deadline != 0 && environment.ObjectMeta.DeletionTimestamp.IsZero() {
 		convertedDeadline := time.Unix(environment.Spec.Deadline, 0)
 		if time.Now().After(convertedDeadline) {
 			// Deadline exceeded, delete environment
@@ -105,9 +105,10 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 					Reason:  status.ReasonFailed,
 					Message: fmt.Sprintf("Environment deadline of %s exceeded", convertedDeadline),
 				}) {
-				if err := r.Delete(ctx, environment); err != nil {
-					return ctrl.Result{}, err
-				}
+				return ctrl.Result{}, r.Status().Update(ctx, environment)
+			}
+			if err := r.Delete(ctx, environment); err != nil {
+				return ctrl.Result{}, err
 			}
 		} else {
 			return ctrl.Result{RequeueAfter: time.Until(convertedDeadline)}, nil
