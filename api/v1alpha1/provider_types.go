@@ -112,9 +112,10 @@ type ProviderSpec struct {
 
 	// Image describes the docker image to run when providing a resource.
 	Image string `json:"image,omitempty"`
-	// Env and EnvFrom describe environment variables to be passed to the provider container.
+	// Env describes environment variables to be passed to the provider container.
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
+	// EnvFrom describes environment variables to be passed to the provider container.
 	// +optional
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 }

@@ -47,8 +47,8 @@ spec:
             description: ProviderSpec defines the desired state of Provider
             properties:
               env:
-                description: Env and EnvFrom describe environment variables to be
-                  passed to the provider container.
+                description: Env describes environment variables to be passed to the
+                  provider container.
                 items:
                   description: EnvVar represents an environment variable present in
                     a Container.
@@ -166,6 +166,8 @@ spec:
                   type: object
                 type: array
               envFrom:
+                description: EnvFrom describes environment variables to be passed
+                  to the provider container.
                 items:
                   description: EnvFromSource represents the source of a set of ConfigMaps
                   properties:
