@@ -75,7 +75,6 @@ func (p *genericLogAreaProvider) Release(ctx context.Context, logger logr.Logger
 	logger.Info("LogArea", "name", logArea.Name)
 	if cfg.NoDelete {
 		return nil
-	} else {
-		return provider.DeleteLogArea(ctx, logArea)
 	}
+	return provider.DeleteLogArea(ctx, logArea)
 }
