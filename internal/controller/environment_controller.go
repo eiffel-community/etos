@@ -102,7 +102,7 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				metav1.Condition{
 					Type:    status.StatusActive,
 					Status:  metav1.ConditionFalse,
-					Reason:  status.ReasonFailed,
+					Reason:  status.ReasonTimedOut,
 					Message: fmt.Sprintf("Environment deadline of %s exceeded", convertedDeadline),
 				}) {
 				return ctrl.Result{}, r.Status().Update(ctx, environment)
@@ -144,6 +144,10 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 
 	conditions := &environment.Status.Conditions
 	jobManager := jobs.NewJob(r.Client, EnvironmentOwnerKey, environment.GetName(), environment.GetNamespace())
+	var reason string
+	if isStatusReason(*conditions, status.StatusActive, status.ReasonTimedOut) {
+		reason = status.ReasonTimedOut
+	}
 
 	jobStatus, err := jobManager.Status(ctx)
 	if err != nil {
@@ -152,11 +156,14 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 	switch jobStatus {
 	case jobs.StatusFailed:
 		result := jobManager.Result(ctx, environment.Name)
+		if reason == "" {
+			reason = status.ReasonFailed
+		}
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonFailed,
+				Reason:  reason,
 				Message: result.Description,
 			}) {
 			return r.Status().Update(ctx, environment)
@@ -165,17 +172,23 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 		result := jobManager.Result(ctx, environment.Name)
 		var condition metav1.Condition
 		if result.Conclusion == jobs.ConclusionFailed {
+			if reason == "" {
+				reason = status.ReasonFailed
+			}
 			condition = metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonFailed,
+				Reason:  reason,
 				Message: result.Description,
 			}
 		} else {
+			if reason == "" {
+				reason = status.ReasonCompleted
+			}
 			condition = metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonCompleted,
+				Reason:  reason,
 				Message: result.Description,
 			}
 		}
@@ -185,11 +198,14 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 			return errors.Join(r.Status().Update(ctx, environment), jobManager.Delete(ctx))
 		}
 	case jobs.StatusActive:
+		if reason == "" {
+			reason = status.ReasonActive
+		}
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonActive,
+				Reason:  reason,
 				Message: "Release job is running",
 			}) {
 			return r.Status().Update(ctx, environment)
@@ -204,14 +220,19 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
 			// causing a nasty reconciliation loop (when the environment gets updated a new reconciliation starts).
 			// We mitigate this by checking that StatusReason is not already Failed.
-			if !isStatusReason(*conditions, status.StatusActive, status.ReasonFailed) && meta.SetStatusCondition(conditions,
-				metav1.Condition{
-					Type:    status.StatusActive,
-					Status:  metav1.ConditionFalse,
-					Reason:  status.ReasonFailed,
-					Message: err.Error(),
-				}) {
-				return r.Status().Update(ctx, environment)
+			if !isStatusReason(*conditions, status.StatusActive, status.ReasonFailed) {
+				if reason == "" {
+					reason = status.ReasonFailed
+				}
+				if meta.SetStatusCondition(conditions,
+					metav1.Condition{
+						Type:    status.StatusActive,
+						Status:  metav1.ConditionFalse,
+						Reason:  reason,
+						Message: err.Error(),
+					}) {
+					return r.Status().Update(ctx, environment)
+				}
 			}
 			return err
 		}
