@@ -108,14 +108,14 @@ var _ = Describe("Environment Controller", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, typeNamespacedName, environment)).To(Succeed())
 				g.Expect(environment.Status.Conditions).NotTo(BeEmpty())
-			})
+			}).Should(Succeed())
 
 			By("Checking that the status condition 'Active' is set to True with reason 'Completed'")
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, typeNamespacedName, environment)).To(Succeed())
 				active := meta.FindStatusCondition(environment.Status.Conditions, status.StatusActive)
 				g.Expect(active).NotTo(BeNil())
-				g.Expect(active).NotTo(Equal(metav1.Condition{})) // Not empty
+				g.Expect(active).NotTo(HaveValue(Equal(metav1.Condition{}))) // Not empty
 				g.Expect(active.Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(active.Reason).To(Equal(status.ReasonCompleted))
 			}).Should(Succeed())
@@ -138,7 +138,7 @@ var _ = Describe("Environment Controller", func() {
 				g.Expect(k8sClient.Get(ctx, typeNamespacedName, environment)).To(Succeed())
 				active := meta.FindStatusCondition(environment.Status.Conditions, status.StatusActive)
 				g.Expect(active).NotTo(BeNil())
-				g.Expect(active).NotTo(Equal(metav1.Condition{})) // Not empty
+				g.Expect(active).NotTo(HaveValue(Equal(metav1.Condition{}))) // Not empty
 				g.Expect(active.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(active.Reason).To(Equal(status.ReasonTimedOut))
 			}).Should(Succeed())
