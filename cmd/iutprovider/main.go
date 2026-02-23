@@ -62,7 +62,6 @@ func (p *genericIutProvider) Release(ctx context.Context, logger logr.Logger, cf
 	logger.Info("IUT", "name", iut.Name)
 	if cfg.NoDelete {
 		return nil
-	} else {
-		return provider.DeleteIUT(ctx, iut)
 	}
+	return provider.DeleteIUT(ctx, iut)
 }
