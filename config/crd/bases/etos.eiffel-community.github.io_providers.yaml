@@ -410,7 +410,7 @@ spec:
                     x-kubernetes-map-type: atomic
                 type: object
               logAreaProviderConfig:
-                description: LogAreaProviderConfig describe the configuration for
+                description: LogAreaProviderConfig describes the configuration for
                   an log area provider.
                 properties:
                   custom:

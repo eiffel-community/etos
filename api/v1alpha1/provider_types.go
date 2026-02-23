@@ -121,7 +121,7 @@ type ProviderSpec struct {
 	// +optional
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 
-	// LogAreaProviderConfig describe the configuration for an log area provider.
+	// LogAreaProviderConfig describes the configuration for an log area provider.
 	// +optional
 	LogAreaProviderConfig *LogAreaProviderConfig `json:"logAreaProviderConfig,omitempty"`
 }
