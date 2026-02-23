@@ -127,7 +127,7 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 				Status:  metav1.ConditionFalse,
 				Type:    status.StatusActive,
 				Reason:  status.ReasonPending,
-				Message: "Waiting environment to become ready",
+				Message: "Waiting for environment to become ready",
 			})
 		return r.Status().Update(ctx, environment)
 	}
