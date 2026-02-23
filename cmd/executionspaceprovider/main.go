@@ -69,6 +69,14 @@ func (p *genericExecutionSpaceProvider) Provision(
 		"Namespace", environmentRequest.Namespace,
 		"Amount", cfg.MinimumAmount,
 	)
+	etosMessagebusPassword, err := encrypt(environmentRequest.Spec.Config.EtosMessageBus.Password.Value, encryptionKey)
+	if err != nil {
+		return err
+	}
+	eiffelMessagebusPassword, err := encrypt(environmentRequest.Spec.Config.EiffelMessageBus.Password.Value, encryptionKey)
+	if err != nil {
+		return err
+	}
 	environment := map[string]string{
 		"SOURCE_HOST":            hostname,
 		"ETOS_API":               environmentRequest.Spec.Config.EtosApi,
@@ -76,22 +84,18 @@ func (p *genericExecutionSpaceProvider) Provision(
 		"ETOS_GRAPHQL_SERVER":    environmentRequest.Spec.Config.GraphQlServer,
 		"ETOS_RABBITMQ_EXCHANGE": environmentRequest.Spec.Config.EtosMessageBus.Exchange,
 		"ETOS_RABBITMQ_HOST":     environmentRequest.Spec.Config.EtosMessageBus.Host,
-		"ETOS_RABBITMQ_PASSWORD": string(
-			encrypt(environmentRequest.Spec.Config.EtosMessageBus.Password.Value, encryptionKey),
-		),
+		"ETOS_RABBITMQ_PASSWORD": string(etosMessagebusPassword),
 		"ETOS_RABBITMQ_PORT":     environmentRequest.Spec.Config.EtosMessageBus.Port,
 		"ETOS_RABBITMQ_USERNAME": environmentRequest.Spec.Config.EtosMessageBus.Username,
 		"ETOS_RABBITMQ_VHOST":    environmentRequest.Spec.Config.EtosMessageBus.Vhost,
 		"ETOS_RABBITMQ_SSL":      environmentRequest.Spec.Config.EtosMessageBus.SSL,
 		"RABBITMQ_EXCHANGE":      environmentRequest.Spec.Config.EiffelMessageBus.Exchange,
 		"RABBITMQ_HOST":          environmentRequest.Spec.Config.EiffelMessageBus.Host,
-		"RABBITMQ_PASSWORD": string(
-			encrypt(environmentRequest.Spec.Config.EtosMessageBus.Password.Value, encryptionKey),
-		),
-		"RABBITMQ_PORT":     environmentRequest.Spec.Config.EiffelMessageBus.Port,
-		"RABBITMQ_USERNAME": environmentRequest.Spec.Config.EiffelMessageBus.Username,
-		"RABBITMQ_VHOST":    environmentRequest.Spec.Config.EiffelMessageBus.Vhost,
-		"RABBITMQ_SSL":      environmentRequest.Spec.Config.EiffelMessageBus.SSL,
+		"RABBITMQ_PASSWORD":      string(eiffelMessagebusPassword),
+		"RABBITMQ_PORT":          environmentRequest.Spec.Config.EiffelMessageBus.Port,
+		"RABBITMQ_USERNAME":      environmentRequest.Spec.Config.EiffelMessageBus.Username,
+		"RABBITMQ_VHOST":         environmentRequest.Spec.Config.EiffelMessageBus.Vhost,
+		"RABBITMQ_SSL":           environmentRequest.Spec.Config.EiffelMessageBus.SSL,
 	}
 	ds := dataset{}
 	if err := json.Unmarshal(environmentRequest.Spec.Dataset.Raw, &ds); err != nil {
@@ -239,10 +243,7 @@ func (p *genericExecutionSpaceProvider) Release(
 	}
 }
 
-func encrypt(s string, key *fernet.Key) []byte {
-	e, err := fernet.EncryptAndSign([]byte(s), key)
-	if err != nil {
-		panic(err)
-	}
-	return e
+// encrypt encrypts a string using the provided Fernet key.
+func encrypt(s string, key *fernet.Key) ([]byte, error) {
+	return fernet.EncryptAndSign([]byte(s), key)
 }
