@@ -39,6 +39,7 @@ import (
 // nolint:unused
 // log is for logging in this package.
 var testrunlog = logf.Log.WithName("testrun-resource")
+var cli client.Client
 
 // SetupTestRunWebhookWithManager registers the webhook for TestRun in the manager.
 func SetupTestRunWebhookWithManager(mgr ctrl.Manager, cfg config.Config) error {
