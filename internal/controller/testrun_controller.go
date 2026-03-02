@@ -338,6 +338,14 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			return false, nil
 		}
 		if err := jobManager.Create(ctx, testrun, r.suiteRunnerJob); err != nil {
+			// The informer cache may not have synced the newly created job yet,
+			// causing Status() to return StatusNone on a subsequent reconcile.
+			// In that case Create() fails with AlreadyExists. Requeue so the
+			// cache can catch up instead of marking the suite runner as failed.
+			if apierrors.IsAlreadyExists(err) {
+				logger.Info("Suite runner job already exists, requeueing")
+				return false, nil
+			}
 			// When we create a job the job gets a unique name. If there's an error for that unique name the error
 			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
 			// causing a nasty reconciliation loop (when the testrun gets updated a new reconciliation starts).

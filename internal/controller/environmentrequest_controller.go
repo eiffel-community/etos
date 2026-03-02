@@ -218,6 +218,14 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			return nil
 		}
 		if err := jobManager.Create(ctx, environmentrequest, r.environmentProviderJob); err != nil {
+			// The informer cache may not have synced the newly created job yet,
+			// causing Status() to return StatusNone on a subsequent reconcile.
+			// In that case Create() fails with AlreadyExists. Requeue so the
+			// cache can catch up instead of marking the request as failed.
+			if apierrors.IsAlreadyExists(err) {
+				logger.Info("Environment provider job already exists, requeueing")
+				return nil
+			}
 			logger.Error(err, "Failed to create environment provider job")
 			// When we create a job the job gets a unique name. If there's an error for that unique name the error
 			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
