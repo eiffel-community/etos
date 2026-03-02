@@ -271,7 +271,10 @@ func (r ExecutionSpaceReconciler) releaseJob(ctx context.Context, obj client.Obj
 		return nil, err
 	}
 
-	jobSpec := release.ExecutionSpaceReleaser(executionSpace, environmentrequest, imageFromProvider(provider), true)
+	jobSpec, err := release.ExecutionSpaceReleaser(executionSpace, environmentrequest, provider, true)
+	if err != nil {
+		return nil, err
+	}
 	return jobSpec, ctrl.SetControllerReference(executionSpace, jobSpec, r.Scheme)
 }
 

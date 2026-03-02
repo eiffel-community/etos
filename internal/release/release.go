@@ -70,7 +70,10 @@ func ReleaseJob(jobName, name, namespace string, environmentrequest *v1alpha1.En
 }
 
 // ReleaseContainer returns a container specification.
-func ReleaseContainer(name, containerName, namespace, image string, noDelete bool) corev1.Container {
+func ReleaseContainer(name, containerName, namespace string, provider *v1alpha1.Provider, noDelete bool) (corev1.Container, error) {
+	if provider == nil {
+		return corev1.Container{}, fmt.Errorf("provider is nil")
+	}
 	args := []string{
 		"-release",
 		fmt.Sprintf("-namespace=%s", namespace),
@@ -83,8 +86,10 @@ func ReleaseContainer(name, containerName, namespace, image string, noDelete boo
 	}
 	return corev1.Container{
 		Name:            containerName,
-		Image:           image,
+		Image:           provider.Spec.Image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
+		Env:             provider.Spec.Env,
+		EnvFrom:         provider.Spec.EnvFrom,
 		// TODO: Verify these resourceclaims
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
@@ -97,5 +102,5 @@ func ReleaseContainer(name, containerName, namespace, image string, noDelete boo
 			},
 		},
 		Args: args,
-	}
+	}, nil
 }

@@ -61,11 +61,3 @@ func getProvider(ctx context.Context, c client.Reader, name, namespace string) (
 	var provider etosv1alpha1.Provider
 	return &provider, c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &provider)
 }
-
-// imageFromProvider returns an image that can be used to execute provider.
-func imageFromProvider(provider *etosv1alpha1.Provider) string {
-	if provider.Spec.Image != "" {
-		return provider.Spec.Image
-	}
-	return ""
-}
