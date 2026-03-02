@@ -159,6 +159,20 @@ func (p *genericExecutionSpaceProvider) start(
 			Name:  "ETOS_ENCRYPTION_KEY",
 			Value: environmentrequest.Spec.Config.EncryptionKey.Value,
 		})
+	} else if environmentrequest.Spec.Config.EncryptionKey.ValueFrom.SecretKeyRef != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name: "ETOS_ENCRYPTION_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: environmentrequest.Spec.Config.EncryptionKey.ValueFrom.SecretKeyRef,
+			},
+		})
+	} else if environmentrequest.Spec.Config.EncryptionKey.ValueFrom.ConfigMapKeyRef != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name: "ETOS_ENCRYPTION_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: environmentrequest.Spec.Config.EncryptionKey.ValueFrom.ConfigMapKeyRef,
+			},
+		})
 	}
 	args := []string{}
 	for key, value := range executionSpace.Spec.Instructions.Parameters {
