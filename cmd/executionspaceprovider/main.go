@@ -238,9 +238,8 @@ func (p *genericExecutionSpaceProvider) Release(
 	logger.Info("ExecutionSpace", "name", executionSpace.Name)
 	if cfg.NoDelete {
 		return nil
-	} else {
-		return provider.DeleteExecutionSpace(ctx, executionSpace)
 	}
+	return provider.DeleteExecutionSpace(ctx, executionSpace)
 }
 
 // encrypt encrypts a string using the provided Fernet key.
