@@ -18,6 +18,8 @@ spec:
         etosQueueName: "*.testlog"
     suiteStarter:
       eiffelQueueName: etos-suite-starter
+    environmentProvider:
+      image: example.com/environmentprovider:v0.0.1
   database:
     deploy: true
   messageBus:
