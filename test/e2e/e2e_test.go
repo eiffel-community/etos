@@ -39,9 +39,6 @@ const iutProviderSample = "config/samples/etos_v1alpha1_iut_provider.yaml"
 const executionSpaceProviderSample = "config/samples/etos_v1alpha1_execution_space_provider.yaml"
 const logAreaProviderSample = "config/samples/etos_v1alpha1_log_area_provider.yaml"
 
-const executionSpaceProviderKustomization = "testdata/executionspace"
-const iutProviderKustomization = "testdata/iut"
-
 const goer = "testdata/goer.yaml"
 
 const artifactID = "268dd4db-93da-4232-a544-bf4c0fb26dac"
@@ -82,16 +79,6 @@ var _ = Describe("Manager", Ordered, func() {
 		cmd = exec.Command("make", "install")
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
-
-		By("deploying the execution space provider")
-		cmd = exec.Command("kubectl", "create", "-k", executionSpaceProviderKustomization, "-n", clusterNamespace)
-		_, err = utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to install execution space provider")
-
-		By("deploying the IUT provider")
-		cmd = exec.Command("kubectl", "create", "-k", iutProviderKustomization, "-n", clusterNamespace)
-		_, err = utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to install IUT provider")
 
 		By("deploying the controller-manager")
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", managerImage))

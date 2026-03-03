@@ -30,7 +30,11 @@ import (
 
 var (
 	// managerImage is the manager image to be built and loaded for testing.
-	managerImage = "example.com/etos:v0.0.1"
+	managerImage             = "example.com/etos:v0.0.1"
+	iutImage                 = "example.com/iutprovider:v0.0.1"
+	executionSpaceImage      = "example.com/executionspaceprovider:v0.0.1"
+	logAreaImage             = "example.com/logareaprovider:v0.0.1"
+	environmentProviderImage = "example.com/environmentprovider:v0.0.1"
 	// shouldCleanupCertManager tracks whether CertManager was installed by this suite.
 	shouldCleanupCertManager = false
 	// shouldCleanupPrometheus tracks whether Prometheus was installed by this suite.
@@ -58,6 +62,44 @@ var _ = BeforeSuite(func() {
 	By("loading the manager image on Kind")
 	err = utils.LoadImageToKindClusterWithName(managerImage)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager image into Kind")
+
+	By("building the iut provider")
+	cmd = exec.Command("make", "iutprovider-docker", fmt.Sprintf("IMG=%s", iutImage))
+	_, err = utils.Run(cmd)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the IUT provider")
+
+	By("loading the IUT provider image on kind")
+	err = utils.LoadImageToKindClusterWithName(iutImage)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(),
+		"Failed to load the IUT provider image",
+	)
+
+	By("building the log area provider")
+	cmd = exec.Command("make", "logareaprovider-docker", fmt.Sprintf("IMG=%s", logAreaImage))
+	_, err = utils.Run(cmd)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the log area provider")
+
+	By("loading the log area provider image on kind")
+	err = utils.LoadImageToKindClusterWithName(logAreaImage)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the log area provider image")
+
+	By("building the execution space provider")
+	cmd = exec.Command("make", "executionspaceprovider-docker", fmt.Sprintf("IMG=%s", executionSpaceImage))
+	_, err = utils.Run(cmd)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the execution space provider")
+
+	By("loading the execution space provider image on kind")
+	err = utils.LoadImageToKindClusterWithName(executionSpaceImage)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the execution space provider image")
+
+	By("building the environment provider")
+	cmd = exec.Command("make", "environmentprovider-docker", fmt.Sprintf("IMG=%s", environmentProviderImage))
+	_, err = utils.Run(cmd)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the environment provider")
+
+	By("loading the environment provider image on kind")
+	err = utils.LoadImageToKindClusterWithName(environmentProviderImage)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the environment provider image")
 
 	setupCertManager()
 	setupPrometheusOperator()
