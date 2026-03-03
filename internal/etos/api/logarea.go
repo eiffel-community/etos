@@ -107,7 +107,7 @@ func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, logger 
 
 // reconcileServiceAccount will reconcile the ETOS logarea service account to its expected state.
 func (r *ETOSLogAreaDeployment) reconcileServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
-	target := r.serviceaccount(name)
+	target := r.serviceaccount(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -127,7 +127,7 @@ func (r *ETOSLogAreaDeployment) reconcileServiceAccount(ctx context.Context, log
 
 // reconcileService will reconcile the ETOS logarea service to its expected state.
 func (r *ETOSLogAreaDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
-	target := r.service(name)
+	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -146,16 +146,16 @@ func (r *ETOSLogAreaDeployment) reconcileService(ctx context.Context, logger log
 }
 
 // serviceaccount creates a service account resource definition for the ETOS logarea.
-func (r *ETOSLogAreaDeployment) serviceaccount(name types.NamespacedName) *corev1.ServiceAccount {
+func (r *ETOSLogAreaDeployment) serviceaccount(name types.NamespacedName, clusterName string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 	}
 }
 
 // deployment creates a deployment resource definition for the ETOS logarea.
 func (r *ETOSLogAreaDeployment) deployment(name types.NamespacedName, cluster *etosv1alpha1.Cluster) *appsv1.Deployment {
 	return &appsv1.Deployment{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, cluster.GetName()),
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -165,7 +165,7 @@ func (r *ETOSLogAreaDeployment) deployment(name types.NamespacedName, cluster *e
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name),
+				ObjectMeta: r.meta(name, cluster.GetName()),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
 					Containers:         []corev1.Container{r.container(name, cluster)},
@@ -176,9 +176,9 @@ func (r *ETOSLogAreaDeployment) deployment(name types.NamespacedName, cluster *e
 }
 
 // service creates a service resource definition for the ETOS logarea.
-func (r *ETOSLogAreaDeployment) service(name types.NamespacedName) *corev1.Service {
+func (r *ETOSLogAreaDeployment) service(name types.NamespacedName, clusterName string) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: corev1.ServiceSpec{
 			Ports: r.ports(),
 			Selector: map[string]string{
@@ -260,12 +260,13 @@ func (r *ETOSLogAreaDeployment) environment(cluster *etosv1alpha1.Cluster) []cor
 }
 
 // meta creates the common meta resource for the ETOS logarea deployment.
-func (r *ETOSLogAreaDeployment) meta(name types.NamespacedName) metav1.ObjectMeta {
+func (r *ETOSLogAreaDeployment) meta(name types.NamespacedName, clusterName string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Labels: map[string]string{
-			"app.kubernetes.io/name":      name.Name,
-			"app.kubernetes.io/part-of":   "etos",
-			"app.kubernetes.io/component": "logarea",
+			"app.kubernetes.io/name":                  name.Name,
+			"app.kubernetes.io/part-of":               "etos",
+			"app.kubernetes.io/component":             "logarea",
+			"etos.eiffel-community.github.io/cluster": clusterName,
 		},
 		Annotations: make(map[string]string),
 		Name:        name.Name,
