@@ -43,6 +43,11 @@ type EnvironmentSpec struct {
 	// +optional
 	Providers *Providers `json:"providers,omitempty"`
 
+	// Deadline is the end time, in unix epoch, before which the environment shall have
+	// been released. If not set or set to 0, there is no deadline.
+	// +optional
+	Deadline int64 `json:"deadline"`
+
 	Priority   int                   `json:"priority"`
 	Tests      []Test                `json:"recipes"`
 	TestRunner string                `json:"test_runner"`
