@@ -1126,6 +1126,13 @@ spec:
                 type: string
               dataset:
                 x-kubernetes-preserve-unknown-fields: true
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the environment request shall have
+                  finished before it is cancelled
+                  If deadline is not set, then deadline is set to Now + Timeout(see below)
+                format: int64
+                type: integer
               id:
                 description: ID is the ID for the environments generated. Will be
                   generated if nil. The ID is a UUID, any version, and regex matches
@@ -1241,6 +1248,13 @@ spec:
                 required:
                 - tests
                 type: object
+              timeout:
+                default: 60
+                description: |-
+                  Timeout is the time, in seconds, the environment request is allowed to take.
+                  If both timeout and deadline is set, then deadline takes precedence.
+                format: int64
+                type: integer
             required:
             - maximumAmount
             - minimumAmount
@@ -1427,6 +1441,12 @@ spec:
               context:
                 pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                 type: string
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the environment shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
               executor:
                 x-kubernetes-preserve-unknown-fields: true
               iut:
@@ -4056,7 +4076,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:24bb47fb
+        image: ghcr.io/eiffel-community/etos-controller:5c20eb1b
         livenessProbe:
           httpGet:
             path: /healthz
