@@ -36,9 +36,13 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"github.com/eiffel-community/etos/internal/controller/status"
+	"github.com/eiffel-community/etos/internal/release"
 )
+
+const environmentKind = "Environment"
 
 // EnvironmentReconciler reconciles a Environment object
 type EnvironmentReconciler struct {
@@ -51,6 +55,17 @@ type EnvironmentReconciler struct {
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments/finalizers,verbs=update
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers,verbs=get
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers/status,verbs=get
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=iuts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=iuts/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=iuts/finalizers,verbs=update
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=executionspaces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=executionspaces/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=executionspaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=logarea,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=logarea/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=logarea/finalizers,verbs=update
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -154,7 +169,7 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 	}
 	switch jobStatus {
 	case jobs.StatusFailed:
-		result := jobManager.Result(ctx, environment.Name)
+		result := jobManager.Result(ctx, environment.Name, release.IutReleaserName, release.ExecutionSpaceReleaserName, release.LogAreaReleaserName)
 		if reason == "" {
 			reason = status.ReasonFailed
 		}
@@ -190,6 +205,10 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 				Reason:  reason,
 				Message: result.Description,
 			}
+		}
+		// Make sure the IUT, ExecutionSpace and LogArea are all removed before completing the environment
+		if updated, err := r.releaseProviders(ctx, environment); updated || err != nil {
+			return err
 		}
 		environmentCondition := meta.FindStatusCondition(environment.Status.Conditions, status.StatusActive)
 		environment.Status.CompletionTime = &environmentCondition.LastTransitionTime
@@ -239,14 +258,65 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 	return nil
 }
 
-// reconcileEnvironment sets the active status on an environment.
+// releaseProviders removes the finalizers on provider resources in order for them to get removed from Kubernetes.
+func (r *EnvironmentReconciler) releaseProviders(ctx context.Context, environment *etosv1alpha1.Environment) (bool, error) {
+	var executionSpace etosv1alpha2.ExecutionSpace
+	if err := r.Get(ctx, types.NamespacedName{Name: environment.Spec.Providers.ExecutionSpace, Namespace: environment.Namespace}, &executionSpace); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return false, err
+		}
+	} else if controllerutil.RemoveFinalizer(&executionSpace, releaseFinalizer) {
+		return true, r.Update(ctx, &executionSpace)
+	}
+	var logArea etosv1alpha2.LogArea
+	if err := r.Get(ctx, types.NamespacedName{Name: environment.Spec.Providers.LogArea, Namespace: environment.Namespace}, &logArea); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return false, err
+		}
+	} else if controllerutil.RemoveFinalizer(&logArea, releaseFinalizer) {
+		return true, r.Update(ctx, &logArea)
+	}
+	var iut etosv1alpha2.Iut
+	if err := r.Get(ctx, types.NamespacedName{Name: environment.Spec.Providers.IUT, Namespace: environment.Namespace}, &iut); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return false, err
+		}
+	} else if controllerutil.RemoveFinalizer(&iut, releaseFinalizer) {
+		return true, r.Update(ctx, &iut)
+	}
+	return false, nil
+}
+
+// reconcileEnvironment sets ownership on IUT, LogAreas and ExecutionSpaces as well as setting the active status.
 func (r *EnvironmentReconciler) reconcileEnvironment(ctx context.Context, environment *etosv1alpha1.Environment) error {
 	logger := logf.FromContext(ctx)
-	// TODO: Provider information does not exist in a deterministic way in the Environment resource
-	// so either we need to find the EnvironmentRequest or the Environment resource needs an update.
-	// if err := checkProviders(ctx, r, environment.Namespace, environment.Spec.Providers); err != nil {
-	// 	return err
-	// }
+	var iut etosv1alpha2.Iut
+	if err := r.Get(ctx, types.NamespacedName{Name: environment.Spec.Providers.IUT, Namespace: environment.Namespace}, &iut); err != nil {
+		return err
+	}
+	if err := r.takeOwnership(ctx, environment, &iut); err != nil {
+		return err
+	}
+	var logArea etosv1alpha2.LogArea
+	if err := r.Get(ctx, types.NamespacedName{Name: environment.Spec.Providers.LogArea, Namespace: environment.Namespace}, &logArea); err != nil {
+		return err
+	}
+	if err := r.takeOwnership(ctx, environment, &logArea); err != nil {
+		return err
+	}
+	var executionSpace etosv1alpha2.ExecutionSpace
+	if err := r.Get(ctx, types.NamespacedName{Name: environment.Spec.Providers.ExecutionSpace, Namespace: environment.Namespace}, &executionSpace); err != nil {
+		return err
+	}
+	if err := r.takeOwnership(ctx, environment, &executionSpace); err != nil {
+		return err
+	}
+
+	providers := etosv1alpha1.Providers{IUT: iut.Spec.ProviderID, LogArea: logArea.Spec.ProviderID, ExecutionSpace: executionSpace.Spec.ProviderID}
+	if err := checkProviders(ctx, r, environment.Namespace, providers); err != nil {
+		return err
+	}
+
 	if meta.SetStatusCondition(&environment.Status.Conditions,
 		metav1.Condition{
 			Status:  metav1.ConditionTrue,
@@ -256,6 +326,26 @@ func (r *EnvironmentReconciler) reconcileEnvironment(ctx context.Context, enviro
 		}) {
 		logger.Info("Environment is active and ready for use")
 		return r.Status().Update(ctx, environment)
+	}
+	return nil
+}
+
+// takeOwnership sets the controller reference of an obj to the environment
+func (r *EnvironmentReconciler) takeOwnership(ctx context.Context, environment *etosv1alpha1.Environment, obj client.Object) error {
+	logger := logf.FromContext(ctx)
+	if !controllerutil.HasControllerReference(obj) {
+		logger.Info(fmt.Sprintf("Taking ownership of %s", obj.GetObjectKind().GroupVersionKind().Kind), "name", obj.GetName())
+		if err := controllerutil.SetControllerReference(environment, obj, r.Scheme); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+		}
+		if !controllerutil.ContainsFinalizer(obj, releaseFinalizer) {
+			controllerutil.AddFinalizer(obj, releaseFinalizer)
+		}
+		if err := r.Update(ctx, obj); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -281,11 +371,6 @@ func (r *EnvironmentReconciler) environmentRequest(ctx context.Context, environm
 
 // releaseJob is the job definition for an environment releaser.
 func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object) (*batchv1.Job, error) {
-	logger := logf.FromContext(ctx)
-	ttl := int32(300)
-	grace := int64(30)
-	backoff := int32(0)
-
 	environment, ok := obj.(*etosv1alpha1.Environment)
 	if !ok {
 		return nil, errors.New("object received from job manager is not an Environment")
@@ -294,42 +379,57 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 	if err != nil {
 		return nil, err
 	}
-	clusterName := environment.Labels["etos.eiffel-community.github.io/cluster"]
+	var iut etosv1alpha2.Iut
+	if err := r.Get(ctx, types.NamespacedName{Name: environment.Spec.Providers.IUT, Namespace: environment.Namespace}, &iut); err != nil {
+		return nil, err
+	}
+	iutProvider, err := getProvider(ctx, r, iut.Spec.ProviderID, iut.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	var logArea etosv1alpha2.LogArea
+	if err := r.Get(ctx, types.NamespacedName{Name: environment.Spec.Providers.LogArea, Namespace: environment.Namespace}, &logArea); err != nil {
+		return nil, err
+	}
+	logAreaProvider, err := getProvider(ctx, r, logArea.Spec.ProviderID, logArea.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	var executionSpace etosv1alpha2.ExecutionSpace
+	if err := r.Get(ctx, types.NamespacedName{Name: environment.Spec.Providers.ExecutionSpace, Namespace: environment.Namespace}, &executionSpace); err != nil {
+		return nil, err
+	}
+	executionSpaceProvider, err := getProvider(ctx, r, executionSpace.Spec.ProviderID, executionSpace.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	labels := map[string]string{
+		"app.kubernetes.io/name":                    "environment-releaser",
+		"app.kubernetes.io/part-of":                 "etos",
+		"etos.eiffel-community.github.io/id":        environment.Labels["etos.eiffel-community.github.io/id"],
+		"etos.eiffel-community.github.io/sub-suite": environment.Name,
+	}
+
 	var cluster *etosv1alpha1.Cluster
-	if clusterName != "" {
+	if clusterName := environmentRequest.Labels["etos.eiffel-community.github.io/cluster"]; clusterName != "" {
+		labels["etos.eiffel-community.github.io/cluster"] = clusterName
+		clusterNamespacedName := types.NamespacedName{
+			Name:      clusterName,
+			Namespace: environmentRequest.Namespace,
+		}
 		cluster = &etosv1alpha1.Cluster{}
-		if err := r.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: environment.Namespace}, cluster); err != nil {
-			logger.Info("Failed to get cluster resource!")
+		if err := r.Get(ctx, clusterNamespacedName, cluster); err != nil {
 			return nil, err
 		}
 	}
 
-	databaseHost := "etcd-client"
-	if cluster != nil {
-		if cluster.Spec.Database.Deploy {
-			databaseHost = fmt.Sprintf("%s-etcd-client", cluster.Name)
-		} else {
-			databaseHost = cluster.Spec.Database.Etcd.Host
-		}
-	}
 	traceparent, ok := environmentRequest.Annotations["etos.eiffel-community.github.io/traceparent"]
 	if !ok {
 		traceparent = ""
 	}
 
 	envList := []corev1.EnvVar{
-		{
-			Name:  "REQUEST",
-			Value: environmentRequest.Name,
-		},
-		{
-			Name:  "ENVIRONMENT",
-			Value: environment.Name,
-		},
-		{
-			Name:  "ETOS_ETCD_HOST",
-			Value: databaseHost,
-		},
 		{
 			Name:  "OTEL_CONTEXT",
 			Value: traceparent,
@@ -346,15 +446,32 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 		})
 	}
 
+	// Add OTEL variables to all releaser containers
+	iutProvider.Spec.Env = append(iutProvider.Spec.Env, envList...)
+	logAreaProvider.Spec.Env = append(logAreaProvider.Spec.Env, envList...)
+	executionSpaceProvider.Spec.Env = append(executionSpaceProvider.Spec.Env, envList...)
+
+	ttl := int32(300)
+	grace := int64(30)
+	backoff := int32(0)
+
+	executionSpaceRelease, err := release.ExecutionSpaceReleaserContainer(
+		&executionSpace, executionSpaceProvider, false,
+	)
+	if err != nil {
+		return nil, err
+	}
+	logAreaRelease, err := release.LogAreaReleaserContainer(&logArea, logAreaProvider, false)
+	if err != nil {
+		return nil, err
+	}
+	iutRelease, err := release.IutReleaserContainer(&iut, iutProvider, false)
+	if err != nil {
+		return nil, err
+	}
 	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"etos.eiffel-community.github.io/id":        environment.Labels["etos.eiffel-community.github.io/id"],
-				"etos.eiffel-community.github.io/sub-suite": environment.Name,
-				"etos.eiffel-community.github.io/cluster":   clusterName,
-				"app.kubernetes.io/name":                    "environment-releaser",
-				"app.kubernetes.io/part-of":                 "etos",
-			},
+			Labels:      labels,
 			Annotations: make(map[string]string),
 			Name:        environment.Name,
 			Namespace:   environment.Namespace,
@@ -364,24 +481,27 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 			BackoffLimit:            &backoff,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: environment.Name,
-					Labels: map[string]string{
-						"etos.eiffel-community.github.io/id":        environment.Labels["etos.eiffel-community.github.io/id"],
-						"etos.eiffel-community.github.io/sub-suite": environment.Name,
-						"etos.eiffel-community.github.io/cluster":   clusterName,
-						"app.kubernetes.io/name":                    "environment-releaser",
-						"app.kubernetes.io/part-of":                 "etos",
-					},
+					Name:   environment.Name,
+					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: &grace,
 					ServiceAccountName:            environmentRequest.Spec.ServiceAccountName,
 					RestartPolicy:                 "Never",
+					InitContainers: []corev1.Container{
+						executionSpaceRelease, logAreaRelease, iutRelease,
+					},
 					Containers: []corev1.Container{
 						{
-							Name:            environment.Name,
+							Name:            "environment-provider",
 							Image:           environmentRequest.Spec.Image.Image,
-							ImagePullPolicy: environmentRequest.Spec.ImagePullPolicy,
+							ImagePullPolicy: environmentRequest.Spec.Image.ImagePullPolicy,
+							Env:             envList,
+							Args: []string{
+								"-release",
+								fmt.Sprintf("-name=%s", environment.Name),
+								fmt.Sprintf("-namespace=%s", environment.Namespace),
+							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),
@@ -392,9 +512,6 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 									corev1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
-							Command: []string{"python", "-u", "-m", "environment_provider.environment"},
-							Args:    []string{environment.Name},
-							Env:     envList,
 						},
 					},
 				},
@@ -412,7 +529,64 @@ func (r *EnvironmentReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error
 		if owner == nil {
 			return nil
 		}
-		if owner.APIVersion != APIGroupVersionString || owner.Kind != "Environment" {
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != environmentKind {
+			return nil
+		}
+
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// registerOwnerIndexForIut will set an index of the IUTs that an environment owns.
+func (r *EnvironmentReconciler) registerOwnerIndexForIut(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha2.Iut{}, EnvironmentOwnerKey, func(rawObj client.Object) []string {
+		iut := rawObj.(*etosv1alpha2.Iut)
+		owner := metav1.GetControllerOf(iut)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != environmentKind {
+			return nil
+		}
+
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// registerOwnerIndexForLogArea will set an index of the LogAreas that an environment owns.
+func (r *EnvironmentReconciler) registerOwnerIndexForLogArea(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha2.LogArea{}, EnvironmentOwnerKey, func(rawObj client.Object) []string {
+		logArea := rawObj.(*etosv1alpha2.LogArea)
+		owner := metav1.GetControllerOf(logArea)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != environmentKind {
+			return nil
+		}
+
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// registerOwnerIndexForExecutionSpace will set an index of the ExecutionSpaces that an environment owns.
+func (r *EnvironmentReconciler) registerOwnerIndexForExecutionSpace(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha2.ExecutionSpace{}, EnvironmentOwnerKey, func(rawObj client.Object) []string {
+		executionSpace := rawObj.(*etosv1alpha2.ExecutionSpace)
+		owner := metav1.GetControllerOf(executionSpace)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != environmentKind {
 			return nil
 		}
 
@@ -429,9 +603,21 @@ func (r *EnvironmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := r.registerOwnerIndexForJob(mgr); err != nil {
 		return err
 	}
+	if err := r.registerOwnerIndexForIut(mgr); err != nil {
+		return err
+	}
+	if err := r.registerOwnerIndexForLogArea(mgr); err != nil {
+		return err
+	}
+	if err := r.registerOwnerIndexForExecutionSpace(mgr); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&etosv1alpha1.Environment{}).
 		Named("environment").
 		Owns(&batchv1.Job{}).
+		Owns(&etosv1alpha2.Iut{}).
+		Owns(&etosv1alpha2.LogArea{}).
+		Owns(&etosv1alpha2.ExecutionSpace{}).
 		Complete(r)
 }
