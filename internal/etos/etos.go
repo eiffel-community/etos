@@ -532,7 +532,7 @@ func (r *ETOSDeployment) role(name types.NamespacedName, labelName, clusterName 
 			{
 				APIGroups: []string{"etos.eiffel-community.github.io"},
 				Resources: []string{
-					"environments",
+					"environments", "iuts", "logarea", "executionspaces",
 				},
 				Verbs: []string{
 					"create", "get", "list", "watch", "delete",
