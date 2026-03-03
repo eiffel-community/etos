@@ -79,13 +79,6 @@ func VerifyETOSTestruns() {
 			cmd = exec.Command("kubectl", "delete", "-n", clusterNamespace, "-f", executionSpaceProviderSample)
 			_, _ = utils.Run(cmd)
 
-			By("undeploying the IUT provider")
-			cmd = exec.Command("kubectl", "delete", "-k", iutProviderKustomization, "-n", clusterNamespace)
-			_, _ = utils.Run(cmd)
-
-			By("undeploying the execution space provider")
-			cmd = exec.Command("kubectl", "delete", "-k", executionSpaceProviderKustomization, "-n", clusterNamespace)
-			_, _ = utils.Run(cmd)
 			// This wait is necessary to make sure we clean up all resources before deleting the CRs that are
 			// being used. If we don't delete them the tests won't pass since we'll get stuck waiting for the
 			// namespace being deleted.
