@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -127,6 +128,10 @@ type ProviderSpec struct {
 	// IutProviderConfig describe the configuration for an IUT provider.
 	// +optional
 	IutProviderConfig *IutProviderConfig `json:"iutProviderConfig,omitempty"`
+
+	// LogAreaProviderConfig describes the configuration for a log area provider.
+	// +optional
+	LogAreaProviderConfig *LogAreaProviderConfig `json:"logAreaProviderConfig,omitempty"`
 }
 
 // ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
@@ -147,6 +152,7 @@ type ExecutionSpaceProviderConfig struct {
 	// dev mode. Defaults to github.com/eiffel-community/etos
 	// +optional
 	ETRRepository string `json:"ETR_REPOSITORY,omitempty"`
+
 	// The configuration of a provider is very implementation-specific and we cannot give
 	// a perfectly generic configuration for all cases. The following field allows any
 	// data-structure to be added to this configuration and it is expected that providers
@@ -157,6 +163,23 @@ type ExecutionSpaceProviderConfig struct {
 
 // IutProviderConfig describe the configuration for an IUT provider.
 type IutProviderConfig struct {
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
+}
+
+// LogAreaProviderConfig describe the configuration for an log area provider.
+type LogAreaProviderConfig struct {
+	// LiveLogs is a URI to where live logs of an execution can be found.
+	// +kubebuilder:validation:Format="uri"
+	LiveLogs string `json:"livelogs"`
+
+	// Upload defines the log upload instructions for the ETR.
+	Upload etosv1alpha2.Upload `json:"upload"`
+
 	// The configuration of a provider is very implementation-specific and we cannot give
 	// a perfectly generic configuration for all cases. The following field allows any
 	// data-structure to be added to this configuration and it is expected that providers
