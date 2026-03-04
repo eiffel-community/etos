@@ -223,6 +223,8 @@ func VerifyETOSTestruns() {
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
+				g.Expect(output).ToNot(Equal("Failed"), "TestRun failed")
+				g.Expect(output).ToNot(Equal("Inconclusive"), "TestRun became inconclusive")
 			}
 			Eventually(verifyTestRun, "5m").Should(Succeed())
 		})
@@ -241,6 +243,8 @@ func VerifyETOSTestruns() {
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
+				g.Expect(output).ToNot(Equal("Failed"), "TestRun failed")
+				g.Expect(output).ToNot(Equal("Inconclusive"), "TestRun became inconclusive")
 			}
 			Eventually(verifyTestRun, "5m").Should(Succeed())
 		})
