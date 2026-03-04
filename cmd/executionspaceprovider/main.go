@@ -281,6 +281,9 @@ func encrypt(s []byte, key *fernet.Key) ([]byte, error) {
 func getAndEncrypt(
 	ctx context.Context, client client.Client, s *v1alpha1.Var, namespace string, key *fernet.Key,
 ) ([]byte, error) {
+	if s == nil {
+		return nil, errors.New("no value provided")
+	}
 	value, err := s.Get(ctx, client, namespace)
 	if err != nil {
 		return nil, err
