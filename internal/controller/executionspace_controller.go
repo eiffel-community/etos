@@ -63,7 +63,7 @@ func (r *ExecutionSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Ownership handoff: If Environment owns this ExecutionSpace, we relinquish control
-	if hasOwner(executionSpace.OwnerReferences, "Environment") {
+	if ownedByEnvironment(executionSpace.OwnerReferences) {
 		if controllerutil.ContainsFinalizer(executionSpace, providerFinalizer) {
 			// Clean up our finalizer since the environment controller now owns the ExecutionSpace
 			controllerutil.RemoveFinalizer(executionSpace, providerFinalizer)
@@ -271,7 +271,10 @@ func (r ExecutionSpaceReconciler) releaseJob(ctx context.Context, obj client.Obj
 		return nil, err
 	}
 
-	jobSpec := release.ExecutionSpaceReleaser(executionSpace, environmentrequest, imageFromProvider(provider), true)
+	jobSpec, err := release.ExecutionSpaceReleaser(executionSpace, environmentrequest, provider, true)
+	if err != nil {
+		return nil, err
+	}
 	return jobSpec, ctrl.SetControllerReference(executionSpace, jobSpec, r.Scheme)
 }
 

@@ -28,5 +28,6 @@ const (
 	ReasonPending   = "Pending"
 	ReasonActive    = "Active"
 	ReasonFailed    = "Failed"
+	ReasonTimedOut  = "DeadlineExceeded"
 	ReasonCompleted = "Completed"
 )

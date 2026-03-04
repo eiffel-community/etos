@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -91,6 +92,28 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	// Check deadline and delete if exceeded
+	if environment.Spec.Deadline != 0 && environment.ObjectMeta.DeletionTimestamp.IsZero() {
+		convertedDeadline := time.Unix(environment.Spec.Deadline, 0)
+		if time.Now().After(convertedDeadline) {
+			logger.Info("Environment deadline exceeded, deleting environment", "deadline", convertedDeadline)
+			if meta.SetStatusCondition(&environment.Status.Conditions,
+				metav1.Condition{
+					Type:    status.StatusActive,
+					Status:  metav1.ConditionFalse,
+					Reason:  status.ReasonTimedOut,
+					Message: fmt.Sprintf("Environment deadline of %s exceeded", convertedDeadline),
+				}) {
+				return ctrl.Result{}, r.Status().Update(ctx, environment)
+			}
+			if err := r.Delete(ctx, environment); err != nil {
+				return ctrl.Result{}, err
+			}
+		} else {
+			return ctrl.Result{RequeueAfter: time.Until(convertedDeadline)}, nil
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -103,7 +126,7 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 				Status:  metav1.ConditionFalse,
 				Type:    status.StatusActive,
 				Reason:  status.ReasonPending,
-				Message: "Waiting environment to become ready",
+				Message: "Waiting for environment to become ready",
 			})
 		return r.Status().Update(ctx, environment)
 	}
@@ -120,6 +143,10 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 
 	conditions := &environment.Status.Conditions
 	jobManager := jobs.NewJob(r.Client, EnvironmentOwnerKey, environment.GetName(), environment.GetNamespace())
+	var reason string
+	if isStatusReason(*conditions, status.StatusActive, status.ReasonTimedOut) {
+		reason = status.ReasonTimedOut
+	}
 
 	jobStatus, err := jobManager.Status(ctx)
 	if err != nil {
@@ -128,11 +155,14 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 	switch jobStatus {
 	case jobs.StatusFailed:
 		result := jobManager.Result(ctx, environment.Name)
+		if reason == "" {
+			reason = status.ReasonFailed
+		}
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonFailed,
+				Reason:  reason,
 				Message: result.Description,
 			}) {
 			return r.Status().Update(ctx, environment)
@@ -141,17 +171,23 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 		result := jobManager.Result(ctx, environment.Name)
 		var condition metav1.Condition
 		if result.Conclusion == jobs.ConclusionFailed {
+			if reason == "" {
+				reason = status.ReasonFailed
+			}
 			condition = metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonFailed,
+				Reason:  reason,
 				Message: result.Description,
 			}
 		} else {
+			if reason == "" {
+				reason = status.ReasonCompleted
+			}
 			condition = metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonCompleted,
+				Reason:  reason,
 				Message: result.Description,
 			}
 		}
@@ -161,11 +197,14 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 			return errors.Join(r.Status().Update(ctx, environment), jobManager.Delete(ctx))
 		}
 	case jobs.StatusActive:
+		if reason == "" {
+			reason = status.ReasonActive
+		}
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonActive,
+				Reason:  reason,
 				Message: "Release job is running",
 			}) {
 			return r.Status().Update(ctx, environment)
@@ -180,14 +219,19 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
 			// causing a nasty reconciliation loop (when the environment gets updated a new reconciliation starts).
 			// We mitigate this by checking that StatusReason is not already Failed.
-			if !isStatusReason(*conditions, status.StatusActive, status.ReasonFailed) && meta.SetStatusCondition(conditions,
-				metav1.Condition{
-					Type:    status.StatusActive,
-					Status:  metav1.ConditionFalse,
-					Reason:  status.ReasonFailed,
-					Message: err.Error(),
-				}) {
-				return r.Status().Update(ctx, environment)
+			if !isStatusReason(*conditions, status.StatusActive, status.ReasonFailed) {
+				if reason == "" {
+					reason = status.ReasonFailed
+				}
+				if meta.SetStatusCondition(conditions,
+					metav1.Condition{
+						Type:    status.StatusActive,
+						Status:  metav1.ConditionFalse,
+						Reason:  reason,
+						Message: err.Error(),
+					}) {
+					return r.Status().Update(ctx, environment)
+				}
 			}
 			return err
 		}

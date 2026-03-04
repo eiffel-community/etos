@@ -63,7 +63,7 @@ func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Ownership handoff: If Environment owns this LogArea, we relinquish control
-	if hasOwner(logarea.OwnerReferences, "Environment") {
+	if ownedByEnvironment(logarea.OwnerReferences) {
 		if controllerutil.ContainsFinalizer(logarea, providerFinalizer) {
 			// Clean up our finalizer since the environment controller now owns the LogArea.
 			controllerutil.RemoveFinalizer(logarea, providerFinalizer)
@@ -271,7 +271,10 @@ func (r LogAreaReconciler) releaseJob(ctx context.Context, obj client.Object) (*
 		return nil, err
 	}
 
-	jobSpec := release.LogAreaReleaser(logarea, environmentrequest, imageFromProvider(provider), true)
+	jobSpec, err := release.LogAreaReleaser(logarea, environmentrequest, provider, true)
+	if err != nil {
+		return nil, err
+	}
 	return jobSpec, ctrl.SetControllerReference(logarea, jobSpec, r.Scheme)
 }
 

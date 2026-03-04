@@ -82,7 +82,7 @@ func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alp
 
 // reconcileSecret will reconcile the messagebus secret to its expected state.
 func (r *MessageBusDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
-	target, err := r.secret(ctx, name)
+	target, err := r.secret(ctx, name, owner.GetName())
 	if err != nil {
 		return target, err
 	}
@@ -112,7 +112,7 @@ func (r *MessageBusDeployment) reconcileSecret(ctx context.Context, logger logr.
 
 // reconcileStatefulset will reconcile the messagebus statefulset to its expected state.
 func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
-	target := r.statefulset(name)
+	target := r.statefulset(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -144,7 +144,7 @@ func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, logger 
 
 // reconcileService will reconcile the messagebus service to its expected state.
 func (r *MessageBusDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
-	target := r.service(name)
+	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -169,28 +169,28 @@ func (r *MessageBusDeployment) reconcileService(ctx context.Context, logger logr
 }
 
 // secret will create a secret resource definition for the messagebus.
-func (r *MessageBusDeployment) secret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+func (r *MessageBusDeployment) secret(ctx context.Context, name types.NamespacedName, clusterName string) (*corev1.Secret, error) {
 	data, err := r.secretData(ctx, name.Namespace)
 	if err != nil {
 		return nil, err
 	}
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Data:       data,
 	}, nil
 }
 
 // statefulset will create a statefulset resource definition for the messagebus.
-func (r *MessageBusDeployment) statefulset(name types.NamespacedName) *appsv1.StatefulSet {
+func (r *MessageBusDeployment) statefulset(name types.NamespacedName, clusterName string) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": name.Name},
 			},
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{r.volumeClaim(name)},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name),
+				ObjectMeta: r.meta(name, clusterName),
 				Spec: corev1.PodSpec{
 					Volumes:    []corev1.Volume{r.volume(name)},
 					Containers: []corev1.Container{r.container(name)},
@@ -201,9 +201,9 @@ func (r *MessageBusDeployment) statefulset(name types.NamespacedName) *appsv1.St
 }
 
 // service will create a service resource definition for the messagebus.
-func (r *MessageBusDeployment) service(name types.NamespacedName) *corev1.Service {
+func (r *MessageBusDeployment) service(name types.NamespacedName, clusterName string) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: corev1.ServiceSpec{
 			Ports:    r.ports(),
 			Selector: map[string]string{"app.kubernetes.io/name": name.Name},
@@ -235,10 +235,11 @@ func (r *MessageBusDeployment) secretData(ctx context.Context, namespace string)
 }
 
 // meta will create a common meta resource object for the messagebus.
-func (r *MessageBusDeployment) meta(name types.NamespacedName) metav1.ObjectMeta {
+func (r *MessageBusDeployment) meta(name types.NamespacedName, clusterName string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Labels: map[string]string{
-			"app.kubernetes.io/name": name.Name,
+			"app.kubernetes.io/name":                  name.Name,
+			"etos.eiffel-community.github.io/cluster": clusterName,
 		},
 		Annotations: make(map[string]string),
 		Name:        name.Name,

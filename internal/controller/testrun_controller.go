@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -532,6 +533,15 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 	if ok {
 		annotations["etos.eiffel-community.github.io/traceparent"] = traceparent
 	}
+	// Using ParseInt directly instead of Atoi since Atoi returns int, not int64
+	environmentTimeout, err := strconv.ParseInt(cluster.Spec.ETOS.Config.EnvironmentTimeout, 10, 0)
+	var deadline int64
+	if err != nil {
+		logger.Error(err, "failed to convert EnvironmentTimeout to int, defaulting to 60")
+		deadline = time.Now().Unix() + 60
+	} else {
+		deadline = time.Now().Unix() + environmentTimeout
+	}
 
 	return &etosv1alpha1.EnvironmentRequest{
 		ObjectMeta: metav1.ObjectMeta{
@@ -571,6 +581,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 			},
 			Image:              testrun.Spec.EnvironmentProvider.Image,
 			ServiceAccountName: fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
+			Deadline:           deadline,
 			Config: etosv1alpha1.EnvironmentProviderJobConfig{
 				EiffelMessageBus:                    eiffelMessageBus,
 				EtosMessageBus:                      etosMessageBus,
@@ -605,9 +616,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"etos.eiffel-community.github.io/id": testrun.Spec.ID,
-				"app.kubernetes.io/name":             "suite-runner",
-				"app.kubernetes.io/part-of":          "etos",
+				"etos.eiffel-community.github.io/id":      testrun.Spec.ID,
+				"etos.eiffel-community.github.io/cluster": testrun.Spec.Cluster,
+				"app.kubernetes.io/name":                  "suite-runner",
+				"app.kubernetes.io/part-of":               "etos",
 			},
 			Annotations: make(map[string]string),
 			Name:        testrun.Name,
@@ -619,9 +631,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 				ObjectMeta: metav1.ObjectMeta{
 					Name: testrun.Name,
 					Labels: map[string]string{
-						"etos.eiffel-community.github.io/id": testrun.Spec.ID,
-						"app.kubernetes.io/name":             "suite-runner",
-						"app.kubernetes.io/part-of":          "etos",
+						"etos.eiffel-community.github.io/id":      testrun.Spec.ID,
+						"etos.eiffel-community.github.io/cluster": testrun.Spec.Cluster,
+						"app.kubernetes.io/name":                  "suite-runner",
+						"app.kubernetes.io/part-of":               "etos",
 					},
 				},
 				Spec: corev1.PodSpec{

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Local ETOS deployment."""
+
 import argparse
 import logging
 import os
@@ -61,6 +62,13 @@ def parse_args() -> argparse.Namespace:
         help="Whether or not to continue after an error. Only affects direction=down and during rollback",
     )
     parser.add_argument(
+        "-p",
+        "--pack",
+        type=str,
+        action="append",
+        help="Which pack(s) to deploy, if not specified all packs will be deployed",
+    )
+    parser.add_argument(
         "-v", "--verbose", action="count", default=0, help="Enable more verbose output"
     )
     return parser.parse_args()
@@ -71,10 +79,21 @@ def loglevel(level: int) -> int:
     return MAX_LOG_LEVEL - (level * 10)
 
 
-def get_packs() -> list[Type[BasePack]]:
+def get_packs(packs: list[str] | None) -> list[Type[BasePack]]:
     """Get all packs that we want to deploy."""
-    LOGGER.debug("Fetching all packs")
-    return PACKS
+    if packs is None:
+        LOGGER.debug("Fetching all packs")
+        return PACKS
+    LOGGER.debug("Fetching packs %r", packs)
+    selected_packs = []
+    for pack in packs:
+        for available_pack in PACKS:
+            if available_pack.__name__.lower() == pack.lower():
+                selected_packs.append(available_pack)
+                break
+        else:
+            LOGGER.warning("Pack %r not found, skipping", pack)
+    return selected_packs
 
 
 def deploy_commands(packs: list[Type[BasePack]], store: Store) -> list[Command]:
@@ -153,10 +172,10 @@ def run(args: argparse.Namespace):
             if args.direction.lower() == "up":
                 rollback = []
                 if args.rollback:
-                    rollback = undeploy_commands(get_packs(), store)
-                deploy(deploy_commands(get_packs(), store), rollback)
+                    rollback = undeploy_commands(get_packs(args.pack), store)
+                deploy(deploy_commands(get_packs(args.pack), store), rollback)
             else:
-                undeploy(undeploy_commands(get_packs(), store), args.ignore_errors)
+                undeploy(undeploy_commands(get_packs(args.pack), store), args.ignore_errors)
     except Fail as failure:
         LOGGER.critical("stderr: %s", failure.result.stderr)
         raise SystemExit(1) from failure

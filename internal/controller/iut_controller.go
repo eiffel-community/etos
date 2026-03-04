@@ -63,7 +63,7 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Ownership handoff: If Environment owns this IUT, we relinquish control
-	if hasOwner(iut.OwnerReferences, "Environment") {
+	if ownedByEnvironment(iut.OwnerReferences) {
 		if controllerutil.ContainsFinalizer(iut, providerFinalizer) {
 			// Clean up our finalizer since the environment controller now owns the IUT.
 			controllerutil.RemoveFinalizer(iut, providerFinalizer)
@@ -273,7 +273,10 @@ func (r IutReconciler) releaseJob(ctx context.Context, obj client.Object) (*batc
 		return nil, err
 	}
 
-	jobSpec := release.IutReleaser(iut, environmentrequest, imageFromProvider(provider), true)
+	jobSpec, err := release.IutReleaser(iut, environmentrequest, provider, true)
+	if err != nil {
+		return nil, err
+	}
 	return jobSpec, ctrl.SetControllerReference(iut, jobSpec, r.Scheme)
 }
 
