@@ -123,17 +123,14 @@ type ProviderSpec struct {
 	// ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
 	// +optional
 	ExecutionSpaceProviderConfig *ExecutionSpaceProviderConfig `json:"executionSpaceProviderConfig,omitempty"`
+
+	// IutProviderConfig describe the configuration for an IUT provider.
+	// +optional
+	IutProviderConfig *IutProviderConfig `json:"iutProviderConfig,omitempty"`
 }
 
 // ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
 type ExecutionSpaceProviderConfig struct {
-	// The configuration of a provider is very implementation-specific and we cannot give
-	// a perfectly generic configuration for all cases. The following field allows any
-	// data-structure to be added to this configuration and it is expected that providers
-	// can handle the data they require themselves.
-	// +optional
-	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
-
 	// Dev describes whether or not this provider should run the ETR in dev mode.
 	// While using dev mode the ETR can be installed from github using ETRBranch and ETRRepository.
 	// +kubebuilder:default="false"
@@ -150,6 +147,22 @@ type ExecutionSpaceProviderConfig struct {
 	// dev mode. Defaults to github.com/eiffel-community/etos
 	// +optional
 	ETRRepository string `json:"ETR_REPOSITORY,omitempty"`
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
+}
+
+// IutProviderConfig describe the configuration for an IUT provider.
+type IutProviderConfig struct {
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
 }
 
 // ProviderStatus defines the observed state of Provider
