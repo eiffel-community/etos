@@ -83,10 +83,16 @@ func (p *genericExecutionSpaceProvider) Provision(
 		client, environmentRequest.Spec.Config.EtosMessageBus.Password,
 		environmentRequest.Namespace, encryptionKey,
 	)
+	if err != nil {
+		return err
+	}
 	eiffelMessagebusPassword, err := getAndEncrypt(ctx,
 		client, environmentRequest.Spec.Config.EiffelMessageBus.Password,
 		environmentRequest.Namespace, encryptionKey,
 	)
+	if err != nil {
+		return err
+	}
 	environment := map[string]string{
 		"SOURCE_HOST":            hostname,
 		"ETOS_API":               environmentRequest.Spec.Config.EtosApi,
