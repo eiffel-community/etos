@@ -2141,7 +2141,6 @@ spec:
                       posted as JSON.
                     type: boolean
                   auth:
-                    default: {}
                     description: Auth defines authorization instructions for a request.
                     properties:
                       password:
@@ -4076,7 +4075,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:7ccd9957
+        image: ghcr.io/eiffel-community/etos-controller:3e7cec89
         livenessProbe:
           httpGet:
             path: /healthz
