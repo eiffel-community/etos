@@ -58,7 +58,6 @@ type Upload struct {
 	AsJSON bool `json:"as_json"`
 
 	// Auth defines authorization instructions for a request.
-	// +optional
 	// +kubebuilder:default={}
 	Auth *Auth `json:"auth,omitempty"`
 
