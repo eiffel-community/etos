@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -52,11 +53,20 @@ type dataset struct {
 func (p *genericExecutionSpaceProvider) Provision(
 	ctx context.Context, logger logr.Logger, cfg provider.ProvisionConfig,
 ) error {
+
+	client, err := provider.KubernetesClient()
+	if err != nil {
+		return err
+	}
 	environmentRequest := cfg.EnvironmentRequest
 	if cfg.MinimumAmount <= 0 {
 		return errors.New("minimum amount of ExecutionSpaces requested is less than or equal to 0")
 	}
-	encryptionKey, err := fernet.DecodeKey(environmentRequest.Spec.Config.EncryptionKey.Value)
+	key, err := environmentRequest.Spec.Config.EncryptionKey.Get(ctx, client, environmentRequest.Namespace)
+	if err != nil {
+		return err
+	}
+	encryptionKey, err := fernet.DecodeKey(string(key))
 	if err != nil {
 		return err
 	}
@@ -69,14 +79,14 @@ func (p *genericExecutionSpaceProvider) Provision(
 		"Namespace", environmentRequest.Namespace,
 		"Amount", cfg.MinimumAmount,
 	)
-	etosMessagebusPassword, err := encrypt(environmentRequest.Spec.Config.EtosMessageBus.Password.Value, encryptionKey)
-	if err != nil {
-		return err
-	}
-	eiffelMessagebusPassword, err := encrypt(environmentRequest.Spec.Config.EiffelMessageBus.Password.Value, encryptionKey)
-	if err != nil {
-		return err
-	}
+	etosMessagebusPassword, err := getAndEncrypt(ctx,
+		client, environmentRequest.Spec.Config.EtosMessageBus.Password,
+		environmentRequest.Namespace, encryptionKey,
+	)
+	eiffelMessagebusPassword, err := getAndEncrypt(ctx,
+		client, environmentRequest.Spec.Config.EiffelMessageBus.Password,
+		environmentRequest.Namespace, encryptionKey,
+	)
 	environment := map[string]string{
 		"SOURCE_HOST":            hostname,
 		"ETOS_API":               environmentRequest.Spec.Config.EtosApi,
@@ -257,6 +267,15 @@ func (p *genericExecutionSpaceProvider) Release(
 }
 
 // encrypt encrypts a string using the provided Fernet key.
-func encrypt(s string, key *fernet.Key) ([]byte, error) {
-	return fernet.EncryptAndSign([]byte(s), key)
+func encrypt(s []byte, key *fernet.Key) ([]byte, error) {
+	return fernet.EncryptAndSign(s, key)
+}
+
+// getAndEncrypt gets a value from a Var struct and encrypts it using the provided Fernet key.
+func getAndEncrypt(ctx context.Context, client client.Client, s *v1alpha1.Var, namespace string, key *fernet.Key) ([]byte, error) {
+	value, err := s.Get(ctx, client, namespace)
+	if err != nil {
+		return nil, err
+	}
+	return encrypt(value, key)
 }
