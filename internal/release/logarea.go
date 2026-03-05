@@ -26,7 +26,7 @@ const LogAreaReleaserName = "log-area-releaser"
 
 // LogAreaReleaser returns an logArea releaser job specification.
 func LogAreaReleaser(logArea *v1alpha2.LogArea, environmentrequest *v1alpha1.EnvironmentRequest, provider *v1alpha1.Provider, skipDeletingLogArea bool) (*batchv1.Job, error) {
-	container, err := LogAreaReleaserContainer(logArea, provider, skipDeletingLogArea)
+	container, err := LogAreaReleaserContainer(logArea, provider, environmentrequest, skipDeletingLogArea)
 	if err != nil {
 		return nil, err
 	}
@@ -40,12 +40,13 @@ func LogAreaReleaser(logArea *v1alpha2.LogArea, environmentrequest *v1alpha1.Env
 }
 
 // LogAreaReleaserContainer returns an logArea releaser container specification.
-func LogAreaReleaserContainer(logArea *v1alpha2.LogArea, provider *v1alpha1.Provider, skipDeletingLogArea bool) (corev1.Container, error) {
+func LogAreaReleaserContainer(logArea *v1alpha2.LogArea, provider *v1alpha1.Provider, environmentrequest *v1alpha1.EnvironmentRequest, skipDeletingLogArea bool) (corev1.Container, error) {
 	return ReleaseContainer(
 		logArea.Name,
 		LogAreaReleaserName,
 		logArea.Namespace,
 		provider,
+		environmentrequest,
 		skipDeletingLogArea,
 	)
 }

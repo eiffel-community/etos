@@ -149,11 +149,12 @@ func (p *genericExecutionSpaceProvider) Provision(
 		if err != nil {
 			return err
 		}
-		logger.Info("ExecutionSpace created, launching ETR")
+		logger.Info(fmt.Sprintf("ExecutionSpace created with name '%s', launching ETOS test runner",
+			executionSpace.Name))
 		if err := p.start(ctx, environmentRequest, executionSpace); err != nil {
 			return err
 		}
-		logger.Info("ETR launched")
+		logger.Info("Test runner has launched and is waiting for tests")
 	}
 	return nil
 }
@@ -260,16 +261,19 @@ func (p *genericExecutionSpaceProvider) start(
 func (p *genericExecutionSpaceProvider) Release(
 	ctx context.Context, logger logr.Logger, cfg provider.ReleaseConfig,
 ) error {
-	logger.Info("Releasing ExecutionSpace", "Name", cfg.Name, "Namespace", cfg.Namespace)
+	logger.Info(fmt.Sprintf("Releasing ExecutionSpace '%s'", cfg.Name), "Namespace", cfg.Namespace)
 	executionSpace, err := provider.GetExecutionSpace(ctx, cfg.Name, cfg.Namespace)
 	if err != nil {
 		return err
 	}
-	logger.Info("ExecutionSpace", "name", executionSpace.Name)
 	if cfg.NoDelete {
 		return nil
 	}
-	return provider.DeleteExecutionSpace(ctx, executionSpace)
+	if err := provider.DeleteExecutionSpace(ctx, executionSpace); err != nil {
+		return err
+	}
+	logger.Info(fmt.Sprintf("ExecutionSpace '%s' released", cfg.Name))
+	return nil
 }
 
 // encrypt encrypts a string using the provided Fernet key.

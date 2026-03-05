@@ -22,7 +22,6 @@ import (
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
-	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,19 +33,7 @@ import (
 //
 // This function panics on errors, propagating errors back to the controller that executed it.
 func RunLogAreaProvider(provider Provider) {
-	params := ParseParameters()
-	params.providerType = "LogArea"
-	params.amountFunc = GetIUTCount
-
-	ctx := context.TODO()
-	logger := params.logger.WithValues(
-		"providerType", params.providerType,
-		"environmentRequest", params.environmentRequestName,
-		"namespace", params.namespace,
-		"providerName", params.providerName,
-	)
-	ctx = logr.NewContext(ctx, logger)
-	if err := writeTerminationLog(ctx, runProvider, provider, params); err != nil {
+	if err := run(provider, ParseParameters("LogArea", GetIUTCount)); err != nil {
 		panic(err)
 	}
 }
@@ -102,10 +89,8 @@ func CreateLogArea(
 	namespace, name string,
 	spec v1alpha2.LogAreaSpec,
 ) (*v1alpha2.LogArea, error) {
-	logger := logr.FromContextOrDiscard(ctx)
 	var logArea v1alpha2.LogArea
 
-	logger.Info("Getting Kubernetes client")
 	cli, err := KubernetesClient()
 	if err != nil {
 		return nil, err

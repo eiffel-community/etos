@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/pkg/provider"
@@ -44,24 +45,28 @@ func (p *genericIutProvider) Provision(ctx context.Context, logger logr.Logger, 
 	)
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic IUT")
-		if _, err := provider.CreateIUT(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.IutSpec{}); err != nil {
+		iut, err := provider.CreateIUT(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.IutSpec{})
+		if err != nil {
 			return err
 		}
-		logger.Info("IUT created")
+		logger.Info(fmt.Sprintf("IUT created with name '%s'", iut.Name))
 	}
 	return nil
 }
 
 // Release releases an IUT.
 func (p *genericIutProvider) Release(ctx context.Context, logger logr.Logger, cfg provider.ReleaseConfig) error {
-	logger.Info("Releasing IUT", "Name", cfg.Name, "Namespace", cfg.Namespace)
+	logger.Info(fmt.Sprintf("Releasing IUT '%s'", cfg.Name), "Namespace", cfg.Namespace)
 	iut, err := provider.GetIUT(ctx, cfg.Name, cfg.Namespace)
 	if err != nil {
 		return err
 	}
-	logger.Info("IUT", "name", iut.Name)
 	if cfg.NoDelete {
 		return nil
 	}
-	return provider.DeleteIUT(ctx, iut)
+	if err := provider.DeleteIUT(ctx, iut); err != nil {
+		return err
+	}
+	logger.Info(fmt.Sprintf("IUT '%s' released", cfg.Name))
+	return nil
 }

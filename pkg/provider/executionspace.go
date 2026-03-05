@@ -22,7 +22,6 @@ import (
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
-	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,19 +32,7 @@ import (
 //
 // This function panics on errors, propagating errors back to the controller that executed it.
 func RunExecutionSpaceProvider(provider Provider) {
-	params := ParseParameters()
-	params.providerType = "ExecutionSpace"
-	params.amountFunc = GetIUTCount
-
-	ctx := context.TODO()
-	logger := params.logger.WithValues(
-		"providerType", params.providerType,
-		"environmentRequest", params.environmentRequestName,
-		"namespace", params.namespace,
-		"providerName", params.providerName,
-	)
-	ctx = logr.NewContext(ctx, logger)
-	if err := writeTerminationLog(ctx, runProvider, provider, params); err != nil {
+	if err := run(provider, ParseParameters("ExecutionSpace", GetIUTCount)); err != nil {
 		panic(err)
 	}
 }
@@ -96,10 +83,8 @@ func CreateExecutionSpace(
 	namespace, name string,
 	spec v1alpha2.ExecutionSpaceSpec,
 ) (*v1alpha2.ExecutionSpace, error) {
-	logger := logr.FromContextOrDiscard(ctx)
 	var executionSpace v1alpha2.ExecutionSpace
 
-	logger.Info("Getting Kubernetes client")
 	cli, err := KubernetesClient()
 	if err != nil {
 		return nil, err

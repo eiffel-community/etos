@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/pkg/provider"
@@ -53,28 +54,33 @@ func (p *genericLogAreaProvider) Provision(
 	}
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic LogArea")
-		if _, err := provider.CreateLogArea(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
+		logger.V(0).Info(fmt.Sprintf("Logs will be uploaded to %s", logAreaProvider.Spec.LogAreaProviderConfig.Upload.URL))
+		logArea, err := provider.CreateLogArea(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
 			LiveLogs: logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs,
 			Logs:     map[string]string{},
 			Upload:   logAreaProvider.Spec.LogAreaProviderConfig.Upload,
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
-		logger.Info("LogArea created")
+		logger.Info(fmt.Sprintf("LogArea created with name %s", logArea.Name))
 	}
 	return nil
 }
 
 // Release releases a LogArea.
 func (p *genericLogAreaProvider) Release(ctx context.Context, logger logr.Logger, cfg provider.ReleaseConfig) error {
-	logger.Info("Releasing LogArea", "Name", cfg.Name, "Namespace", cfg.Namespace)
+	logger.Info(fmt.Sprintf("Releasing LogArea '%s'", cfg.Name), "Namespace", cfg.Namespace)
 	logArea, err := provider.GetLogArea(ctx, cfg.Name, cfg.Namespace)
 	if err != nil {
 		return err
 	}
-	logger.Info("LogArea", "name", logArea.Name)
 	if cfg.NoDelete {
 		return nil
 	}
-	return provider.DeleteLogArea(ctx, logArea)
+	if err := provider.DeleteLogArea(ctx, logArea); err != nil {
+		return err
+	}
+	logger.Info(fmt.Sprintf("LogArea '%s' released", cfg.Name))
+	return nil
 }

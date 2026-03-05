@@ -456,16 +456,16 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 	backoff := int32(0)
 
 	executionSpaceRelease, err := release.ExecutionSpaceReleaserContainer(
-		&executionSpace, executionSpaceProvider, false,
+		&executionSpace, executionSpaceProvider, environmentRequest, false,
 	)
 	if err != nil {
 		return nil, err
 	}
-	logAreaRelease, err := release.LogAreaReleaserContainer(&logArea, logAreaProvider, false)
+	logAreaRelease, err := release.LogAreaReleaserContainer(&logArea, logAreaProvider, environmentRequest, false)
 	if err != nil {
 		return nil, err
 	}
-	iutRelease, err := release.IutReleaserContainer(&iut, iutProvider, false)
+	iutRelease, err := release.IutReleaserContainer(&iut, iutProvider, environmentRequest, false)
 	if err != nil {
 		return nil, err
 	}
@@ -501,6 +501,7 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 								"-release",
 								fmt.Sprintf("-name=%s", environment.Name),
 								fmt.Sprintf("-namespace=%s", environment.Namespace),
+								fmt.Sprintf("-environment-request=%s", environmentRequest.Name),
 							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
