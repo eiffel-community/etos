@@ -28,6 +28,11 @@ import (
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"github.com/eiffel-community/etos/internal/messaging"
 	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -54,6 +59,7 @@ type Parameters struct {
 	providerName           string
 	releaseEnvironment     bool
 	noDelete               bool
+	tracer                 trace.Tracer
 	opts                   zap.Options
 }
 
@@ -61,12 +67,14 @@ type ProvisionConfig struct {
 	MinimumAmount      int
 	MaximumAmount      int
 	Namespace          string
+	Tracer             trace.Tracer
 	EnvironmentRequest *v1alpha1.EnvironmentRequest
 }
 
 type ReleaseConfig struct {
 	Name               string
 	Namespace          string
+	Tracer             trace.Tracer
 	NoDelete           bool
 	EnvironmentRequest *v1alpha1.EnvironmentRequest
 }
@@ -100,6 +108,7 @@ func ParseParameters(providerType string, amountFunc AmountFunc) Parameters {
 	params.opts = opts
 	params.providerType = providerType
 	params.amountFunc = amountFunc
+	params.tracer = otel.Tracer(params.providerName)
 
 	if params.environmentRequestName == "" {
 		panic("Must set -environment-request")
@@ -120,8 +129,29 @@ func run(provider Provider, params Parameters) error {
 	if err != nil {
 		return fmt.Errorf("failed to get EnvironmentRequest: %w", err)
 	}
+
+	if err := initOpentelemetryTracer(ctx, params.providerName); err != nil {
+		return fmt.Errorf("failed to initialize OpenTelemetry tracer: %w", err)
+	}
+
+	ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.MapCarrier{
+		"traceparent": environmentRequest.Annotations["etos.eiffel-community.github.io/traceparent"],
+		"baggage":     environmentRequest.Annotations["etos.eiffel-community.github.io/baggage"],
+	})
+	ctx, span := params.tracer.Start(
+		ctx, params.providerName, trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End()
+	span.SetAttributes(
+		attribute.String(fmt.Sprintf("etos.provider.%s.environmentRequest", params.providerType), params.environmentRequestName),
+		attribute.String(fmt.Sprintf("etos.provider.%s.namespace", params.providerType), params.namespace),
+		attribute.String(fmt.Sprintf("etos.provider.%s.name", params.providerType), params.providerName),
+	)
+
 	client, err := KubernetesClient()
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Failed to create Kubernetes client")
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 	publisher, err := messaging.NewPublisher(ctx,
@@ -130,6 +160,8 @@ func run(provider Provider, params Parameters) error {
 		params.namespace,
 	)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Failed to create message bus publisher")
 		return fmt.Errorf("failed to create message bus publisher: %w", err)
 	}
 	defer func() {
@@ -139,6 +171,8 @@ func run(provider Provider, params Parameters) error {
 	}()
 	logger, err := newLogger(ctx, params, publisher)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Failed to create logger")
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
 
@@ -153,7 +187,12 @@ func run(provider Provider, params Parameters) error {
 	publisher.AddLogger(logger)
 	ctx = logr.NewContext(ctx, logger)
 	logger = logr.FromContextOrDiscard(ctx)
-	return writeTerminationLog(ctx, runProvider, logger, provider, params, environmentRequest)
+	if err := writeTerminationLog(ctx, runProvider, logger, provider, params, environmentRequest); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Provider execution failed")
+		return err
+	}
+	return nil
 }
 
 // WriteResult writes a job result JSON structure to the termination-log if running in a Kubernetes pod.
@@ -230,6 +269,14 @@ func runProvider(ctx context.Context, logger logr.Logger, provider Provider, par
 	if err != nil {
 		return err
 	}
+	ctx, span := params.tracer.Start(
+		ctx, fmt.Sprintf("%s-provision", params.providerName), trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End()
+	span.SetAttributes(
+		attribute.Int(fmt.Sprintf("etos.provider.%s.minimumAmount", params.providerType), minimumAmount),
+		attribute.Int(fmt.Sprintf("etos.provider.%s.maximumAmount", params.providerType), environmentRequest.Spec.MaximumAmount),
+	)
 	return provider.Provision(ctx, logger, ProvisionConfig{
 		EnvironmentRequest: environmentRequest,
 		Namespace:          params.namespace,
@@ -243,6 +290,13 @@ func runReleaser(ctx context.Context, logger logr.Logger, provider Provider, par
 	if params.name == "" {
 		return errors.New("Must set -name")
 	}
+	ctx, span := params.tracer.Start(
+		ctx, fmt.Sprintf("%s-release", params.providerName), trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End()
+	span.SetAttributes(
+		attribute.String(fmt.Sprintf("etos.provider.%s.name", params.providerType), params.name),
+	)
 	return provider.Release(ctx, logger, ReleaseConfig{
 		EnvironmentRequest: environmentRequest,
 		Name:               params.name,
