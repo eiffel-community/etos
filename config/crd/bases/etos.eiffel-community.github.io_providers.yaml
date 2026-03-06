@@ -362,7 +362,8 @@ spec:
                   configmap.
                 properties:
                   configMapKeyRef:
-                    description: Selects a key from a ConfigMap.
+                    description: ConfigMapKeyRef describes a value from a configmap.
+                      Cannot be set if SecretKeyRef is set.
                     properties:
                       key:
                         description: The key to select.
@@ -385,7 +386,8 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   secretKeyRef:
-                    description: SecretKeySelector selects a key of a Secret.
+                    description: SecretKeyRef describes a value from a secret. Cannot
+                      be set if ConfigMapKeyRef is set.
                     properties:
                       key:
                         description: The key of the secret to select from.  Must be

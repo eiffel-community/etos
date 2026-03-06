@@ -72,10 +72,13 @@ spec:
               environmentProvider:
                 properties:
                   image:
+                    description: Image describes the docker image to run for a service.
+                      ETOS applies defaults if empty.
                     type: string
                   imagePullPolicy:
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
+                    description: |-
+                      ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                      if empty.
                     type: string
                 type: object
               id:
@@ -88,10 +91,13 @@ spec:
               logListener:
                 properties:
                   image:
+                    description: Image describes the docker image to run for a service.
+                      ETOS applies defaults if empty.
                     type: string
                   imagePullPolicy:
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
+                    description: |-
+                      ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                      if empty.
                     type: string
                 type: object
               providers:
@@ -122,10 +128,13 @@ spec:
               suiteRunner:
                 properties:
                   image:
+                    description: Image describes the docker image to run for a service.
+                      ETOS applies defaults if empty.
                     type: string
                   imagePullPolicy:
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
+                    description: |-
+                      ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                      if empty.
                     type: string
                 type: object
               suites:
