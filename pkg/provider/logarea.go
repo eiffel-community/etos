@@ -39,6 +39,13 @@ func RunLogAreaProvider(provider Provider) {
 	params.amountFunc = GetIUTCount
 
 	ctx := context.TODO()
+	logger := params.logger.WithValues(
+		"providerType", params.providerType,
+		"environmentRequest", params.environmentRequestName,
+		"namespace", params.namespace,
+		"providerName", params.providerName,
+	)
+	ctx = logr.NewContext(ctx, logger)
 	if err := writeTerminationLog(ctx, runProvider, provider, params); err != nil {
 		panic(err)
 	}
@@ -86,13 +93,16 @@ func GetLogAreas(
 //
 // The spec.ID, spec.EnvironmentRequest, and spec.ProviderID fields are automatically populated
 // by this function. They will be overwritten if set.
+// If a name is not provided, a name will be generated based on the EnvironmentRequest name.
+// If a name is provided it is the caller's responsibility to ensure name uniqueness, it will
+// not be guaranteed by this function.
 func CreateLogArea(
 	ctx context.Context,
 	environmentrequest *v1alpha1.EnvironmentRequest,
-	namespace string,
+	namespace, name string,
 	spec v1alpha2.LogAreaSpec,
 ) (*v1alpha2.LogArea, error) {
-	logger, _ := logr.FromContext(ctx)
+	logger := logr.FromContextOrDiscard(ctx)
 	var logArea v1alpha2.LogArea
 
 	logger.Info("Getting Kubernetes client")
@@ -109,12 +119,18 @@ func CreateLogArea(
 	spec.ProviderID = environmentrequest.Spec.Providers.LogArea.ID
 	spec.EnvironmentRequest = environmentrequest.Name
 
+	var generateName string
+	if name == "" {
+		generateName = fmt.Sprintf("%s-log-area-", strings.ToLower(environmentrequest.Spec.Name))
+	}
+
 	isController := false
 	blockOwnerDeletion := true
 	logArea = v1alpha2.LogArea{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:       labels,
-			GenerateName: fmt.Sprintf("%s-log-area-", strings.ToLower(environmentrequest.Spec.Name)),
+			Name:         name,
+			GenerateName: generateName,
 			Namespace:    namespace,
 			OwnerReferences: []metav1.OwnerReference{{
 				Kind:               "EnvironmentRequest",
@@ -127,6 +143,7 @@ func CreateLogArea(
 		},
 		Spec: spec,
 	}
+
 	return &logArea, cli.Create(ctx, &logArea)
 }
 
