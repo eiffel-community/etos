@@ -18,30 +18,36 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/controller/status"
 )
 
 var _ = Describe("Environment Controller", func() {
 	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+
+		const resourceName = "test-environment"
 
 		ctx := context.Background()
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: "default",
 		}
 		environment := &etosv1alpha1.Environment{}
+		SetDefaultEventuallyTimeout(2 * time.Minute)
+		SetDefaultEventuallyPollingInterval(time.Second)
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind Environment")
@@ -62,6 +68,11 @@ var _ = Describe("Environment Controller", func() {
 						Priority:    1,
 						Tests:       []etosv1alpha1.Test{},
 						TestRunner:  "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
+						Providers: &etosv1alpha1.Providers{
+							ExecutionSpace: "execution-space",
+							LogArea:        "log-area",
+							IUT:            "iut",
+						},
 						Iut: &apiextensionsv1.JSON{
 							Raw: []byte("{}"),
 						},
@@ -78,7 +89,6 @@ var _ = Describe("Environment Controller", func() {
 		})
 
 		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &etosv1alpha1.Environment{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
@@ -86,19 +96,52 @@ var _ = Describe("Environment Controller", func() {
 			By("Cleanup the specific resource instance Environment")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &EnvironmentReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+		It("should successfully reconcile the custom resource for Environment", func() {
+			By("Checking if the custom resource was successfully created")
+			Eventually(func(g Gomega) {
+				found := &etosv1alpha1.Environment{}
+				g.Expect(k8sClient.Get(ctx, typeNamespacedName, found)).To(Succeed())
+			}).Should(Succeed())
+
+			By("Checking that status conditions are initialized")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, typeNamespacedName, environment)).To(Succeed())
+				g.Expect(environment.Status.Conditions).NotTo(BeEmpty())
+			}).Should(Succeed())
+
+			By("Checking that the status condition 'Active' is set to True with reason 'Completed'")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, typeNamespacedName, environment)).To(Succeed())
+				active := meta.FindStatusCondition(environment.Status.Conditions, status.StatusActive)
+				g.Expect(active).NotTo(BeNil())
+				g.Expect(active).NotTo(HaveValue(Equal(metav1.Condition{}))) // Not empty
+				g.Expect(active.Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(active.Reason).To(Equal(status.ReasonCompleted))
+			}).Should(Succeed())
+
+			By("Checking that the finalizer is added to the resource")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, typeNamespacedName, environment)).To(Succeed())
+				g.Expect(controllerutil.ContainsFinalizer(environment, releaseFinalizer)).To(BeTrue())
+			}).Should(Succeed())
+
+			By("Setting the deadline to trigger the timeout logic in the controller")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, typeNamespacedName, environment)).To(Succeed())
+				environment.Spec.Deadline = time.Now().Unix()
+				g.Expect(k8sClient.Update(ctx, environment)).To(Succeed())
+			}).Should(Succeed())
+
+			By("Checking that the status condition 'Active' is set to False with reason 'TimedOut'")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, typeNamespacedName, environment)).To(Succeed())
+				active := meta.FindStatusCondition(environment.Status.Conditions, status.StatusActive)
+				g.Expect(active).NotTo(BeNil())
+				g.Expect(active).NotTo(HaveValue(Equal(metav1.Condition{}))) // Not empty
+				g.Expect(active.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(active.Reason).To(Equal(status.ReasonTimedOut))
+			}).Should(Succeed())
 		})
 	})
 })

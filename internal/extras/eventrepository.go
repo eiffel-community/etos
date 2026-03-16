@@ -109,7 +109,7 @@ func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, logger 
 	var err error
 	var target *corev1.Secret
 	if r.Deploy {
-		target, err = r.config(ctx, name)
+		target, err = r.config(ctx, name, owner.GetName())
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +144,7 @@ func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, logger 
 
 // reconcileDeployment will reconcile the event repository deployment to its expected state.
 func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
-	target := r.deployment(name, secretName)
+	target := r.deployment(name, secretName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -180,7 +180,7 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, log
 
 // reconcileService will reconcile the event repository service to its expected state.
 func (r *EventRepositoryDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
-	target := r.service(name)
+	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -206,7 +206,7 @@ func (r *EventRepositoryDeployment) reconcileService(ctx context.Context, logger
 
 // reconcileIngress will reconcile the event repository ingress to its expected state.
 func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*networkingv1.Ingress, error) {
-	target := r.ingress(name)
+	target := r.ingress(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -236,7 +236,7 @@ func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, logger
 }
 
 // config creates a new Secret to be used as configuration for the event repository.
-func (r *EventRepositoryDeployment) config(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+func (r *EventRepositoryDeployment) config(ctx context.Context, name types.NamespacedName, clusterName string) (*corev1.Secret, error) {
 	eiffel := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: r.rabbitmqSecret, Namespace: name.Namespace}, eiffel); err != nil {
 		return nil, err
@@ -251,21 +251,21 @@ func (r *EventRepositoryDeployment) config(ctx context.Context, name types.Names
 	data["RABBITMQ_QUEUE"] = []byte(r.EventRepository.EiffelQueueName)
 	data["RABBITMQ_QUEUE_PARAMS"] = []byte(r.EventRepository.EiffelQueueParams)
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Data:       data,
 	}, nil
 }
 
 // deployment will create a deployment resource definition for the event repository.
-func (r *EventRepositoryDeployment) deployment(name types.NamespacedName, secretName string) *appsv1.Deployment {
+func (r *EventRepositoryDeployment) deployment(name types.NamespacedName, secretName, clusterName string) *appsv1.Deployment {
 	return &appsv1.Deployment{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": name.Name},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name),
+				ObjectMeta: r.meta(name, clusterName),
 				Spec: corev1.PodSpec{
 					Containers: r.containers(name, secretName),
 				},
@@ -275,9 +275,9 @@ func (r *EventRepositoryDeployment) deployment(name types.NamespacedName, secret
 }
 
 // service will create a service resource definition for the event repository.
-func (r *EventRepositoryDeployment) service(name types.NamespacedName) *corev1.Service {
+func (r *EventRepositoryDeployment) service(name types.NamespacedName, clusterName string) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: corev1.ServiceSpec{
 			Ports:    r.ports(),
 			Selector: map[string]string{"app.kubernetes.io/name": name.Name},
@@ -286,9 +286,9 @@ func (r *EventRepositoryDeployment) service(name types.NamespacedName) *corev1.S
 }
 
 // ingress will create a ingress resource definition for the event repository.
-func (r *EventRepositoryDeployment) ingress(name types.NamespacedName) *networkingv1.Ingress {
+func (r *EventRepositoryDeployment) ingress(name types.NamespacedName, clusterName string) *networkingv1.Ingress {
 	ingress := &networkingv1.Ingress{
-		ObjectMeta: r.meta(name),
+		ObjectMeta: r.meta(name, clusterName),
 		Spec: networkingv1.IngressSpec{
 			Rules: []networkingv1.IngressRule{r.ingressRule(name)},
 		},
@@ -300,10 +300,11 @@ func (r *EventRepositoryDeployment) ingress(name types.NamespacedName) *networki
 }
 
 // meta will create a common meta resource object for the event repository.
-func (r *EventRepositoryDeployment) meta(name types.NamespacedName) metav1.ObjectMeta {
+func (r *EventRepositoryDeployment) meta(name types.NamespacedName, clusterName string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Labels: map[string]string{
-			"app.kubernetes.io/name": name.Name,
+			"app.kubernetes.io/name":                  name.Name,
+			"etos.eiffel-community.github.io/cluster": clusterName,
 		},
 		Annotations: make(map[string]string),
 		Name:        name.Name,
