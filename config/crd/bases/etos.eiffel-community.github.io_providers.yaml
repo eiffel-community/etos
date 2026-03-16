@@ -211,6 +211,35 @@ spec:
                       x-kubernetes-map-type: atomic
                   type: object
                 type: array
+              executionSpaceProviderConfig:
+                description: ExecutionSpaceProviderConfig describe the configuration
+                  for an execution space provider.
+                properties:
+                  ETR_BRANCH:
+                    description: |-
+                      ETRBranch describes a git branch to use when running the ETR in dev mode.
+                      Can be used in conjunction with ETRRepository to test a fork, otherwise the
+                      ETRRepository defaults to github.com/eiffel-community/etos.
+                    type: string
+                  ETR_REPOSITORY:
+                    description: |-
+                      ETRRepository describes the git repository to fetch an ETR from when running in
+                      dev mode. Defaults to github.com/eiffel-community/etos
+                    type: string
+                  custom:
+                    description: |-
+                      The configuration of a provider is very implementation-specific and we cannot give
+                      a perfectly generic configuration for all cases. The following field allows any
+                      data-structure to be added to this configuration and it is expected that providers
+                      can handle the data they require themselves.
+                    x-kubernetes-preserve-unknown-fields: true
+                  dev:
+                    default: "false"
+                    description: |-
+                      Dev describes whether or not this provider should run the ETR in dev mode.
+                      While using dev mode the ETR can be installed from github using ETRBranch and ETRRepository.
+                    type: string
+                type: object
               healthCheck:
                 default: {}
                 description: |-
