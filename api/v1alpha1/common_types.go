@@ -128,4 +128,13 @@ type RabbitMQ struct {
 	// +kubebuilder:default=/
 	// +optional
 	Vhost string `json:"vhost"`
+
+	// StreamPort describes the port to use for RabbitMQ streaming. Only set if Deploy is false.
+	// +kubebuilder:default="5552"
+	// +optional
+	StreamPort string `json:"streamPort,omitempty"`
+	// StreamName describes the stream name to use for RabbitMQ streaming. Only set if Deploy is false.
+	// +kubebuilder:default="etos-messagebus-stream"
+	// +optional
+	StreamName string `json:"streamName,omitempty"`
 }
