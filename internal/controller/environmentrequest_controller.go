@@ -102,8 +102,7 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return r.reconcileDeletion(ctx, environmentrequest)
 	}
 	if environmentrequest.Status.CompletionTime != nil {
-		// Deferred job cleanup: delete here rather than in StatusSuccessful to
-		// ensure CompletionTime is visible in the cache before the job disappears.
+		// Delete job after the environment request has completed.
 		jobManager := jobs.NewJob(r.Client, EnvironmentRequestOwnerKey, environmentrequest.GetName(), environmentrequest.GetNamespace())
 		_ = jobManager.Delete(ctx)
 		return ctrl.Result{}, nil
