@@ -102,6 +102,10 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return r.reconcileDeletion(ctx, environmentrequest)
 	}
 	if environmentrequest.Status.CompletionTime != nil {
+		// Deferred job cleanup: delete here rather than in StatusSuccessful to
+		// ensure CompletionTime is visible in the cache before the job disappears.
+		jobManager := jobs.NewJob(r.Client, EnvironmentRequestOwnerKey, environmentrequest.GetName(), environmentrequest.GetNamespace())
+		_ = jobManager.Delete(ctx)
 		return ctrl.Result{}, nil
 	}
 	if err := r.reconcile(ctx, environmentrequest); err != nil {
@@ -201,7 +205,8 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 		if meta.SetStatusCondition(conditions, condition) {
 			environmentRequestCondition := meta.FindStatusCondition(environmentrequest.Status.Conditions, status.StatusReady)
 			environmentrequest.Status.CompletionTime = &environmentRequestCondition.LastTransitionTime
-			return errors.Join(r.Status().Update(ctx, environmentrequest), jobManager.Delete(ctx))
+			// Update status only; job deletion is deferred to the next reconcile.
+			return r.Status().Update(ctx, environmentrequest)
 		}
 	case jobs.StatusActive:
 		if meta.SetStatusCondition(conditions,
