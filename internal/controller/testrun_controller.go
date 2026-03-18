@@ -187,7 +187,7 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1
 	if updated, err := r.reconcileSuiteRunner(ctx, testrun, jobManager, jobStatus); updated || err != nil {
 		return err
 	}
-	if updated, err := r.reconcileActiveStatus(ctx, testrun, jobManager); updated || err != nil {
+	if updated, err := r.reconcileActiveStatus(ctx, testrun); updated || err != nil {
 		return err
 	}
 
@@ -195,7 +195,7 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1
 }
 
 // reconcileActiveStatus will set the active status properly based on active suite runners.
-func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *etosv1alpha1.TestRun, jobManager jobs.Job) (bool, error) {
+func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *etosv1alpha1.TestRun) (bool, error) {
 	logger := logf.FromContext(ctx)
 
 	conditions := testrun.Status.Conditions
