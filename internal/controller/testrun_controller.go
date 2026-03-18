@@ -103,6 +103,10 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if testrun.Status.CompletionTime != nil {
+		// Delete suite runner job and environment requests after the testrun has completed.
+		jobManager := jobs.NewJob(r.Client, TestRunOwnerKey, testrun.GetName(), testrun.GetNamespace())
+		_ = jobManager.Delete(ctx)
+		_ = r.deleteEnvironmentRequests(ctx, testrun)
 		testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, status.StatusActive)
 		var retention *metav1.Duration
 		if testrunCondition.Reason == status.ReasonCompleted {
@@ -250,7 +254,8 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 			if condition == metav1.ConditionFalse {
 				now := metav1.Now()
 				testrun.Status.CompletionTime = &now
-				return true, errors.Join(r.Status().Update(ctx, testrun), jobManager.Delete(ctx), r.deleteEnvironmentRequests(ctx, testrun))
+				// Update status only; job and environment request deletion is deferred to the next reconcile.
+				return true, r.Status().Update(ctx, testrun)
 			}
 			return true, r.Status().Update(ctx, testrun)
 		}
