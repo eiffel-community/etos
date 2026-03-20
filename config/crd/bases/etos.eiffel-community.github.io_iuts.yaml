@@ -60,7 +60,7 @@ spec:
             properties:
               deadline:
                 description: |-
-                  Deadline is the end time, in unix epoch, before which the ExecutionSpace shall have
+                  Deadline is the end time, in unix epoch, before which the IUT shall have
                   been released. If not set or set to 0, there is no deadline.
                 format: int64
                 type: integer
