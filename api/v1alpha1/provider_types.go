@@ -120,9 +120,23 @@ type ProviderSpec struct {
 	// +optional
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 
+	// IutProviderConfig describe the configuration for an IUT provider.
+	// +optional
+	IutProviderConfig *IutProviderConfig `json:"iutProviderConfig,omitempty"`
+
 	// ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
 	// +optional
 	ExecutionSpaceProviderConfig *ExecutionSpaceProviderConfig `json:"executionSpaceProviderConfig,omitempty"`
+}
+
+// IutProviderConfig describe the configuration for an IUT provider.
+type IutProviderConfig struct {
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
 }
 
 // ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
