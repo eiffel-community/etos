@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/pkg/provider"
@@ -49,7 +50,7 @@ func (p *genericLogAreaProvider) Provision(
 		return err
 	}
 	if logAreaProvider.Spec.LogAreaProviderConfig == nil {
-		return errors.New("LogAreaProviderConfig is nil, and shouldn't be.")
+		return fmt.Errorf("%s has no LogAreaProviderConfig", logAreaProvider.Name)
 	}
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic LogArea")
