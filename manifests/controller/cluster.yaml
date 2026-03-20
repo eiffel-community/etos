@@ -1226,6 +1226,16 @@ spec:
                 type: string
               dataset:
                 x-kubernetes-preserve-unknown-fields: true
+              deadline:
+                description: 'Deadline is the end time, in unix epoch, before which
+                  the environment request shall have
+
+                  finished before it is cancelled
+
+                  If deadline is not set, then deadline is set to Now + Timeout(see
+                  below)'
+                format: int64
+                type: integer
               id:
                 description: ID is the ID for the environments generated. Will be
                   generated if nil. The ID is a UUID, any version, and regex matches
@@ -1256,9 +1266,14 @@ spec:
                         type: string
                       testRunner:
                         type: string
+                      testrunnerImage:
+                        description: TestRunnerImage describes the container image
+                          to run in an execution space
+                        type: string
                     required:
                     - id
                     - testRunner
+                    - testrunnerImage
                     type: object
                   iut:
                     properties:
@@ -1341,6 +1356,14 @@ spec:
                 required:
                 - tests
                 type: object
+              timeout:
+                default: 60
+                description: 'Timeout is the time, in seconds, the environment request
+                  is allowed to take.
+
+                  If both timeout and deadline is set, then deadline takes precedence.'
+                format: int64
+                type: integer
             required:
             - maximumAmount
             - minimumAmount
@@ -1561,6 +1584,13 @@ spec:
               context:
                 pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                 type: string
+              deadline:
+                description: 'Deadline is the end time, in unix epoch, before which
+                  the environment shall have
+
+                  been released. If not set or set to 0, there is no deadline.'
+                format: int64
+                type: integer
               executor:
                 x-kubernetes-preserve-unknown-fields: true
               iut:
@@ -2351,7 +2381,6 @@ spec:
                       posted as JSON.
                     type: boolean
                   auth:
-                    default: {}
                     description: Auth defines authorization instructions for a request.
                     properties:
                       password:
@@ -2794,6 +2823,46 @@ spec:
                       x-kubernetes-map-type: atomic
                   type: object
                 type: array
+              executionSpaceProviderConfig:
+                description: ExecutionSpaceProviderConfig describe the configuration
+                  for an execution space provider.
+                properties:
+                  ETR_BRANCH:
+                    description: 'ETRBranch describes a git branch to use when running
+                      the ETR in dev mode.
+
+                      Can be used in conjunction with ETRRepository to test a fork,
+                      otherwise the
+
+                      ETRRepository defaults to github.com/eiffel-community/etos.'
+                    type: string
+                  ETR_REPOSITORY:
+                    description: 'ETRRepository describes the git repository to fetch
+                      an ETR from when running in
+
+                      dev mode. Defaults to github.com/eiffel-community/etos'
+                    type: string
+                  custom:
+                    description: 'The configuration of a provider is very implementation-specific
+                      and we cannot give
+
+                      a perfectly generic configuration for all cases. The following
+                      field allows any
+
+                      data-structure to be added to this configuration and it is expected
+                      that providers
+
+                      can handle the data they require themselves.'
+                    x-kubernetes-preserve-unknown-fields: true
+                  dev:
+                    default: 'false'
+                    description: 'Dev describes whether or not this provider should
+                      run the ETR in dev mode.
+
+                      While using dev mode the ETR can be installed from github using
+                      ETRBranch and ETRRepository.'
+                    type: string
+                type: object
               healthCheck:
                 default: {}
                 description: 'Healthcheck defines the health check endpoint and interval
@@ -2814,6 +2883,23 @@ spec:
                 description: Image describes the docker image to run when providing
                   a resource.
                 type: string
+              iutProviderConfig:
+                description: IutProviderConfig describe the configuration for an IUT
+                  provider.
+                properties:
+                  custom:
+                    description: 'The configuration of a provider is very implementation-specific
+                      and we cannot give
+
+                      a perfectly generic configuration for all cases. The following
+                      field allows any
+
+                      data-structure to be added to this configuration and it is expected
+                      that providers
+
+                      can handle the data they require themselves.'
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
               jsontas:
                 description: 'These are pointers so that they become nil in the Provider
                   object in Kubernetes

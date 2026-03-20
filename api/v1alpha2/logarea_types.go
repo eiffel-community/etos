@@ -59,7 +59,6 @@ type Upload struct {
 
 	// Auth defines authorization instructions for a request.
 	// +optional
-	// +kubebuilder:default={}
 	Auth *Auth `json:"auth,omitempty"`
 
 	// URL defines the HTTP(s) URL to send payload to.
