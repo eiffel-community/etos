@@ -233,7 +233,21 @@ func (r *MessageBusDeployment) statefulset(name types.NamespacedName, clusterNam
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: r.meta(name, clusterName),
 				Spec: corev1.PodSpec{
-					Volumes:    []corev1.Volume{r.volume(name)},
+					Volumes: r.volumes(name),
+					InitContainers: []corev1.Container{
+						{
+							Name:  "init",
+							Image: "busybox:latest",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      fmt.Sprintf("%s-plugins", name.Name),
+									MountPath: "/data",
+									ReadOnly:  false,
+								},
+							},
+							Command: []string{"sh", "-c", "echo '[rabbitmq_prometheus,rabbitmq_stream_management].' > /data/enabled_plugins"},
+						},
+					},
 					Containers: []corev1.Container{r.container(name)},
 				},
 			},
@@ -312,16 +326,21 @@ func (r *MessageBusDeployment) volumeClaim(name types.NamespacedName) corev1.Per
 	}
 }
 
-// volume will create a volume resource definition for the messagebus statefulset.
-func (r *MessageBusDeployment) volume(name types.NamespacedName) corev1.Volume {
-	return corev1.Volume{
+// volumes will create volume resource definitions for the messagebus statefulset.
+func (r *MessageBusDeployment) volumes(name types.NamespacedName) []corev1.Volume {
+	return []corev1.Volume{{
 		Name: fmt.Sprintf("%s-data", name.Name),
 		VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: fmt.Sprintf("%s-data", name.Name),
 			},
 		},
-	}
+	}, {
+		Name: fmt.Sprintf("%s-plugins", name.Name),
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}}
 }
 
 // container will create a container resource definition for the messagebus statefulset.
@@ -333,6 +352,12 @@ func (r *MessageBusDeployment) container(name types.NamespacedName) corev1.Conta
 			{
 				Name:      fmt.Sprintf("%s-data", name.Name),
 				MountPath: "/var/lib/rabbitmq/data",
+			},
+			{
+				Name:      fmt.Sprintf("%s-plugins", name.Name),
+				MountPath: "/etc/rabbitmq/enabled_plugins",
+				SubPath:   "enabled_plugins",
+				ReadOnly:  true,
 			},
 		},
 		Env: []corev1.EnvVar{
@@ -351,13 +376,6 @@ func (r *MessageBusDeployment) container(name types.NamespacedName) corev1.Conta
 			{
 				Name:  "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS",
 				Value: "-rabbitmq_stream advertised_host \"$(POD_NAME).$(SERVICE_NAME)\"",
-			},
-		},
-		Lifecycle: &corev1.Lifecycle{
-			PostStart: &corev1.LifecycleHandler{
-				Exec: &corev1.ExecAction{
-					Command: []string{"sh", "-c", "rabbitmq-plugins --offline enable rabbitmq_stream_management"},
-				},
 			},
 		},
 		Ports: []corev1.ContainerPort{
