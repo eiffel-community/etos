@@ -19,6 +19,8 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
@@ -47,13 +49,15 @@ var (
 type ETOSSSEDeployment struct {
 	etosv1alpha1.ETOSSSE
 	client.Client
-	Scheme *runtime.Scheme
-	cfg    config.Config
+	Scheme           *runtime.Scheme
+	messagebusSecret string
+	restartRequired  bool
+	cfg              config.Config
 }
 
 // NewETOSSSEDeployment will create a new ETOS SSE reconciler.
-func NewETOSSSEDeployment(spec etosv1alpha1.ETOSSSE, scheme *runtime.Scheme, client client.Client, cfg config.Config) *ETOSSSEDeployment {
-	return &ETOSSSEDeployment{spec, client, scheme, cfg}
+func NewETOSSSEDeployment(spec etosv1alpha1.ETOSSSE, scheme *runtime.Scheme, client client.Client, messagebusSecret string, cfg config.Config) *ETOSSSEDeployment {
+	return &ETOSSSEDeployment{spec, client, scheme, messagebusSecret, false, cfg}
 }
 
 // Reconcile will reconcile the ETOS SSE service to its expected state.
@@ -63,7 +67,12 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	logger := log.FromContext(ctx, "Reconciler", "ETOSSSE", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-	_, err = r.reconcileDeployment(ctx, logger, namespacedName, cluster)
+	cfg, err := r.reconcileConfig(ctx, logger, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the config for the ETOS API")
+		return err
+	}
+	_, err = r.reconcileDeployment(ctx, logger, namespacedName, cfg.ObjectMeta.Name, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the deployment for the ETOS SSE")
 		return err
@@ -92,9 +101,39 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	return nil
 }
 
+// reconcileConfig will reconcile the secret to use as configuration for ETOS SSE.
+func (r *ETOSSSEDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
+	target, err := r.config(ctx, name, owner.GetName())
+	if err != nil {
+		return nil, err
+	}
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, name, secret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return secret, err
+		}
+		r.restartRequired = true
+		logger.Info("Creating a new config for the ETOS API")
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
+		return secret, nil
+	}
+	r.restartRequired = true
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
+}
+
 // reconcileDeployment will reconcile the ETOS SSE deployment to its expected state.
-func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
-	target := r.deployment(name, owner.GetName())
+func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+	target := r.deployment(name, secretName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -110,8 +149,14 @@ func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, logger logr
 			return target, err
 		}
 		return target, nil
+	} else if r.restartRequired {
+		logger.Info("Configuration(s) have changed, restarting deployment")
+		if target.Spec.Template.Annotations == nil {
+			target.Spec.Template.Annotations = make(map[string]string)
+		}
+		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
-	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
+	if !r.restartRequired && equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, nil
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
@@ -203,6 +248,58 @@ func (r *ETOSSSEDeployment) reconcileService(ctx context.Context, logger logr.Lo
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
+// config creates a new Secret to be used as configuration for the ETO SSE service.
+func (r *ETOSSSEDeployment) config(ctx context.Context, name types.NamespacedName, clusterName string) (*corev1.Secret, error) {
+	etos := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.messagebusSecret, Namespace: name.Namespace}, etos); err != nil {
+		return nil, err
+	}
+	rabbitmqURL := url.URL{}
+	if d, ok := etos.Data["ETOS_RABBITMQ_SSL"]; ok {
+		if string(d) == "true" {
+			rabbitmqURL.Scheme = "amqps"
+		} else {
+			rabbitmqURL.Scheme = "amqp"
+		}
+	} else {
+		rabbitmqURL.Scheme = "amqp"
+	}
+	if d, ok := etos.Data["ETOS_RABBITMQ_USERNAME"]; ok {
+		rabbitmqURL.User = url.User(string(d))
+	}
+	if d, ok := etos.Data["ETOS_RABBITMQ_PASSWORD"]; ok {
+		if rabbitmqURL.User != nil {
+			rabbitmqURL.User = url.UserPassword(rabbitmqURL.User.Username(), string(d))
+		} else {
+			rabbitmqURL.User = url.UserPassword("", string(d))
+		}
+	}
+	if d, ok := etos.Data["ETOS_RABBITMQ_HOST"]; ok {
+		rabbitmqURL.Host = string(d)
+	} else {
+		return nil, fmt.Errorf("ETOS_RABBITMQ_HOST is required in the message bus secret")
+	}
+	if d, ok := etos.Data["ETOS_RABBITMQ_STREAM_PORT"]; ok {
+		rabbitmqURL.Host = fmt.Sprintf("%s:%s", rabbitmqURL.Host, string(d))
+	} else {
+		return nil, fmt.Errorf("ETOS_RABBITMQ_STREAM_PORT is required in the message bus secret")
+	}
+	if d, ok := etos.Data["ETOS_RABBITMQ_VHOST"]; ok {
+		rabbitmqURL.Path = string(d)
+	} else {
+		return nil, fmt.Errorf("ETOS_RABBITMQ_VHOST is required in the message bus secret")
+	}
+
+	data := make(map[string][]byte)
+	data["ETOS_RABBITMQ_URI"] = []byte(rabbitmqURL.String())
+	data["ETOS_RABBITMQ_STREAM_NAME"] = etos.Data["ETOS_RABBITMQ_STREAM_NAME"]
+
+	return &corev1.Secret{
+		ObjectMeta: r.meta(name, clusterName),
+		Data:       data,
+	}, nil
+}
+
 // role creates a role resource definition for the ETOS SSE service.
 func (r *ETOSSSEDeployment) role(name types.NamespacedName, labelName, clusterName string) *rbacv1.Role {
 	meta := r.meta(types.NamespacedName{Name: labelName, Namespace: name.Namespace}, clusterName)
@@ -261,7 +358,7 @@ func (r *ETOSSSEDeployment) rolebinding(name types.NamespacedName, clusterName s
 }
 
 // deployment creates a deployment resource definition for the ETOS SSE service.
-func (r *ETOSSSEDeployment) deployment(name types.NamespacedName, clusterName string) *appsv1.Deployment {
+func (r *ETOSSSEDeployment) deployment(name types.NamespacedName, secretName, clusterName string) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: r.meta(name, clusterName),
 		Spec: appsv1.DeploymentSpec{
@@ -276,7 +373,7 @@ func (r *ETOSSSEDeployment) deployment(name types.NamespacedName, clusterName st
 				ObjectMeta: r.meta(name, clusterName),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
-					Containers:         []corev1.Container{r.container(name)},
+					Containers:         []corev1.Container{r.container(name, secretName)},
 				},
 			},
 		},
@@ -299,7 +396,7 @@ func (r *ETOSSSEDeployment) service(name types.NamespacedName, clusterName strin
 }
 
 // container creates a container resource definition for the ETOS SSE deployment.
-func (r *ETOSSSEDeployment) container(name types.NamespacedName) corev1.Container {
+func (r *ETOSSSEDeployment) container(name types.NamespacedName, secretName string) corev1.Container {
 	probe := &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -336,7 +433,16 @@ func (r *ETOSSSEDeployment) container(name types.NamespacedName) corev1.Containe
 		},
 		LivenessProbe:  probe,
 		ReadinessProbe: probe,
-		Env:            r.environment(),
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+				},
+			},
+		},
+		Env: r.environment(),
 	}
 }
 
