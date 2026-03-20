@@ -134,7 +134,7 @@ type ProviderSpec struct {
 	LogAreaProviderConfig *LogAreaProviderConfig `json:"logAreaProviderConfig,omitempty"`
 }
 
-// LogAreaProviderConfig describe the configuration for an log area provider.
+// LogAreaProviderConfig describes the configuration for a log area provider.
 type LogAreaProviderConfig struct {
 	// LiveLogs is a URI to where live logs of an execution can be found.
 	// +kubebuilder:validation:Format="uri"
