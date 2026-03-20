@@ -569,8 +569,9 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 					ID: testrun.Spec.Providers.IUT,
 				},
 				ExecutionSpace: etosv1alpha1.ExecutionSpaceProvider{
-					ID:         testrun.Spec.Providers.ExecutionSpace,
-					TestRunner: testrun.Spec.TestRunner.Version,
+					ID:              testrun.Spec.Providers.ExecutionSpace,
+					TestRunner:      testrun.Spec.TestRunner.Version,
+					TestRunnerImage: "",
 				},
 				LogArea: etosv1alpha1.LogAreaProvider{
 					ID: testrun.Spec.Providers.LogArea,
