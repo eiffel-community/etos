@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -127,6 +128,20 @@ type ProviderSpec struct {
 	// ExecutionSpaceProviderConfig describe the configuration for an execution space provider.
 	// +optional
 	ExecutionSpaceProviderConfig *ExecutionSpaceProviderConfig `json:"executionSpaceProviderConfig,omitempty"`
+
+	// LogAreaProviderConfig describes the configuration for a log area provider.
+	// +optional
+	LogAreaProviderConfig *LogAreaProviderConfig `json:"logAreaProviderConfig,omitempty"`
+}
+
+// LogAreaProviderConfig describes the configuration for a log area provider.
+type LogAreaProviderConfig struct {
+	// LiveLogs is a URI to where live logs of an execution can be found.
+	// +kubebuilder:validation:Format="uri"
+	LiveLogs string `json:"livelogs"`
+
+	// Upload defines the log upload instructions for the ETR.
+	Upload etosv1alpha2.Upload `json:"upload"`
 }
 
 // IutProviderConfig describe the configuration for an IUT provider.

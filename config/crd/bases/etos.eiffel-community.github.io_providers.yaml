@@ -450,6 +450,89 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
+              logAreaProviderConfig:
+                description: LogAreaProviderConfig describes the configuration for
+                  a log area provider.
+                properties:
+                  livelogs:
+                    description: LiveLogs is a URI to where live logs of an execution
+                      can be found.
+                    format: uri
+                    type: string
+                  upload:
+                    description: Upload defines the log upload instructions for the
+                      ETR.
+                    properties:
+                      as_json:
+                        description: AsJSON tells a client that the payload should
+                          be posted as JSON.
+                        type: boolean
+                      auth:
+                        description: Auth defines authorization instructions for a
+                          request.
+                        properties:
+                          password:
+                            description: Password defines an encrypted password to
+                              use when authenticating
+                            properties:
+                              $decrypt:
+                                description: Decrypt defines a JsonTas style json
+                                  for decrypting a value
+                                properties:
+                                  value:
+                                    description: Value defines an encrypted string
+                                      to decrypt
+                                    type: string
+                                required:
+                                - value
+                                type: object
+                            required:
+                            - $decrypt
+                            type: object
+                          type:
+                            description: AuthType defines the type of authentication
+                              to do.
+                            enum:
+                            - basic
+                            - digest
+                            type: string
+                          username:
+                            description: Username defines the username to use when
+                              authenticating
+                            type: string
+                        type: object
+                      headers:
+                        additionalProperties:
+                          type: string
+                        description: Headers define optional headers to send with
+                          the payload
+                        type: object
+                      method:
+                        description: Method defines the HTTP method for an upload.
+                        enum:
+                        - GET
+                        - POST
+                        - PUT
+                        type: string
+                      params:
+                        additionalProperties:
+                          type: string
+                        description: Params define optional parameters to send with
+                          the payload
+                        type: object
+                      url:
+                        description: URL defines the HTTP(s) URL to send payload to.
+                        format: uri
+                        type: string
+                    required:
+                    - as_json
+                    - method
+                    - url
+                    type: object
+                required:
+                - livelogs
+                - upload
+                type: object
               type:
                 enum:
                 - execution-space
