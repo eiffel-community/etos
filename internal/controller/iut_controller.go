@@ -128,6 +128,9 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 				}
 			}
 		}
+		// Delete job after the IUT has completed.
+		jobManager := jobs.NewJob(r.Client, IutOwnerKey, iut.GetName(), iut.GetNamespace())
+		_ = jobManager.Delete(ctx)
 		return ctrl.Result{}, nil
 	}
 	if err := r.reconcile(ctx, iut); err != nil {
@@ -212,7 +215,8 @@ func (r *IutReconciler) reconcileIutReleaser(ctx context.Context, iut *etosv1alp
 		iutCondition := meta.FindStatusCondition(*conditions, status.StatusActive)
 		iut.Status.CompletionTime = &iutCondition.LastTransitionTime
 		if meta.SetStatusCondition(conditions, condition) {
-			return errors.Join(r.Status().Update(ctx, iut), jobManager.Delete(ctx))
+			// Update status only; job deletion is deferred to the next reconcile.
+			return r.Status().Update(ctx, iut)
 		}
 	case jobs.StatusActive:
 		if meta.SetStatusCondition(conditions,

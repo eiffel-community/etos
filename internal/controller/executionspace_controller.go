@@ -126,6 +126,9 @@ func (r *ExecutionSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				}
 			}
 		}
+		// Delete job after the execution space has completed.
+		jobManager := jobs.NewJob(r.Client, ExecutionSpaceOwnerKey, executionSpace.GetName(), executionSpace.GetNamespace())
+		_ = jobManager.Delete(ctx)
 		return ctrl.Result{}, nil
 	}
 	if err := r.reconcile(ctx, executionSpace); err != nil {
@@ -210,7 +213,8 @@ func (r *ExecutionSpaceReconciler) reconcileExecutionSpaceReleaser(ctx context.C
 		now := metav1.Now()
 		executionSpace.Status.CompletionTime = &now
 		if meta.SetStatusCondition(conditions, condition) {
-			return errors.Join(r.Status().Update(ctx, executionSpace), jobManager.Delete(ctx))
+			// Update status only; job deletion is deferred to the next reconcile.
+			return r.Status().Update(ctx, executionSpace)
 		}
 	case jobs.StatusActive:
 		if meta.SetStatusCondition(conditions,

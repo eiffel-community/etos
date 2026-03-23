@@ -126,6 +126,9 @@ func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				}
 			}
 		}
+		// Delete job after the log area has completed.
+		jobManager := jobs.NewJob(r.Client, LogAreaOwnerKey, logarea.GetName(), logarea.GetNamespace())
+		_ = jobManager.Delete(ctx)
 		return ctrl.Result{}, nil
 	}
 	if err := r.reconcile(ctx, logarea); err != nil {
@@ -210,7 +213,8 @@ func (r *LogAreaReconciler) reconcileLogAreaReleaser(ctx context.Context, logare
 		now := metav1.Now()
 		logarea.Status.CompletionTime = &now
 		if meta.SetStatusCondition(conditions, condition) {
-			return errors.Join(r.Status().Update(ctx, logarea), jobManager.Delete(ctx))
+			// Update status only; job deletion is deferred to the next reconcile.
+			return r.Status().Update(ctx, logarea)
 		}
 	case jobs.StatusActive:
 		if meta.SetStatusCondition(conditions,

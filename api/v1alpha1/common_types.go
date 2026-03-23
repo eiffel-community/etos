@@ -28,13 +28,21 @@ import (
 
 // VarSource describes a value from either a secretmap or configmap.
 type VarSource struct {
+	// ConfigMapKeyRef describes a value from a configmap. Cannot be set if SecretKeyRef is set.
+	// +optional
 	ConfigMapKeyRef *corev1.ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
-	SecretKeyRef    *corev1.SecretKeySelector    `json:"secretKeyRef,omitempty"`
+	// SecretKeyRef describes a value from a secret. Cannot be set if ConfigMapKeyRef is set.
+	// +optional
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 // Var describes either a string value or a value from a VarSource.
 type Var struct {
-	Value     string    `json:"value,omitempty"`
+	// Value describes a string value. Cannot be set if ValueFrom is set.
+	// +optional
+	Value string `json:"value,omitempty"`
+	// ValueFrom describes a value from a VarSource. Cannot be set if Value is set.
+	// +optional
 	ValueFrom VarSource `json:"valueFrom,omitempty"`
 }
 
@@ -84,48 +92,65 @@ func (v *Var) Get(ctx context.Context, client client.Client, namespace string) (
 
 // Image configuration.
 type Image struct {
+	// Image describes the docker image to run for a service. ETOS applies defaults if empty.
 	// +optional
 	Image string `json:"image,omitempty"`
 
+	// ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+	// if empty.
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // Ingress configuration.
 type Ingress struct {
+	// Enabled describes whether to create an ingress for the service. Defaults to false.
 	// +kubebuilder:default=false
 	// +optional
-	Enabled      bool   `json:"enabled"`
+	Enabled bool `json:"enabled,omitempty"`
+	// IngressClass describes the ingress class to use for the ingress.
+	// +optional
 	IngressClass string `json:"ingressClass,omitempty"`
-	// +kubebuilder:default=""
-	Host        string            `json:"host,omitempty"`
+	// Host describes the host to use for the ingress. Generated if Enabled is true.
+	// +optional
+	Host string `json:"host,omitempty"`
+	// Annotations describes extra annotations to add to the ingress.
+	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // RabbitMQ configuration.
 type RabbitMQ struct {
-	// +kubebuilder:default=false
+	// Deploy describes whether to deploy a RabbitMQ instance for the service. Defaults to true.
+	// +kubebuilder:default=true
 	// +optional
-	Deploy bool `json:"deploy"`
+	Deploy bool `json:"deploy,omitempty"`
+	// Host describes the host to use for RabbitMQ. Only used if Deploy is false.
 	// +kubebuilder:default="rabbitmq"
 	// +optional
-	Host string `json:"host"`
+	Host string `json:"host,omitempty"`
+	// Exchange describes the exchange to use for RabbitMQ. Only set if Deploy is false.
 	// +kubebuilder:default="amq.topic"
 	// +optional
-	Exchange string `json:"exchange"`
+	Exchange string `json:"exchange,omitempty"`
+	// Password describes the password to use for RabbitMQ. Only set if Deploy is false.
 	// +kubebuilder:default={"value": "guest"}
 	// +optional
 	Password *Var `json:"password,omitempty"`
+	// Username describes the username to use for RabbitMQ. Only set if Deploy is false.
 	// +kubebuilder:default="guest"
 	// +optional
 	Username string `json:"username,omitempty"`
+	// Port describes the port to use for RabbitMQ. Only set if Deploy is false.
 	// +kubebuilder:default="5672"
 	// +optional
-	Port string `json:"port"`
+	Port string `json:"port,omitempty"`
+	// SSL describes whether to use SSL for RabbitMQ. Only set if Deploy is false.
 	// +kubebuilder:default="false"
 	// +optional
-	SSL string `json:"ssl"`
+	SSL string `json:"ssl,omitempty"`
+	// Vhost describes the vhost to use for RabbitMQ. Only set if Deploy is false.
 	// +kubebuilder:default=/
 	// +optional
-	Vhost string `json:"vhost"`
+	Vhost string `json:"vhost,omitempty"`
 }

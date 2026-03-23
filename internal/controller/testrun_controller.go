@@ -103,6 +103,10 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if testrun.Status.CompletionTime != nil {
+		// Delete suite runner job and environment requests after the testrun has completed.
+		jobManager := jobs.NewJob(r.Client, TestRunOwnerKey, testrun.GetName(), testrun.GetNamespace())
+		_ = jobManager.Delete(ctx)
+		_ = r.deleteEnvironmentRequests(ctx, testrun)
 		testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, status.StatusActive)
 		var retention *metav1.Duration
 		if testrunCondition.Reason == status.ReasonCompleted {
@@ -183,7 +187,7 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1
 	if updated, err := r.reconcileSuiteRunner(ctx, testrun, jobManager, jobStatus); updated || err != nil {
 		return err
 	}
-	if updated, err := r.reconcileActiveStatus(ctx, testrun, jobManager); updated || err != nil {
+	if updated, err := r.reconcileActiveStatus(ctx, testrun); updated || err != nil {
 		return err
 	}
 
@@ -191,7 +195,7 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1
 }
 
 // reconcileActiveStatus will set the active status properly based on active suite runners.
-func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *etosv1alpha1.TestRun, jobManager jobs.Job) (bool, error) {
+func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *etosv1alpha1.TestRun) (bool, error) {
 	logger := logf.FromContext(ctx)
 
 	conditions := testrun.Status.Conditions
@@ -250,7 +254,8 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 			if condition == metav1.ConditionFalse {
 				now := metav1.Now()
 				testrun.Status.CompletionTime = &now
-				return true, errors.Join(r.Status().Update(ctx, testrun), jobManager.Delete(ctx), r.deleteEnvironmentRequests(ctx, testrun))
+				// Update status only; job and environment request deletion is deferred to the next reconcile.
+				return true, r.Status().Update(ctx, testrun)
 			}
 			return true, r.Status().Update(ctx, testrun)
 		}
@@ -498,6 +503,11 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 		eventRepository = fmt.Sprintf("http://%s-graphql:%d/graphql", cluster.Name, 5000)
 	}
 	logger.Info("Event repository configured", "url", eventRepository)
+	etosAPI := cluster.Spec.ETOS.Config.ETOSApiURL
+	if etosAPI == "" {
+		etosAPI = fmt.Sprintf("http://%s-etos-api/api", cluster.Name)
+	}
+	logger.Info("ETOS API configured", "url", etosAPI)
 
 	eiffelMessageBus := cluster.Spec.MessageBus.EiffelMessageBus
 	if cluster.Spec.MessageBus.EiffelMessageBus.Deploy {
@@ -586,7 +596,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 			Config: etosv1alpha1.EnvironmentProviderJobConfig{
 				EiffelMessageBus:                    eiffelMessageBus,
 				EtosMessageBus:                      etosMessageBus,
-				EtosApi:                             cluster.Spec.ETOS.Config.ETOSApiURL,
+				EtosApi:                             etosAPI,
 				EncryptionKey:                       cluster.Spec.ETOS.Config.EncryptionKey,
 				RoutingKeyTag:                       cluster.Spec.ETOS.Config.RoutingKeyTag,
 				GraphQlServer:                       eventRepository,
