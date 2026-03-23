@@ -503,6 +503,11 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 		eventRepository = fmt.Sprintf("http://%s-graphql:%d/graphql", cluster.Name, 5000)
 	}
 	logger.Info("Event repository configured", "url", eventRepository)
+	etosAPI := cluster.Spec.ETOS.Config.ETOSApiURL
+	if etosAPI == "" {
+		etosAPI = fmt.Sprintf("http://%s-etos-api/api", cluster.Name)
+	}
+	logger.Info("ETOS API configured", "url", etosAPI)
 
 	eiffelMessageBus := cluster.Spec.MessageBus.EiffelMessageBus
 	if cluster.Spec.MessageBus.EiffelMessageBus.Deploy {
@@ -591,7 +596,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 			Config: etosv1alpha1.EnvironmentProviderJobConfig{
 				EiffelMessageBus:                    eiffelMessageBus,
 				EtosMessageBus:                      etosMessageBus,
-				EtosApi:                             cluster.Spec.ETOS.Config.ETOSApiURL,
+				EtosApi:                             etosAPI,
 				EncryptionKey:                       cluster.Spec.ETOS.Config.EncryptionKey,
 				RoutingKeyTag:                       cluster.Spec.ETOS.Config.RoutingKeyTag,
 				GraphQlServer:                       eventRepository,
