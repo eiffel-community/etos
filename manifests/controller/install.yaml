@@ -1735,6 +1735,12 @@ spec:
           spec:
             description: spec defines the desired state of ExecutionSpace
             properties:
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the ExecutionSpace shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
               environmentRequest:
                 description: EnvironmentRequest is the ID of the environmentrequest
                   which requested this execution space.
@@ -1943,6 +1949,12 @@ spec:
           spec:
             description: spec defines the desired state of Iut
             properties:
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the IUT shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
               environmentRequest:
                 description: EnvironmentRequest is the name of the environmentrequest
                   which requested this IUT.
@@ -2111,6 +2123,12 @@ spec:
           spec:
             description: spec defines the desired state of LogArea
             properties:
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the LogArea shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
               environmentRequest:
                 description: EnvironmentRequest is the ID of the environmentrequest
                   which requested this log area.
@@ -4204,7 +4222,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:4577b386
+        image: ghcr.io/eiffel-community/etos-controller:93d02b3a
         livenessProbe:
           httpGet:
             path: /healthz
