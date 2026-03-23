@@ -212,7 +212,7 @@ func CreateEnvironment(
 	labels := map[string]string{
 		"etos.eiffel-community.github.io/environment-request":    environmentrequest.Name,
 		"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID,
-		"etos.eiffel-community.github.io/suite-id":               environmentrequest.Spec.ID,
+		"etos.eiffel-community.github.io/sub-suite-id":           executionSpace.Spec.ID,
 		"app.kubernetes.io/name":                                 "environment-provider",
 		"app.kubernetes.io/part-of":                              "etos",
 	}
