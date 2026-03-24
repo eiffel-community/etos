@@ -237,7 +237,7 @@ func (r *MessageBusDeployment) statefulset(name types.NamespacedName, clusterNam
 					InitContainers: []corev1.Container{
 						{
 							Name:  "init",
-							Image: "busybox:latest",
+							Image: "busybox@sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f",
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      fmt.Sprintf("%s-plugins", name.Name),

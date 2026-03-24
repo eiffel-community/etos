@@ -69,7 +69,7 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 
 	cfg, err := r.reconcileConfig(ctx, logger, namespacedName, cluster)
 	if err != nil {
-		logger.Error(err, "Failed to reconcile the config for the ETOS API")
+		logger.Error(err, "Failed to reconcile the config for the ETOS SSE")
 		return err
 	}
 	_, err = r.reconcileDeployment(ctx, logger, namespacedName, cfg.ObjectMeta.Name, cluster)
@@ -248,7 +248,7 @@ func (r *ETOSSSEDeployment) reconcileService(ctx context.Context, logger logr.Lo
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
 }
 
-// config creates a new Secret to be used as configuration for the ETO SSE service.
+// config creates a new Secret to be used as configuration for the ETOS SSE service.
 func (r *ETOSSSEDeployment) config(ctx context.Context, name types.NamespacedName, clusterName string) (*corev1.Secret, error) {
 	etos := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: r.messagebusSecret, Namespace: name.Namespace}, etos); err != nil {
