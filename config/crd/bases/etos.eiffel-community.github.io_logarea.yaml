@@ -58,6 +58,12 @@ spec:
           spec:
             description: spec defines the desired state of LogArea
             properties:
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the LogArea shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
               environmentRequest:
                 description: EnvironmentRequest is the ID of the environmentrequest
                   which requested this log area.

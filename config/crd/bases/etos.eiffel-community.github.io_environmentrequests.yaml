@@ -61,28 +61,37 @@ spec:
                     description: RabbitMQ configuration.
                     properties:
                       deploy:
-                        default: false
+                        default: true
+                        description: Deploy describes whether to deploy a RabbitMQ
+                          instance for the service. Defaults to true.
                         type: boolean
                       exchange:
                         default: amq.topic
+                        description: Exchange describes the exchange to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       host:
                         default: rabbitmq
+                        description: Host describes the host to use for RabbitMQ.
+                          Only used if Deploy is false.
                         type: string
                       password:
                         default:
                           value: guest
-                        description: Var describes either a string value or a value
-                          from a VarSource.
+                        description: Password describes the password to use for RabbitMQ.
+                          Only set if Deploy is false.
                         properties:
                           value:
+                            description: Value describes a string value. Cannot be
+                              set if ValueFrom is set.
                             type: string
                           valueFrom:
-                            description: VarSource describes a value from either a
-                              secretmap or configmap.
+                            description: ValueFrom describes a value from a VarSource.
+                              Cannot be set if Value is set.
                             properties:
                               configMapKeyRef:
-                                description: Selects a key from a ConfigMap.
+                                description: ConfigMapKeyRef describes a value from
+                                  a configmap. Cannot be set if SecretKeyRef is set.
                                 properties:
                                   key:
                                     description: The key to select.
@@ -105,8 +114,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
+                                description: SecretKeyRef describes a value from a
+                                  secret. Cannot be set if ConfigMapKeyRef is set.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -133,9 +142,13 @@ spec:
                         type: object
                       port:
                         default: "5672"
+                        description: Port describes the port to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       ssl:
                         default: "false"
+                        description: SSL describes whether to use SSL for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       streamName:
                         default: etos-messagebus-stream
@@ -149,9 +162,13 @@ spec:
                         type: string
                       username:
                         default: guest
+                        description: Username describes the username to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       vhost:
                         default: /
+                        description: Vhost describes the vhost to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                     type: object
                   encryptionKeySecretRef:
@@ -159,13 +176,16 @@ spec:
                       a VarSource.
                     properties:
                       value:
+                        description: Value describes a string value. Cannot be set
+                          if ValueFrom is set.
                         type: string
                       valueFrom:
-                        description: VarSource describes a value from either a secretmap
-                          or configmap.
+                        description: ValueFrom describes a value from a VarSource.
+                          Cannot be set if Value is set.
                         properties:
                           configMapKeyRef:
-                            description: Selects a key from a ConfigMap.
+                            description: ConfigMapKeyRef describes a value from a
+                              configmap. Cannot be set if SecretKeyRef is set.
                             properties:
                               key:
                                 description: The key to select.
@@ -188,7 +208,8 @@ spec:
                             type: object
                             x-kubernetes-map-type: atomic
                           secretKeyRef:
-                            description: SecretKeySelector selects a key of a Secret.
+                            description: SecretKeyRef describes a value from a secret.
+                              Cannot be set if ConfigMapKeyRef is set.
                             properties:
                               key:
                                 description: The key of the secret to select from.  Must
@@ -229,28 +250,37 @@ spec:
                     description: RabbitMQ configuration.
                     properties:
                       deploy:
-                        default: false
+                        default: true
+                        description: Deploy describes whether to deploy a RabbitMQ
+                          instance for the service. Defaults to true.
                         type: boolean
                       exchange:
                         default: amq.topic
+                        description: Exchange describes the exchange to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       host:
                         default: rabbitmq
+                        description: Host describes the host to use for RabbitMQ.
+                          Only used if Deploy is false.
                         type: string
                       password:
                         default:
                           value: guest
-                        description: Var describes either a string value or a value
-                          from a VarSource.
+                        description: Password describes the password to use for RabbitMQ.
+                          Only set if Deploy is false.
                         properties:
                           value:
+                            description: Value describes a string value. Cannot be
+                              set if ValueFrom is set.
                             type: string
                           valueFrom:
-                            description: VarSource describes a value from either a
-                              secretmap or configmap.
+                            description: ValueFrom describes a value from a VarSource.
+                              Cannot be set if Value is set.
                             properties:
                               configMapKeyRef:
-                                description: Selects a key from a ConfigMap.
+                                description: ConfigMapKeyRef describes a value from
+                                  a configmap. Cannot be set if SecretKeyRef is set.
                                 properties:
                                   key:
                                     description: The key to select.
@@ -273,8 +303,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
+                                description: SecretKeyRef describes a value from a
+                                  secret. Cannot be set if ConfigMapKeyRef is set.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -301,9 +331,13 @@ spec:
                         type: object
                       port:
                         default: "5672"
+                        description: Port describes the port to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       ssl:
                         default: "false"
+                        description: SSL describes whether to use SSL for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       streamName:
                         default: etos-messagebus-stream
@@ -317,9 +351,13 @@ spec:
                         type: string
                       username:
                         default: guest
+                        description: Username describes the username to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       vhost:
                         default: /
+                        description: Vhost describes the vhost to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                     type: object
                   graphQlServer:
@@ -367,10 +405,13 @@ spec:
               identity:
                 type: string
               image:
+                description: Image describes the docker image to run for a service.
+                  ETOS applies defaults if empty.
                 type: string
               imagePullPolicy:
-                description: PullPolicy describes a policy for if/when to pull a container
-                  image
+                description: |-
+                  ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                  if empty.
                 type: string
               maximumAmount:
                 type: integer

@@ -56,15 +56,18 @@ spec:
             properties:
               database:
                 default: {}
-                description: Database describes the deployment of a database for ETOS.
+                description: |-
+                  Database describes the deployment of a database for the cluster. Defaults to a local ETCD if
+                  not set.
                 properties:
                   deploy:
                     default: true
+                    description: Deploy a local ETCD for a cluster.
                     type: boolean
                   etcd:
                     default: {}
-                    description: Etcd describes the deployment of an ETCD database.
-                      Ignored if Deploy is set to false.
+                    description: Etcd describes the ETCD database to use for ETOS.
+                      Defaults to a local ETCD if Deploy is true.
                     properties:
                       host:
                         default: etcd-client
@@ -75,20 +78,12 @@ spec:
                         description: Port specifies the ETCD port number.
                         type: string
                       resources:
-                        default:
-                          limits:
-                            cpu: 300m
-                            memory: 768Mi
-                          requests:
-                            cpu: 300m
-                            memory: 768Mi
+                        default: {}
                         description: Resources describes compute resource requirements
                           per etcd pod which are three in a cluster.
                         properties:
                           limits:
-                            default:
-                              cpu: 300m
-                              memory: 768Mi
+                            default: {}
                             description: Limits describes the maximum amount of compute
                               resources allowed.
                             properties:
@@ -102,9 +97,7 @@ spec:
                                 type: string
                             type: object
                           requests:
-                            default:
-                              cpu: 300m
-                              memory: 768Mi
+                            default: {}
                             description: Requests describes the minimum amount of
                               compute resources required.
                             properties:
@@ -121,19 +114,22 @@ spec:
                     type: object
                 type: object
               etos:
-                default: {}
-                description: ETOS describes the deployment of an ETOS cluster.
+                description: ETOS describes the deployment of ETOS for the cluster.
                 properties:
                   api:
-                    description: ETOSAPI describes the deployment of the ETOS API.
+                    description: API describes a configuration for the ETOS API to
+                      use for the cluster.
                     properties:
                       executionSpaceProviderSecret:
                         type: string
                       image:
+                        description: Image describes the docker image to run for a
+                          service. ETOS applies defaults if empty.
                         type: string
                       imagePullPolicy:
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
+                        description: |-
+                          ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                          if empty.
                         type: string
                       iutProviderSecret:
                         description: |-
@@ -144,33 +140,37 @@ spec:
                       logAreaProviderSecret:
                         type: string
                       replicas:
-                        default: 1
+                        description: Replicas describes the number of replicas to
+                          use for the ETOS API. Defaults to 1 if not set.
                         format: int32
                         type: integer
                     type: object
                   config:
-                    default:
-                      encryptionKey:
-                        value: ""
-                    description: ETOSConfig describes a common configuration for ETOS.
+                    description: Config describes the common configuration for ETOS.
                     properties:
                       dev:
                         default: "true"
+                        description: Dev describes whether to deploy ETOS in development
+                          mode. Defaults to true if not set.
                         type: string
                       encryptionKey:
-                        default:
-                          value: ""
-                        description: Var describes either a string value or a value
-                          from a VarSource.
+                        description: |-
+                          EncryptionKey describes the key to use for encrypting sensitive data in ETOS.
+                          The EncryptionKey is a 32 byte long base64 encoded string.
+                          It is recommended to put this string into a Kubernetes secret and reference it using a Var
+                          with valueFrom.
                         properties:
                           value:
+                            description: Value describes a string value. Cannot be
+                              set if ValueFrom is set.
                             type: string
                           valueFrom:
-                            description: VarSource describes a value from either a
-                              secretmap or configmap.
+                            description: ValueFrom describes a value from a VarSource.
+                              Cannot be set if Value is set.
                             properties:
                               configMapKeyRef:
-                                description: Selects a key from a ConfigMap.
+                                description: ConfigMapKeyRef describes a value from
+                                  a configmap. Cannot be set if SecretKeyRef is set.
                                 properties:
                                   key:
                                     description: The key to select.
@@ -193,8 +193,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
+                                description: SecretKeyRef describes a value from a
+                                  secret. Cannot be set if ConfigMapKeyRef is set.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -221,26 +221,48 @@ spec:
                         type: object
                       environmentTimeout:
                         default: "3600"
+                        description: |-
+                          EnvironmentTimeout describes the maximum time a suite runner waits for an environment from the
+                          environment provider. Defaults to 3600 seconds if not set.
                         type: string
                       etosApiURL:
+                        default: ""
+                        description: |-
+                          ETOSApiURL describes the URL to the ETOS API for use by internal ETOS services.
+                          Defaults are used if not set.
                         type: string
                       etosEventRepositoryURL:
+                        description: |-
+                          ETOSEventRepositoryURL describes the URL to the event repository API for use by ETOS services.
+                          Defaults are used if not set, but in order to use the ETOS client it should be set to an
+                          externally available URL.
                         type: string
                       eventDataTimeout:
                         default: "60"
+                        description: |-
+                          EventDataTimeout describes the timeout for getting event data from the eiffel bus in seconds.
+                          Defaults to 60 seconds if not set.
                         type: string
                       routingKeyTag:
                         default: etos
+                        description: RoutingKeyTag describes the tag to use for routing
+                          keys for ETOS eiffel events.
                         type: string
                       source:
                         default: ETOS
+                        description: Source describes the source tag added to all
+                          Eiffel events sent by ETOS.
                         type: string
                       testSuiteTimeout:
                         default: "10"
+                        description: |-
+                          TestSuiteTimeout describes the timeout for downloading a test suite in seconds.
+                          Defaults to 10 seconds if not set.
                         type: string
                       testrunRetention:
-                        description: Retention describes the failure and success retentions
-                          for testruns.
+                        description: |-
+                          TestRunRetention describes the retention for testruns in ETOS. Defaults to no retention if
+                          not set.
                         properties:
                           failure:
                             type: string
@@ -248,207 +270,290 @@ spec:
                             type: string
                         type: object
                       timezone:
+                        description: |-
+                          Timezone describes the timezone to use for ETOS. Defaults to empty, which means no timezone
+                          is set. It is recommended to set this to a valid timezone, as it is used for all log
+                          timestamps in ETOS.
                         type: string
                     required:
+                    - dev
                     - encryptionKey
+                    - environmentTimeout
+                    - etosApiURL
+                    - eventDataTimeout
+                    - routingKeyTag
+                    - source
+                    - testSuiteTimeout
                     type: object
                   environmentProvider:
-                    description: ETOSEnvironmentProvider describes the deployment
-                      of an ETOS environment provider.
+                    description: |-
+                      EnvironmentProvider describes a configuration for the ETOS environment provider to use for
+                      the cluster.
                     properties:
                       image:
+                        description: Image describes the docker image to run for a
+                          service. ETOS applies defaults if empty.
                         type: string
                       imagePullPolicy:
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
+                        description: |-
+                          ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                          if empty.
                         type: string
                     type: object
                   ingress:
-                    description: Ingress configuration.
+                    default: {}
+                    description: Ingress describes the ingress to use for the ETOS
+                      API services.
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
+                        description: Annotations describes extra annotations to add
+                          to the ingress.
                         type: object
                       enabled:
                         default: false
+                        description: Enabled describes whether to create an ingress
+                          for the service. Defaults to false.
                         type: boolean
                       host:
-                        default: ""
+                        description: Host describes the host to use for the ingress.
+                          Generated if Enabled is true.
                         type: string
                       ingressClass:
+                        description: IngressClass describes the ingress class to use
+                          for the ingress.
                         type: string
                     type: object
                   logArea:
-                    description: ETOSLogArea describes th deployment of an ETOS log
-                      area API.
+                    description: LogArea describes a configuration for the ETOS log
+                      area API to use for the cluster.
                     properties:
                       image:
+                        description: Image describes the docker image to run for a
+                          service. ETOS applies defaults if empty.
                         type: string
                       imagePullPolicy:
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
+                        description: |-
+                          ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                          if empty.
                         type: string
                     type: object
                   sse:
-                    description: ETOSSSE describes th deployment of an ETOS Server
-                      Sent Events API.
+                    description: SSE describes a configuration for the ETOS Server
+                      Sent Events API to use for the cluster.
                     properties:
                       image:
+                        description: Image describes the docker image to run for a
+                          service. ETOS applies defaults if empty.
                         type: string
                       imagePullPolicy:
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
+                        description: |-
+                          ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                          if empty.
                         type: string
                     type: object
                   suiteRunner:
-                    description: ETOSSuiteRunner describes the deployment of an ETOS
-                      suite runner.
+                    default: {}
+                    description: SuiteRunner describes a configuration for the ETOS
+                      suite runner to use for the cluster.
                     properties:
                       image:
+                        description: Image describes the docker image to run for a
+                          service. ETOS applies defaults if empty.
                         type: string
                       imagePullPolicy:
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
+                        description: |-
+                          ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                          if empty.
                         type: string
                       logListener:
                         default: {}
-                        description: ETOSLogListener describes the deployment of an
-                          ETOS log listener.
+                        description: LogListener describes the log listener to use
+                          for the suite runner.
                         properties:
                           etosQueueName:
                             default: etos-*-temp
+                            description: |-
+                              ETOSQueueName is the name of the RabbitMQ queue to use for the log listener to listen for
+                              incoming log messages. Defaults to "etos-*-temp", where * is a unique string to avoid
+                              conflicts between multiple log listeners.
                             type: string
                           etosQueueParams:
-                            default: ""
+                            description: ETOSQueueParams are the parameters to use
+                              for the log listener queue. Defaults to empty.
                             type: string
                           image:
+                            description: Image describes the docker image to run for
+                              a service. ETOS applies defaults if empty.
                             type: string
                           imagePullPolicy:
-                            description: PullPolicy describes a policy for if/when
-                              to pull a container image
+                            description: |-
+                              ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                              if empty.
                             type: string
                         type: object
                     type: object
                   suiteStarter:
-                    description: ETOSSuiteStarter describes the deployment of an ETOS
-                      suite starter.
+                    default: {}
+                    description: SuiteStarter describes a configuration for the ETOS
+                      suite starter to use for the cluster.
                     properties:
                       config:
-                        default:
-                          gracePeriod: "300"
-                          ttl: "3600"
+                        default: {}
                         description: |-
-                          ETOSSuiteStarterConfig describes the configuration required for a suite starter.
-                          This is separate from the ETOSConfig as we want to remove this in the future when the suite
-                          starter is no longer in use.
+                          Config describes the configuration for the suite runner job started by the suite starter.
+                          Defaults are used if not set.
                         properties:
                           gracePeriod:
                             default: "300"
+                            description: |-
+                              GracePeriod describes the grace period for a suite runner job that the suite starter starts.
+                              Defaults to 300 seconds if not set.
                             type: string
                           sidecarImage:
-                            default: ""
+                            description: |-
+                              SidecarImage describes the image to use for the suite runner sidecar.
+                              Defaults to empty, which means no sidecar will be used.
                             type: string
                           ttl:
                             default: "3600"
+                            description: |-
+                              TTL describes the time to live for a suite runner job that the suite starter starts.
+                              Defaults to 3600 seconds if not set.
                             type: string
                         type: object
                       eiffelQueueName:
                         default: etos-suite-starter
+                        description: |-
+                          EiffelQueueName is the name of the RabbitMQ queue to use for the suite starter to listen for
+                          incoming Eiffel events. Defaults to "etos-suite-starter".
                         type: string
                       eiffelQueueParams:
-                        default: ""
+                        description: EiffelQueueParams are the parameters to use for
+                          the suite starter queue. Defaults to empty.
                         type: string
                       image:
+                        description: Image describes the docker image to run for a
+                          service. ETOS applies defaults if empty.
                         type: string
                       imagePullPolicy:
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
+                        description: |-
+                          ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                          if empty.
                         type: string
                       replicas:
-                        default: 1
+                        description: |-
+                          Replicas describes the number of replicas to use for the Suite Starter.
+                          Defaults to 1 if not set.
                         format: int32
                         type: integer
                       suiteRunnerTemplateSecretName:
-                        default: ""
                         description: Provide a custom suite runner template.
                         type: string
                     type: object
                   testRunner:
-                    description: ETOSTestRunner describes the deployment of an ETOS
-                      test runner.
+                    description: TestRunner describes a configuration for the ETOS
+                      test runner to use for the cluster.
                     properties:
                       version:
+                        description: Version describes the version of the ETOS test
+                          runner to use. Defaults are used if not set.
                         type: string
                     type: object
+                required:
+                - config
                 type: object
               eventRepository:
                 default: {}
-                description: EventRepository describes the deployment of an event
-                  repository for ETOS.
+                description: |-
+                  EventRepository describes the deployment of an event repository for the cluster. Defaults to a
+                  local event repository with a local MongoDB if not set.
                 properties:
                   api:
                     description: |-
-                      We do not build the GraphQL API automatically nor publish it remotely.
-                      This will need to be provided to work.
+                      API describes the image to use for the event repository API.
+                      Defaults are used if not set.
                     properties:
                       image:
+                        description: Image describes the docker image to run for a
+                          service. ETOS applies defaults if empty.
                         type: string
                       imagePullPolicy:
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
+                        description: |-
+                          ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                          if empty.
                         type: string
                     type: object
                   deploy:
-                    default: false
+                    default: true
                     description: Deploy a local event repository for a cluster.
                     type: boolean
                   eiffelQueueName:
                     default: etos
+                    description: EiffelQueueName is the name of the queue to use for
+                      the event repository. Defaults to "etos".
                     type: string
                   eiffelQueueParams:
-                    default: ""
+                    description: EiffelQueueParams are the parameters to use for the
+                      event repository queue. Defaults to empty.
                     type: string
                   host:
-                    default: ""
+                    description: Host specifies the event repository API URL. Required
+                      if deploy is false.
                     type: string
                   ingress:
                     default: {}
-                    description: Ingress configuration.
+                    description: Ingress describes the ingress to use for the event
+                      repository API.
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
+                        description: Annotations describes extra annotations to add
+                          to the ingress.
                         type: object
                       enabled:
                         default: false
+                        description: Enabled describes whether to create an ingress
+                          for the service. Defaults to false.
                         type: boolean
                       host:
-                        default: ""
+                        description: Host describes the host to use for the ingress.
+                          Generated if Enabled is true.
                         type: string
                       ingressClass:
+                        description: IngressClass describes the ingress class to use
+                          for the ingress.
                         type: string
                     type: object
                   mongo:
                     default: {}
-                    description: MongoDB describes the deployment of a MongoDB.
+                    description: |-
+                      Database describes the database to use for the event repository. Defaults to a local MongoDB
+                      if not set.
                     properties:
                       deploy:
-                        default: false
+                        default: true
+                        description: Deploy a local MongoDB for a cluster.
                         type: boolean
                       uri:
                         default:
                           value: mongodb://root:password@mongodb:27017/admin
-                        description: Ignored if deploy is true
+                        description: URI to an existing MongoDB instance. Required
+                          if Deploy is false.
                         properties:
                           value:
+                            description: Value describes a string value. Cannot be
+                              set if ValueFrom is set.
                             type: string
                           valueFrom:
-                            description: VarSource describes a value from either a
-                              secretmap or configmap.
+                            description: ValueFrom describes a value from a VarSource.
+                              Cannot be set if Value is set.
                             properties:
                               configMapKeyRef:
-                                description: Selects a key from a ConfigMap.
+                                description: ConfigMapKeyRef describes a value from
+                                  a configmap. Cannot be set if SecretKeyRef is set.
                                 properties:
                                   key:
                                     description: The key to select.
@@ -471,8 +576,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
+                                description: SecretKeyRef describes a value from a
+                                  secret. Cannot be set if ConfigMapKeyRef is set.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -500,48 +605,64 @@ spec:
                     type: object
                   storage:
                     description: |-
-                      We do not build the GraphQL API automatically nor publish it remotely.
-                      This will need to be provided to work.
+                      Storage describes the image to use for the event repository storage.
+                      Defaults are used if not set.
                     properties:
                       image:
+                        description: Image describes the docker image to run for a
+                          service. ETOS applies defaults if empty.
                         type: string
                       imagePullPolicy:
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
+                        description: |-
+                          ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                          if empty.
                         type: string
                     type: object
                 type: object
               messageBus:
                 default: {}
-                description: MessageBus describes the deployment of messagesbuses
-                  for ETOS.
+                description: |-
+                  MessageBus describes the deployment of message buses for the cluster. Defaults to local
+                  RabbitMQ instances if not set.
                 properties:
                   eiffel:
-                    description: RabbitMQ configuration.
+                    default: {}
+                    description: |-
+                      EiffelMessageBus describes the message bus to use for Eiffel events. Defaults to a local
+                      RabbitMQ if not set.
                     properties:
                       deploy:
-                        default: false
+                        default: true
+                        description: Deploy describes whether to deploy a RabbitMQ
+                          instance for the service. Defaults to true.
                         type: boolean
                       exchange:
                         default: amq.topic
+                        description: Exchange describes the exchange to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       host:
                         default: rabbitmq
+                        description: Host describes the host to use for RabbitMQ.
+                          Only used if Deploy is false.
                         type: string
                       password:
                         default:
                           value: guest
-                        description: Var describes either a string value or a value
-                          from a VarSource.
+                        description: Password describes the password to use for RabbitMQ.
+                          Only set if Deploy is false.
                         properties:
                           value:
+                            description: Value describes a string value. Cannot be
+                              set if ValueFrom is set.
                             type: string
                           valueFrom:
-                            description: VarSource describes a value from either a
-                              secretmap or configmap.
+                            description: ValueFrom describes a value from a VarSource.
+                              Cannot be set if Value is set.
                             properties:
                               configMapKeyRef:
-                                description: Selects a key from a ConfigMap.
+                                description: ConfigMapKeyRef describes a value from
+                                  a configmap. Cannot be set if SecretKeyRef is set.
                                 properties:
                                   key:
                                     description: The key to select.
@@ -564,8 +685,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
+                                description: SecretKeyRef describes a value from a
+                                  secret. Cannot be set if ConfigMapKeyRef is set.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -592,43 +713,63 @@ spec:
                         type: object
                       port:
                         default: "5672"
+                        description: Port describes the port to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       ssl:
                         default: "false"
+                        description: SSL describes whether to use SSL for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       username:
                         default: guest
+                        description: Username describes the username to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       vhost:
                         default: /
+                        description: Vhost describes the vhost to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                     type: object
                   logs:
-                    description: RabbitMQ configuration.
+                    default: {}
+                    description: |-
+                      ETOSMessageBus describes the message bus to use for ETOS internal communication. Defaults to
+                      a local RabbitMQ if not set.
                     properties:
                       deploy:
-                        default: false
+                        default: true
+                        description: Deploy describes whether to deploy a RabbitMQ
+                          instance for the service. Defaults to true.
                         type: boolean
                       exchange:
                         default: amq.topic
+                        description: Exchange describes the exchange to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       host:
                         default: rabbitmq
+                        description: Host describes the host to use for RabbitMQ.
+                          Only used if Deploy is false.
                         type: string
                       password:
                         default:
                           value: guest
-                        description: Var describes either a string value or a value
-                          from a VarSource.
+                        description: Password describes the password to use for RabbitMQ.
+                          Only set if Deploy is false.
                         properties:
                           value:
+                            description: Value describes a string value. Cannot be
+                              set if ValueFrom is set.
                             type: string
                           valueFrom:
-                            description: VarSource describes a value from either a
-                              secretmap or configmap.
+                            description: ValueFrom describes a value from a VarSource.
+                              Cannot be set if Value is set.
                             properties:
                               configMapKeyRef:
-                                description: Selects a key from a ConfigMap.
+                                description: ConfigMapKeyRef describes a value from
+                                  a configmap. Cannot be set if SecretKeyRef is set.
                                 properties:
                                   key:
                                     description: The key to select.
@@ -651,8 +792,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
+                                description: SecretKeyRef describes a value from a
+                                  secret. Cannot be set if ConfigMapKeyRef is set.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -679,22 +820,30 @@ spec:
                         type: object
                       port:
                         default: "5672"
+                        description: Port describes the port to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       ssl:
                         default: "false"
+                        description: SSL describes whether to use SSL for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       username:
                         default: guest
+                        description: Username describes the username to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       vhost:
                         default: /
+                        description: Vhost describes the vhost to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                     type: object
                 type: object
               openTelemetry:
                 default: {}
-                description: OpenTelemetry describes a deployment of an opentelemetry
-                  collector for ETOS to use.
+                description: OpenTelemetry describes the configuration for an OpenTelemetry
+                  collector for the cluster.
                 properties:
                   enabled:
                     default: false
@@ -713,11 +862,7 @@ spec:
                     type: string
                 type: object
             required:
-            - database
             - etos
-            - eventRepository
-            - messageBus
-            - openTelemetry
             type: object
           status:
             description: ClusterStatus defines the observed state of Cluster
@@ -779,6 +924,8 @@ spec:
                   type: object
                 type: array
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true
@@ -858,28 +1005,37 @@ spec:
                     description: RabbitMQ configuration.
                     properties:
                       deploy:
-                        default: false
+                        default: true
+                        description: Deploy describes whether to deploy a RabbitMQ
+                          instance for the service. Defaults to true.
                         type: boolean
                       exchange:
                         default: amq.topic
+                        description: Exchange describes the exchange to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       host:
                         default: rabbitmq
+                        description: Host describes the host to use for RabbitMQ.
+                          Only used if Deploy is false.
                         type: string
                       password:
                         default:
                           value: guest
-                        description: Var describes either a string value or a value
-                          from a VarSource.
+                        description: Password describes the password to use for RabbitMQ.
+                          Only set if Deploy is false.
                         properties:
                           value:
+                            description: Value describes a string value. Cannot be
+                              set if ValueFrom is set.
                             type: string
                           valueFrom:
-                            description: VarSource describes a value from either a
-                              secretmap or configmap.
+                            description: ValueFrom describes a value from a VarSource.
+                              Cannot be set if Value is set.
                             properties:
                               configMapKeyRef:
-                                description: Selects a key from a ConfigMap.
+                                description: ConfigMapKeyRef describes a value from
+                                  a configmap. Cannot be set if SecretKeyRef is set.
                                 properties:
                                   key:
                                     description: The key to select.
@@ -902,8 +1058,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
+                                description: SecretKeyRef describes a value from a
+                                  secret. Cannot be set if ConfigMapKeyRef is set.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -930,15 +1086,23 @@ spec:
                         type: object
                       port:
                         default: "5672"
+                        description: Port describes the port to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       ssl:
                         default: "false"
+                        description: SSL describes whether to use SSL for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       username:
                         default: guest
+                        description: Username describes the username to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       vhost:
                         default: /
+                        description: Vhost describes the vhost to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                     type: object
                   encryptionKeySecretRef:
@@ -946,13 +1110,16 @@ spec:
                       a VarSource.
                     properties:
                       value:
+                        description: Value describes a string value. Cannot be set
+                          if ValueFrom is set.
                         type: string
                       valueFrom:
-                        description: VarSource describes a value from either a secretmap
-                          or configmap.
+                        description: ValueFrom describes a value from a VarSource.
+                          Cannot be set if Value is set.
                         properties:
                           configMapKeyRef:
-                            description: Selects a key from a ConfigMap.
+                            description: ConfigMapKeyRef describes a value from a
+                              configmap. Cannot be set if SecretKeyRef is set.
                             properties:
                               key:
                                 description: The key to select.
@@ -975,7 +1142,8 @@ spec:
                             type: object
                             x-kubernetes-map-type: atomic
                           secretKeyRef:
-                            description: SecretKeySelector selects a key of a Secret.
+                            description: SecretKeyRef describes a value from a secret.
+                              Cannot be set if ConfigMapKeyRef is set.
                             properties:
                               key:
                                 description: The key of the secret to select from.  Must
@@ -1016,28 +1184,37 @@ spec:
                     description: RabbitMQ configuration.
                     properties:
                       deploy:
-                        default: false
+                        default: true
+                        description: Deploy describes whether to deploy a RabbitMQ
+                          instance for the service. Defaults to true.
                         type: boolean
                       exchange:
                         default: amq.topic
+                        description: Exchange describes the exchange to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       host:
                         default: rabbitmq
+                        description: Host describes the host to use for RabbitMQ.
+                          Only used if Deploy is false.
                         type: string
                       password:
                         default:
                           value: guest
-                        description: Var describes either a string value or a value
-                          from a VarSource.
+                        description: Password describes the password to use for RabbitMQ.
+                          Only set if Deploy is false.
                         properties:
                           value:
+                            description: Value describes a string value. Cannot be
+                              set if ValueFrom is set.
                             type: string
                           valueFrom:
-                            description: VarSource describes a value from either a
-                              secretmap or configmap.
+                            description: ValueFrom describes a value from a VarSource.
+                              Cannot be set if Value is set.
                             properties:
                               configMapKeyRef:
-                                description: Selects a key from a ConfigMap.
+                                description: ConfigMapKeyRef describes a value from
+                                  a configmap. Cannot be set if SecretKeyRef is set.
                                 properties:
                                   key:
                                     description: The key to select.
@@ -1060,8 +1237,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
+                                description: SecretKeyRef describes a value from a
+                                  secret. Cannot be set if ConfigMapKeyRef is set.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -1088,15 +1265,23 @@ spec:
                         type: object
                       port:
                         default: "5672"
+                        description: Port describes the port to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       ssl:
                         default: "false"
+                        description: SSL describes whether to use SSL for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       username:
                         default: guest
+                        description: Username describes the username to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                       vhost:
                         default: /
+                        description: Vhost describes the vhost to use for RabbitMQ.
+                          Only set if Deploy is false.
                         type: string
                     type: object
                   graphQlServer:
@@ -1144,10 +1329,13 @@ spec:
               identity:
                 type: string
               image:
+                description: Image describes the docker image to run for a service.
+                  ETOS applies defaults if empty.
                 type: string
               imagePullPolicy:
-                description: PullPolicy describes a policy for if/when to pull a container
-                  image
+                description: |-
+                  ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                  if empty.
                 type: string
               maximumAmount:
                 type: integer
@@ -1735,6 +1923,12 @@ spec:
           spec:
             description: spec defines the desired state of ExecutionSpace
             properties:
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the ExecutionSpace shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
               environmentRequest:
                 description: EnvironmentRequest is the ID of the environmentrequest
                   which requested this execution space.
@@ -1943,6 +2137,12 @@ spec:
           spec:
             description: spec defines the desired state of Iut
             properties:
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the IUT shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
               environmentRequest:
                 description: EnvironmentRequest is the name of the environmentrequest
                   which requested this IUT.
@@ -2111,6 +2311,12 @@ spec:
           spec:
             description: spec defines the desired state of LogArea
             properties:
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the LogArea shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
               environmentRequest:
                 description: EnvironmentRequest is the ID of the environmentrequest
                   which requested this log area.
@@ -2569,6 +2775,18 @@ spec:
                 description: Image describes the docker image to run when providing
                   a resource.
                 type: string
+              iutProviderConfig:
+                description: IutProviderConfig describe the configuration for an IUT
+                  provider.
+                properties:
+                  custom:
+                    description: |-
+                      The configuration of a provider is very implementation-specific and we cannot give
+                      a perfectly generic configuration for all cases. The following field allows any
+                      data-structure to be added to this configuration and it is expected that providers
+                      can handle the data they require themselves.
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
               jsontas:
                 description: |-
                   These are pointers so that they become nil in the Provider object in Kubernetes
@@ -2701,7 +2919,8 @@ spec:
                   configmap.
                 properties:
                   configMapKeyRef:
-                    description: Selects a key from a ConfigMap.
+                    description: ConfigMapKeyRef describes a value from a configmap.
+                      Cannot be set if SecretKeyRef is set.
                     properties:
                       key:
                         description: The key to select.
@@ -2724,7 +2943,8 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   secretKeyRef:
-                    description: SecretKeySelector selects a key of a Secret.
+                    description: SecretKeyRef describes a value from a secret. Cannot
+                      be set if ConfigMapKeyRef is set.
                     properties:
                       key:
                         description: The key of the secret to select from.  Must be
@@ -2747,6 +2967,89 @@ spec:
                     - key
                     type: object
                     x-kubernetes-map-type: atomic
+                type: object
+              logAreaProviderConfig:
+                description: LogAreaProviderConfig describes the configuration for
+                  a log area provider.
+                properties:
+                  livelogs:
+                    description: LiveLogs is a URI to where live logs of an execution
+                      can be found.
+                    format: uri
+                    type: string
+                  upload:
+                    description: Upload defines the log upload instructions for the
+                      ETR.
+                    properties:
+                      as_json:
+                        description: AsJSON tells a client that the payload should
+                          be posted as JSON.
+                        type: boolean
+                      auth:
+                        description: Auth defines authorization instructions for a
+                          request.
+                        properties:
+                          password:
+                            description: Password defines an encrypted password to
+                              use when authenticating
+                            properties:
+                              $decrypt:
+                                description: Decrypt defines a JsonTas style json
+                                  for decrypting a value
+                                properties:
+                                  value:
+                                    description: Value defines an encrypted string
+                                      to decrypt
+                                    type: string
+                                required:
+                                - value
+                                type: object
+                            required:
+                            - $decrypt
+                            type: object
+                          type:
+                            description: AuthType defines the type of authentication
+                              to do.
+                            enum:
+                            - basic
+                            - digest
+                            type: string
+                          username:
+                            description: Username defines the username to use when
+                              authenticating
+                            type: string
+                        type: object
+                      headers:
+                        additionalProperties:
+                          type: string
+                        description: Headers define optional headers to send with
+                          the payload
+                        type: object
+                      method:
+                        description: Method defines the HTTP method for an upload.
+                        enum:
+                        - GET
+                        - POST
+                        - PUT
+                        type: string
+                      params:
+                        additionalProperties:
+                          type: string
+                        description: Params define optional parameters to send with
+                          the payload
+                        type: object
+                      url:
+                        description: URL defines the HTTP(s) URL to send payload to.
+                        format: uri
+                        type: string
+                    required:
+                    - as_json
+                    - method
+                    - url
+                    type: object
+                required:
+                - livelogs
+                - upload
                 type: object
               type:
                 enum:
@@ -2910,10 +3213,13 @@ spec:
               environmentProvider:
                 properties:
                   image:
+                    description: Image describes the docker image to run for a service.
+                      ETOS applies defaults if empty.
                     type: string
                   imagePullPolicy:
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
+                    description: |-
+                      ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                      if empty.
                     type: string
                 type: object
               id:
@@ -2926,10 +3232,13 @@ spec:
               logListener:
                 properties:
                   image:
+                    description: Image describes the docker image to run for a service.
+                      ETOS applies defaults if empty.
                     type: string
                   imagePullPolicy:
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
+                    description: |-
+                      ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                      if empty.
                     type: string
                 type: object
               providers:
@@ -2960,10 +3269,13 @@ spec:
               suiteRunner:
                 properties:
                   image:
+                    description: Image describes the docker image to run for a service.
+                      ETOS applies defaults if empty.
                     type: string
                   imagePullPolicy:
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
+                    description: |-
+                      ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                      if empty.
                     type: string
                 type: object
               suites:
@@ -3221,6 +3533,9 @@ spec:
                 type: string
             type: object
         type: object
+    selectableFields:
+    - jsonPath: .spec.cluster
+    - jsonPath: .spec.artifact
     served: true
     storage: true
     subresources:
@@ -4109,7 +4424,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:383923e5
+        image: ghcr.io/eiffel-community/etos-controller:1e23abc7
         livenessProbe:
           httpGet:
             path: /healthz
