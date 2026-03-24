@@ -138,6 +138,13 @@ func runProvider(provider environmentProvider) error {
 	if err != nil {
 		return err
 	}
+	if len(logAreas.Items) < len(iuts.Items) || len(executionSpaces.Items) < len(iuts.Items) {
+		return fmt.Errorf(
+			`not enough resources to create environments, expected at least %d log areas and execution
+			spaces, got %d log areas and %d execution spaces`,
+			len(iuts.Items), len(logAreas.Items), len(executionSpaces.Items),
+		)
+	}
 
 	// TODO: Choose strategy
 	splitter := splitter.NewRoundRobinSplitter().SetSize(len(iuts.Items))
