@@ -3533,6 +3533,9 @@ spec:
                 type: string
             type: object
         type: object
+    selectableFields:
+    - jsonPath: .spec.cluster
+    - jsonPath: .spec.artifact
     served: true
     storage: true
     subresources:
@@ -4421,7 +4424,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:a8f84b0d
+        image: ghcr.io/eiffel-community/etos-controller:1e23abc7
         livenessProbe:
           httpGet:
             path: /healthz
