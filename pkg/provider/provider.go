@@ -114,6 +114,13 @@ func WriteResult(logger logr.Logger, result jobs.Result) error {
 	return os.WriteFile(terminationLog, b, os.ModePerm)
 }
 
+// SetKubernetesClient sets up a new Kubernetes client, typically used for special
+// use-cases I.e. adding custom configurations or for testing where a mock client
+// is used.
+func SetKubernetesClient(c client.Client) {
+	cli = c
+}
+
 // KubernetesClient creates a new Kubernetes client or reuses an already created.
 func KubernetesClient() (client.Client, error) {
 	var err error
