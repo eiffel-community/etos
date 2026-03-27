@@ -257,8 +257,8 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 		return nil, err
 	}
 	carrier := map[string]string{
-		"traceparent": testrun.Annotations["etos.eiffel-community.github.io/traceparent"],
-		"baggage":     testrun.Annotations["etos.eiffel-community.github.io/baggage"],
+		"traceparent": environmentrequest.Annotations["etos.eiffel-community.github.io/traceparent"],
+		"baggage":     environmentrequest.Annotations["etos.eiffel-community.github.io/baggage"],
 	}
 	context := fmt.Sprintf("traceparent=%s,baggage=%s", carrier["traceparent"], carrier["baggage"])
 	envList := []corev1.EnvVar{
