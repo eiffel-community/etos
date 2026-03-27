@@ -721,6 +721,16 @@ spec:
                         description: SSL describes whether to use SSL for RabbitMQ.
                           Only set if Deploy is false.
                         type: string
+                      streamName:
+                        default: etos-messagebus-stream
+                        description: StreamName describes the stream name to use for
+                          RabbitMQ streaming. Only set if Deploy is false.
+                        type: string
+                      streamPort:
+                        default: "5552"
+                        description: StreamPort describes the port to use for RabbitMQ
+                          streaming. Only set if Deploy is false.
+                        type: string
                       username:
                         default: guest
                         description: Username describes the username to use for RabbitMQ.
@@ -827,6 +837,16 @@ spec:
                         default: "false"
                         description: SSL describes whether to use SSL for RabbitMQ.
                           Only set if Deploy is false.
+                        type: string
+                      streamName:
+                        default: etos-messagebus-stream
+                        description: StreamName describes the stream name to use for
+                          RabbitMQ streaming. Only set if Deploy is false.
+                        type: string
+                      streamPort:
+                        default: "5552"
+                        description: StreamPort describes the port to use for RabbitMQ
+                          streaming. Only set if Deploy is false.
                         type: string
                       username:
                         default: guest
@@ -1094,6 +1114,16 @@ spec:
                         description: SSL describes whether to use SSL for RabbitMQ.
                           Only set if Deploy is false.
                         type: string
+                      streamName:
+                        default: etos-messagebus-stream
+                        description: StreamName describes the stream name to use for
+                          RabbitMQ streaming. Only set if Deploy is false.
+                        type: string
+                      streamPort:
+                        default: "5552"
+                        description: StreamPort describes the port to use for RabbitMQ
+                          streaming. Only set if Deploy is false.
+                        type: string
                       username:
                         default: guest
                         description: Username describes the username to use for RabbitMQ.
@@ -1272,6 +1302,16 @@ spec:
                         default: "false"
                         description: SSL describes whether to use SSL for RabbitMQ.
                           Only set if Deploy is false.
+                        type: string
+                      streamName:
+                        default: etos-messagebus-stream
+                        description: StreamName describes the stream name to use for
+                          RabbitMQ streaming. Only set if Deploy is false.
+                        type: string
+                      streamPort:
+                        default: "5552"
+                        description: StreamPort describes the port to use for RabbitMQ
+                          streaming. Only set if Deploy is false.
                         type: string
                       username:
                         default: guest
@@ -4424,7 +4464,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:0f174b8c
+        image: ghcr.io/eiffel-community/etos-controller:c3628f6d
         livenessProbe:
           httpGet:
             path: /healthz
