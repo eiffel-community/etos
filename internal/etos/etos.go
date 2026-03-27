@@ -106,7 +106,7 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		return err
 	}
 
-	sse := etosapi.NewETOSSSEDeployment(r.SSE, r.Scheme, r.Client, r.cfg)
+	sse := etosapi.NewETOSSSEDeployment(r.SSE, r.Scheme, r.Client, r.messagebusSecret, r.cfg)
 	if err := sse.Reconcile(ctx, cluster); err != nil {
 		logger.Error(err, "ETOS SSE reconciliation failed")
 		return err

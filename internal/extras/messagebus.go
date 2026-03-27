@@ -36,6 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var rabbitmqStreamPort int32 = 5552
+
 type MessageBusDeployment struct {
 	etosv1alpha1.RabbitMQ
 	client.Client
@@ -55,9 +57,10 @@ func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alp
 	logger := log.FromContext(ctx, "Reconciler", "MessageBus", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 	if r.Deploy {
-		logger.Info("Patching host & port when deploying RabbitMQ", "host", name, "port", rabbitmqPort)
+		logger.Info("Patching host & port when deploying RabbitMQ", "host", name, "port", rabbitmqPort, "streamPort", rabbitmqStreamPort)
 		r.Host = name
 		r.Port = fmt.Sprintf("%d", rabbitmqPort)
+		r.StreamPort = fmt.Sprintf("%d", rabbitmqStreamPort)
 	}
 
 	secret, err := r.reconcileSecret(ctx, logger, namespacedName, cluster)
@@ -66,6 +69,15 @@ func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alp
 		return err
 	}
 	r.SecretName = secret.Name
+
+	// A headless service is required for when we enable rabbitmq-streams since each node in the RabbitMQ cluster
+	// advertises itself and expects clients to connect to that specific node. A headless service allows clients
+	// to connect directly to the advertised host.
+	_, err = r.reconcileHeadlessService(ctx, logger, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the MessageBus headless service")
+		return err
+	}
 
 	_, err = r.reconcileStatefulset(ctx, logger, namespacedName, cluster)
 	if err != nil {
@@ -142,9 +154,37 @@ func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, logger 
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq))
 }
 
+// reconcileHeadlessService will reconcile the messagebus headless service to its expected state.
+func (r *MessageBusDeployment) reconcileHeadlessService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+	selectorName := name.Name
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-headless", name.Name), Namespace: name.Namespace}
+	target := r.service(name, owner.GetName(), selectorName, true)
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+
+	service := &corev1.Service{}
+	if err := r.Get(ctx, name, service); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return service, err
+		}
+		if r.Deploy {
+			logger.Info("Creating a new MessageBus headless kubernetes service")
+			if err := r.Create(ctx, target); err != nil {
+				return target, err
+			}
+		}
+		return target, nil
+	} else if !r.Deploy {
+		logger.Info("Removing the headless kubernetes service for MessageBus")
+		return nil, r.Delete(ctx, service)
+	}
+	return target, r.Patch(ctx, target, client.StrategicMergeFrom(service))
+}
+
 // reconcileService will reconcile the messagebus service to its expected state.
 func (r *MessageBusDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
-	target := r.service(name, owner.GetName())
+	target := r.service(name, owner.GetName(), name.Name, false)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -189,10 +229,25 @@ func (r *MessageBusDeployment) statefulset(name types.NamespacedName, clusterNam
 				MatchLabels: map[string]string{"app.kubernetes.io/name": name.Name},
 			},
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{r.volumeClaim(name)},
+			ServiceName:          fmt.Sprintf("%s-headless", name.Name),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: r.meta(name, clusterName),
 				Spec: corev1.PodSpec{
-					Volumes:    []corev1.Volume{r.volume(name)},
+					Volumes: r.volumes(name),
+					InitContainers: []corev1.Container{
+						{
+							Name:  "init",
+							Image: "busybox@sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      fmt.Sprintf("%s-plugins", name.Name),
+									MountPath: "/data",
+									ReadOnly:  false,
+								},
+							},
+							Command: []string{"sh", "-c", "echo '[rabbitmq_prometheus,rabbitmq_stream_management].' > /data/enabled_plugins"},
+						},
+					},
 					Containers: []corev1.Container{r.container(name)},
 				},
 			},
@@ -201,24 +256,30 @@ func (r *MessageBusDeployment) statefulset(name types.NamespacedName, clusterNam
 }
 
 // service will create a service resource definition for the messagebus.
-func (r *MessageBusDeployment) service(name types.NamespacedName, clusterName string) *corev1.Service {
-	return &corev1.Service{
+func (r *MessageBusDeployment) service(name types.NamespacedName, clusterName, selectorName string, headless bool) *corev1.Service {
+	svc := &corev1.Service{
 		ObjectMeta: r.meta(name, clusterName),
 		Spec: corev1.ServiceSpec{
 			Ports:    r.ports(),
-			Selector: map[string]string{"app.kubernetes.io/name": name.Name},
+			Selector: map[string]string{"app.kubernetes.io/name": selectorName},
 		},
 	}
+	if headless {
+		svc.Spec.ClusterIP = "None"
+	}
+	return svc
 }
 
 // secretData will create a map of secrets for the messagebus secret.
 func (r *MessageBusDeployment) secretData(ctx context.Context, namespace string) (map[string][]byte, error) {
 	data := map[string][]byte{
-		"ETOS_RABBITMQ_HOST":     []byte(r.Host),
-		"ETOS_RABBITMQ_EXCHANGE": []byte(r.Exchange),
-		"ETOS_RABBITMQ_PORT":     []byte(r.Port),
-		"ETOS_RABBITMQ_SSL":      []byte(r.SSL),
-		"ETOS_RABBITMQ_VHOST":    []byte(r.Vhost),
+		"ETOS_RABBITMQ_HOST":        []byte(r.Host),
+		"ETOS_RABBITMQ_EXCHANGE":    []byte(r.Exchange),
+		"ETOS_RABBITMQ_PORT":        []byte(r.Port),
+		"ETOS_RABBITMQ_STREAM_PORT": []byte(r.StreamPort),
+		"ETOS_RABBITMQ_STREAM_NAME": []byte(r.StreamName),
+		"ETOS_RABBITMQ_SSL":         []byte(r.SSL),
+		"ETOS_RABBITMQ_VHOST":       []byte(r.Vhost),
 	}
 
 	if r.Password != nil {
@@ -265,16 +326,21 @@ func (r *MessageBusDeployment) volumeClaim(name types.NamespacedName) corev1.Per
 	}
 }
 
-// volume will create a volume resource definition for the messagebus statefulset.
-func (r *MessageBusDeployment) volume(name types.NamespacedName) corev1.Volume {
-	return corev1.Volume{
+// volumes will create volume resource definitions for the messagebus statefulset.
+func (r *MessageBusDeployment) volumes(name types.NamespacedName) []corev1.Volume {
+	return []corev1.Volume{{
 		Name: fmt.Sprintf("%s-data", name.Name),
 		VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: fmt.Sprintf("%s-data", name.Name),
 			},
 		},
-	}
+	}, {
+		Name: fmt.Sprintf("%s-plugins", name.Name),
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}}
 }
 
 // container will create a container resource definition for the messagebus statefulset.
@@ -287,11 +353,40 @@ func (r *MessageBusDeployment) container(name types.NamespacedName) corev1.Conta
 				Name:      fmt.Sprintf("%s-data", name.Name),
 				MountPath: "/var/lib/rabbitmq/data",
 			},
+			{
+				Name:      fmt.Sprintf("%s-plugins", name.Name),
+				MountPath: "/etc/rabbitmq/enabled_plugins",
+				SubPath:   "enabled_plugins",
+				ReadOnly:  true,
+			},
+		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "SERVICE_NAME",
+				Value: fmt.Sprintf("%s-headless", name.Name),
+			},
+			{
+				Name: "POD_NAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+			{
+				Name:  "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS",
+				Value: "-rabbitmq_stream advertised_host \"$(POD_NAME).$(SERVICE_NAME)\"",
+			},
 		},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "amqp",
 				ContainerPort: rabbitmqPort,
+				Protocol:      "TCP",
+			},
+			{
+				Name:          "rabbitmq-stream",
+				ContainerPort: rabbitmqStreamPort,
 				Protocol:      "TCP",
 			},
 		},
@@ -302,5 +397,6 @@ func (r *MessageBusDeployment) container(name types.NamespacedName) corev1.Conta
 func (r *MessageBusDeployment) ports() []corev1.ServicePort {
 	return []corev1.ServicePort{
 		{Port: rabbitmqPort, Name: "amqp", Protocol: "TCP"},
+		{Port: rabbitmqStreamPort, Name: "rabbitmq-stream", Protocol: "TCP"},
 	}
 }
