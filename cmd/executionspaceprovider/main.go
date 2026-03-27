@@ -24,10 +24,13 @@ import (
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
+	"github.com/eiffel-community/etos/pkg/logging"
 	"github.com/eiffel-community/etos/pkg/provider"
 	"github.com/fernet/fernet-go"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -53,25 +56,43 @@ type dataset struct {
 func (p *genericExecutionSpaceProvider) Provision(
 	ctx context.Context, logger logr.Logger, cfg provider.ProvisionConfig,
 ) error {
+	ctx, span := cfg.Tracer.Start(
+		ctx, "provisionExecutionSpace", trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End()
+	// Adds the trace_id, span_id and baggage to the logger, making it searchable if opentelemetry
+	// is enabled.
+	logger = logging.FromContextOrDiscard(ctx)
 
 	client, err := provider.KubernetesClient()
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create Kubernetes client")
 		return err
 	}
 	environmentRequest := cfg.EnvironmentRequest
 	if cfg.MinimumAmount <= 0 {
-		return errors.New("minimum amount of ExecutionSpaces requested is less than or equal to 0")
+		err := errors.New("minimum amount of ExecutionSpaces requested is less than or equal to 0")
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "invalid minimum amount of ExecutionSpaces requested")
+		return err
 	}
 	key, err := environmentRequest.Spec.Config.EncryptionKey.Get(ctx, client, environmentRequest.Namespace)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get encryption key")
 		return err
 	}
 	encryptionKey, err := fernet.DecodeKey(string(key))
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to decode encryption key")
 		return err
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get hostname")
 		return err
 	}
 	logger.Info("Provisioning a new ExecutionSpace for EnvironmentRequest",
@@ -84,6 +105,8 @@ func (p *genericExecutionSpaceProvider) Provision(
 		environmentRequest.Namespace, encryptionKey,
 	)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get and encrypt ETOS message bus password")
 		return err
 	}
 	eiffelMessagebusPassword, err := getAndEncrypt(ctx,
@@ -91,6 +114,8 @@ func (p *genericExecutionSpaceProvider) Provision(
 		environmentRequest.Namespace, encryptionKey,
 	)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get and encrypt Eiffel message bus password")
 		return err
 	}
 	environment := map[string]string{
@@ -115,6 +140,8 @@ func (p *genericExecutionSpaceProvider) Provision(
 	}
 	ds := dataset{}
 	if err := json.Unmarshal(environmentRequest.Spec.Dataset.Raw, &ds); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to unmarshal dataset")
 		return err
 	}
 	if ds.Dev {
@@ -127,6 +154,11 @@ func (p *genericExecutionSpaceProvider) Provision(
 		environment["ETR_REPOSITORY"] = ds.ETRRepo
 	}
 
+	ctx, span = cfg.Tracer.Start(
+		ctx, "createExecutionSpaces", trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End()
+	logger = logging.FromContextOrDiscard(ctx)
 	for range cfg.MinimumAmount {
 		id := uuid.NewString()
 		testrunner := environmentRequest.Spec.Providers.ExecutionSpace.TestRunnerImage
@@ -147,15 +179,20 @@ func (p *genericExecutionSpaceProvider) Provision(
 				},
 			})
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to create ExecutionSpace")
 			return err
 		}
 		logger.Info(fmt.Sprintf("ExecutionSpace created with name '%s', launching ETOS test runner",
 			executionSpace.Name))
 		if err := p.start(ctx, environmentRequest, executionSpace); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to start ETOS test runner")
 			return err
 		}
 		logger.Info("Test runner has launched and is waiting for tests")
 	}
+	span.SetStatus(codes.Ok, "ExecutionSpace(s) provisioned successfully")
 	return nil
 }
 
@@ -261,18 +298,32 @@ func (p *genericExecutionSpaceProvider) start(
 func (p *genericExecutionSpaceProvider) Release(
 	ctx context.Context, logger logr.Logger, cfg provider.ReleaseConfig,
 ) error {
+	ctx, span := cfg.Tracer.Start(
+		ctx, "releaseExecutionSpace", trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End()
+	// Adds the trace_id, span_id and baggage to the logger, making it searchable if opentelemetry
+	// is enabled.
+	logger = logging.FromContextOrDiscard(ctx)
+
 	logger.Info(fmt.Sprintf("Releasing ExecutionSpace '%s'", cfg.Name), "Namespace", cfg.Namespace)
 	executionSpace, err := provider.GetExecutionSpace(ctx, cfg.Name, cfg.Namespace)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get ExecutionSpace")
 		return err
 	}
 	if cfg.NoDelete {
+		span.SetStatus(codes.Ok, "no-delete flag is set, skipping deletion of ExecutionSpace")
 		return nil
 	}
 	if err := provider.DeleteExecutionSpace(ctx, executionSpace); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to delete ExecutionSpace")
 		return err
 	}
 	logger.Info(fmt.Sprintf("ExecutionSpace '%s' released", cfg.Name))
+	span.SetStatus(codes.Ok, "ExecutionSpace released successfully")
 	return nil
 }
 

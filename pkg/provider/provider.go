@@ -27,11 +27,12 @@ import (
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"github.com/eiffel-community/etos/internal/messaging"
+	"github.com/eiffel-community/etos/pkg/logging"
+	"github.com/eiffel-community/etos/pkg/opentelemetry"
+	"github.com/eiffel-community/etos/pkg/opentelemetry/semconv"
 	"github.com/go-logr/logr"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -125,27 +126,33 @@ func ParseParameters(providerType string, amountFunc AmountFunc) Parameters {
 func run(provider Provider, params Parameters) error {
 	ctx := context.TODO()
 
+	otel := opentelemetry.New(params.providerName, params.providerType)
+	if err := otel.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start OpenTelemetry tracer: %w", err)
+	}
+	// Will get assigned properly later.
+	logger := logr.Discard()
+	defer func() {
+		if shutdownErr := otel.Shutdown(ctx); shutdownErr != nil {
+			logger.Error(shutdownErr, "failed to shutdown OpenTelemetry tracer")
+		}
+	}()
+
 	environmentRequest, err := EnvironmentRequest(ctx, params.environmentRequestName, params.namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get EnvironmentRequest: %w", err)
 	}
+	ctx = otel.ContextFromEnvironmentRequest(ctx, environmentRequest)
 
-	if err := initOpentelemetryTracer(ctx, params.providerName); err != nil {
-		return fmt.Errorf("failed to initialize OpenTelemetry tracer: %w", err)
-	}
-
-	ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.MapCarrier{
-		"traceparent": environmentRequest.Annotations["etos.eiffel-community.github.io/traceparent"],
-		"baggage":     environmentRequest.Annotations["etos.eiffel-community.github.io/baggage"],
-	})
 	ctx, span := params.tracer.Start(
-		ctx, params.providerName, trace.WithSpanKind(trace.SpanKindInternal),
+		ctx, "run-provider", trace.WithSpanKind(trace.SpanKindInternal),
 	)
 	defer span.End()
+
 	span.SetAttributes(
-		attribute.String(fmt.Sprintf("etos.provider.%s.environmentRequest", params.providerType), params.environmentRequestName),
-		attribute.String(fmt.Sprintf("etos.provider.%s.namespace", params.providerType), params.namespace),
-		attribute.String(fmt.Sprintf("etos.provider.%s.name", params.providerType), params.providerName),
+		semconv.ETOSProviderEnvironmentRequest(params.environmentRequestName),
+		semconv.ETOSProviderNamespace(params.namespace),
+		semconv.ETOSProviderName(params.providerName),
 	)
 
 	client, err := KubernetesClient()
@@ -169,29 +176,28 @@ func run(provider Provider, params Parameters) error {
 			fmt.Printf("failed to close message bus publisher: %v\n", closeErr)
 		}
 	}()
-	logger, err := newLogger(ctx, params, publisher)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "Failed to create logger")
-		return fmt.Errorf("failed to create logger: %w", err)
-	}
 
-	logger = logger.WithValues(
+	ctx = logging.New(params.opts).
+		WithOtel(otel).
+		WithUserLog(publisher).
+		WithConsole().
+		Start(ctx)
+	logger = logging.FromContextOrDiscard(ctx).WithValues(
 		"providerType", params.providerType,
 		"environmentRequest", params.environmentRequestName,
 		"namespace", params.namespace,
 		"providerName", params.providerName,
 		"identifier", environmentRequest.Spec.Identifier,
 	).WithName(params.providerName)
-
 	publisher.AddLogger(logger)
 	ctx = logr.NewContext(ctx, logger)
-	logger = logr.FromContextOrDiscard(ctx)
-	if err := writeTerminationLog(ctx, runProvider, logger, provider, params, environmentRequest); err != nil {
+
+	if err := writeTerminationLog(ctx, runProvider, provider, params, environmentRequest); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "Provider execution failed")
 		return err
 	}
+	span.SetStatus(codes.Ok, "Provider execution succeeded")
 	return nil
 }
 
@@ -261,61 +267,88 @@ func GetProvider(ctx context.Context, providerName, namespace string) (*v1alpha1
 //
 // If the releaseEnvironment parameter is set then it will run Release
 // If the releaseEnvironment parameter is not set then it will run Provision
-func runProvider(ctx context.Context, logger logr.Logger, provider Provider, params Parameters, environmentRequest *v1alpha1.EnvironmentRequest) error {
+func runProvider(ctx context.Context, provider Provider, params Parameters, environmentRequest *v1alpha1.EnvironmentRequest) error {
 	if params.releaseEnvironment {
-		return runReleaser(ctx, logger, provider, params, environmentRequest)
-	}
-	minimumAmount, err := params.amountFunc(ctx, environmentRequest)
-	if err != nil {
-		return err
+		return runReleaser(ctx, provider, params, environmentRequest)
 	}
 	ctx, span := params.tracer.Start(
-		ctx, fmt.Sprintf("%s-provision", params.providerName), trace.WithSpanKind(trace.SpanKindInternal),
+		ctx, "provision", trace.WithSpanKind(trace.SpanKindInternal),
 	)
 	defer span.End()
+	logger := logging.FromContextOrDiscard(ctx)
+
+	minimumAmount, err := params.amountFunc(ctx, environmentRequest)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Failed to calculate minimum amount")
+		return err
+	}
 	span.SetAttributes(
-		attribute.Int(fmt.Sprintf("etos.provider.%s.minimumAmount", params.providerType), minimumAmount),
-		attribute.Int(fmt.Sprintf("etos.provider.%s.maximumAmount", params.providerType), environmentRequest.Spec.MaximumAmount),
+		semconv.ETOSProviderMinimumAmount(minimumAmount),
+		semconv.ETOSProviderMaximumAmount(environmentRequest.Spec.MaximumAmount),
 	)
-	return provider.Provision(ctx, logger, ProvisionConfig{
+	if err := provider.Provision(ctx, logger, ProvisionConfig{
 		EnvironmentRequest: environmentRequest,
 		Namespace:          params.namespace,
 		MaximumAmount:      environmentRequest.Spec.MaximumAmount,
 		MinimumAmount:      minimumAmount,
-	})
+		Tracer:             params.tracer,
+	}); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Failed to provision resource")
+		return err
+	}
+	span.SetStatus(codes.Ok, "Resource provisioned successfully")
+	return nil
 }
 
 // runReleaser runs the provision.Release function
-func runReleaser(ctx context.Context, logger logr.Logger, provider Provider, params Parameters, environmentRequest *v1alpha1.EnvironmentRequest) error {
-	if params.name == "" {
-		return errors.New("Must set -name")
-	}
+func runReleaser(ctx context.Context, provider Provider, params Parameters, environmentRequest *v1alpha1.EnvironmentRequest) error {
 	ctx, span := params.tracer.Start(
-		ctx, fmt.Sprintf("%s-release", params.providerName), trace.WithSpanKind(trace.SpanKindInternal),
+		ctx, "release", trace.WithSpanKind(trace.SpanKindInternal),
 	)
 	defer span.End()
+	logger := logging.FromContextOrDiscard(ctx)
+
+	if params.name == "" {
+		err := errors.New("Must set -name")
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Failed to release resource: name not provided")
+		return err
+	}
 	span.SetAttributes(
-		attribute.String(fmt.Sprintf("etos.provider.%s.name", params.providerType), params.name),
+		semconv.ETOSProviderName(params.name),
 	)
-	return provider.Release(ctx, logger, ReleaseConfig{
+	if err := provider.Release(ctx, logger, ReleaseConfig{
 		EnvironmentRequest: environmentRequest,
 		Name:               params.name,
 		Namespace:          params.namespace,
 		NoDelete:           params.noDelete,
-	})
+		Tracer:             params.tracer,
+	}); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Failed to release resource")
+		return err
+	}
+	span.SetStatus(codes.Ok, "Resource released successfully")
+	return nil
 }
 
 // writeTerminationLog will run a function and will write the result into a termination log.
 func writeTerminationLog(
 	ctx context.Context,
-	run func(context.Context, logr.Logger, Provider, Parameters, *v1alpha1.EnvironmentRequest) error,
-	logger logr.Logger,
+	run func(context.Context, Provider, Parameters, *v1alpha1.EnvironmentRequest) error,
 	provider Provider,
 	params Parameters,
 	environmentRequest *v1alpha1.EnvironmentRequest,
 ) error {
-	err := run(ctx, logger, provider, params, environmentRequest)
+	err := run(ctx, provider, params, environmentRequest)
 
+	ctx, span := params.tracer.Start(
+		ctx, "writeResult", trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End()
+	logger := logging.FromContextOrDiscard(ctx)
 	if err != nil {
 		if writeErr := WriteResult(logger,
 			jobs.Result{
@@ -324,6 +357,8 @@ func writeTerminationLog(
 				Verdict:     jobs.VerdictNone,
 			}); writeErr != nil {
 			logger.Error(writeErr, "failed to write error result to termination-log")
+			span.RecordError(writeErr)
+			span.SetStatus(codes.Error, "Failed to write error result to termination-log")
 		}
 		return err
 	}
@@ -333,6 +368,11 @@ func writeTerminationLog(
 	} else {
 		successMessage = fmt.Sprintf("Successfully provisioned %s", params.providerType)
 	}
+	span.SetAttributes(
+		semconv.ETOSProviderConclusion(string(jobs.ConclusionSuccessful)),
+		semconv.ETOSProviderVerdict(string(jobs.VerdictNone)),
+		semconv.ETOSProviderDescription(successMessage),
+	)
 	if err := WriteResult(logger,
 		jobs.Result{
 			Conclusion:  jobs.ConclusionSuccessful,
@@ -340,7 +380,10 @@ func writeTerminationLog(
 			Verdict:     jobs.VerdictNone,
 		}); err != nil {
 		logger.Error(err, "failed to write error result to termination-log")
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Failed to write success result to termination-log")
 		return err
 	}
+	span.SetStatus(codes.Ok, "Result written to termination-log successfully")
 	return nil
 }

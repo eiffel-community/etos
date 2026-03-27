@@ -197,7 +197,11 @@ func (p *rabbitMQPublisher) ensureConnection() error {
 		if err := p.channel.Confirm(false); err != nil {
 			// Force closure of possibly healthy connection to force a full
 			// re-negotiation in the next ensureConnection call.
-			p.conn.Close()
+			if closeErr := p.conn.Close(); closeErr != nil {
+				p.logger.Error(closeErr,
+					"Error closing AMQP connection after failed attempt to enable publisher confirms",
+				)
+			}
 			return fmt.Errorf("error enabling publisher confirms: %w", err)
 		}
 		p.hasOutstanding = false
@@ -215,7 +219,9 @@ func (p *rabbitMQPublisher) ensureConnection() error {
 func (p *rabbitMQPublisher) CloseOnTimeout(ctx context.Context) {
 	if ctx.Err() != nil {
 		p.logger.Info("Forcibly closing RabbitMQ connection due to timeout")
-		p.Close()
+		if err := p.Close(); err != nil {
+			p.logger.Error(err, "Error closing RabbitMQ connection after timeout")
+		}
 	}
 }
 
