@@ -27,6 +27,7 @@ import (
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	providerHelper "github.com/eiffel-community/etos/pkg/provider"
 	"github.com/eiffel-community/etos/pkg/splitter"
+	"github.com/go-logr/logr"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -109,6 +110,7 @@ func runReleaser(_ environmentProvider) error {
 // runProvider is the base provider for the EnvironmentProvider.
 func runProvider(provider environmentProvider) error {
 	ctx := context.Background()
+	logger := logr.FromContextOrDiscard(ctx)
 	if provider.environmentRequestName == "" {
 		return errors.New("Must set -environment-request")
 	}
@@ -138,36 +140,36 @@ func runProvider(provider environmentProvider) error {
 	if err != nil {
 		return err
 	}
-	if len(logAreas.Items) < len(iuts.Items) || len(executionSpaces.Items) < len(iuts.Items) {
+
+	minRequired := min(request.Spec.MaximumAmount, request.Spec.MinimumAmount)
+	maxPossible := min(len(iuts.Items), len(logAreas.Items), len(executionSpaces.Items))
+	if maxPossible < minRequired {
 		return fmt.Errorf(
-			`not enough resources to create environments, expected at least %d log areas and execution
-			spaces, got %d log areas and %d execution spaces`,
-			len(iuts.Items), len(logAreas.Items), len(executionSpaces.Items),
+			`not enough resources to create environments, expected at least %d environments, got at
+			most %d environments with %d log areas and %d execution spaces`,
+			minRequired, maxPossible, len(logAreas.Items), len(executionSpaces.Items),
 		)
 	}
 
 	// TODO: Choose strategy
-	splitter := splitter.NewRoundRobinSplitter().SetSize(len(iuts.Items))
+	splitter := splitter.NewRoundRobinSplitter().SetSize(maxPossible)
 	for _, test := range request.Spec.Splitter.Tests {
 		splitter.AddTest(test)
 	}
 	tests := splitter.Split()
 
-	created := 0
-	for i, iut := range iuts.Items {
+	for i := range maxPossible {
 		logArea := logAreas.Items[i]
 		executionSpace := executionSpaces.Items[i]
+		iut := iuts.Items[i]
 		if err := CreateEnvironment(
 			ctx, i, tests[i], &request, provider.namespace, iut, executionSpace, logArea,
 		); err != nil {
+			logger.Error(err, "failed to create environment", "index", i)
 			return err
 		}
-		created++
 	}
-	minimumAmount := min(request.Spec.MaximumAmount, request.Spec.MinimumAmount)
-	if created < minimumAmount {
-		return fmt.Errorf("not enough environments created, expected %d created %d", request.Spec.MinimumAmount, created)
-	}
+	logger.Info("Successfully created environment(s)")
 	return nil
 }
 
