@@ -543,6 +543,10 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 	if ok {
 		annotations["etos.eiffel-community.github.io/traceparent"] = traceparent
 	}
+	baggage, ok := testrun.Annotations["etos.eiffel-community.github.io/baggage"]
+	if ok {
+		annotations["etos.eiffel-community.github.io/baggage"] = baggage
+	}
 	// Using ParseInt directly instead of Atoi since Atoi returns int, not int64
 	environmentTimeout, err := strconv.ParseInt(cluster.Spec.ETOS.Config.EnvironmentTimeout, 10, 0)
 	var deadline int64
