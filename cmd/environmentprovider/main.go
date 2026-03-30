@@ -57,6 +57,8 @@ func main() {
 	flag.Parse()
 	logger := zap.New(zap.UseFlagOptions(&opts))
 
+	ctx := logr.NewContext(context.Background(), logger)
+
 	if provider.releaseEnvironment {
 		if err := runReleaser(provider); err != nil {
 			if writeErr := providerHelper.WriteResult(logger,
@@ -79,7 +81,7 @@ func main() {
 			panic(err)
 		}
 	} else {
-		if err := runProvider(provider); err != nil {
+		if err := runProvider(ctx, provider); err != nil {
 			if writeErr := providerHelper.WriteResult(logger,
 				jobs.Result{
 					Conclusion:  jobs.ConclusionFailed,
@@ -108,8 +110,7 @@ func runReleaser(_ environmentProvider) error {
 }
 
 // runProvider is the base provider for the EnvironmentProvider.
-func runProvider(provider environmentProvider) error {
-	ctx := context.Background()
+func runProvider(ctx context.Context, provider environmentProvider) error {
 	logger := logr.FromContextOrDiscard(ctx)
 	if provider.environmentRequestName == "" {
 		return errors.New("Must set -environment-request")
@@ -165,6 +166,9 @@ func runProvider(provider environmentProvider) error {
 		if err := CreateEnvironment(
 			ctx, i, tests[i], &request, provider.namespace, iut, executionSpace, logArea,
 		); err != nil {
+			// We have to fail environment provisioning if any environment fails to be created, since
+			// we split the tests across all environments and if one environment fails to be created,
+			// we can't guarantee that all tests will be executed.
 			logger.Error(err, "failed to create environment", "index", i)
 			return err
 		}
