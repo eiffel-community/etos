@@ -18,6 +18,7 @@ package status
 const (
 	StatusAvailable   = "Available"
 	StatusReady       = "Ready"
+	StatusReconciling = "Reconciling"
 	StatusFailed      = "Failed"
 	StatusActive      = "Active"
 	StatusEnvironment = "Environment"
@@ -25,10 +26,12 @@ const (
 )
 
 const (
-	ReasonPending   = "Pending"
-	ReasonStarting  = "Starting"
-	ReasonActive    = "Active"
-	ReasonFailed    = "Failed"
-	ReasonTimedOut  = "DeadlineExceeded"
-	ReasonCompleted = "Completed"
+	ReasonPending      = "Pending"
+	ReasonStarting     = "Starting"
+	ReasonActive       = "Active"
+	ReasonFailed       = "Failed"
+	ReasonTimedOut     = "DeadlineExceeded"
+	ReasonCompleted    = "Completed"
+	ReasonReconciling  = "Reconciling"
+	ReasonPodsNotReady = "PodsNotReady"
 )

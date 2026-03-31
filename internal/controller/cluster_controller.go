@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -91,7 +93,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{Requeue: true}, nil
 		}
 		logger.Error(err, "Error reconciling the Eiffel event bus")
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
+		return r.updateStatus(ctx, cluster, metav1.ConditionFalse, status.ReasonFailed, metav1.ConditionFalse, status.ReasonFailed, err.Error())
 	}
 
 	etosbus := extras.NewMessageBusDeployment(cluster.Spec.MessageBus.ETOSMessageBus, r.Scheme, r.Client)
@@ -100,7 +102,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{Requeue: true}, nil
 		}
 		logger.Error(err, "Error reconciling the ETOS message bus")
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
+		return r.updateStatus(ctx, cluster, metav1.ConditionFalse, status.ReasonFailed, metav1.ConditionFalse, status.ReasonFailed, err.Error())
 	}
 
 	mongodb := extras.NewMongoDBDeployment(cluster.Spec.EventRepository.Database, r.Scheme, r.Client)
@@ -109,7 +111,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{Requeue: true}, nil
 		}
 		logger.Error(err, "Error reconciling the Eiffel event bus database")
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
+		return r.updateStatus(ctx, cluster, metav1.ConditionFalse, status.ReasonFailed, metav1.ConditionFalse, status.ReasonFailed, err.Error())
 	}
 
 	eventrepository := extras.NewEventRepositoryDeployment(&cluster.Spec.EventRepository, r.Scheme, r.Client, mongodb, eiffelbus.SecretName, r.Config)
@@ -118,7 +120,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{Requeue: true}, nil
 		}
 		logger.Error(err, "Error reconciling the Eiffel event repository")
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
+		return r.updateStatus(ctx, cluster, metav1.ConditionFalse, status.ReasonFailed, metav1.ConditionFalse, status.ReasonFailed, err.Error())
 	}
 
 	etcd := etos.NewETCDDeployment(&cluster.Spec.Database, r.Scheme, r.Client)
@@ -127,7 +129,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{Requeue: true}, nil
 		}
 		logger.Error(err, "Error reconciling the ETOS database")
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
+		return r.updateStatus(ctx, cluster, metav1.ConditionFalse, status.ReasonFailed, metav1.ConditionFalse, status.ReasonFailed, err.Error())
 	}
 
 	etosDeployment := etos.NewETOSDeployment(cluster.Spec.ETOS, r.Scheme, r.Client, eiffelbus.SecretName, etosbus.SecretName, r.Config)
@@ -136,16 +138,102 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{Requeue: true}, nil
 		}
 		logger.Error(err, "Error reconciling ETOS")
-		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
+		return r.updateStatus(ctx, cluster, metav1.ConditionFalse, status.ReasonFailed, metav1.ConditionFalse, status.ReasonFailed, err.Error())
 	}
 
-	return r.update(ctx, cluster, metav1.ConditionTrue, "Cluster is up and running")
+	// All resources have been reconciled. Check if all deployments and statefulsets are ready.
+	ready, message, err := r.checkReadiness(ctx, cluster)
+	if err != nil {
+		logger.Error(err, "Error checking cluster readiness")
+		return ctrl.Result{}, err
+	}
+	if !ready {
+		logger.Info("Cluster resources are reconciled but pods are not yet ready", "detail", message)
+		return r.updateStatus(ctx, cluster, metav1.ConditionTrue, status.ReasonReconciling, metav1.ConditionFalse, status.ReasonPodsNotReady, message)
+	}
+
+	return r.updateStatus(ctx, cluster, metav1.ConditionFalse, status.ReasonCompleted, metav1.ConditionTrue, status.ReasonCompleted, "Cluster is up and running")
 }
 
-// update will set the status condition and update the status of the ETOS cluster.
-// if the update fails due to conflict the reconciliation will requeue after one second.
-func (r *ClusterReconciler) update(ctx context.Context, cluster *etosv1alpha1.Cluster, clusterStatus metav1.ConditionStatus, message string) (ctrl.Result, error) {
-	if meta.SetStatusCondition(&cluster.Status.Conditions, metav1.Condition{Type: status.StatusReady, Status: clusterStatus, Reason: status.ReasonCompleted, Message: message}) {
+// checkReadiness verifies that all Deployments and StatefulSets owned by the cluster
+// have their desired number of ready replicas. Returns true if all are ready, or false
+// with a human-readable message describing what is not yet ready.
+func (r *ClusterReconciler) checkReadiness(ctx context.Context, cluster *etosv1alpha1.Cluster) (bool, string, error) {
+	// List deployments in the cluster namespace and check those owned by this cluster.
+	deploymentList := &appsv1.DeploymentList{}
+	if err := r.List(ctx, deploymentList, client.InNamespace(cluster.Namespace)); err != nil {
+		return false, "", err
+	}
+
+	for i := range deploymentList.Items {
+		dep := &deploymentList.Items[i]
+		if !isOwnedBy(dep.GetOwnerReferences(), cluster.UID) {
+			continue
+		}
+		desired := int32(1)
+		if dep.Spec.Replicas != nil {
+			desired = *dep.Spec.Replicas
+		}
+		if dep.Status.ReadyReplicas < desired {
+			return false, fmt.Sprintf("Deployment %s: %d/%d replicas ready", dep.Name, dep.Status.ReadyReplicas, desired), nil
+		}
+	}
+
+	// List statefulsets in the cluster namespace and check those owned by this cluster.
+	statefulSetList := &appsv1.StatefulSetList{}
+	if err := r.List(ctx, statefulSetList, client.InNamespace(cluster.Namespace)); err != nil {
+		return false, "", err
+	}
+
+	for i := range statefulSetList.Items {
+		ss := &statefulSetList.Items[i]
+		if !isOwnedBy(ss.GetOwnerReferences(), cluster.UID) {
+			continue
+		}
+		desired := int32(1)
+		if ss.Spec.Replicas != nil {
+			desired = *ss.Spec.Replicas
+		}
+		if ss.Status.ReadyReplicas < desired {
+			return false, fmt.Sprintf("StatefulSet %s: %d/%d replicas ready", ss.Name, ss.Status.ReadyReplicas, desired), nil
+		}
+	}
+
+	return true, "", nil
+}
+
+// isOwnedBy checks if a resource's owner references include the given UID.
+func isOwnedBy(refs []metav1.OwnerReference, uid types.UID) bool {
+	for _, ref := range refs {
+		if ref.UID == uid {
+			return true
+		}
+	}
+	return false
+}
+
+// updateStatus sets both the Reconciling and Ready status conditions on the cluster
+// and persists the status update. If the update fails due to a conflict the
+// reconciliation will requeue after one second.
+func (r *ClusterReconciler) updateStatus(ctx context.Context, cluster *etosv1alpha1.Cluster, reconcilingStatus metav1.ConditionStatus, reconcilingReason string, readyStatus metav1.ConditionStatus, readyReason string, message string) (ctrl.Result, error) {
+	changed := false
+	if meta.SetStatusCondition(&cluster.Status.Conditions, metav1.Condition{
+		Type:    status.StatusReconciling,
+		Status:  reconcilingStatus,
+		Reason:  reconcilingReason,
+		Message: message,
+	}) {
+		changed = true
+	}
+	if meta.SetStatusCondition(&cluster.Status.Conditions, metav1.Condition{
+		Type:    status.StatusReady,
+		Status:  readyStatus,
+		Reason:  readyReason,
+		Message: message,
+	}) {
+		changed = true
+	}
+	if changed {
 		if err := r.Status().Update(ctx, cluster); err != nil {
 			if apierrors.IsConflict(err) {
 				return ctrl.Result{RequeueAfter: time.Second}, nil
