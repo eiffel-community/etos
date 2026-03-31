@@ -344,7 +344,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			return false, nil
 		}
 		// Already created a Job; the cache has not caught up yet.
-		if isStatusReason(*conditions, status.StatusSuiteRunner, status.ReasonActive) {
+		if isStatusReason(*conditions, status.StatusSuiteRunner, status.ReasonStarting) {
 			logger.Info("Suite runner job already created, requeuing")
 			return false, nil
 		}
@@ -364,12 +364,12 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			}
 			return false, err
 		}
-		// Mark as Active to prevent duplicate Job creation on requeue.
+		// Mark as Starting to prevent duplicate Job creation on requeue.
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusSuiteRunner,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonActive,
+				Reason:  status.ReasonStarting,
 				Message: "Suite runner job created",
 			}) {
 			return true, r.Status().Update(ctx, testrun)

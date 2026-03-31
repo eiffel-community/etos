@@ -222,7 +222,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			return nil
 		}
 		// Already created a Job; the cache has not caught up yet.
-		if isStatusReason(*conditions, status.StatusReady, status.ReasonActive) {
+		if isStatusReason(*conditions, status.StatusReady, status.ReasonStarting) {
 			logger.Info("Environment provider job already created, requeuing")
 			return nil
 		}
@@ -243,12 +243,12 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			}
 			return err
 		}
-		// Mark as Active to prevent duplicate Job creation on requeue.
+		// Mark as Starting to prevent duplicate Job creation on requeue.
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusReady,
 				Status:  metav1.ConditionFalse,
-				Reason:  status.ReasonActive,
+				Reason:  status.ReasonStarting,
 				Message: "Environment provider job created",
 			}) {
 			return r.Status().Update(ctx, environmentrequest)
