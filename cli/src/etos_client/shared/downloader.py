@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Client log downloader module."""
+
 import logging
 import time
 import traceback
@@ -32,13 +33,14 @@ from requests.exceptions import HTTPError
 
 from etos_lib.lib.http import Http
 
-
-max_retries = 10  # With 1 as backoff_factor, the total wait time between retries will be 1023 seconds
+MAX_RETRIES = (
+    10  # With 1 as backoff_factor, the total wait time between retries will be 1023 seconds
+)
 HTTP_RETRY_PARAMETERS = Retry(
     total=None,
-    read=max_retries,
-    connect=max_retries,
-    status=max_retries,
+    read=MAX_RETRIES,
+    connect=MAX_RETRIES,
+    status=MAX_RETRIES,
     backoff_factor=1,
     other=0,
     # 413, 429, 503 + 404 (for cases when the file is not uploaded immediately)
@@ -208,7 +210,7 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             item = self.__download_queue.get_nowait()
             pool.apply_async(
                 self.__download,
-                error_callback=self.__print_traceback,  # type:ignore
+                error_callback=self.__print_traceback,  # type: ignore
                 args=(item,),
             )
             return True

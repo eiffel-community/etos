@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command registry and command bases."""
+
 from typing import List, Any
 import inspect
 
@@ -28,16 +29,16 @@ class ICommandRegistry(type):
 
     commands: List = []
 
-    def __init__(cls, name: str, bases: tuple[type, ...], dict: dict[str, Any]) -> None:
+    def __init__(cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any]) -> None:
         """Add command to registry."""
-        super().__init__(cls)
+        super().__init__(name, bases, namespace)
         if name not in ("Command", "MainCommand"):
             ICommandRegistry.commands.append(cls)
 
     @classmethod
-    def reset(cls):
+    def reset(mcs):
         """Reset the command registry."""
-        cls.commands = []
+        mcs.commands = []
 
 
 class BaseCommand:
@@ -59,7 +60,9 @@ class BaseCommand:
         """Get the complete command tree for a sub command."""
         if self.parent is None:
             return []
-        return self.parent._command_tree(args) + [self.meta.name]
+        return self.parent._command_tree(args) + [  # pylint: disable=protected-access
+            self.meta.name
+        ]
 
     def _parse_subcommand_args(self, args: dict) -> dict:
         """Parse command line arguments for sub commands."""

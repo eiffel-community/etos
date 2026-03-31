@@ -15,9 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Etosctl command handler."""
+
 import sys
 import logging
-import inspect
 
 from typing import Optional
 
@@ -82,7 +82,7 @@ class Main(Command):
     def load_commands(self, commands: dict) -> None:
         """Load commands into etosctl as sub commands."""
         for name, command in commands.items():
-            if type(self) == command:
+            if isinstance(self, command):
                 continue
             self.meta.subcommands[name] = command
 
@@ -97,8 +97,8 @@ def main(argv: list[str]) -> None:
     """Entry point allowing external calls."""
     engine = CustomizationEngine()
     engine.start()
-    main = Main(commands=engine.commands, argv=argv)
-    main.start()
+    app = Main(commands=engine.commands, argv=argv)
+    app.start()
 
 
 def run() -> None:

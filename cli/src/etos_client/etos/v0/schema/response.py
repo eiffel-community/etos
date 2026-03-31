@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS v0 response schema."""
+
 from uuid import UUID
 from pydantic import BaseModel
 
