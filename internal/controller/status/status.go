@@ -26,6 +26,7 @@ const (
 
 const (
 	ReasonPending   = "Pending"
+	ReasonStarting  = "Starting"
 	ReasonActive    = "Active"
 	ReasonFailed    = "Failed"
 	ReasonTimedOut  = "DeadlineExceeded"

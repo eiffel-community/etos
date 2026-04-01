@@ -221,6 +221,11 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 		if !environmentrequest.GetDeletionTimestamp().IsZero() {
 			return nil
 		}
+		// Already created a Job; the cache has not caught up yet.
+		if isStatusReason(*conditions, status.StatusReady, status.ReasonStarting) {
+			logger.Info("Environment provider job already created, requeuing")
+			return nil
+		}
 		if err := jobManager.Create(ctx, environmentrequest, r.environmentProviderJob); err != nil {
 			logger.Error(err, "Failed to create environment provider job")
 			// When we create a job the job gets a unique name. If there's an error for that unique name the error
@@ -237,6 +242,16 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 				return r.Status().Update(ctx, environmentrequest)
 			}
 			return err
+		}
+		// Mark as Starting to prevent duplicate Job creation on requeue.
+		if meta.SetStatusCondition(conditions,
+			metav1.Condition{
+				Type:    status.StatusReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonStarting,
+				Message: "Environment provider job created",
+			}) {
+			return r.Status().Update(ctx, environmentrequest)
 		}
 	}
 	return nil

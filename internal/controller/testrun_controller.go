@@ -343,6 +343,11 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 		if !testrun.GetDeletionTimestamp().IsZero() {
 			return false, nil
 		}
+		// Already created a Job; the cache has not caught up yet.
+		if isStatusReason(*conditions, status.StatusSuiteRunner, status.ReasonStarting) {
+			logger.Info("Suite runner job already created, requeuing")
+			return false, nil
+		}
 		if err := jobManager.Create(ctx, testrun, r.suiteRunnerJob); err != nil {
 			// When we create a job the job gets a unique name. If there's an error for that unique name the error
 			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
@@ -358,6 +363,16 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 				return true, r.Status().Update(ctx, testrun)
 			}
 			return false, err
+		}
+		// Mark as Starting to prevent duplicate Job creation on requeue.
+		if meta.SetStatusCondition(conditions,
+			metav1.Condition{
+				Type:    status.StatusSuiteRunner,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonStarting,
+				Message: "Suite runner job created",
+			}) {
+			return true, r.Status().Update(ctx, testrun)
 		}
 	}
 	return false, nil
