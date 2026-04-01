@@ -29,7 +29,9 @@ class ICommandRegistry(type):
 
     commands: List = []
 
-    def __init__(cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any]) -> None:
+    def __init__(  # pylint: disable=unused-argument
+        cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any]
+    ) -> None:
         """Add command to registry."""
         super().__init__(cls)
         if name not in ("Command", "MainCommand"):
