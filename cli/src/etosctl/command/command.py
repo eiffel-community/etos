@@ -31,7 +31,7 @@ class ICommandRegistry(type):
 
     def __init__(cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any]) -> None:
         """Add command to registry."""
-        super().__init__(name, bases, namespace)
+        super().__init__(cls)
         if name not in ("Command", "MainCommand"):
             ICommandRegistry.commands.append(cls)
 

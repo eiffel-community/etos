@@ -82,7 +82,7 @@ class Main(Command):
     def load_commands(self, commands: dict) -> None:
         """Load commands into etosctl as sub commands."""
         for name, command in commands.items():
-            if isinstance(self, command):
+            if type(self) == command:  # pylint: disable=unidiomatic-typecheck
                 continue
             self.meta.subcommands[name] = command
 
