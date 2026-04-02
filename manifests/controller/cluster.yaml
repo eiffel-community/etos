@@ -3716,6 +3716,12 @@ spec:
                       if empty.'
                     type: string
                 type: object
+              suiteSource:
+                description: 'SuiteSource is the URL from which the test suite definition
+                  can be fetched.
+
+                  It is used to set batchesUri in the TERCC event.'
+                type: string
               suites:
                 items:
                   description: Suite to execute.
