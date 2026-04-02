@@ -75,11 +75,12 @@ type Clock interface {
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=testruns,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=testruns/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=testruns/finalizers,verbs=update
-// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments,verbs=get;watch
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=clusters,verbs=get
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments/status,verbs=get
-// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests,verbs=get;watch
-// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentsrequests/status,verbs=get
-// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers,verbs=get;watch
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests/status,verbs=get
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers/status,verbs=get
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get

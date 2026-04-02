@@ -5,17 +5,18 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - '*'
+  - ""
   resources:
-  - configmaps
-  - deployments
-  - ingresses
-  - rolebindings
-  - roles
+  - pods
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ""
+  resources:
   - secrets
   - serviceaccounts
   - services
-  - statefulsets
   verbs:
   - create
   - delete
@@ -25,21 +26,17 @@ rules:
   - update
   - watch
 - apiGroups:
-  - '*'
+  - apps
   resources:
-  - jobs
+  - deployments
+  - statefulsets
   verbs:
+  - create
   - delete
   - get
   - list
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - batch
@@ -61,19 +58,9 @@ rules:
   - etos.eiffel-community.github.io
   resources:
   - clusters
-  - environmentrequests
-  - environments
-  - executionspaces
-  - iuts
-  - logarea
-  - providers
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - etos.eiffel-community.github.io
@@ -106,17 +93,41 @@ rules:
 - apiGroups:
   - etos.eiffel-community.github.io
   resources:
-  - environmentsrequests/status
-  verbs:
-  - get
-- apiGroups:
-  - etos.eiffel-community.github.io
-  resources:
+  - environmentrequests
+  - environments
+  - executionspaces
+  - iuts
+  - logarea
+  - providers
   - testruns
   verbs:
   - create
   - delete
-  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
   - get
   - list
   - patch

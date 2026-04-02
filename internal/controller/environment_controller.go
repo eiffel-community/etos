@@ -53,6 +53,8 @@ type EnvironmentReconciler struct {
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments/finalizers,verbs=update
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=clusters,verbs=get
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests,verbs=get
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers,verbs=get
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers/status,verbs=get
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=iuts,verbs=get;list;watch;create;update;patch;delete
