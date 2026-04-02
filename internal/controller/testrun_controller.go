@@ -787,6 +787,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 									Value: testrun.Spec.ID,
 								},
 								{
+									Name:  "SUITE_SOURCE",
+									Value: testrun.Spec.SuiteSource,
+								},
+								{
 									Name:  "OTEL_CONTEXT",
 									Value: traceparent,
 								},

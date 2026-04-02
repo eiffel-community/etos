@@ -121,6 +121,11 @@ type TestRunSpec struct {
 	Identity            string               `json:"identity"`
 	Providers           Providers            `json:"providers"`
 	Suites              []Suite              `json:"suites"`
+
+	// SuiteSource is the URL from which the test suite definition can be fetched.
+	// It is used to set batchesUri in the TERCC event.
+	// +optional
+	SuiteSource string `json:"suiteSource,omitempty"`
 }
 
 // TestRunStatus defines the observed state of TestRun
