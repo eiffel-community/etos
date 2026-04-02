@@ -15,7 +15,10 @@
 // limitations under the License.
 package status
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 const (
 	StatusAvailable   = "Available"
@@ -45,4 +48,10 @@ type NotReadyError struct {
 
 func (e *NotReadyError) Error() string {
 	return fmt.Sprintf("%s: %d/%d replicas ready", e.Name, e.ReadyReplicas, e.DesiredReplicas)
+}
+
+// IsNotReadyError returns true if the error is (or wraps) a NotReadyError.
+func IsNotReadyError(err error) bool {
+	var notReady *NotReadyError
+	return errors.As(err, &notReady)
 }

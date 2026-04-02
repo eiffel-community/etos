@@ -222,7 +222,7 @@ var _ = Describe("Cluster Controller", func() {
 			}
 		})
 
-		It("should set Ready=False with Pending reason for NotReadyError", func() {
+		It("should set Ready=False with Pending reason for NotReadyError and requeue", func() {
 			reconciler := &ClusterReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
@@ -233,8 +233,9 @@ var _ = Describe("Cluster Controller", func() {
 				ReadyReplicas:   0,
 				DesiredReplicas: 1,
 			}
-			_, err := reconciler.handleReconcileError(ctx, cluster, notReadyErr)
+			result, err := reconciler.handleReconcileError(ctx, cluster, notReadyErr)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeNumerically(">", 0), "should requeue to re-check readiness")
 
 			updated := &etosv1alpha1.Cluster{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())

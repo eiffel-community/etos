@@ -62,10 +62,15 @@ func (r *ETOSLogAreaDeployment) Reconcile(ctx context.Context, cluster *etosv1al
 	logger := log.FromContext(ctx, "Reconciler", "ETOSLogArea", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
+
+	var notReadyErr error
 	_, err = r.reconcileDeployment(ctx, namespacedName, cluster)
 	if err != nil {
-		logger.Error(err, "Failed to reconcile the deployment for the ETOS LogArea")
-		return err
+		if !readiness.IsNotReadyError(err) {
+			logger.Error(err, "Failed to reconcile the deployment for the ETOS LogArea")
+			return err
+		}
+		notReadyErr = err
 	}
 	_, err = r.reconcileServiceAccount(ctx, namespacedName, cluster)
 	if err != nil {
@@ -77,7 +82,7 @@ func (r *ETOSLogAreaDeployment) Reconcile(ctx context.Context, cluster *etosv1al
 		logger.Error(err, "Failed to reconcile the service for the ETOS LogArea")
 		return err
 	}
-	return nil
+	return notReadyErr
 }
 
 // reconcileDeployment will reconcile the ETOS logarea deployment to its expected state.

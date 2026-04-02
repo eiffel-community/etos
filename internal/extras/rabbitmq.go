@@ -69,10 +69,15 @@ func (r *RabbitMQDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha
 	}
 	r.SecretName = secret.Name
 
+
+	var notReadyErr error
 	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
 	if err != nil {
-		logger.Error(err, "Failed to reconcile the RabbitMQ statefulset")
-		return err
+		if !readiness.IsNotReadyError(err) {
+			logger.Error(err, "Failed to reconcile the RabbitMQ statefulset")
+			return err
+		}
+		notReadyErr = err
 	}
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
@@ -80,7 +85,7 @@ func (r *RabbitMQDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha
 		return err
 	}
 
-	return nil
+	return notReadyErr
 }
 
 // reconcileSecret will reconcile the RabbitMQ secret to its expected state.

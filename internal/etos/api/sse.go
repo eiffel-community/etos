@@ -72,10 +72,15 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 		logger.Error(err, "Failed to reconcile the config for the ETOS SSE")
 		return err
 	}
+
+	var notReadyErr error
 	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.Name, cluster)
 	if err != nil {
-		logger.Error(err, "Failed to reconcile the deployment for the ETOS SSE")
-		return err
+		if !readiness.IsNotReadyError(err) {
+			logger.Error(err, "Failed to reconcile the deployment for the ETOS SSE")
+			return err
+		}
+		notReadyErr = err
 	}
 
 	_, err = r.reconcileRole(ctx, namespacedName, cluster)
@@ -98,7 +103,7 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 		logger.Error(err, "Failed to reconcile the service for the ETOS SSE")
 		return err
 	}
-	return nil
+	return notReadyErr
 }
 
 // reconcileConfig will reconcile the secret to use as configuration for ETOS SSE.

@@ -17,9 +17,17 @@
 package readiness
 
 import (
+	"errors"
+
 	"github.com/eiffel-community/etos/internal/controller/status"
 	appsv1 "k8s.io/api/apps/v1"
 )
+
+// IsNotReadyError returns true if the error is (or wraps) a NotReadyError.
+func IsNotReadyError(err error) bool {
+	var notReady *status.NotReadyError
+	return errors.As(err, &notReady)
+}
 
 // DeploymentReady checks whether a Deployment has its desired number of ready replicas.
 // Returns nil if ready, or a NotReadyError if not yet ready.

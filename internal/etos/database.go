@@ -63,9 +63,13 @@ func (r *ETCDDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		r.Etcd.Host = name
 	}
 
+	var notReadyErr error
 	_, err := r.reconcileStatefulset(ctx, namespacedName, cluster)
 	if err != nil {
-		return err
+		if !readiness.IsNotReadyError(err) {
+			return err
+		}
+		notReadyErr = err
 	}
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
@@ -76,7 +80,7 @@ func (r *ETCDDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		return err
 	}
 
-	return nil
+	return notReadyErr
 }
 
 // reconcileStatefulset will reconcile the ETCD statefulset to its expected state.
