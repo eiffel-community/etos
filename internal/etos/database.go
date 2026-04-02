@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -73,6 +74,12 @@ func (r *ETCDDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 	_, err = r.reconcileClientService(ctx, namespacedName, cluster)
 	if err != nil {
 		return err
+	}
+
+	if r.Deploy {
+		if err := readiness.CheckStatefulSet(ctx, r.Client, namespacedName); err != nil {
+			return err
+		}
 	}
 
 	return nil

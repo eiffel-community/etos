@@ -15,10 +15,11 @@
 // limitations under the License.
 package status
 
+import "fmt"
+
 const (
 	StatusAvailable   = "Available"
 	StatusReady       = "Ready"
-	StatusReconciling = "Reconciling"
 	StatusFailed      = "Failed"
 	StatusActive      = "Active"
 	StatusEnvironment = "Environment"
@@ -26,12 +27,22 @@ const (
 )
 
 const (
-	ReasonPending      = "Pending"
-	ReasonStarting     = "Starting"
-	ReasonActive       = "Active"
-	ReasonFailed       = "Failed"
-	ReasonTimedOut     = "DeadlineExceeded"
-	ReasonCompleted    = "Completed"
-	ReasonReconciling  = "Reconciling"
-	ReasonPodsNotReady = "PodsNotReady"
+	ReasonPending   = "Pending"
+	ReasonStarting  = "Starting"
+	ReasonActive    = "Active"
+	ReasonFailed    = "Failed"
+	ReasonTimedOut  = "DeadlineExceeded"
+	ReasonCompleted = "Completed"
 )
+
+// NotReadyError is returned by sub-reconcilers when their resources have been
+// reconciled successfully but the underlying pods are not yet ready.
+type NotReadyError struct {
+	Name            string
+	ReadyReplicas   int32
+	DesiredReplicas int32
+}
+
+func (e *NotReadyError) Error() string {
+	return fmt.Sprintf("%s: %d/%d replicas ready", e.Name, e.ReadyReplicas, e.DesiredReplicas)
+}

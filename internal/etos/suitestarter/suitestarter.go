@@ -24,6 +24,7 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -134,7 +135,7 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 		logger.Error(err, "Failed to reconcile the Suite Runner role binding")
 		return err
 	}
-	return err
+	return readiness.CheckDeployment(ctx, r.Client, suiteStarterName)
 }
 
 // reconcileSuiteRunnerRole will reconcile the ETOS Suite Runner role to its expected state.

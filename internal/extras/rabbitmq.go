@@ -21,6 +21,7 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -77,6 +78,12 @@ func (r *RabbitMQDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the RabbitMQ service")
 		return err
+	}
+
+	if r.Deploy {
+		if err := readiness.CheckStatefulSet(ctx, r.Client, namespacedName); err != nil {
+			return err
+		}
 	}
 
 	return nil

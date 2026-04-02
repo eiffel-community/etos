@@ -18,11 +18,10 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,151 +89,8 @@ var _ = Describe("Cluster Controller", func() {
 		})
 	})
 
-	Context("checkReadiness", func() {
-		const clusterName = "readiness-test"
-		ctx := context.Background()
-
-		typeNamespacedName := types.NamespacedName{
-			Name:      clusterName,
-			Namespace: "default",
-		}
-
-		var cluster *etosv1alpha1.Cluster
-
-		BeforeEach(func() {
-			cluster = &etosv1alpha1.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      clusterName,
-					Namespace: "default",
-				},
-				Spec: etosv1alpha1.ClusterSpec{
-					ETOS:            etosv1alpha1.ETOS{},
-					Database:        etosv1alpha1.Database{},
-					MessageBus:      etosv1alpha1.MessageBus{},
-					EventRepository: etosv1alpha1.EventRepository{},
-				},
-			}
-			err := k8sClient.Get(ctx, typeNamespacedName, &etosv1alpha1.Cluster{})
-			if err != nil && errors.IsNotFound(err) {
-				Expect(k8sClient.Create(ctx, cluster)).To(Succeed())
-			}
-			// Re-fetch to get UID populated.
-			Expect(k8sClient.Get(ctx, typeNamespacedName, cluster)).To(Succeed())
-		})
-
-		AfterEach(func() {
-			resource := &etosv1alpha1.Cluster{}
-			if err := k8sClient.Get(ctx, typeNamespacedName, resource); err == nil {
-				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-			}
-			// Clean up any deployments created during the test.
-			depList := &appsv1.DeploymentList{}
-			if err := k8sClient.List(ctx, depList); err == nil {
-				for i := range depList.Items {
-					_ = k8sClient.Delete(ctx, &depList.Items[i])
-				}
-			}
-		})
-
-		It("should return true when there are no owned deployments or statefulsets", func() {
-			reconciler := &ClusterReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
-
-			ready, message, err := reconciler.checkReadiness(ctx, cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(ready).To(BeTrue())
-			Expect(message).To(BeEmpty())
-		})
-
-		It("should return false when an owned deployment has no ready replicas", func() {
-			reconciler := &ClusterReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
-
-			replicas := int32(1)
-			dep := &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      clusterName + "-etos-api",
-					Namespace: "default",
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							APIVersion: "etos.eiffel-community.github.io/v1alpha1",
-							Kind:       "Cluster",
-							Name:       cluster.Name,
-							UID:        cluster.UID,
-						},
-					},
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: &replicas,
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{"app": "etos-api"},
-					},
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"app": "etos-api"},
-						},
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Name: "etos-api", Image: "busybox"},
-							},
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, dep)).To(Succeed())
-
-			ready, message, err := reconciler.checkReadiness(ctx, cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(ready).To(BeFalse())
-			Expect(message).To(ContainSubstring("Deployment"))
-			Expect(message).To(ContainSubstring("0/1"))
-		})
-
-		It("should not consider deployments not owned by this cluster", func() {
-			reconciler := &ClusterReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
-
-			replicas := int32(1)
-			dep := &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "unrelated-deployment",
-					Namespace: "default",
-					// No owner references pointing to our cluster.
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: &replicas,
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{"app": "unrelated"},
-					},
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"app": "unrelated"},
-						},
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Name: "unrelated", Image: "busybox"},
-							},
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, dep)).To(Succeed())
-
-			ready, message, err := reconciler.checkReadiness(ctx, cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(ready).To(BeTrue())
-			Expect(message).To(BeEmpty())
-		})
-	})
-
-	Context("updateStatus", func() {
-		const clusterName = "status-test"
+	Context("update", func() {
+		const clusterName = "update-test"
 		ctx := context.Background()
 
 		typeNamespacedName := types.NamespacedName{
@@ -271,57 +127,142 @@ var _ = Describe("Cluster Controller", func() {
 			}
 		})
 
-		It("should set Reconciling=True and Ready=False when pods are not ready", func() {
+		It("should set Ready=True with Completed reason when cluster is fully ready", func() {
 			reconciler := &ClusterReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
 
-			_, err := reconciler.updateStatus(ctx, cluster,
-				metav1.ConditionTrue, status.ReasonReconciling,
-				metav1.ConditionFalse, status.ReasonPodsNotReady,
-				"Deployment test-api: 0/1 replicas ready",
-			)
+			_, err := reconciler.update(ctx, cluster, metav1.ConditionTrue, status.ReasonCompleted, "Cluster is up and running")
 			Expect(err).NotTo(HaveOccurred())
 
 			updated := &etosv1alpha1.Cluster{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
-
-			reconcilingCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReconciling)
-			Expect(reconcilingCond).NotTo(BeNil())
-			Expect(reconcilingCond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(reconcilingCond.Reason).To(Equal(status.ReasonReconciling))
-
-			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
-			Expect(readyCond).NotTo(BeNil())
-			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(readyCond.Reason).To(Equal(status.ReasonPodsNotReady))
-		})
-
-		It("should set Reconciling=False and Ready=True when cluster is fully ready", func() {
-			reconciler := &ClusterReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
-
-			_, err := reconciler.updateStatus(ctx, cluster,
-				metav1.ConditionFalse, status.ReasonCompleted,
-				metav1.ConditionTrue, status.ReasonCompleted,
-				"Cluster is up and running",
-			)
-			Expect(err).NotTo(HaveOccurred())
-
-			updated := &etosv1alpha1.Cluster{}
-			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
-
-			reconcilingCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReconciling)
-			Expect(reconcilingCond).NotTo(BeNil())
-			Expect(reconcilingCond.Status).To(Equal(metav1.ConditionFalse))
 
 			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
 			Expect(readyCond).NotTo(BeNil())
 			Expect(readyCond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(readyCond.Reason).To(Equal(status.ReasonCompleted))
 			Expect(readyCond.Message).To(Equal("Cluster is up and running"))
+		})
+
+		It("should set Ready=False with Pending reason", func() {
+			reconciler := &ClusterReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := reconciler.update(ctx, cluster, metav1.ConditionFalse, status.ReasonPending, "test-api: 0/1 replicas ready")
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &etosv1alpha1.Cluster{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+
+			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(status.ReasonPending))
+			Expect(readyCond.Message).To(ContainSubstring("0/1"))
+		})
+
+		It("should set Ready=False with Failed reason", func() {
+			reconciler := &ClusterReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := reconciler.update(ctx, cluster, metav1.ConditionFalse, status.ReasonFailed, "something went wrong")
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &etosv1alpha1.Cluster{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+
+			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(status.ReasonFailed))
+		})
+	})
+
+	Context("handleReconcileError", func() {
+		const clusterName = "handle-error-test"
+		ctx := context.Background()
+
+		typeNamespacedName := types.NamespacedName{
+			Name:      clusterName,
+			Namespace: "default",
+		}
+
+		var cluster *etosv1alpha1.Cluster
+
+		BeforeEach(func() {
+			cluster = &etosv1alpha1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: "default",
+				},
+				Spec: etosv1alpha1.ClusterSpec{
+					ETOS:            etosv1alpha1.ETOS{},
+					Database:        etosv1alpha1.Database{},
+					MessageBus:      etosv1alpha1.MessageBus{},
+					EventRepository: etosv1alpha1.EventRepository{},
+				},
+			}
+			err := k8sClient.Get(ctx, typeNamespacedName, &etosv1alpha1.Cluster{})
+			if err != nil && errors.IsNotFound(err) {
+				Expect(k8sClient.Create(ctx, cluster)).To(Succeed())
+			}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, cluster)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			resource := &etosv1alpha1.Cluster{}
+			if err := k8sClient.Get(ctx, typeNamespacedName, resource); err == nil {
+				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			}
+		})
+
+		It("should set Ready=False with Pending reason for NotReadyError", func() {
+			reconciler := &ClusterReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			notReadyErr := &status.NotReadyError{
+				Name:            "test-etos-api",
+				ReadyReplicas:   0,
+				DesiredReplicas: 1,
+			}
+			_, err := reconciler.handleReconcileError(ctx, cluster, notReadyErr)
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &etosv1alpha1.Cluster{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+
+			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(status.ReasonPending))
+			Expect(readyCond.Message).To(ContainSubstring("0/1"))
+		})
+
+		It("should set Ready=False with Failed reason for other errors", func() {
+			reconciler := &ClusterReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := reconciler.handleReconcileError(ctx, cluster, fmt.Errorf("connection refused"))
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &etosv1alpha1.Cluster{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+
+			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(status.ReasonFailed))
+			Expect(readyCond.Message).To(Equal("connection refused"))
 		})
 	})
 })

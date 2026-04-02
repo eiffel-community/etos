@@ -404,7 +404,6 @@ type ClusterStatus struct {
 
 // Cluster is the Schema for the clusters API
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
-// +kubebuilder:printcolumn:name="Reconciling",type="string",JSONPath=".status.conditions[?(@.type==\"Reconciling\")].status"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message"
 type Cluster struct {
 	metav1.TypeMeta `json:",inline"`

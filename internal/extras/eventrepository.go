@@ -24,6 +24,7 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -100,6 +101,13 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 		r.Host = fmt.Sprintf("http://%s:%d/graphql", namespacedName.Name, graphqlPort)
 		logger.Info("Host for the EventRepository", "host", r.Host)
 	}
+
+	if r.Deploy {
+		if err := readiness.CheckDeployment(ctx, r.Client, namespacedName); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
