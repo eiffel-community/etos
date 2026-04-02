@@ -76,12 +76,6 @@ func (r *ETCDDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		return err
 	}
 
-	if r.Deploy {
-		if err := readiness.CheckStatefulSet(ctx, r.Client, namespacedName); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -101,12 +95,16 @@ func (r *ETCDDeployment) reconcileStatefulset(ctx context.Context, name types.Na
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
+			return target, readiness.StatefulSetReady(target)
 		}
 		return target, nil
 	} else if !r.Deploy {
 		return nil, r.Delete(ctx, etcd)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(etcd))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(etcd)); err != nil {
+		return target, err
+	}
+	return target, readiness.StatefulSetReady(target)
 }
 
 // reconcileService will reconcile the ETCD service to its expected state.

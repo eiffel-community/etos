@@ -90,12 +90,6 @@ func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alp
 		return err
 	}
 
-	if r.Deploy {
-		if err := readiness.CheckStatefulSet(ctx, r.Client, namespacedName); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -148,6 +142,7 @@ func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, name ty
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
+			return target, readiness.StatefulSetReady(target)
 		}
 		return target, nil
 	} else if !r.Deploy {
@@ -160,7 +155,10 @@ func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, name ty
 		}
 		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq)); err != nil {
+		return target, err
+	}
+	return target, readiness.StatefulSetReady(target)
 }
 
 // reconcileHeadlessService will reconcile the messagebus headless service to its expected state.

@@ -102,12 +102,6 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 		logger.Info("Host for the EventRepository", "host", r.Host)
 	}
 
-	if r.Deploy {
-		if err := readiness.CheckDeployment(ctx, r.Client, namespacedName); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -169,6 +163,7 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, nam
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
+			return target, readiness.DeploymentReady(target)
 		}
 		return target, nil
 	} else if !r.Deploy {
@@ -182,9 +177,12 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, nam
 		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	if !r.restartRequired && equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
-		return deployment, nil
+		return deployment, readiness.DeploymentReady(deployment)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
+		return target, err
+	}
+	return target, readiness.DeploymentReady(target)
 }
 
 // reconcileService will reconcile the event repository service to its expected state.

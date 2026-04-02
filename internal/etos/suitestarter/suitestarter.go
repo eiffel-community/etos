@@ -135,7 +135,7 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 		logger.Error(err, "Failed to reconcile the Suite Runner role binding")
 		return err
 	}
-	return readiness.CheckDeployment(ctx, r.Client, suiteStarterName)
+	return nil
 }
 
 // reconcileSuiteRunnerRole will reconcile the ETOS Suite Runner role to its expected state.
@@ -265,7 +265,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, se
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
-		return target, nil
+		return target, readiness.DeploymentReady(target)
 	} else if r.restartRequired {
 		logger.Info("Configuration(s) have changed, restarting deployment")
 		if target.Spec.Template.Annotations == nil {
@@ -274,9 +274,12 @@ func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, se
 		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	if !r.restartRequired && equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
-		return deployment, nil
+		return deployment, readiness.DeploymentReady(deployment)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
+		return target, err
+	}
+	return target, readiness.DeploymentReady(target)
 }
 
 // reconcileSecret will reconcile the ETOS SuiteStarter service account secret to its expected state.

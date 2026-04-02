@@ -17,28 +17,20 @@
 package readiness
 
 import (
-	"context"
-
 	"github.com/eiffel-community/etos/internal/controller/status"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CheckDeployment verifies that a Deployment has its desired number of ready replicas.
-// Returns nil if ready, a NotReadyError if not yet ready, or an error if the Get fails.
-func CheckDeployment(ctx context.Context, c client.Client, name types.NamespacedName) error {
-	dep := &appsv1.Deployment{}
-	if err := c.Get(ctx, name, dep); err != nil {
-		return err
-	}
+// DeploymentReady checks whether a Deployment has its desired number of ready replicas.
+// Returns nil if ready, or a NotReadyError if not yet ready.
+func DeploymentReady(dep *appsv1.Deployment) error {
 	desired := int32(1)
 	if dep.Spec.Replicas != nil {
 		desired = *dep.Spec.Replicas
 	}
 	if dep.Status.ReadyReplicas < desired {
 		return &status.NotReadyError{
-			Name:            name.Name,
+			Name:            dep.Name,
 			ReadyReplicas:   dep.Status.ReadyReplicas,
 			DesiredReplicas: desired,
 		}
@@ -46,20 +38,16 @@ func CheckDeployment(ctx context.Context, c client.Client, name types.Namespaced
 	return nil
 }
 
-// CheckStatefulSet verifies that a StatefulSet has its desired number of ready replicas.
-// Returns nil if ready, a NotReadyError if not yet ready, or an error if the Get fails.
-func CheckStatefulSet(ctx context.Context, c client.Client, name types.NamespacedName) error {
-	ss := &appsv1.StatefulSet{}
-	if err := c.Get(ctx, name, ss); err != nil {
-		return err
-	}
+// StatefulSetReady checks whether a StatefulSet has its desired number of ready replicas.
+// Returns nil if ready, or a NotReadyError if not yet ready.
+func StatefulSetReady(ss *appsv1.StatefulSet) error {
 	desired := int32(1)
 	if ss.Spec.Replicas != nil {
 		desired = *ss.Spec.Replicas
 	}
 	if ss.Status.ReadyReplicas < desired {
 		return &status.NotReadyError{
-			Name:            name.Name,
+			Name:            ss.Name,
 			ReadyReplicas:   ss.Status.ReadyReplicas,
 			DesiredReplicas: desired,
 		}

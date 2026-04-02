@@ -77,7 +77,7 @@ func (r *ETOSLogAreaDeployment) Reconcile(ctx context.Context, cluster *etosv1al
 		logger.Error(err, "Failed to reconcile the service for the ETOS LogArea")
 		return err
 	}
-	return readiness.CheckDeployment(ctx, r.Client, namespacedName)
+	return nil
 }
 
 // reconcileDeployment will reconcile the ETOS logarea deployment to its expected state.
@@ -98,12 +98,15 @@ func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, name ty
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
-		return target, nil
+		return target, readiness.DeploymentReady(target)
 	}
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
-		return deployment, nil
+		return deployment, readiness.DeploymentReady(deployment)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
+		return target, err
+	}
+	return target, readiness.DeploymentReady(target)
 }
 
 // reconcileServiceAccount will reconcile the ETOS logarea service account to its expected state.
