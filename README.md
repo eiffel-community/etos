@@ -1,57 +1,135 @@
-<!---
-   Copyright Axis Communications AB
-   For a full list of individual contributors, please see the commit history.
+# etos
+// TODO(user): Add simple overview of use/purpose
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
+## Description
+// TODO(user): An in-depth paragraph about your project and overview of use
 
-       http://www.apache.org/licenses/LICENSE-2.0
+## Getting Started
 
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
---->
+### Prerequisites
+- go version v1.23.0+
+- docker version 17.03+.
+- kubectl version v1.11.3+.
+- Access to a Kubernetes v1.11.3+ cluster.
 
-<img src="./docs/images/etos-logo.png" alt="ETOS" width="350"/>
+### To Deploy on the cluster
+**Build and push your image to the location specified by `IMG`:**
 
-[![Sandbox badge](https://img.shields.io/badge/Stage-Sandbox-yellow)](https://github.com/eiffel-community/community/blob/master/PROJECT_LIFECYCLE.md#stage-sandbox)
+```sh
+make docker-build docker-push IMG=<some-registry>/etos:tag
+```
 
-# ETOS
+**NOTE:** This image ought to be published in the personal registry you specified.
+And it is required to have access to pull the image from the working environment.
+Make sure you have the proper permission to the registry if the above commands don’t work.
 
-ETOS (Eiffel Test Orchestration System) is a new test orchestration system which takes away control of how to run and what to run from the system itself and places it into the hands of the relevant engineers.
+**Install the CRDs into the cluster:**
 
-The idea of having a system dictate what and how to run is finished. Let's bring back control to the testers.
+```sh
+make install
+```
 
-Please see the [documentation](./docs/index.md) for more information, tutorials and guides on how to use ETOS.
+**Deploy the Manager to the cluster with the image specified by `IMG`:**
 
-## Features
+```sh
+make deploy IMG=<some-registry>/etos:tag
+```
 
-- Generic test suite execution based solely on JSON.
-- Mix and match test suites, regardless of programming language.
-- Separation of concerns between testers, test automation engineers and system engineers.
-- Eiffel protocol implementation.
+> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
+privileges or be logged in as admin.
 
-## Support
+**Create instances of your solution**
+You can apply the samples (examples) from the config/sample:
 
-If you need help, please get in contact with us.
+```sh
+kubectl apply -k config/samples/
+```
 
-For questions and discussions, please use the [discussions](https://github.com/eiffel-community/etos/discussions) on github.
-For bug reports and feature requests, please use the [issue tracker](https://github.com/eiffel-community/etos/issues)
+>**NOTE**: Ensure that the samples has default values to test it out.
 
-There is also a mailing list at: etos-maintainers@googlegroups.com
+### To Uninstall
+**Delete the instances (CRs) from the cluster:**
 
-## Code of Conduct and Contributing
-To get involved, please see [Code of Conduct](https://github.com/eiffel-community/.github/blob/master/CODE_OF_CONDUCT.md) and [contribution guidelines](https://github.com/eiffel-community/.github/blob/master/CONTRIBUTING.md).
+```sh
+kubectl delete -k config/samples/
+```
 
-Note that these files are located in the .github repository. See [this](https://docs.github.com/en/github/building-a-strong-community/creating-a-default-community-health-file) page for further details regarding default community health files.
+**Delete the APIs(CRDs) from the cluster:**
 
-## About this repository
-The contents of this repository are licensed under the [Apache License 2.0](./LICENSE).
+```sh
+make uninstall
+```
 
-## About Eiffel
-This repository forms part of the Eiffel Community. Eiffel is a protocol for technology agnostic machine-to-machine communication in continuous integration and delivery pipelines, aimed at securing scalability, flexibility and traceability. Eiffel is based on the concept of decentralized real time messaging, both to drive the continuous integration and delivery system and to document it.
+**UnDeploy the controller from the cluster:**
 
-Visit [Eiffel Community](https://eiffel-community.github.io) to get started and get involved.
+```sh
+make undeploy
+```
+
+## Project Distribution
+
+Following the options to release and provide this solution to the users.
+
+### By providing a bundle with all YAML files
+
+1. Build the installer for the image built and published in the registry:
+
+```sh
+make build-installer IMG=<some-registry>/etos:tag
+```
+
+**NOTE:** The makefile target mentioned above generates an 'install.yaml'
+file in the dist directory. This file contains all the resources built
+with Kustomize, which are necessary to install this project without its
+dependencies.
+
+2. Using the installer
+
+Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
+the project, i.e.:
+
+```sh
+kubectl apply -f https://raw.githubusercontent.com/<org>/etos/<tag or branch>/dist/install.yaml
+```
+
+### By providing a Helm Chart
+
+1. Build the chart using the optional helm plugin
+
+```sh
+kubebuilder edit --plugins=helm/v1-alpha
+```
+
+2. See that a chart was generated under 'dist/chart', and users
+can obtain this solution from there.
+
+**NOTE:** If you change the project, you need to update the Helm Chart
+using the same command above to sync the latest changes. Furthermore,
+if you create webhooks, you need to use the above command with
+the '--force' flag and manually ensure that any custom configuration
+previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
+is manually re-applied afterwards.
+
+## Contributing
+// TODO(user): Add detailed information on how you would like others to contribute to this project
+
+**NOTE:** Run `make help` for more information on all potential `make` targets
+
+More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+
+## License
+
+Copyright 2026.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+

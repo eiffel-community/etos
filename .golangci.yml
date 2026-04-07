@@ -45,5 +45,3 @@ linters-settings:
   revive:
     rules:
       - name: comment-spacings
-  goconst:
-    ignore-strings: 'true|false'

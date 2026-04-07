@@ -1,18 +1,18 @@
-// Copyright Axis Communications AB.
-//
-// For a full list of individual contributors, please see the commit history.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+Copyright 2026.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package utils
 
@@ -32,10 +32,8 @@ const (
 	prometheusOperatorURL     = "https://github.com/prometheus-operator/prometheus-operator/" +
 		"releases/download/%s/bundle.yaml"
 
-	certmanagerVersion         = "v1.16.3"
-	certmanagerURLTmpl         = "https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml"
-	certmanagerControllerLease = "cert-manager-controller"
-	certmanagerCAInjectorLease = "cert-manager-cainjector-leader-election"
+	certmanagerVersion = "v1.16.3"
+	certmanagerURLTmpl = "https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml"
 )
 
 func warnError(err error) {
@@ -70,7 +68,7 @@ func InstallPrometheusOperator() error {
 	return err
 }
 
-// UninstallPrometheusOperator uninstalls the prometheus Operator.
+// UninstallPrometheusOperator uninstalls the prometheus
 func UninstallPrometheusOperator() {
 	url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
 	cmd := exec.Command("kubectl", "delete", "-f", url)
@@ -110,11 +108,6 @@ func IsPrometheusCRDsInstalled() bool {
 func UninstallCertManager() {
 	url := fmt.Sprintf(certmanagerURLTmpl, certmanagerVersion)
 	cmd := exec.Command("kubectl", "delete", "-f", url)
-	if _, err := Run(cmd); err != nil {
-		warnError(err)
-	}
-	cmd = exec.Command("kubectl", "delete", "-n", "kube-system", "leases",
-		certmanagerControllerLease, certmanagerCAInjectorLease)
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}

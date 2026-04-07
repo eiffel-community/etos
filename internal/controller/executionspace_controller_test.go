@@ -1,18 +1,18 @@
-// Copyright Axis Communications AB.
-//
-// For a full list of individual contributors, please see the commit history.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+Copyright 2026.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package controller
 
@@ -51,18 +51,7 @@ var _ = Describe("ExecutionSpace Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					Spec: etosv1alpha2.ExecutionSpaceSpec{
-						ID:                 "cd0db0b5-f720-451d-a5da-8833494d81bf",
-						TestRunner:         "ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble",
-						EnvironmentRequest: "environmentrequest-sample",
-						ProviderID:         "execution-space-provider-sample",
-						Instructions: etosv1alpha2.Instructions{
-							Environment: map[string]string{},
-							Parameters:  map[string]string{},
-							Image:       "ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble",
-							Identifier:  "d00511ea-a8aa-42a8-8c60-f2e98e802520",
-						},
-					},
+					// TODO(user): Specify other spec details if needed.
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

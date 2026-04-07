@@ -8,3 +8,4 @@ resources:
 - etos_v1alpha2_iut.yaml
 - etos_v1alpha2_executionspace.yaml
 - etos_v1alpha2_logarea.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

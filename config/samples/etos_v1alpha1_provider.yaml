@@ -4,8 +4,6 @@ metadata:
   labels:
     app.kubernetes.io/name: etos
     app.kubernetes.io/managed-by: kustomize
-  name: iut-provider-sample
+  name: provider-sample
 spec:
-  type: iut
-  jsontas:
-    iut: {}
+  # TODO(user): Add fields here

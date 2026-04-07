@@ -1,18 +1,18 @@
-// Copyright Axis Communications AB.
-//
-// For a full list of individual contributors, please see the commit history.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+Copyright 2026.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package main
 
@@ -25,7 +25,6 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/utils/clock"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -40,10 +39,9 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
-	"github.com/eiffel-community/etos/internal/config"
 	"github.com/eiffel-community/etos/internal/controller"
 	webhooketosv1alpha1 "github.com/eiffel-community/etos/internal/webhook/v1alpha1"
-	webhookv1alpha2 "github.com/eiffel-community/etos/internal/webhook/v1alpha2"
+	webhooketosv1alpha2 "github.com/eiffel-community/etos/internal/webhook/v1alpha2"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -72,7 +70,7 @@ func main() {
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8181", "The address the probe endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -208,33 +206,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := config.New()
-	setupLog.Info("ETOS configuration",
-		"API Image", cfg.API.Image,
-		"API Version", cfg.API.Version,
-		"SSE Image", cfg.SSE.Image,
-		"SSE Version", cfg.SSE.Version,
-		"LogArea Image", cfg.LogArea.Image,
-		"LogArea Version", cfg.LogArea.Version,
-		"SuiteStarter Image", cfg.SuiteStarter.Image,
-		"SuiteStarter Version", cfg.SuiteStarter.Version,
-		"SuiteRunner Image", cfg.SuiteRunner.Image,
-		"SuiteRunner Version", cfg.SuiteRunner.Version,
-		"LogListener Image", cfg.LogListener.Image,
-		"LogListener Version", cfg.LogListener.Version,
-		"TestRunner Version", cfg.TestRunner.Version,
-		"EnvironmentProvider Image", cfg.EnvironmentProvider.Image,
-		"EnvironmentProvider Version", cfg.EnvironmentProvider.Version,
-		"EventRepositoryAPI Image", cfg.EventRepositoryAPI.Image,
-		"EventRepositoryAPI Version", cfg.EventRepositoryAPI.Version,
-		"EventRepositoryStorage Image", cfg.EventRepositoryStorage.Image,
-		"EventRepositoryStorage Version", cfg.EventRepositoryStorage.Version,
-	)
-
 	if err = (&controller.TestRunReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Clock:  &clock.RealClock{},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TestRun")
 		os.Exit(1)
@@ -256,7 +230,6 @@ func main() {
 	if err = (&controller.ClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Config: cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 		os.Exit(1)
@@ -268,9 +241,30 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "EnvironmentRequest")
 		os.Exit(1)
 	}
+	if err = (&controller.IutReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Iut")
+		os.Exit(1)
+	}
+	if err = (&controller.ExecutionSpaceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ExecutionSpace")
+		os.Exit(1)
+	}
+	if err = (&controller.LogAreaReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LogArea")
+		os.Exit(1)
+	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = webhooketosv1alpha1.SetupTestRunWebhookWithManager(mgr, cfg); err != nil {
+		if err = webhooketosv1alpha1.SetupTestRunWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "TestRun")
 			os.Exit(1)
 		}
@@ -289,44 +283,23 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if err := (&controller.IutReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Iut")
-		os.Exit(1)
-	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha2.SetupIutWebhookWithManager(mgr); err != nil {
+		if err = webhooketosv1alpha2.SetupIutWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Iut")
 			os.Exit(1)
 		}
 	}
-	if err := (&controller.ExecutionSpaceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ExecutionSpace")
-		os.Exit(1)
-	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha2.SetupExecutionSpaceWebhookWithManager(mgr); err != nil {
+		if err = webhooketosv1alpha2.SetupExecutionSpaceWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ExecutionSpace")
 			os.Exit(1)
 		}
 	}
-	if err := (&controller.LogAreaReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "LogArea")
-		os.Exit(1)
-	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha2.SetupLogAreaWebhookWithManager(mgr); err != nil {
+		if err = webhooketosv1alpha2.SetupLogAreaWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "LogArea")
 			os.Exit(1)
 		}

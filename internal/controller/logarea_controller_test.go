@@ -1,18 +1,18 @@
-// Copyright Axis Communications AB.
-//
-// For a full list of individual contributors, please see the commit history.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+Copyright 2026.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package controller
 
@@ -51,18 +51,7 @@ var _ = Describe("LogArea Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					Spec: etosv1alpha2.LogAreaSpec{
-						ID:                 "81759996-c0ee-453f-9476-a60c9d1abc8e",
-						EnvironmentRequest: "environmentrequest-sample",
-						ProviderID:         "log-area-provider-sample",
-						Logs:               map[string]string{},
-						LiveLogs:           "http://etos/logs",
-						Upload: etosv1alpha2.Upload{
-							AsJSON: false,
-							Method: "GET",
-							URL:    "http://etos/logs",
-						},
-					},
+					// TODO(user): Specify other spec details if needed.
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

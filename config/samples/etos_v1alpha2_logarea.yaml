@@ -6,13 +6,4 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: logarea-sample
 spec:
-  id: 81759996-c0ee-453f-9476-a60c9d1abc8e
-  environmentRequest: environmentrequest-sample
-  provider_id: log-area-provider-sample
-  download: []
-  livelogs: "http://etos/logs"
-  logs: {}
-  upload:
-    as_json: false
-    method: "GET"
-    url: "http://etos/logs"
+  # TODO(user): Add fields here
