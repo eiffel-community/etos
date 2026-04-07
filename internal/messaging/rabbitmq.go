@@ -204,6 +204,8 @@ func (s *rabbitMQStreamPublisher) publish(done chan struct{}) {
 			s.logger.Info("Publishing message to RabbitMQ stream")
 			if err := s.producer.Send(msg); err != nil {
 				s.logger.Error(err, "Failed to send message")
+				s.unConfirmed.Done()
+				continue
 			}
 			s.logger.Info("Published")
 		case <-done:
