@@ -1,0 +1,8 @@
+[messages control]
+disable=
+    fixme
+
+[FORMAT]
+# There is no proper way to disable line-too-long messages from pylint
+# so we just use a regex to ignore all lines when checking for long lines.
+ignore-long-lines=^.*$

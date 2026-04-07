@@ -1,0 +1,61 @@
+name: Generate Manifest File
+
+on:
+  push:
+    branches:
+      - main
+  workflow_run:
+    workflows: ["Update default ETOS versions"]
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Clean workspace
+        run: |
+          rm -r dist | true
+      - name: Generate manifest file
+        run: |
+          IMAGE_ID=ghcr.io/eiffel-community/etos-controller
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # Use Docker `latest` tag convention
+          [ "$VERSION" == "main" ] && VERSION=$(echo ${{ github.sha }} | cut -c1-8)
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+          echo "IMAGE_ID=$IMAGE_ID" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          make docker-build split-installer IMG=$IMAGE_ID:$VERSION
+          mkdir -p manifests/controller
+          cp dist/* manifests/controller/
+      - name: Push docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          make docker-push IMG=$IMAGE_ID:$VERSION
+      - name: Commit changes
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m "Update install manifest [skip ci]"
+          git push origin main

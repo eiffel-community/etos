@@ -22,15 +22,6 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the {{ .ProjectName }} itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
-- logarea_admin_role.yaml
-- logarea_editor_role.yaml
-- logarea_viewer_role.yaml
-- executionspace_admin_role.yaml
-- executionspace_editor_role.yaml
-- executionspace_viewer_role.yaml
-- iut_admin_role.yaml
-- iut_editor_role.yaml
-- iut_viewer_role.yaml
 - environmentrequest_admin_role.yaml
 - environmentrequest_editor_role.yaml
 - environmentrequest_viewer_role.yaml
@@ -47,3 +38,16 @@ resources:
 - testrun_editor_role.yaml
 - testrun_viewer_role.yaml
 
+# For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
+# default, aiding admins in cluster management. Those roles are
+# not used by the etos itself. You can comment the following lines
+# if you do not want those helpers be installed with your Project.
+- iut_admin_role.yaml
+- iut_editor_role.yaml
+- iut_viewer_role.yaml
+- executionspace_admin_role.yaml
+- executionspace_editor_role.yaml
+- executionspace_viewer_role.yaml
+- logarea_admin_role.yaml
+- logarea_editor_role.yaml
+- logarea_viewer_role.yaml

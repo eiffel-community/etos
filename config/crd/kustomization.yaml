@@ -10,13 +10,12 @@ resources:
 - bases/etos.eiffel-community.github.io_iuts.yaml
 - bases/etos.eiffel-community.github.io_executionspaces.yaml
 - bases/etos.eiffel-community.github.io_logarea.yaml
-# +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD
-- path: patches/webhook_in_testruns.yaml
 - path: patches/webhook_in_providers.yaml
+- path: patches/webhook_in_testruns.yaml
 - path: patches/webhook_in_environmentrequests.yaml
 # +kubebuilder:scaffold:crdkustomizewebhookpatch
 

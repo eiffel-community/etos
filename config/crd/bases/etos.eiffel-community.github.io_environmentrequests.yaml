@@ -14,11 +14,24 @@ spec:
     singular: environmentrequest
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Message
+      type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/id
+      name: TestRun
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: EnvironmentRequest is the Schema for the environmentrequests
-          API.
+          API
         properties:
           apiVersion:
             description: |-
@@ -38,15 +51,596 @@ spec:
           metadata:
             type: object
           spec:
-            description: EnvironmentRequestSpec defines the desired state of EnvironmentRequest.
+            description: EnvironmentRequestSpec defines the desired state of EnvironmentRequest
             properties:
-              foo:
-                description: Foo is an example field of EnvironmentRequest. Edit environmentrequest_types.go
-                  to remove/update
+              Config:
+                description: EnvironmentProviderJobConfig defines parameters required
+                  by environment provider job
+                properties:
+                  eiffelMessageBus:
+                    description: RabbitMQ configuration.
+                    properties:
+                      deploy:
+                        default: true
+                        description: Deploy describes whether to deploy a RabbitMQ
+                          instance for the service. Defaults to true.
+                        type: boolean
+                      exchange:
+                        default: amq.topic
+                        description: Exchange describes the exchange to use for RabbitMQ.
+                          Only set if Deploy is false.
+                        type: string
+                      host:
+                        default: rabbitmq
+                        description: Host describes the host to use for RabbitMQ.
+                          Only used if Deploy is false.
+                        type: string
+                      password:
+                        default:
+                          value: guest
+                        description: Password describes the password to use for RabbitMQ.
+                          Only set if Deploy is false.
+                        properties:
+                          value:
+                            description: Value describes a string value. Cannot be
+                              set if ValueFrom is set.
+                            type: string
+                          valueFrom:
+                            description: ValueFrom describes a value from a VarSource.
+                              Cannot be set if Value is set.
+                            properties:
+                              configMapKeyRef:
+                                description: ConfigMapKeyRef describes a value from
+                                  a configmap. Cannot be set if SecretKeyRef is set.
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or
+                                      its key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              secretKeyRef:
+                                description: SecretKeyRef describes a value from a
+                                  secret. Cannot be set if ConfigMapKeyRef is set.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            type: object
+                        type: object
+                      port:
+                        default: "5672"
+                        description: Port describes the port to use for RabbitMQ.
+                          Only set if Deploy is false.
+                        type: string
+                      ssl:
+                        default: "false"
+                        description: SSL describes whether to use SSL for RabbitMQ.
+                          Only set if Deploy is false.
+                        type: string
+                      streamName:
+                        default: etos-messagebus-stream
+                        description: StreamName describes the stream name to use for
+                          RabbitMQ streaming. Only set if Deploy is false.
+                        type: string
+                      streamPort:
+                        default: "5552"
+                        description: StreamPort describes the port to use for RabbitMQ
+                          streaming. Only set if Deploy is false.
+                        type: string
+                      username:
+                        default: guest
+                        description: Username describes the username to use for RabbitMQ.
+                          Only set if Deploy is false.
+                        type: string
+                      vhost:
+                        default: /
+                        description: Vhost describes the vhost to use for RabbitMQ.
+                          Only set if Deploy is false.
+                        type: string
+                    type: object
+                  encryptionKeySecretRef:
+                    description: Var describes either a string value or a value from
+                      a VarSource.
+                    properties:
+                      value:
+                        description: Value describes a string value. Cannot be set
+                          if ValueFrom is set.
+                        type: string
+                      valueFrom:
+                        description: ValueFrom describes a value from a VarSource.
+                          Cannot be set if Value is set.
+                        properties:
+                          configMapKeyRef:
+                            description: ConfigMapKeyRef describes a value from a
+                              configmap. Cannot be set if SecretKeyRef is set.
+                            properties:
+                              key:
+                                description: The key to select.
+                                type: string
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                              optional:
+                                description: Specify whether the ConfigMap or its
+                                  key must be defined
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          secretKeyRef:
+                            description: SecretKeyRef describes a value from a secret.
+                              Cannot be set if ConfigMapKeyRef is set.
+                            properties:
+                              key:
+                                description: The key of the secret to select from.  Must
+                                  be a valid secret key.
+                                type: string
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                              optional:
+                                description: Specify whether the Secret or its key
+                                  must be defined
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        type: object
+                    type: object
+                  environmentProviderEventDataTimeout:
+                    type: string
+                  environmentProviderServiceAccount:
+                    type: string
+                  environmentProviderTestSuiteTimeout:
+                    type: string
+                  etcdHost:
+                    type: string
+                  etcdPort:
+                    type: string
+                  etosApi:
+                    type: string
+                  etosMessageBus:
+                    description: RabbitMQ configuration.
+                    properties:
+                      deploy:
+                        default: true
+                        description: Deploy describes whether to deploy a RabbitMQ
+                          instance for the service. Defaults to true.
+                        type: boolean
+                      exchange:
+                        default: amq.topic
+                        description: Exchange describes the exchange to use for RabbitMQ.
+                          Only set if Deploy is false.
+                        type: string
+                      host:
+                        default: rabbitmq
+                        description: Host describes the host to use for RabbitMQ.
+                          Only used if Deploy is false.
+                        type: string
+                      password:
+                        default:
+                          value: guest
+                        description: Password describes the password to use for RabbitMQ.
+                          Only set if Deploy is false.
+                        properties:
+                          value:
+                            description: Value describes a string value. Cannot be
+                              set if ValueFrom is set.
+                            type: string
+                          valueFrom:
+                            description: ValueFrom describes a value from a VarSource.
+                              Cannot be set if Value is set.
+                            properties:
+                              configMapKeyRef:
+                                description: ConfigMapKeyRef describes a value from
+                                  a configmap. Cannot be set if SecretKeyRef is set.
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or
+                                      its key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              secretKeyRef:
+                                description: SecretKeyRef describes a value from a
+                                  secret. Cannot be set if ConfigMapKeyRef is set.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                                x-kubernetes-map-type: atomic
+                            type: object
+                        type: object
+                      port:
+                        default: "5672"
+                        description: Port describes the port to use for RabbitMQ.
+                          Only set if Deploy is false.
+                        type: string
+                      ssl:
+                        default: "false"
+                        description: SSL describes whether to use SSL for RabbitMQ.
+                          Only set if Deploy is false.
+                        type: string
+                      streamName:
+                        default: etos-messagebus-stream
+                        description: StreamName describes the stream name to use for
+                          RabbitMQ streaming. Only set if Deploy is false.
+                        type: string
+                      streamPort:
+                        default: "5552"
+                        description: StreamPort describes the port to use for RabbitMQ
+                          streaming. Only set if Deploy is false.
+                        type: string
+                      username:
+                        default: guest
+                        description: Username describes the username to use for RabbitMQ.
+                          Only set if Deploy is false.
+                        type: string
+                      vhost:
+                        default: /
+                        description: Vhost describes the vhost to use for RabbitMQ.
+                          Only set if Deploy is false.
+                        type: string
+                    type: object
+                  graphQlServer:
+                    type: string
+                  routingKeyTag:
+                    type: string
+                  testRunnerVersion:
+                    type: string
+                  waitForTimeout:
+                    type: string
+                required:
+                - eiffelMessageBus
+                - encryptionKeySecretRef
+                - environmentProviderEventDataTimeout
+                - environmentProviderServiceAccount
+                - environmentProviderTestSuiteTimeout
+                - etcdHost
+                - etcdPort
+                - etosApi
+                - etosMessageBus
+                - graphQlServer
+                - routingKeyTag
+                - testRunnerVersion
+                - waitForTimeout
+                type: object
+              artifact:
                 type: string
+              dataset:
+                x-kubernetes-preserve-unknown-fields: true
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the environment request shall have
+                  finished before it is cancelled
+                  If deadline is not set, then deadline is set to Now + Timeout(see below)
+                format: int64
+                type: integer
+              id:
+                description: ID is the ID for the environments generated. Will be
+                  generated if nil. The ID is a UUID, any version, and regex matches
+                  that.
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+                type: string
+              identifier:
+                type: string
+              identity:
+                type: string
+              image:
+                description: Image describes the docker image to run for a service.
+                  ETOS applies defaults if empty.
+                type: string
+              imagePullPolicy:
+                description: |-
+                  ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                  if empty.
+                type: string
+              maximumAmount:
+                type: integer
+              minimumAmount:
+                type: integer
+              name:
+                type: string
+              providers:
+                properties:
+                  executionSpace:
+                    properties:
+                      id:
+                        type: string
+                      testRunner:
+                        type: string
+                      testrunnerImage:
+                        description: TestRunnerImage describes the container image
+                          to run in an execution space
+                        type: string
+                    required:
+                    - id
+                    - testRunner
+                    - testrunnerImage
+                    type: object
+                  iut:
+                    properties:
+                      id:
+                        type: string
+                    required:
+                    - id
+                    type: object
+                  logArea:
+                    properties:
+                      id:
+                        type: string
+                    required:
+                    - id
+                    type: object
+                type: object
+              serviceaccountname:
+                type: string
+              splitter:
+                properties:
+                  tests:
+                    items:
+                      properties:
+                        environment:
+                          description: TestEnvironment to run tests within.
+                          type: object
+                        execution:
+                          description: Execution describes how to execute a testCase.
+                          properties:
+                            checkout:
+                              items:
+                                type: string
+                              type: array
+                            command:
+                              type: string
+                            environment:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            execute:
+                              items:
+                                type: string
+                              type: array
+                            parameters:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            testRunner:
+                              type: string
+                          required:
+                          - checkout
+                          - command
+                          - environment
+                          - parameters
+                          - testRunner
+                          type: object
+                        id:
+                          type: string
+                        testCase:
+                          description: TestCase metadata.
+                          properties:
+                            id:
+                              type: string
+                            tracker:
+                              type: string
+                            uri:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - id
+                          type: object
+                      required:
+                      - environment
+                      - execution
+                      - id
+                      - testCase
+                      type: object
+                    type: array
+                required:
+                - tests
+                type: object
+              timeout:
+                default: 60
+                description: |-
+                  Timeout is the time, in seconds, the environment request is allowed to take.
+                  If both timeout and deadline is set, then deadline takes precedence.
+                format: int64
+                type: integer
+            required:
+            - maximumAmount
+            - minimumAmount
+            - providers
+            - splitter
             type: object
           status:
-            description: EnvironmentRequestStatus defines the observed state of EnvironmentRequest.
+            description: EnvironmentRequestStatus defines the observed state of EnvironmentRequest
+            properties:
+              completionTime:
+                format: date-time
+                type: string
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              environmentProviders:
+                items:
+                  description: ObjectReference contains enough information to let
+                    you inspect or modify the referred object.
+                  properties:
+                    apiVersion:
+                      description: API version of the referent.
+                      type: string
+                    fieldPath:
+                      description: |-
+                        If referring to a piece of an object instead of an entire object, this string
+                        should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                        For example, if the object reference is to a container within a pod, this would take on a value like:
+                        "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                        the event) or if no container name is specified "spec.containers[2]" (container with
+                        index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                        referencing a part of an object.
+                      type: string
+                    kind:
+                      description: |-
+                        Kind of the referent.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                      type: string
+                    resourceVersion:
+                      description: |-
+                        Specific resourceVersion to which this reference is made, if any.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                      type: string
+                    uid:
+                      description: |-
+                        UID of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              startTime:
+                format: date-time
+                type: string
             type: object
         type: object
     served: true

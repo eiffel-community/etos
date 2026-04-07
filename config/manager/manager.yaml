@@ -20,7 +20,6 @@ spec:
   selector:
     matchLabels:
       control-plane: controller-manager
-      app.kubernetes.io/name: etos
   replicas: 1
   template:
     metadata:
@@ -88,7 +87,7 @@ spec:
         resources:
           limits:
             cpu: 500m
-            memory: 128Mi
+            memory: 1024Mi
           requests:
             cpu: 10m
             memory: 64Mi
