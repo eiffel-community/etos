@@ -8,6 +8,7 @@
 
 # Re-include default service versions
 !defaults/*
+!testdata/defaults/*
 
 # Re-include Go module files
 !go.mod

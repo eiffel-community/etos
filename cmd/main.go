@@ -244,27 +244,6 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "EnvironmentRequest")
 		os.Exit(1)
 	}
-	if err := (&controller.IutReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "Iut")
-		os.Exit(1)
-	}
-	if err := (&controller.ExecutionSpaceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "ExecutionSpace")
-		os.Exit(1)
-	}
-	if err := (&controller.LogAreaReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "LogArea")
-		os.Exit(1)
-	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha1.SetupTestRunWebhookWithManager(mgr, cfg); err != nil {
