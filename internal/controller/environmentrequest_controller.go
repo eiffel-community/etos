@@ -256,11 +256,6 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 	if err != nil {
 		return nil, err
 	}
-	carrier := map[string]string{
-		"traceparent": environmentrequest.Annotations["etos.eiffel-community.github.io/traceparent"],
-		"baggage":     environmentrequest.Annotations["etos.eiffel-community.github.io/baggage"],
-	}
-	context := fmt.Sprintf("traceparent=%s,baggage=%s", carrier["traceparent"], carrier["baggage"])
 	envList := []corev1.EnvVar{
 		{
 			Name:  "REQUEST",
@@ -395,8 +390,16 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 			Value: environmentrequest.Spec.Config.RoutingKeyTag,
 		},
 		{
-			Name:  "OTEL_CONTEXT",
-			Value: context,
+			Name:  "TRACEPARENT",
+			Value: environmentrequest.Annotations["etos.eiffel-community.github.io/traceparent"],
+		},
+		{
+			Name:  "BAGGAGE",
+			Value: environmentrequest.Annotations["etos.eiffel-community.github.io/baggage"],
+		},
+		{
+			Name:  "TRACESTATE",
+			Value: environmentrequest.Annotations["etos.eiffel-community.github.io/tracestate"],
 		},
 	}
 	if cluster != nil && cluster.Spec.OpenTelemetry.Enabled {
