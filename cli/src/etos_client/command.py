@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS client testrun."""
+
 import logging
 
 from etosctl.command import Command

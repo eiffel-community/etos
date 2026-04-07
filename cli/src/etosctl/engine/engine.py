@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Customization engine."""
+
 import pkgutil
 import importlib
 from etosctl.command import ICommandRegistry
 
 
-class CustomizationEngine:
+class CustomizationEngine:  # pylint: disable=too-few-public-methods
     """Engine for loading custom code into etosctl."""
 
     def __init__(self) -> None:
@@ -39,7 +40,7 @@ class CustomizationEngine:
         }
         for command in ICommandRegistry.commands:
             assert (
-                command.meta.name not in self.commands.keys()
+                command.meta.name not in self.commands
             ), f"A command with name {command.meta.name!r} already exists"
             self.commands[command.meta.name] = command
         ICommandRegistry.reset()

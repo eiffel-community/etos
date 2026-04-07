@@ -20,25 +20,31 @@ import sys
 import logging
 
 from etos_lib.lib.http import Http
-#from etos_lib.messaging.events import Artifact, Message, Report, Shutdown  # import disabled due to: https://github.com/eiffel-community/etos/issues/417
+
+# from etos_lib.messaging.events import Artifact, Message, Report, Shutdown  # import disabled due to: https://github.com/eiffel-community/etos/issues/417
 from urllib3.util import Retry
 from requests.exceptions import HTTPError
 from etosctl.command import Command
 from etosctl.models import CommandMeta
 from etos_client.sse.v2alpha.client import SSEClient
 
+
 # dummy classes: remove when the etos_lib.messaging module is available: https://github.com/eiffel-community/etos/issues/417
-class Artifact:
-    pass
+class Artifact:  # pylint: disable=too-few-public-methods
+    """Dummy Artifact class. Remove when etos_lib.messaging is available."""
 
-class Message:
-    pass
 
-class Report:
-    pass
+class Message:  # pylint: disable=too-few-public-methods
+    """Dummy Message class. Remove when etos_lib.messaging is available."""
 
-class Shutdown:
-    pass
+
+class Report:  # pylint: disable=too-few-public-methods
+    """Dummy Report class. Remove when etos_lib.messaging is available."""
+
+
+class Shutdown:  # pylint: disable=too-few-public-methods
+    """Dummy Shutdown class. Remove when etos_lib.messaging is available."""
+
 
 LOGGER = logging.getLogger(__name__)
 # Max total time for a ping request including delays with backoff factor 0.5 will be:
@@ -71,6 +77,7 @@ class Debug(Command):
     logger = logging.getLogger(__name__)
     remote_logger = logging.getLogger("ETOS")
     __apikey = None
+    cluster = None
 
     @property
     def apikey(self) -> str:

@@ -70,7 +70,9 @@ class Start(SubCommand):
                 actt = json.loads(os.getenv("EIFFEL_ACTIVITY_TRIGGERED", ""))
                 return actt["meta"]["id"]
             except (JSONDecodeError, IndexError):
-                self.logger.warning("Could not load EIFFEL_ACTIVITY_TRIGGERED from environment due it not being formatted JSON")
+                self.logger.warning(
+                    "Could not load EIFFEL_ACTIVITY_TRIGGERED from environment due it not being formatted JSON"
+                )
         return None
 
     def parse_args(self, argv: list[str]) -> dict:

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS testrun result."""
+
 from pydantic import BaseModel
 from enum import Enum
 from typing import Optional

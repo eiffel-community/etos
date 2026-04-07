@@ -215,6 +215,15 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 	message := "Unknown status"
 	reason := status.ReasonPending
 
+	// Priority from lowest to highest: Active < Failed < Completed.
+	// These are plain if-blocks (not else-if), so later matches overwrite
+	// earlier ones. Active is checked first so that failures and completion
+	// always take precedence.
+	if isStatusReason(conditions, status.StatusSuiteRunner, status.ReasonActive) {
+		condition = metav1.ConditionTrue
+		reason = status.ReasonActive
+		message = "Waiting for suite runners to finish"
+	}
 	if isStatusReason(conditions, status.StatusEnvironment, status.ReasonFailed) {
 		environment := meta.FindStatusCondition(conditions, status.StatusEnvironment)
 		if environment != nil {
@@ -235,11 +244,6 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 		condition = metav1.ConditionFalse
 		reason = status.ReasonCompleted
 		message = "Suite runners finished successfully"
-	}
-	if isStatusReason(conditions, status.StatusSuiteRunner, status.ReasonActive) {
-		condition = metav1.ConditionTrue
-		reason = status.ReasonActive
-		message = "Waiting for suite runners to finish"
 	}
 
 	if condition != metav1.ConditionUnknown {
@@ -343,6 +347,11 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 		if !testrun.GetDeletionTimestamp().IsZero() {
 			return false, nil
 		}
+		// Already created a Job; the cache has not caught up yet.
+		if isStatusReason(*conditions, status.StatusSuiteRunner, status.ReasonStarting) {
+			logger.Info("Suite runner job already created, requeuing")
+			return false, nil
+		}
 		if err := jobManager.Create(ctx, testrun, r.suiteRunnerJob); err != nil {
 			// When we create a job the job gets a unique name. If there's an error for that unique name the error
 			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
@@ -358,6 +367,16 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 				return true, r.Status().Update(ctx, testrun)
 			}
 			return false, err
+		}
+		// Mark as Starting to prevent duplicate Job creation on requeue.
+		if meta.SetStatusCondition(conditions,
+			metav1.Condition{
+				Type:    status.StatusSuiteRunner,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonStarting,
+				Message: "Suite runner job created",
+			}) {
+			return true, r.Status().Update(ctx, testrun)
 		}
 	}
 	return false, nil
@@ -542,6 +561,10 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 	traceparent, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]
 	if ok {
 		annotations["etos.eiffel-community.github.io/traceparent"] = traceparent
+	}
+	baggage, ok := testrun.Annotations["etos.eiffel-community.github.io/baggage"]
+	if ok {
+		annotations["etos.eiffel-community.github.io/baggage"] = baggage
 	}
 	// Using ParseInt directly instead of Atoi since Atoi returns int, not int64
 	environmentTimeout, err := strconv.ParseInt(cluster.Spec.ETOS.Config.EnvironmentTimeout, 10, 0)
@@ -774,6 +797,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 								{
 									Name:  "TRACESTATE",
 									Value: testrun.Annotations["etos.eiffel-community.github.io/tracestate"],
+                },
+                {
+									Name:  "SUITE_SOURCE",
+									Value: testrun.Spec.SuiteSource,
 								},
 								{
 									Name:  "KUBEXIT_NAME",

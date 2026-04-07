@@ -21,23 +21,28 @@ import time
 from typing import Union
 from pathlib import Path
 
-#from etos_lib.messaging.events import Message, Report, Artifact, Shutdown  # import disabled due to: https://github.com/eiffel-community/etos/issues/417
+# from etos_lib.messaging.events import Message, Report, Artifact, Shutdown  # import disabled due to: https://github.com/eiffel-community/etos/issues/417
 from etos_client.sse.v2alpha.client import SSEClient
 from etos_client.shared.downloader import Downloader, Downloadable
 from ..schema.response import ResponseSchema
+
 
 # dummy classes: remove when the etos_lib.messaging module is available: https://github.com/eiffel-community/etos/issues/417
 class Artifact:
     pass
 
+
 class Message:
     pass
+
 
 class Report:
     pass
 
+
 class Shutdown:
     pass
+
 
 class TestRun:
     """Track an ETOS test run and log relevant information."""
@@ -106,11 +111,13 @@ class TestRun:
                 self.__log(event)
             elif isinstance(event, (Report, Artifact)):
                 self.download(event)
-        return Shutdown.model_validate({
-            "conclusion": "FAILED",
-            "verdict": "INCONCLUSIVE",
-            "description": "Event stream died",
-        })
+        return Shutdown.model_validate(
+            {
+                "conclusion": "FAILED",
+                "verdict": "INCONCLUSIVE",
+                "description": "Event stream died",
+            }
+        )
 
     def download_report(self, report: Report):
         """Download a report to the report directory."""

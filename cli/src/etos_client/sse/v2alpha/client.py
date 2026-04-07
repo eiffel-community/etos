@@ -24,16 +24,19 @@ from urllib3.exceptions import HTTPError, MaxRetryError
 from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry
 
-#from etos_lib.messaging.events import Shutdown, Event, parse # import disabled due to: https://github.com/eiffel-community/etos/issues/417
+
+# from etos_lib.messaging.events import Shutdown, Event, parse # import disabled due to: https://github.com/eiffel-community/etos/issues/417
 # dummy classes: remove when the etos_lib.messaging module is available
-class Event:
-    pass
+class Event:  # pylint: disable=too-few-public-methods
+    """Dummy Event class. Remove when etos_lib.messaging is available."""
 
-class Shutdown:
-    pass
 
-def parse(event):
-    pass
+class Shutdown:  # pylint: disable=too-few-public-methods
+    """Dummy Shutdown class. Remove when etos_lib.messaging is available."""
+
+
+def parse(event):  # pylint: disable=unused-argument
+    """Parse an event. Stub — remove when etos_lib.messaging is available."""
 
 
 CHUNK_SIZE = 500
@@ -51,18 +54,21 @@ class LogRetry(Retry):
     """A Retry class that logs progress during initial connection attempts."""
 
     def __init__(self, *args, **kwargs):
+        """Initialize logging and attempt counter."""
         self.logger = logging.getLogger(__name__)
         self._attempt_count = 0
         super().__init__(*args, **kwargs)
 
-    def increment(self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None):
+    def increment(
+        self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None
+    ):
         """Override increment to add logging for initial connection attempts."""
         self._attempt_count += 1
         new_retry = super().increment(method, url, response, error, _pool, _stacktrace)
 
         # Copy counter to new retry instance
-        if hasattr(new_retry, '_attempt_count'):
-            new_retry._attempt_count = self._attempt_count
+        if hasattr(new_retry, "_attempt_count"):
+            new_retry._attempt_count = self._attempt_count  # pylint: disable=protected-access
 
         # Log progress for 404 responses (test run not ready) at specific intervals
         is_404_response = response is not None and response.status == 404
@@ -105,10 +111,10 @@ class SSEClient:
     __connected = False
     __shutdown = False
 
-    def __init__(self, url: str, filter: list) -> None:
+    def __init__(self, url: str, event_filter: list) -> None:
         """Set up a connection pool and retry strategy."""
         self.url = url
-        self.filter = filter
+        self.event_filter = event_filter
         self.last_event_id = None
         self.__pool = PoolManager(retries=RETRIES)
         self.__release: Optional[Callable] = None
@@ -118,7 +124,9 @@ class SSEClient:
         """SSE protocol version."""
         return "v2alpha"
 
-    def __connect(self, stream_id: str, apikey: str, is_initial_connection=False) -> Iterable[bytes]:
+    def __connect(
+        self, stream_id: str, apikey: str, is_initial_connection=False
+    ) -> Iterable[bytes]:
         """Handle connection for reconnections."""
         if is_initial_connection:
             # Use LogRetry with extended retries for initial connection
@@ -153,7 +161,7 @@ class SSEClient:
             headers["Last-Event-ID"] = str(self.last_event_id)
 
         try:
-            filter_param = "&".join(f"filter={value}" for value in self.filter)
+            filter_param = "&".join(f"filter={value}" for value in self.event_filter)
             url = f"{self.url}/sse/{self.version()}/events/{stream_id}?{filter_param}"
             response = self.__pool.request(
                 "GET",

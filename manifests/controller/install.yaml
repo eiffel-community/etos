@@ -3318,6 +3318,11 @@ spec:
                       if empty.
                     type: string
                 type: object
+              suiteSource:
+                description: |-
+                  SuiteSource is the URL from which the test suite definition can be fetched.
+                  It is used to set batchesUri in the TERCC event.
+                type: string
               suites:
                 items:
                   description: Suite to execute.
@@ -4464,7 +4469,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:c3628f6d
+        image: ghcr.io/eiffel-community/etos-controller:e9bd8553
         livenessProbe:
           httpGet:
             path: /healthz
