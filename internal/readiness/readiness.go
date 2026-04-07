@@ -40,18 +40,27 @@ func NotReady(name string, message string) error {
 
 // DeploymentReady checks whether a Deployment is fully rolled out by inspecting
 // the Progressing condition. A deployment is considered ready when
-// Progressing=True with Reason=NewReplicaSetAvailable.
+// Progressing has Reason=NewReplicaSetAvailable.
 // See https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#complete-deployment
 func DeploymentReady(dep *appsv1.Deployment) error {
-	for _, c := range dep.Status.Conditions {
-		if c.Type == appsv1.DeploymentProgressing {
-			if c.Status == "True" && c.Reason == "NewReplicaSetAvailable" {
-				return nil
-			}
-			return NotReady(dep.Name, fmt.Sprintf("progressing: %s", c.Message))
+	condition := findDeploymentCondition(dep.Status.Conditions, appsv1.DeploymentProgressing)
+	if condition == nil {
+		return NotReady(dep.Name, "deployment has no Progressing condition yet")
+	} else if condition.Reason == "NewReplicaSetAvailable" {
+		return nil
+	}
+	return NotReady(dep.Name, fmt.Sprintf("progressing: %s", condition.Message))
+}
+
+// findDeploymentCondition returns the condition with the given type, or nil.
+// This mirrors meta.FindStatusCondition but for appsv1.DeploymentCondition.
+func findDeploymentCondition(conditions []appsv1.DeploymentCondition, condType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
+	for i := range conditions {
+		if conditions[i].Type == condType {
+			return &conditions[i]
 		}
 	}
-	return NotReady(dep.Name, "deployment has no Progressing condition yet")
+	return nil
 }
 
 // StatefulSetReady checks whether a StatefulSet has its desired number of ready replicas.
