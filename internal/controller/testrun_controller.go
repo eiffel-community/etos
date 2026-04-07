@@ -643,10 +643,6 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 	if !ok {
 		return nil, errors.New("object received from job manager is not a TestRun")
 	}
-	traceparent, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]
-	if !ok {
-		traceparent = ""
-	}
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -791,12 +787,20 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 									Value: testrun.Spec.ID,
 								},
 								{
-									Name:  "SUITE_SOURCE",
-									Value: testrun.Spec.SuiteSource,
+									Name:  "TRACEPARENT",
+									Value: testrun.Annotations["etos.eiffel-community.github.io/traceparent"],
 								},
 								{
-									Name:  "OTEL_CONTEXT",
-									Value: traceparent,
+									Name:  "BAGGAGE",
+									Value: testrun.Annotations["etos.eiffel-community.github.io/baggage"],
+								},
+								{
+									Name:  "TRACESTATE",
+									Value: testrun.Annotations["etos.eiffel-community.github.io/tracestate"],
+								},
+								{
+									Name:  "SUITE_SOURCE",
+									Value: testrun.Spec.SuiteSource,
 								},
 								{
 									Name:  "KUBEXIT_NAME",
