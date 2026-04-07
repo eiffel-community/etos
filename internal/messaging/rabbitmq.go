@@ -95,12 +95,12 @@ func newRabbitMQStreamPublisher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RabbitMQ password: %w", err)
 	}
-	_type := "amqp"
+	scheme := "amqp"
 	if config.SSL == "true" {
-		_type = "amqps"
+		scheme = "amqps"
 	}
 	address := fmt.Sprintf("%s://%s:%s@%s:%s%s",
-		_type,
+		scheme,
 		config.Username,
 		password,
 		config.Host,
