@@ -6,6 +6,9 @@
 !**/*.go
 **/*_test.go
 
+# Re-include default service versions
+!defaults/*
+
 # Re-include Go module files
 !go.mod
 !go.sum

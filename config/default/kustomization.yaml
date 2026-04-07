@@ -57,67 +57,6 @@ patches:
 # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER' prefix.
 # Uncomment the following replacements to add the cert-manager CA injection annotations
 replacements:
-<<<<<<< HEAD
-# - source: # Uncomment the following block to enable certificates for metrics
-#     kind: Service
-#     version: v1
-#     name: controller-manager-metrics-service
-#     fieldPath: metadata.name
-#   targets:
-#     - select:
-#         kind: Certificate
-#         group: cert-manager.io
-#         version: v1
-#         name: metrics-certs
-#       fieldPaths:
-#         - spec.dnsNames.0
-#         - spec.dnsNames.1
-#       options:
-#         delimiter: '.'
-#         index: 0
-#         create: true
-#     - select: # Uncomment the following to set the Service name for TLS config in Prometheus ServiceMonitor
-#         kind: ServiceMonitor
-#         group: monitoring.coreos.com
-#         version: v1
-#         name: controller-manager-metrics-monitor
-#       fieldPaths:
-#         - spec.endpoints.0.tlsConfig.serverName
-#       options:
-#         delimiter: '.'
-#         index: 0
-#         create: true
-
-# - source:
-#     kind: Service
-#     version: v1
-#     name: controller-manager-metrics-service
-#     fieldPath: metadata.namespace
-#   targets:
-#     - select:
-#         kind: Certificate
-#         group: cert-manager.io
-#         version: v1
-#         name: metrics-certs
-#       fieldPaths:
-#         - spec.dnsNames.0
-#         - spec.dnsNames.1
-#       options:
-#         delimiter: '.'
-#         index: 1
-#         create: true
-#     - select: # Uncomment the following to set the Service namespace for TLS in Prometheus ServiceMonitor
-#         kind: ServiceMonitor
-#         group: monitoring.coreos.com
-#         version: v1
-#         name: controller-manager-metrics-monitor
-#       fieldPaths:
-#         - spec.endpoints.0.tlsConfig.serverName
-#       options:
-#         delimiter: '.'
-#         index: 1
-#         create: true
-=======
  - source: # Uncomment the following block to enable certificates for metrics
      kind: Service
      version: v1
@@ -177,8 +116,6 @@ replacements:
          delimiter: '.'
          index: 1
          create: true
->>>>>>> tmp-original-07-04-26-12-05
-
  - source: # Uncomment the following block if you have any webhook
      kind: Service
      version: v1
@@ -277,10 +214,6 @@ replacements:
          delimiter: '/'
          index: 1
          create: true
-<<<<<<< HEAD
-
-=======
->>>>>>> tmp-original-07-04-26-12-05
  - source: # Uncomment the following block if you have a ConversionWebhook (--conversion)
      kind: Certificate
      group: cert-manager.io
@@ -290,8 +223,15 @@ replacements:
    targets: # Do not remove or uncomment the following scaffold marker; required to generate code for target CRD.
      - select:
          kind: CustomResourceDefinition
-<<<<<<< HEAD
-=======
+         name: testruns.etos.eiffel-community.github.io
+       fieldPaths:
+         - .metadata.annotations.[cert-manager.io/inject-ca-from]
+       options:
+         delimiter: '/'
+         index: 0
+         create: true
+     - select:
+         kind: CustomResourceDefinition
          name: providers.etos.eiffel-community.github.io
        fieldPaths:
          - .metadata.annotations.[cert-manager.io/inject-ca-from]
@@ -301,34 +241,13 @@ replacements:
          create: true
      - select:
          kind: CustomResourceDefinition
->>>>>>> tmp-original-07-04-26-12-05
-         name: testruns.etos.eiffel-community.github.io
+         name: environmentrequests.etos.eiffel-community.github.io
        fieldPaths:
          - .metadata.annotations.[cert-manager.io/inject-ca-from]
        options:
          delimiter: '/'
          index: 0
          create: true
-<<<<<<< HEAD
-#     - select:
-#         kind: CustomResourceDefinition
-#         name: providers.etos.eiffel-community.github.io
-#       fieldPaths:
-#         - .metadata.annotations.[cert-manager.io/inject-ca-from]
-#       options:
-#         delimiter: '/'
-#         index: 0
-#         create: true
-#     - select:
-#         kind: CustomResourceDefinition
-#         name: environmentrequests.etos.eiffel-community.github.io
-#       fieldPaths:
-#         - .metadata.annotations.[cert-manager.io/inject-ca-from]
-#       options:
-#         delimiter: '/'
-#         index: 0
-#         create: true
-=======
      - select:
          kind: CustomResourceDefinition
          name: environmentrequests.etos.eiffel-community.github.io
@@ -338,7 +257,6 @@ replacements:
          delimiter: '/'
          index: 0
          create: true
->>>>>>> tmp-original-07-04-26-12-05
 # +kubebuilder:scaffold:crdkustomizecainjectionns
  - source:
      kind: Certificate
@@ -349,8 +267,15 @@ replacements:
    targets: # Do not remove or uncomment the following scaffold marker; required to generate code for target CRD.
      - select:
          kind: CustomResourceDefinition
-<<<<<<< HEAD
-=======
+         name: testruns.etos.eiffel-community.github.io
+       fieldPaths:
+         - .metadata.annotations.[cert-manager.io/inject-ca-from]
+       options:
+         delimiter: '/'
+         index: 1
+         create: true
+     - select:
+         kind: CustomResourceDefinition
          name: providers.etos.eiffel-community.github.io
        fieldPaths:
          - .metadata.annotations.[cert-manager.io/inject-ca-from]
@@ -360,34 +285,13 @@ replacements:
          create: true
      - select:
          kind: CustomResourceDefinition
->>>>>>> tmp-original-07-04-26-12-05
-         name: testruns.etos.eiffel-community.github.io
+         name: environmentrequests.etos.eiffel-community.github.io
        fieldPaths:
          - .metadata.annotations.[cert-manager.io/inject-ca-from]
        options:
          delimiter: '/'
          index: 1
          create: true
-<<<<<<< HEAD
-#     - select:
-#         kind: CustomResourceDefinition
-#         name: providers.etos.eiffel-community.github.io
-#       fieldPaths:
-#         - .metadata.annotations.[cert-manager.io/inject-ca-from]
-#       options:
-#         delimiter: '/'
-#         index: 1
-#         create: true
-#     - select:
-#         kind: CustomResourceDefinition
-#         name: environmentrequests.etos.eiffel-community.github.io
-#       fieldPaths:
-#         - .metadata.annotations.[cert-manager.io/inject-ca-from]
-#       options:
-#         delimiter: '/'
-#         index: 1
-#         create: true
-=======
      - select:
          kind: CustomResourceDefinition
          name: environmentrequests.etos.eiffel-community.github.io
@@ -397,5 +301,4 @@ replacements:
          delimiter: '/'
          index: 1
          create: true
->>>>>>> tmp-original-07-04-26-12-05
 # +kubebuilder:scaffold:crdkustomizecainjectionname
