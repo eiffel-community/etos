@@ -797,8 +797,8 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 								{
 									Name:  "TRACESTATE",
 									Value: testrun.Annotations["etos.eiffel-community.github.io/tracestate"],
-                },
-                {
+								},
+								{
 									Name:  "SUITE_SOURCE",
 									Value: testrun.Spec.SuiteSource,
 								},
