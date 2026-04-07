@@ -1,0 +1,53 @@
+name: Automatic Rebase
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Setting concurrency to ensure that only one rebase workflow runs at a time.
+concurrency:
+  group: automatic-rebase
+  cancel-in-progress: false
+
+env:
+  LABEL: automated-rebase
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          owner: ${{ github.repository_owner }}
+          repositories: etos
+          app-id: ${{ vars.ETOS_PR_APP_ID }}
+          private-key: ${{ secrets.ETOS_PR_APP_PRIVATE_KEY }}
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository }}
+          token: ${{ steps.generate-token.outputs.token }}
+      - name: Set rebase labels
+        run: python ${GITHUB_WORKSPACE}/scripts/rebase_labels.py check ${{ github.repository }} ${{ env.LABEL }}
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+      - uses: peter-evans/rebase@v4
+        with:
+          base: main
+          token: ${{ steps.generate-token.outputs.token }}
+          # Only include PRs that were automatically created by ETOS
+          include-labels: |
+            ${{ env.LABEL }}
+            automated-pr
+          # Only include PRs created in the eiffel-community organization
+          head: 'eiffel-community:*'
+          # Since we are only targeting PRs created by ETOS, we can safely use the "theirs" strategy to resolve any conflicts that may arise during the rebase.
+          # This means that if there are any conflicts, the changes from the PR will be kept, and the changes from the base branch (main) will be discarded.
+          rebase-options: '-Xtheirs'
+      - name: Cleanup labels
+        if: always()
+        run: python ${GITHUB_WORKSPACE}/scripts/rebase_labels.py cleanup ${{ github.repository }} ${{ env.LABEL }}
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}

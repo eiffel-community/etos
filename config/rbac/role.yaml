@@ -5,6 +5,59 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - '*'
+  resources:
+  - configmaps
+  - deployments
+  - ingresses
+  - rolebindings
+  - roles
+  - secrets
+  - serviceaccounts
+  - services
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - jobs
+  verbs:
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
   - etos.eiffel-community.github.io
   resources:
   - clusters
@@ -14,7 +67,6 @@ rules:
   - iuts
   - logarea
   - providers
-  - testruns
   verbs:
   - create
   - delete
@@ -51,3 +103,22 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - environmentsrequests/status
+  verbs:
+  - get
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
+  - testruns
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch

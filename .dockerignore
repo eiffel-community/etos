@@ -9,3 +9,7 @@
 # Re-include Go module files
 !go.mod
 !go.sum
+# Ignore build and test binaries.
+bin/
+dist/install.yaml
+config

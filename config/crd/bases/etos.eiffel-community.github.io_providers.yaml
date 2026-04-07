@@ -14,7 +14,14 @@ spec:
     singular: provider
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Available")].status
+      name: Available
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Available")].message
+      name: Message
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Provider is the Schema for the providers API
@@ -39,25 +46,549 @@ spec:
           spec:
             description: spec defines the desired state of Provider
             properties:
-              foo:
-                description: foo is an example field of Provider. Edit provider_types.go
-                  to remove/update
+              env:
+                description: Env describes environment variables to be passed to the
+                  provider container.
+                items:
+                  description: EnvVar represents an environment variable present in
+                    a Container.
+                  properties:
+                    name:
+                      description: |-
+                        Name of the environment variable.
+                        May consist of any printable ASCII characters except '='.
+                      type: string
+                    value:
+                      description: |-
+                        Variable references $(VAR_NAME) are expanded
+                        using the previously defined environment variables in the container and
+                        any service environment variables. If a variable cannot be resolved,
+                        the reference in the input string will be unchanged. Double $$ are reduced
+                        to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.
+                        "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)".
+                        Escaped references will never be expanded, regardless of whether the variable
+                        exists or not.
+                        Defaults to "".
+                      type: string
+                    valueFrom:
+                      description: Source for the environment variable's value. Cannot
+                        be used if value is not empty.
+                      properties:
+                        configMapKeyRef:
+                          description: Selects a key of a ConfigMap.
+                          properties:
+                            key:
+                              description: The key to select.
+                              type: string
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                            optional:
+                              description: Specify whether the ConfigMap or its key
+                                must be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        fieldRef:
+                          description: |-
+                            Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
+                            spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
+                          properties:
+                            apiVersion:
+                              description: Version of the schema the FieldPath is
+                                written in terms of, defaults to "v1".
+                              type: string
+                            fieldPath:
+                              description: Path of the field to select in the specified
+                                API version.
+                              type: string
+                          required:
+                          - fieldPath
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        fileKeyRef:
+                          description: |-
+                            FileKeyRef selects a key of the env file.
+                            Requires the EnvFiles feature gate to be enabled.
+                          properties:
+                            key:
+                              description: |-
+                                The key within the env file. An invalid key will prevent the pod from starting.
+                                The keys defined within a source may consist of any printable ASCII characters except '='.
+                                During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                              type: string
+                            optional:
+                              default: false
+                              description: |-
+                                Specify whether the file or its key must be defined. If the file or key
+                                does not exist, then the env var is not published.
+                                If optional is set to true and the specified key does not exist,
+                                the environment variable will not be set in the Pod's containers.
+
+                                If optional is set to false and the specified key does not exist,
+                                an error will be returned during Pod creation.
+                              type: boolean
+                            path:
+                              description: |-
+                                The path within the volume from which to select the file.
+                                Must be relative and may not contain the '..' path or start with '..'.
+                              type: string
+                            volumeName:
+                              description: The name of the volume mount containing
+                                the env file.
+                              type: string
+                          required:
+                          - key
+                          - path
+                          - volumeName
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        resourceFieldRef:
+                          description: |-
+                            Selects a resource of the container: only resources limits and requests
+                            (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
+                          properties:
+                            containerName:
+                              description: 'Container name: required for volumes,
+                                optional for env vars'
+                              type: string
+                            divisor:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: Specifies the output format of the exposed
+                                resources, defaults to "1"
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            resource:
+                              description: 'Required: resource to select'
+                              type: string
+                          required:
+                          - resource
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        secretKeyRef:
+                          description: Selects a key of a secret in the pod's namespace
+                          properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                            optional:
+                              description: Specify whether the Secret or its key must
+                                be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                  required:
+                  - name
+                  type: object
+                type: array
+              envFrom:
+                description: EnvFrom describes environment variables to be passed
+                  to the provider container.
+                items:
+                  description: EnvFromSource represents the source of a set of ConfigMaps
+                    or Secrets
+                  properties:
+                    configMapRef:
+                      description: The ConfigMap to select from
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                        optional:
+                          description: Specify whether the ConfigMap must be defined
+                          type: boolean
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    prefix:
+                      description: |-
+                        Optional text to prepend to the name of each environment variable.
+                        May consist of any printable ASCII characters except '='.
+                      type: string
+                    secretRef:
+                      description: The Secret to select from
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                        optional:
+                          description: Specify whether the Secret must be defined
+                          type: boolean
+                      type: object
+                      x-kubernetes-map-type: atomic
+                  type: object
+                type: array
+              executionSpaceProviderConfig:
+                description: ExecutionSpaceProviderConfig describe the configuration
+                  for an execution space provider.
+                properties:
+                  ETR_BRANCH:
+                    description: |-
+                      ETRBranch describes a git branch to use when running the ETR in dev mode.
+                      Can be used in conjunction with ETRRepository to test a fork, otherwise the
+                      ETRRepository defaults to github.com/eiffel-community/etos.
+                    type: string
+                  ETR_REPOSITORY:
+                    description: |-
+                      ETRRepository describes the git repository to fetch an ETR from when running in
+                      dev mode. Defaults to github.com/eiffel-community/etos
+                    type: string
+                  custom:
+                    description: |-
+                      The configuration of a provider is very implementation-specific and we cannot give
+                      a perfectly generic configuration for all cases. The following field allows any
+                      data-structure to be added to this configuration and it is expected that providers
+                      can handle the data they require themselves.
+                    x-kubernetes-preserve-unknown-fields: true
+                  dev:
+                    default: "false"
+                    description: |-
+                      Dev describes whether or not this provider should run the ETR in dev mode.
+                      While using dev mode the ETR can be installed from github using ETRBranch and ETRRepository.
+                    type: string
+                type: object
+              healthCheck:
+                default: {}
+                description: |-
+                  Healthcheck defines the health check endpoint and interval for providers.
+                  The defaults of this should work most of the time.
+                properties:
+                  endpoint:
+                    default: /v1alpha1/selftest/ping
+                    type: string
+                  intervalSeconds:
+                    default: 30
+                    type: integer
+                type: object
+              host:
                 type: string
+              image:
+                description: Image describes the docker image to run when providing
+                  a resource.
+                type: string
+              iutProviderConfig:
+                description: IutProviderConfig describe the configuration for an IUT
+                  provider.
+                properties:
+                  custom:
+                    description: |-
+                      The configuration of a provider is very implementation-specific and we cannot give
+                      a perfectly generic configuration for all cases. The following field allows any
+                      data-structure to be added to this configuration and it is expected that providers
+                      can handle the data they require themselves.
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              jsontas:
+                description: |-
+                  These are pointers so that they become nil in the Provider object in Kubernetes
+                  and don't muddle up the yaml with empty data.
+                properties:
+                  execution_space:
+                    description: JSONTasExecutionSpace is the execution space provider
+                      definition for the JSONTas provider
+                    properties:
+                      checkin:
+                        x-kubernetes-preserve-unknown-fields: true
+                      checkout:
+                        x-kubernetes-preserve-unknown-fields: true
+                      id:
+                        type: string
+                      list:
+                        description: JSONTasList is the List command in the JSONTas
+                          provider.
+                        properties:
+                          available:
+                            x-kubernetes-preserve-unknown-fields: true
+                          possible:
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - available
+                        - possible
+                        type: object
+                    required:
+                    - id
+                    - list
+                    type: object
+                  image:
+                    type: string
+                  iut:
+                    description: |-
+                      These are pointers so that they become nil in the Provider object in Kubernetes
+                      and don't muddle up the yaml with empty data.
+                    properties:
+                      checkin:
+                        x-kubernetes-preserve-unknown-fields: true
+                      checkout:
+                        x-kubernetes-preserve-unknown-fields: true
+                      id:
+                        type: string
+                      list:
+                        description: JSONTasList is the List command in the JSONTas
+                          provider.
+                        properties:
+                          available:
+                            x-kubernetes-preserve-unknown-fields: true
+                          possible:
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - available
+                        - possible
+                        type: object
+                      prepare:
+                        description: JSONTasIUTPrepare defines the preparation required
+                          for an IUT.
+                        properties:
+                          stages:
+                            description: JSONTasIUTPrepareStages defines the preparation
+                              stages required for an IUT.
+                            properties:
+                              environment_provider:
+                                description: Underscore used in these due to backwards
+                                  compatibility
+                                properties:
+                                  steps:
+                                    default: {}
+                                    x-kubernetes-preserve-unknown-fields: true
+                                type: object
+                              suite_runner:
+                                description: Stage is the definition of a stage where
+                                  to execute steps.
+                                properties:
+                                  steps:
+                                    default: {}
+                                    x-kubernetes-preserve-unknown-fields: true
+                                type: object
+                              test_runner:
+                                description: Stage is the definition of a stage where
+                                  to execute steps.
+                                properties:
+                                  steps:
+                                    default: {}
+                                    x-kubernetes-preserve-unknown-fields: true
+                                type: object
+                            required:
+                            - environment_provider
+                            - suite_runner
+                            - test_runner
+                            type: object
+                        required:
+                        - stages
+                        type: object
+                    required:
+                    - id
+                    - list
+                    type: object
+                  log:
+                    description: JSONTasLogArea is the log area provider definition
+                      for the JSONTas provider
+                    properties:
+                      checkin:
+                        x-kubernetes-preserve-unknown-fields: true
+                      checkout:
+                        x-kubernetes-preserve-unknown-fields: true
+                      id:
+                        type: string
+                      list:
+                        description: JSONTasList is the List command in the JSONTas
+                          provider.
+                        properties:
+                          available:
+                            x-kubernetes-preserve-unknown-fields: true
+                          possible:
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - available
+                        - possible
+                        type: object
+                    required:
+                    - id
+                    - list
+                    type: object
+                type: object
+              jsontasSource:
+                description: VarSource describes a value from either a secretmap or
+                  configmap.
+                properties:
+                  configMapKeyRef:
+                    description: ConfigMapKeyRef describes a value from a configmap.
+                      Cannot be set if SecretKeyRef is set.
+                    properties:
+                      key:
+                        description: The key to select.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the ConfigMap or its key must
+                          be defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  secretKeyRef:
+                    description: SecretKeyRef describes a value from a secret. Cannot
+                      be set if ConfigMapKeyRef is set.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+              logAreaProviderConfig:
+                description: LogAreaProviderConfig describes the configuration for
+                  a log area provider.
+                properties:
+                  livelogs:
+                    description: LiveLogs is a URI to where live logs of an execution
+                      can be found.
+                    format: uri
+                    type: string
+                  upload:
+                    description: Upload defines the log upload instructions for the
+                      ETR.
+                    properties:
+                      as_json:
+                        description: AsJSON tells a client that the payload should
+                          be posted as JSON.
+                        type: boolean
+                      auth:
+                        description: Auth defines authorization instructions for a
+                          request.
+                        properties:
+                          password:
+                            description: Password defines an encrypted password to
+                              use when authenticating
+                            properties:
+                              $decrypt:
+                                description: Decrypt defines a JsonTas style json
+                                  for decrypting a value
+                                properties:
+                                  value:
+                                    description: Value defines an encrypted string
+                                      to decrypt
+                                    type: string
+                                required:
+                                - value
+                                type: object
+                            required:
+                            - $decrypt
+                            type: object
+                          type:
+                            description: AuthType defines the type of authentication
+                              to do.
+                            enum:
+                            - basic
+                            - digest
+                            type: string
+                          username:
+                            description: Username defines the username to use when
+                              authenticating
+                            type: string
+                        type: object
+                      headers:
+                        additionalProperties:
+                          type: string
+                        description: Headers define optional headers to send with
+                          the payload
+                        type: object
+                      method:
+                        description: Method defines the HTTP method for an upload.
+                        enum:
+                        - GET
+                        - POST
+                        - PUT
+                        type: string
+                      params:
+                        additionalProperties:
+                          type: string
+                        description: Params define optional parameters to send with
+                          the payload
+                        type: object
+                      url:
+                        description: URL defines the HTTP(s) URL to send payload to.
+                        format: uri
+                        type: string
+                    required:
+                    - as_json
+                    - method
+                    - url
+                    type: object
+                required:
+                - livelogs
+                - upload
+                type: object
+              type:
+                enum:
+                - execution-space
+                - iut
+                - log-area
+                type: string
+            required:
+            - type
             type: object
           status:
             description: status defines the observed state of Provider
             properties:
               conditions:
-                description: |-
-                  conditions represent the current state of the Provider resource.
-                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
-
-                  Standard condition types include:
-                  - "Available": the resource is fully functional
-                  - "Progressing": the resource is being created or updated
-                  - "Degraded": the resource failed to reach or maintain its desired state
-
-                  The status of each condition is one of True, False, or Unknown.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -113,9 +644,9 @@ spec:
                   - type
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - type
-                x-kubernetes-list-type: map
+              lastHealthCheckTime:
+                format: date-time
+                type: string
             type: object
         required:
         - spec

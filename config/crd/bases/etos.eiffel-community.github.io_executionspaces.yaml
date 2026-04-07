@@ -14,7 +14,26 @@ spec:
     singular: executionspace
   scope: Namespaced
   versions:
-  - name: v1alpha2
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Active")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].message
+      name: Description
+      type: string
+    - jsonPath: .spec.provider_id
+      name: Provider
+      type: string
+    - jsonPath: .metadata.ownerReferences[?(@.kind=="Environment")].name
+      name: Environment
+      type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/id
+      name: TestRun
+      type: string
+    name: v1alpha2
     schema:
       openAPIV3Schema:
         description: ExecutionSpace is the Schema for the executionspaces API
@@ -39,14 +58,83 @@ spec:
           spec:
             description: spec defines the desired state of ExecutionSpace
             properties:
-              foo:
-                description: foo is an example field of ExecutionSpace. Edit executionspace_types.go
-                  to remove/update
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the ExecutionSpace shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
+              environmentRequest:
+                description: EnvironmentRequest is the ID of the environmentrequest
+                  which requested this execution space.
                 type: string
+              id:
+                description: ID is the ID for the ExecutionSpace. The ID is a UUID,
+                  any version, and regex matches that.
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+                type: string
+              instructions:
+                description: Instructions are the instructions for launching a TestRunner.
+                properties:
+                  environment:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  identifier:
+                    pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+                    type: string
+                  image:
+                    type: string
+                  parameters:
+                    additionalProperties:
+                      type: string
+                    type: object
+                required:
+                - environment
+                - identifier
+                - image
+                - parameters
+                type: object
+              provider_id:
+                description: ProviderID is the name of the Provider used to create
+                  this ExecutionSpace.
+                type: string
+              request:
+                description: Only used in ETOS v0. Request describes how to start
+                  up an execution space.
+                properties:
+                  headers:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  json:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  method:
+                    type: string
+                  timeout:
+                    type: integer
+                  url:
+                    type: string
+                type: object
+              test_runner:
+                description: TestRunner describes the test runner that is launched
+                  in this execution space.
+                type: string
+            required:
+            - environmentRequest
+            - id
+            - instructions
+            - provider_id
+            - test_runner
             type: object
           status:
             description: status defines the observed state of ExecutionSpace
             properties:
+              completionTime:
+                format: date-time
+                type: string
               conditions:
                 description: |-
                   conditions represent the current state of the ExecutionSpace resource.

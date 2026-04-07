@@ -1,31 +1,51 @@
-/*
-Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright Axis Communications AB.
+//
+// For a full list of individual contributors, please see the commit history.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package controller
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"time"
 
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/controller/jobs"
+	"github.com/eiffel-community/etos/internal/controller/status"
 )
+
+const environmentRequestKind = "EnvironmentRequest"
 
 // EnvironmentRequestReconciler reconciles a EnvironmentRequest object
 type EnvironmentRequestReconciler struct {
@@ -36,28 +56,665 @@ type EnvironmentRequestReconciler struct {
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests/finalizers,verbs=update
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers,verbs=get;watch
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers/status,verbs=get
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
+// +kubebuilder:rbac:groups=*,resources=pods,verbs=get;list
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the EnvironmentRequest object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 
-	// TODO(user): your logic here
-
+	// Get environment if exists.
+	environmentrequest := &etosv1alpha1.EnvironmentRequest{}
+	err := r.Get(ctx, req.NamespacedName, environmentrequest)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("environmentrequest not found. ignoring object")
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "failed to get environmentrequest")
+		return ctrl.Result{}, err
+	}
+	if environmentrequest.DeletionTimestamp.IsZero() {
+		// Add a finalizer if there is none, the finalizer will stop the Kubernetes garbage collector
+		// from removing the EnvironmentRequest until the finalizer is removed. Removal of the finalizer
+		// is done below, if DeletionTimestamp is set and all Environments related to this EnvironmentRequest
+		// are removed.
+		if !controllerutil.ContainsFinalizer(environmentrequest, releaseFinalizer) {
+			controllerutil.AddFinalizer(environmentrequest, releaseFinalizer)
+			if err := r.Update(ctx, environmentrequest); err != nil {
+				if apierrors.IsConflict(err) {
+					return ctrl.Result{Requeue: true}, nil
+				}
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
+	} else if controllerutil.ContainsFinalizer(environmentrequest, releaseFinalizer) {
+		// Environmentrequest is under deletion. Wait for environments to get deleted before finalizing.
+		return r.reconcileDeletion(ctx, environmentrequest)
+	}
+	if environmentrequest.Status.CompletionTime != nil {
+		// Delete job after the environment request has completed.
+		jobManager := jobs.NewJob(r.Client, EnvironmentRequestOwnerKey, environmentrequest.GetName(), environmentrequest.GetNamespace())
+		_ = jobManager.Delete(ctx)
+		return ctrl.Result{}, nil
+	}
+	if err := r.reconcile(ctx, environmentrequest); err != nil {
+		if apierrors.IsConflict(err) {
+			logger.Error(err, "Reconciliation conflict, requeuing")
+			return ctrl.Result{Requeue: true}, nil
+		}
+		logger.Error(err, "Reconciliation failed")
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
+}
+
+func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
+	logger := logf.FromContext(ctx)
+	// Set initial statuses if not set.
+	if ready := meta.FindStatusCondition(environmentrequest.Status.Conditions, status.StatusReady); ready == nil {
+		meta.SetStatusCondition(&environmentrequest.Status.Conditions,
+			metav1.Condition{
+				Type:    status.StatusReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonPending,
+				Message: "Reconciliation started",
+			})
+		return r.Status().Update(ctx, environmentrequest)
+	} else if ready.Reason == status.ReasonFailed {
+		logger.Info("Environment request has failed, reconciliation canceled")
+		return nil
+	}
+
+	// Check providers availability
+	providers := etosv1alpha1.Providers{
+		IUT:            environmentrequest.Spec.Providers.IUT.ID,
+		ExecutionSpace: environmentrequest.Spec.Providers.ExecutionSpace.ID,
+		LogArea:        environmentrequest.Spec.Providers.LogArea.ID,
+	}
+	if err := checkProviders(ctx, r, environmentrequest.Namespace, providers); err != nil {
+		meta.SetStatusCondition(&environmentrequest.Status.Conditions,
+			metav1.Condition{
+				Type:    status.StatusReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonFailed,
+				Message: fmt.Sprintf("Provider check failed: %s", err.Error()),
+			})
+		return r.Status().Update(ctx, environmentrequest)
+	}
+
+	if err := r.reconcileEnvironmentProvider(ctx, environmentrequest); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// reconcileEnvironmentProvider will check the status of environment providers, create new ones if necessary.
+func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
+	logger := logf.FromContext(ctx)
+	conditions := &environmentrequest.Status.Conditions
+	jobManager := jobs.NewJob(r.Client, EnvironmentRequestOwnerKey, environmentrequest.GetName(), environmentrequest.GetNamespace())
+	jobStatus, err := jobManager.Status(ctx)
+	if err != nil {
+		logger.Error(err, "error getting job status")
+		return err
+	}
+	switch jobStatus {
+	case jobs.StatusFailed:
+		result := jobManager.Result(ctx, environmentrequest.Name)
+		if meta.SetStatusCondition(conditions,
+			metav1.Condition{
+				Type:    status.StatusReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonFailed,
+				Message: result.Description,
+			}) {
+			environmentRequestCondition := meta.FindStatusCondition(environmentrequest.Status.Conditions, status.StatusReady)
+			environmentrequest.Status.CompletionTime = &environmentRequestCondition.LastTransitionTime
+			return r.Status().Update(ctx, environmentrequest)
+		}
+	case jobs.StatusSuccessful:
+		result := jobManager.Result(ctx, environmentrequest.Name)
+		var condition metav1.Condition
+		if result.Conclusion == jobs.ConclusionFailed {
+			condition = metav1.Condition{
+				Type:    status.StatusReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonFailed,
+				Message: result.Description,
+			}
+		} else {
+			condition = metav1.Condition{
+				Type:    status.StatusReady,
+				Status:  metav1.ConditionTrue,
+				Reason:  status.ReasonCompleted,
+				Message: result.Description,
+			}
+		}
+		if meta.SetStatusCondition(conditions, condition) {
+			environmentRequestCondition := meta.FindStatusCondition(environmentrequest.Status.Conditions, status.StatusReady)
+			environmentrequest.Status.CompletionTime = &environmentRequestCondition.LastTransitionTime
+			// Update status only; job deletion is deferred to the next reconcile.
+			return r.Status().Update(ctx, environmentrequest)
+		}
+	case jobs.StatusActive:
+		if meta.SetStatusCondition(conditions,
+			metav1.Condition{
+				Type:    status.StatusReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonActive,
+				Message: "Environment provider is running",
+			}) {
+			return r.Status().Update(ctx, environmentrequest)
+		}
+	default:
+		if !environmentrequest.GetDeletionTimestamp().IsZero() {
+			return nil
+		}
+		// Already created a Job; the cache has not caught up yet.
+		if isStatusReason(*conditions, status.StatusReady, status.ReasonStarting) {
+			logger.Info("Environment provider job already created, requeuing")
+			return nil
+		}
+		if err := jobManager.Create(ctx, environmentrequest, r.environmentProviderJob); err != nil {
+			logger.Error(err, "Failed to create environment provider job")
+			// When we create a job the job gets a unique name. If there's an error for that unique name the error
+			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
+			// causing a nasty reconciliation loop (when the environment request gets updated a new reconciliation starts).
+			// We mitigate this by checking that StatusReason is not already Failed.
+			if !isStatusReason(*conditions, status.StatusReady, status.ReasonFailed) && meta.SetStatusCondition(conditions,
+				metav1.Condition{
+					Type:    status.StatusReady,
+					Status:  metav1.ConditionFalse,
+					Reason:  status.ReasonFailed,
+					Message: err.Error(),
+				}) {
+				return r.Status().Update(ctx, environmentrequest)
+			}
+			return err
+		}
+		// Mark as Starting to prevent duplicate Job creation on requeue.
+		if meta.SetStatusCondition(conditions,
+			metav1.Condition{
+				Type:    status.StatusReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonStarting,
+				Message: "Environment provider job created",
+			}) {
+			return r.Status().Update(ctx, environmentrequest)
+		}
+	}
+	return nil
+}
+
+// envVarListFrom creates a list of EnvVar key-value pairs from an EnvironmentRequest instance
+func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest, cluster *etosv1alpha1.Cluster) ([]corev1.EnvVar, error) {
+	etosEncryptionKey, err := environmentrequest.Spec.Config.EncryptionKey.Get(ctx, r.Client, environmentrequest.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	etosRabbitMQPassword, err := environmentrequest.Spec.Config.EtosMessageBus.Password.Get(ctx, r.Client, environmentrequest.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	eiffelRabbitMQPassword, err := environmentrequest.Spec.Config.EiffelMessageBus.Password.Get(ctx, r.Client, environmentrequest.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	envList := []corev1.EnvVar{
+		{
+			Name:  "REQUEST",
+			Value: environmentrequest.Name,
+		},
+		{
+			Name:  "ETOS_API",
+			Value: environmentrequest.Spec.Config.EtosApi,
+		},
+		{
+			Name:  "ETOS_GRAPHQL_SERVER",
+			Value: environmentrequest.Spec.Config.GraphQlServer,
+		},
+		{
+			Name:  "ETOS_ENCRYPTION_KEY",
+			Value: string(etosEncryptionKey),
+		},
+		{
+			Name:  "ETOS_ETCD_HOST",
+			Value: environmentrequest.Spec.Config.EtcdHost,
+		},
+		{
+			Name:  "ETOS_ETCD_PORT",
+			Value: environmentrequest.Spec.Config.EtcdPort,
+		},
+		{
+			Name:  "ETOS_EVENT_DATA_TIMEOUT",
+			Value: environmentrequest.Spec.Config.EnvironmentProviderEventDataTimeout,
+		},
+		// Duplicate wait timeout variables will be possible to remove when this issue is solved: https://github.com/eiffel-community/etos/issues/304
+		{
+			Name:  "ETOS_WAIT_FOR_IUT_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "ENVIRONMENT_PROVIDER_WAIT_FOR_IUT_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "ETOS_WAIT_FOR_EXECUTION_SPACE_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "ENVIRONMENT_PROVIDER_WAIT_FOR_EXECUTION_SPACE_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "ETOS_WAIT_FOR_LOG_AREA_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "ENVIRONMENT_PROVIDER_WAIT_FOR_LOG_AREA_TIMEOUT",
+			Value: environmentrequest.Spec.Config.WaitForTimeout,
+		},
+		{
+			Name:  "TEST_SUITE_TIMEOUT",
+			Value: environmentrequest.Spec.Config.EnvironmentProviderTestSuiteTimeout,
+		},
+		{
+			// Optional when environmentrequest is not issued by testrun, i. e. created separately.
+			// When the environment request is issued by a testrun, this variable is propagated
+			// further from environment provider to test runner.
+			Name:  "ETR_VERSION",
+			Value: environmentrequest.Spec.Config.TestRunnerVersion,
+		},
+
+		// Eiffel Message Bus variables
+		{
+			Name:  "RABBITMQ_HOST",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Host,
+		},
+		{
+			Name:  "RABBITMQ_VHOST",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Vhost,
+		},
+		{
+			Name:  "RABBITMQ_PORT",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Port,
+		},
+		{
+			Name:  "RABBITMQ_SSL",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.SSL,
+		},
+		{
+			Name:  "RABBITMQ_EXCHANGE",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Exchange,
+		},
+		{
+			Name:  "RABBITMQ_USERNAME",
+			Value: environmentrequest.Spec.Config.EiffelMessageBus.Username,
+		},
+		{
+			Name:  "RABBITMQ_PASSWORD",
+			Value: string(eiffelRabbitMQPassword),
+		},
+		{
+			Name:  "RABBITMQ_ROUTING_KEY",
+			Value: environmentrequest.Spec.Config.RoutingKeyTag,
+		},
+
+		// ETOS Message Bus variables
+		{
+			Name:  "ETOS_RABBITMQ_HOST",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Host,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_VHOST",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Vhost,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_PORT",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Port,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_SSL",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.SSL,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_EXCHANGE",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Exchange,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_USERNAME",
+			Value: environmentrequest.Spec.Config.EtosMessageBus.Username,
+		},
+		{
+			Name:  "ETOS_RABBITMQ_PASSWORD",
+			Value: string(etosRabbitMQPassword),
+		},
+		{
+			Name:  "ETOS_ROUTING_KEY_TAG",
+			Value: environmentrequest.Spec.Config.RoutingKeyTag,
+		},
+		{
+			Name:  "TRACEPARENT",
+			Value: environmentrequest.Annotations["etos.eiffel-community.github.io/traceparent"],
+		},
+		{
+			Name:  "BAGGAGE",
+			Value: environmentrequest.Annotations["etos.eiffel-community.github.io/baggage"],
+		},
+		{
+			Name:  "TRACESTATE",
+			Value: environmentrequest.Annotations["etos.eiffel-community.github.io/tracestate"],
+		},
+	}
+	if cluster != nil && cluster.Spec.OpenTelemetry.Enabled {
+		envList = append(envList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
+			Value: cluster.Spec.OpenTelemetry.Endpoint,
+		})
+		envList = append(envList, corev1.EnvVar{
+			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
+			Value: cluster.Spec.OpenTelemetry.Insecure,
+		})
+	}
+	return envList, nil
+}
+
+// reconcileDeletion checks for active environments and deletes them, causing them to clean up, and then, when all environments
+// are deleted, this function will remove the finalizer on the environmentrequest and the environmentrequest will be removed.
+func (r EnvironmentRequestReconciler) reconcileDeletion(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) (ctrl.Result, error) {
+	logger := logf.FromContext(ctx)
+
+	statusReady := meta.FindStatusCondition(environmentrequest.Status.Conditions, status.StatusReady)
+	if statusReady == nil {
+		statusReady = &metav1.Condition{Type: status.StatusReady, Status: metav1.ConditionFalse, Reason: "Unknown"}
+	}
+	if !isStatusReason(environmentrequest.Status.Conditions, status.StatusReady, status.ReasonFailed) && meta.SetStatusCondition(&environmentrequest.Status.Conditions,
+		metav1.Condition{
+			Type:    statusReady.Type,
+			Status:  statusReady.Status,
+			Reason:  statusReady.Reason,
+			Message: "Releasing environment",
+		}) {
+		if err := r.Status().Update(ctx, environmentrequest); err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
+		}
+	}
+
+	var allErr error
+	environments, err := r.deleteEnvironments(ctx, *environmentrequest)
+	allErr = errors.Join(allErr, err)
+
+	if allErr != nil {
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if (environments) != 0 {
+		logger.Info("Waiting for Environments to get deleted", "environments", environments)
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	if controllerutil.RemoveFinalizer(environmentrequest, releaseFinalizer) {
+		if err := r.Update(ctx, environmentrequest); err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+// deleteEnvironments deletes a list of environments.
+func (r EnvironmentRequestReconciler) deleteEnvironments(ctx context.Context, environmentrequest etosv1alpha1.EnvironmentRequest) (int, error) {
+	logger := logf.FromContext(ctx)
+	var environments etosv1alpha1.EnvironmentList
+	if err := r.List(ctx, &environments, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier}); err != nil {
+		logger.Error(err, fmt.Sprintf("could not list environments for environmentrequest %s", environmentrequest.Name))
+		return -1, err
+	}
+	var err error
+	var allErr error
+	for _, environment := range environments.Items {
+		if environment.DeletionTimestamp.IsZero() {
+			if err = r.Delete(ctx, &environment); err != nil {
+				if !apierrors.IsNotFound(err) {
+					logger.Error(err, "failed to delete environment", "environment", environment)
+					allErr = errors.Join(allErr, err)
+				}
+			}
+		}
+	}
+	return len(environments.Items), allErr
+}
+
+// environmentProviderJob is the job definition for an etos environment provider.
+func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context, obj client.Object) (*batchv1.Job, error) {
+	logger := logf.FromContext(ctx)
+	grace := int64(30)
+	backoff := int32(0)
+
+	environmentrequest, ok := obj.(*etosv1alpha1.EnvironmentRequest)
+	if !ok {
+		return nil, errors.New("object received from job manager is not an EnvironmentRequest")
+	}
+	labels := map[string]string{
+		"app.kubernetes.io/name":    "environment-provider",
+		"app.kubernetes.io/part-of": "etos",
+	}
+	// The Identifier spec field has 'omitempty', which means it can be an empty string.
+	if environmentrequest.Spec.Identifier != "" {
+		labels["etos.eiffel-community.github.io/id"] = environmentrequest.Spec.Identifier
+	}
+
+	var cluster *etosv1alpha1.Cluster
+	if clusterName := environmentrequest.Labels["etos.eiffel-community.github.io/cluster"]; clusterName != "" {
+		labels["etos.eiffel-community.github.io/cluster"] = clusterName
+		clusterNamespacedName := types.NamespacedName{
+			Name:      clusterName,
+			Namespace: environmentrequest.Namespace,
+		}
+		cluster = &etosv1alpha1.Cluster{}
+		if err := r.Get(ctx, clusterNamespacedName, cluster); err != nil {
+			logger.Info("Failed to get cluster resource!")
+			return nil, err
+		}
+	}
+
+	envVarList, err := r.envVarListFrom(ctx, environmentrequest, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to create environment variable list for environment provider")
+		return nil, err
+	}
+
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:       labels,
+			Annotations:  make(map[string]string),
+			GenerateName: "environment-provider-", // unique names to allow multiple environment provider jobs
+			Namespace:    environmentrequest.Namespace,
+		},
+		Spec: batchv1.JobSpec{
+			BackoffLimit: &backoff,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   environmentrequest.Name,
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName:            environmentrequest.Spec.ServiceAccountName,
+					TerminationGracePeriodSeconds: &grace,
+					RestartPolicy:                 "Never",
+					Containers: []corev1.Container{
+						{
+							Name:            environmentrequest.Name,
+							Image:           environmentrequest.Spec.Image.Image,
+							ImagePullPolicy: environmentrequest.Spec.ImagePullPolicy,
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("256Mi"),
+									corev1.ResourceCPU:    resource.MustParse("250m"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("128Mi"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+								},
+							},
+							Env: envVarList,
+						},
+					},
+				},
+			},
+		},
+	}
+	return job, ctrl.SetControllerReference(environmentrequest, job, r.Scheme)
+}
+
+// registerOwnerIndexForJob will set an index of the jobs that an environment request owns.
+func (r *EnvironmentRequestReconciler) registerOwnerIndexForJob(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &batchv1.Job{}, EnvironmentRequestOwnerKey, func(rawObj client.Object) []string {
+		job := rawObj.(*batchv1.Job)
+		owner := metav1.GetControllerOf(job)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != environmentRequestKind {
+			return nil
+		}
+
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// registerOwnerIndexForEnvironment will set an index of the environments that an environment request owns.
+func (r *EnvironmentRequestReconciler) registerOwnerIndexForEnvironment(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.Environment{}, EnvironmentRequestOwnerKey, func(rawObj client.Object) []string {
+		environment := rawObj.(*etosv1alpha1.Environment)
+		owner := metav1.GetControllerOf(environment)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != APIGroupVersionString || owner.Kind != environmentRequestKind {
+			return nil
+		}
+
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// findEnvironmentRequestsForIUTProvider will return reconciliation requests for each Provider object that an environment request has stored
+// in its spec as IUT. This will cause reconciliations whenever a Provider gets updated, created, deleted etc.
+func (r *EnvironmentRequestReconciler) findEnvironmentRequestsForIUTProvider(ctx context.Context, provider client.Object) []reconcile.Request {
+	return r.findEnvironmentRequestsForObject(ctx, iutProvider, provider)
+}
+
+// findEnvironmentRequestsForIUTProvider will return reconciliation requests for each Provider object that an environment request has stored
+// in its spec as execution space. This will cause reconciliations whenever a Provider gets updated, created, deleted etc.
+func (r *EnvironmentRequestReconciler) findEnvironmentRequestsForExecutionSpaceProvider(ctx context.Context, provider client.Object) []reconcile.Request {
+	return r.findEnvironmentRequestsForObject(ctx, executionSpaceProvider, provider)
+}
+
+// findEnvironmentRequestsForIUTProvider will return reconciliation requests for each Provider object that an environment request has stored
+// in its spec as log area. This will cause reconciliations whenever a Provider gets updated, created, deleted etc.
+func (r *EnvironmentRequestReconciler) findEnvironmentRequestsForLogAreaProvider(ctx context.Context, provider client.Object) []reconcile.Request {
+	return r.findEnvironmentRequestsForObject(ctx, logAreaProvider, provider)
+}
+
+// findEnvironmentRequestsForTestrun will return reconciliation requests for each testrun object that an environment request has stored
+// in its spec.
+func (r *EnvironmentRequestReconciler) FindEnvironmentRequestsForTestrun(ctx context.Context, testrun client.Object) []reconcile.Request {
+	return r.findEnvironmentRequestsForObject(ctx, ".spec.testrun", testrun)
+}
+
+// findEnvironmentRequestsForObject will find environment requests for a kubernetes object.
+func (r *EnvironmentRequestReconciler) findEnvironmentRequestsForObject(ctx context.Context, name string, obj client.Object) []reconcile.Request {
+	environmentRequestList := &etosv1alpha1.EnvironmentRequestList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(name, obj.GetName()),
+		Namespace:     obj.GetNamespace(),
+	}
+	err := r.List(ctx, environmentRequestList, listOps)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	requests := make([]reconcile.Request, len(environmentRequestList.Items))
+	for i, item := range environmentRequestList.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			},
+		}
+	}
+	return requests
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *EnvironmentRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Register indexes for faster lookups
+	if err := r.registerOwnerIndexForJob(mgr); err != nil {
+		return err
+	}
+	if err := r.registerOwnerIndexForEnvironment(mgr); err != nil {
+		return err
+	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.EnvironmentRequest{}, iutProvider, func(rawObj client.Object) []string {
+		environmentRequest := rawObj.(*etosv1alpha1.EnvironmentRequest)
+		return []string{environmentRequest.Spec.Providers.IUT.ID}
+	}); err != nil {
+		return err
+	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.EnvironmentRequest{}, logAreaProvider, func(rawObj client.Object) []string {
+		environmentRequest := rawObj.(*etosv1alpha1.EnvironmentRequest)
+		return []string{environmentRequest.Spec.Providers.LogArea.ID}
+	}); err != nil {
+		return err
+	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.EnvironmentRequest{}, executionSpaceProvider, func(rawObj client.Object) []string {
+		environmentRequest := rawObj.(*etosv1alpha1.EnvironmentRequest)
+		return []string{environmentRequest.Spec.Providers.ExecutionSpace.ID}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&etosv1alpha1.EnvironmentRequest{}).
 		Named("environmentrequest").
+		Owns(&batchv1.Job{}).
+		Owns(&etosv1alpha1.Environment{}).
+		Watches(
+			&etosv1alpha1.Provider{},
+			handler.TypedEnqueueRequestsFromMapFunc(r.findEnvironmentRequestsForIUTProvider),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
+		Watches(
+			&etosv1alpha1.Provider{},
+			handler.TypedEnqueueRequestsFromMapFunc(r.findEnvironmentRequestsForLogAreaProvider),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
+		Watches(
+			&etosv1alpha1.Provider{},
+			handler.TypedEnqueueRequestsFromMapFunc(r.findEnvironmentRequestsForExecutionSpaceProvider),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
 }

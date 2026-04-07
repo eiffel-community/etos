@@ -1,21 +1,18 @@
-//go:build e2e
-// +build e2e
-
-/*
-Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright Axis Communications AB.
+//
+// For a full list of individual contributors, please see the commit history.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package e2e
 
@@ -36,6 +33,8 @@ var (
 	managerImage = "example.com/etos:v0.0.1"
 	// shouldCleanupCertManager tracks whether CertManager was installed by this suite.
 	shouldCleanupCertManager = false
+	// shouldCleanupPrometheus tracks whether Prometheus was installed by this suite.
+	shouldCleanupPrometheus = false
 )
 
 // TestE2E runs the e2e test suite to validate the solution in an isolated environment.
@@ -61,10 +60,12 @@ var _ = BeforeSuite(func() {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager image into Kind")
 
 	setupCertManager()
+	setupPrometheusOperator()
 })
 
 var _ = AfterSuite(func() {
 	teardownCertManager()
+	teardownPrometheusOperator()
 })
 
 // setupCertManager installs CertManager if needed for webhook tests.
@@ -88,6 +89,22 @@ func setupCertManager() {
 	Expect(utils.InstallCertManager()).To(Succeed(), "Failed to install CertManager")
 }
 
+// setupPrometheusOperator installs PrometheusOperator if needed for monitoring tests.
+// Skips installation if already present.
+func setupPrometheusOperator() {
+	By("checking if PrometheusOperator is already installed")
+	if utils.IsPrometheusCRDsInstalled() {
+		_, _ = fmt.Fprintf(GinkgoWriter, "PrometheusOperator is already installed. Skipping installation.\n")
+		return
+	}
+
+	// Mark for cleanup before installation to handle interruptions and partial installs.
+	shouldCleanupPrometheus = true
+
+	By("installing PrometheusOperator")
+	Expect(utils.InstallPrometheusOperator()).To(Succeed(), "Failed to install PrometheusOperator")
+}
+
 // teardownCertManager uninstalls CertManager if it was installed by setupCertManager.
 // This ensures we only remove what we installed.
 func teardownCertManager() {
@@ -98,4 +115,14 @@ func teardownCertManager() {
 
 	By("uninstalling CertManager")
 	utils.UninstallCertManager()
+}
+
+// teardownPrometheusOperator uninstalls PrometheusOperator if it was installed by setupPrometheusOperator.
+func teardownPrometheusOperator() {
+	if !shouldCleanupPrometheus {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Skipping PrometheusOperator cleanup (not installed by this suite)\n")
+		return
+	}
+	By("uninstalling PrometheusOperator")
+	utils.UninstallPrometheusOperator()
 }

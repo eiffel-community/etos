@@ -1,45 +1,57 @@
-/*
-Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright Axis Communications AB.
+//
+// For a full list of individual contributors, please see the commit history.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package v1alpha2
 
 import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // IutSpec defines the desired state of Iut
 type IutSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+	// ID is the ID for the IUT. The ID is a UUID, any version, and regex matches that.
+	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+	// +required
+	ID string `json:"id"`
 
-	// foo is an example field of Iut. Edit iut_types.go to remove/update
+	// Deadline is the end time, in unix epoch, before which the IUT shall have
+	// been released. If not set or set to 0, there is no deadline.
 	// +optional
-	Foo *string `json:"foo,omitempty"`
+	Deadline int64 `json:"deadline"`
+
+	// Identity is the PackageURL definition of the IUT.
+	// +required
+	Identity string `json:"identity"`
+
+	// EnvironmentRequest is the name of the environmentrequest which requested this IUT.
+	// +required
+	EnvironmentRequest string `json:"environmentRequest"`
+
+	// ProviderID is the name of the Provider used to create this Iut.
+	// +required
+	ProviderID string `json:"provider_id"`
+
+	// ProviderData is specific data provided by the IUT providers
+	// +optional
+	ProviderData *apiextensionsv1.JSON `json:"provider_data,omitempty"`
 }
 
 // IutStatus defines the observed state of Iut.
 type IutStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// For Kubernetes API conventions, see:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 
@@ -56,12 +68,20 @@ type IutStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
 // Iut is the Schema for the iuts API
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].reason"
+// +kubebuilder:printcolumn:name="Description",type="string",JSONPath=".status.conditions[?(@.type==\"Active\")].message"
+// +kubebuilder:printcolumn:name="Provider",type="string",JSONPath=.spec.provider_id
+// +kubebuilder:printcolumn:name="Environment",type="string",JSONPath=".metadata.ownerReferences[?(@.kind==\"Environment\")].name"
+// +kubebuilder:printcolumn:name="TestRun",type="string",JSONPath=.metadata.labels.etos\.eiffel-community\.github\.io/id
 type Iut struct {
 	metav1.TypeMeta `json:",inline"`
 

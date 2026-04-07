@@ -59,3 +59,5 @@ formatters:
       - third_party$
       - builtin$
       - examples$
+  # goconst:
+  #   ignore-strings: 'true|false'

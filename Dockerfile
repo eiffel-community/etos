@@ -2,6 +2,7 @@
 FROM golang:1.25 AS builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG DEFAULTS_PATH="defaults"
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -11,8 +12,12 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
-# Copy the Go source (relies on .dockerignore to filter)
-COPY . .
+# Copy the go source
+COPY cmd/main.go cmd/main.go
+COPY api/ api/
+COPY internal/ internal/
+COPY defaults.go defaults.go
+COPY ${DEFAULTS_PATH} defaults
 
 # Build
 # the GOARCH has no default value to allow the binary to be built according to the host where the command

@@ -14,7 +14,26 @@ spec:
     singular: iut
   scope: Namespaced
   versions:
-  - name: v1alpha2
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Active")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].message
+      name: Description
+      type: string
+    - jsonPath: .spec.provider_id
+      name: Provider
+      type: string
+    - jsonPath: .metadata.ownerReferences[?(@.kind=="Environment")].name
+      name: Environment
+      type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/id
+      name: TestRun
+      type: string
+    name: v1alpha2
     schema:
       openAPIV3Schema:
         description: Iut is the Schema for the iuts API
@@ -39,14 +58,43 @@ spec:
           spec:
             description: spec defines the desired state of Iut
             properties:
-              foo:
-                description: foo is an example field of Iut. Edit iut_types.go to
-                  remove/update
+              deadline:
+                description: |-
+                  Deadline is the end time, in unix epoch, before which the IUT shall have
+                  been released. If not set or set to 0, there is no deadline.
+                format: int64
+                type: integer
+              environmentRequest:
+                description: EnvironmentRequest is the name of the environmentrequest
+                  which requested this IUT.
                 type: string
+              id:
+                description: ID is the ID for the IUT. The ID is a UUID, any version,
+                  and regex matches that.
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+                type: string
+              identity:
+                description: Identity is the PackageURL definition of the IUT.
+                type: string
+              provider_data:
+                description: ProviderData is specific data provided by the IUT providers
+                x-kubernetes-preserve-unknown-fields: true
+              provider_id:
+                description: ProviderID is the name of the Provider used to create
+                  this Iut.
+                type: string
+            required:
+            - environmentRequest
+            - id
+            - identity
+            - provider_id
             type: object
           status:
             description: status defines the observed state of Iut
             properties:
+              completionTime:
+                format: date-time
+                type: string
               conditions:
                 description: |-
                   conditions represent the current state of the Iut resource.

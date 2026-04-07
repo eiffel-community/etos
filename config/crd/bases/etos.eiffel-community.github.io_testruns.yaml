@@ -14,7 +14,29 @@ spec:
     singular: testrun
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.conditions[?(@.type=="Environment")].reason
+      name: Environment
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="SuiteRunner")].reason
+      name: Suiterunner
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].status
+      name: Active
+      type: string
+    - jsonPath: .status.verdict
+      name: Verdict
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].message
+      name: Message
+      type: string
+    - jsonPath: .metadata.labels.etos\.eiffel-community\.github\.io/id
+      name: ID
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: TestRun is the Schema for the testruns API
@@ -39,25 +61,188 @@ spec:
           spec:
             description: spec defines the desired state of TestRun
             properties:
-              foo:
-                description: foo is an example field of TestRun. Edit testrun_types.go
-                  to remove/update
+              artifact:
+                description: Artifact is the ID of the software under test. The ID
+                  is a UUID, any version, and regex matches that.
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                 type: string
+              cluster:
+                description: Name of the ETOS cluster to execute the testrun in.
+                type: string
+              environmentProvider:
+                properties:
+                  image:
+                    description: Image describes the docker image to run for a service.
+                      ETOS applies defaults if empty.
+                    type: string
+                  imagePullPolicy:
+                    description: |-
+                      ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                      if empty.
+                    type: string
+                type: object
+              id:
+                description: ID is the test suite ID for this execution. Will be generated
+                  if nil. The ID is a UUID, any version, and regex matches that.
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+                type: string
+              identity:
+                type: string
+              logListener:
+                properties:
+                  image:
+                    description: Image describes the docker image to run for a service.
+                      ETOS applies defaults if empty.
+                    type: string
+                  imagePullPolicy:
+                    description: |-
+                      ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                      if empty.
+                    type: string
+                type: object
+              providers:
+                description: |-
+                  Providers to use for test execution. These names must correspond to existing
+                  Provider kinds in the namespace where a testrun is created.
+                properties:
+                  executionSpace:
+                    type: string
+                  iut:
+                    type: string
+                  logArea:
+                    type: string
+                required:
+                - executionSpace
+                - iut
+                - logArea
+                type: object
+              retention:
+                description: Retention describes the failure and success retentions
+                  for testruns.
+                properties:
+                  failure:
+                    type: string
+                  success:
+                    type: string
+                type: object
+              suiteRunner:
+                properties:
+                  image:
+                    description: Image describes the docker image to run for a service.
+                      ETOS applies defaults if empty.
+                    type: string
+                  imagePullPolicy:
+                    description: |-
+                      ImagePullPolicy describes the pull policy to use for the image. ETOS applies PullIfNotPresent
+                      if empty.
+                    type: string
+                type: object
+              suiteSource:
+                description: |-
+                  SuiteSource is the URL from which the test suite definition can be fetched.
+                  It is used to set batchesUri in the TERCC event.
+                type: string
+              suites:
+                items:
+                  description: Suite to execute.
+                  properties:
+                    dataset:
+                      description: Dataset for this suite.
+                      x-kubernetes-preserve-unknown-fields: true
+                    name:
+                      description: Name of the test suite.
+                      type: string
+                    priority:
+                      default: 1
+                      description: Priority to execute the test suite.
+                      type: integer
+                    tests:
+                      description: Tests to execute as part of this suite.
+                      items:
+                        properties:
+                          environment:
+                            description: TestEnvironment to run tests within.
+                            type: object
+                          execution:
+                            description: Execution describes how to execute a testCase.
+                            properties:
+                              checkout:
+                                items:
+                                  type: string
+                                type: array
+                              command:
+                                type: string
+                              environment:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              execute:
+                                items:
+                                  type: string
+                                type: array
+                              parameters:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              testRunner:
+                                type: string
+                            required:
+                            - checkout
+                            - command
+                            - environment
+                            - parameters
+                            - testRunner
+                            type: object
+                          id:
+                            type: string
+                          testCase:
+                            description: TestCase metadata.
+                            properties:
+                              id:
+                                type: string
+                              tracker:
+                                type: string
+                              uri:
+                                type: string
+                              version:
+                                type: string
+                            required:
+                            - id
+                            type: object
+                        required:
+                        - environment
+                        - execution
+                        - id
+                        - testCase
+                        type: object
+                      type: array
+                  required:
+                  - dataset
+                  - name
+                  - priority
+                  - tests
+                  type: object
+                type: array
+              testRunner:
+                properties:
+                  version:
+                    type: string
+                required:
+                - version
+                type: object
+            required:
+            - artifact
+            - identity
+            - providers
+            - suites
             type: object
           status:
             description: status defines the observed state of TestRun
             properties:
+              completionTime:
+                format: date-time
+                type: string
               conditions:
-                description: |-
-                  conditions represent the current state of the TestRun resource.
-                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
-
-                  Standard condition types include:
-                  - "Available": the resource is fully functional
-                  - "Progressing": the resource is being created or updated
-                  - "Degraded": the resource failed to reach or maintain its desired state
-
-                  The status of each condition is one of True, False, or Unknown.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -113,13 +298,110 @@ spec:
                   - type
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - type
-                x-kubernetes-list-type: map
+              environmentRequests:
+                items:
+                  description: ObjectReference contains enough information to let
+                    you inspect or modify the referred object.
+                  properties:
+                    apiVersion:
+                      description: API version of the referent.
+                      type: string
+                    fieldPath:
+                      description: |-
+                        If referring to a piece of an object instead of an entire object, this string
+                        should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                        For example, if the object reference is to a container within a pod, this would take on a value like:
+                        "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                        the event) or if no container name is specified "spec.containers[2]" (container with
+                        index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                        referencing a part of an object.
+                      type: string
+                    kind:
+                      description: |-
+                        Kind of the referent.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                      type: string
+                    resourceVersion:
+                      description: |-
+                        Specific resourceVersion to which this reference is made, if any.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                      type: string
+                    uid:
+                      description: |-
+                        UID of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              startTime:
+                format: date-time
+                type: string
+              suiteRunners:
+                items:
+                  description: ObjectReference contains enough information to let
+                    you inspect or modify the referred object.
+                  properties:
+                    apiVersion:
+                      description: API version of the referent.
+                      type: string
+                    fieldPath:
+                      description: |-
+                        If referring to a piece of an object instead of an entire object, this string
+                        should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                        For example, if the object reference is to a container within a pod, this would take on a value like:
+                        "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                        the event) or if no container name is specified "spec.containers[2]" (container with
+                        index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                        referencing a part of an object.
+                      type: string
+                    kind:
+                      description: |-
+                        Kind of the referent.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                      type: string
+                    resourceVersion:
+                      description: |-
+                        Specific resourceVersion to which this reference is made, if any.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                      type: string
+                    uid:
+                      description: |-
+                        UID of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              verdict:
+                type: string
             type: object
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.cluster
+    - jsonPath: .spec.artifact
     served: true
     storage: true
     subresources:
