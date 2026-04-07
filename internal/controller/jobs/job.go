@@ -23,12 +23,10 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // job helps manage jobs for an owner
@@ -77,8 +75,8 @@ func (j *job) Status(ctx context.Context) (Status, error) {
 // This case must be handled by callers in regards to if they want to
 // exit out, reconcile again or whatever is needed.
 func (j *job) Result(ctx context.Context, containerName string, containerNames ...string) Result {
-	logger := logf.FromContext(ctx)
-	names := []string{containerName}
+	logger := log.FromContext(ctx)
+	names := make([]string, 0, len(containerNames)+1)
 	names = append(names, containerNames...)
 	var jobs []*batchv1.Job
 	if j.successful() {
@@ -147,7 +145,7 @@ func (j job) Create(ctx context.Context, obj client.Object, jobSpecFunc JobSpecF
 
 // Delete all owned jobs
 func (j job) Delete(ctx context.Context) error {
-	logger := logf.FromContext(ctx)
+	logger := log.FromContext(ctx)
 	var multiErr error
 	for _, job := range j.all() {
 		if job.DeletionTimestamp.IsZero() {
@@ -164,7 +162,7 @@ func (j job) Delete(ctx context.Context) error {
 
 // all returns all jobs owned by the ownerKey in this job manager
 func (j job) all() []*batchv1.Job {
-	jobs := []*batchv1.Job{}
+	jobs := make([]*batchv1.Job, 0, len(j.activeJobs)+len(j.failedJobs)+len(j.successfulJobs))
 	jobs = append(jobs, j.activeJobs...)
 	jobs = append(jobs, j.failedJobs...)
 	jobs = append(jobs, j.successfulJobs...)
@@ -201,7 +199,7 @@ func (j *job) jobStatus(ctx context.Context) error {
 	if err := j.List(ctx, &joblist, client.InNamespace(j.namespace), client.MatchingFields{j.ownerKey: j.name}); err != nil {
 		return err
 	}
-	logger := logf.FromContext(ctx)
+	logger := log.FromContext(ctx)
 	logger.Info("Jobs", "count", len(joblist.Items))
 
 	for i, job := range joblist.Items {
@@ -243,7 +241,7 @@ func isJobStatusConditionPresentAndEqual(conditions []batchv1.JobCondition, cond
 }
 
 // getLatestPodByCreationTimestamp returns the latest created pod from the given list
-func getLatestPodByCreationTimestamp(pods []v1.Pod) *v1.Pod {
+func getLatestPodByCreationTimestamp(pods []corev1.Pod) *corev1.Pod {
 	if len(pods) == 0 {
 		return nil
 	}

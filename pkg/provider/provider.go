@@ -71,8 +71,8 @@ type ReleaseConfig struct {
 
 // Provider is an interface for providers to implement for the Run* functions.
 type Provider interface {
-	Provision(ctx context.Context, logger logr.Logger, cfg ProvisionConfig) error
-	Release(ctx context.Context, logger logr.Logger, cfg ReleaseConfig) error
+	Provision(ctx context.Context, cfg ProvisionConfig) error
+	Release(ctx context.Context, cfg ReleaseConfig) error
 }
 
 // init sets up the ETOS controller schemes as well as the default schemes from client-go.
@@ -179,10 +179,10 @@ func runProvider(ctx context.Context, provider Provider, params Parameters) erro
 		return runReleaser(ctx, provider, params)
 	}
 	if params.namespace == "" {
-		return errors.New("Must set -namespace")
+		return errors.New("must set -namespace")
 	}
 	if params.environmentRequestName == "" {
-		return errors.New("Must set -environment-request")
+		return errors.New("must set -environment-request")
 	}
 	environmentRequest, err := EnvironmentRequest(
 		ctx,
@@ -196,7 +196,7 @@ func runProvider(ctx context.Context, provider Provider, params Parameters) erro
 	if err != nil {
 		return err
 	}
-	return provider.Provision(ctx, params.logger, ProvisionConfig{
+	return provider.Provision(ctx, ProvisionConfig{
 		EnvironmentRequest: environmentRequest,
 		Namespace:          params.namespace,
 		MaximumAmount:      environmentRequest.Spec.MaximumAmount,
@@ -207,12 +207,12 @@ func runProvider(ctx context.Context, provider Provider, params Parameters) erro
 // runReleaser runs the provision.Release function
 func runReleaser(ctx context.Context, provider Provider, params Parameters) error {
 	if params.namespace == "" {
-		return errors.New("Must set -namespace")
+		return errors.New("must set -namespace")
 	}
 	if params.name == "" {
-		return errors.New("Must set -name")
+		return errors.New("must set -name")
 	}
-	return provider.Release(ctx, params.logger, ReleaseConfig{
+	return provider.Release(ctx, ReleaseConfig{
 		Name:      params.name,
 		Namespace: params.namespace,
 		NoDelete:  params.noDelete,

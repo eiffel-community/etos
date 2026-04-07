@@ -113,10 +113,10 @@ func runReleaser(_ environmentProvider) error {
 func runProvider(ctx context.Context, provider environmentProvider) error {
 	logger := logr.FromContextOrDiscard(ctx)
 	if provider.environmentRequestName == "" {
-		return errors.New("Must set -environment-request")
+		return errors.New("must set -environment-request")
 	}
 	if provider.namespace == "" {
-		return errors.New("Must set -namespace")
+		return errors.New("must set -namespace")
 	}
 
 	cli, err := providerHelper.KubernetesClient()
@@ -153,11 +153,11 @@ func runProvider(ctx context.Context, provider environmentProvider) error {
 	}
 
 	// TODO: Choose strategy
-	splitter := splitter.NewRoundRobinSplitter().SetSize(maxPossible)
+	split := splitter.NewRoundRobinSplitter().SetSize(maxPossible)
 	for _, test := range request.Spec.Splitter.Tests {
-		splitter.AddTest(test)
+		split.AddTest(test)
 	}
-	tests := splitter.Split()
+	tests := split.Split()
 
 	for i := range maxPossible {
 		logArea := logAreas.Items[i]

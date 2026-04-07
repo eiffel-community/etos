@@ -47,10 +47,10 @@ type Var struct {
 }
 
 // getFromSecretKeySelector returns the value of a key in a secret.
-func (v *Var) getFromSecretKeySelector(ctx context.Context, client client.Client, secretKeySelector *corev1.SecretKeySelector, namespace string) ([]byte, error) {
+func (v *Var) getFromSecretKeySelector(ctx context.Context, cli client.Client, secretKeySelector *corev1.SecretKeySelector, namespace string) ([]byte, error) {
 	name := types.NamespacedName{Name: secretKeySelector.Name, Namespace: namespace}
 	obj := &corev1.Secret{}
-	err := client.Get(ctx, name, obj)
+	err := cli.Get(ctx, name, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -62,10 +62,10 @@ func (v *Var) getFromSecretKeySelector(ctx context.Context, client client.Client
 }
 
 // getFromConfigMapKeySelector returns the value of a key in a configmap.
-func (v *Var) getFromConfigMapKeySelector(ctx context.Context, client client.Client, configMapKeySelector *corev1.ConfigMapKeySelector, namespace string) ([]byte, error) {
+func (v *Var) getFromConfigMapKeySelector(ctx context.Context, cli client.Client, configMapKeySelector *corev1.ConfigMapKeySelector, namespace string) ([]byte, error) {
 	name := types.NamespacedName{Name: configMapKeySelector.Name, Namespace: namespace}
 	obj := &corev1.ConfigMap{}
-	err := client.Get(ctx, name, obj)
+	err := cli.Get(ctx, name, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -77,15 +77,15 @@ func (v *Var) getFromConfigMapKeySelector(ctx context.Context, client client.Cli
 }
 
 // Get the value from a Var struct. Either through the Value key, secret or configmap.
-func (v *Var) Get(ctx context.Context, client client.Client, namespace string) ([]byte, error) {
+func (v *Var) Get(ctx context.Context, cli client.Client, namespace string) ([]byte, error) {
 	if v.Value != "" {
 		return []byte(v.Value), nil
 	}
 	if v.ValueFrom.SecretKeyRef != nil {
-		return v.getFromSecretKeySelector(ctx, client, v.ValueFrom.SecretKeyRef, namespace)
+		return v.getFromSecretKeySelector(ctx, cli, v.ValueFrom.SecretKeyRef, namespace)
 	}
 	if v.ValueFrom.ConfigMapKeyRef != nil {
-		return v.getFromConfigMapKeySelector(ctx, client, v.ValueFrom.ConfigMapKeyRef, namespace)
+		return v.getFromConfigMapKeySelector(ctx, cli, v.ValueFrom.ConfigMapKeyRef, namespace)
 	}
 	return nil, errors.New("found no source for key")
 }

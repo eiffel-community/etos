@@ -57,8 +57,11 @@ func (d *ExecutionSpaceCustomDefaulter) Default(ctx context.Context, executionsp
 	environmentrequest := &v1alpha1.EnvironmentRequest{}
 	namespacedName := types.NamespacedName{Name: executionspace.Spec.EnvironmentRequest, Namespace: executionspace.Namespace}
 	if err := d.Get(ctx, namespacedName, environmentrequest); err != nil {
-		executionspacelog.Error(err, "name", executionspace.Name, "namespace", executionspace.Namespace, "environmentRequest", namespacedName.Name,
-			"Failed to get environmentrequest in namespace")
+		executionspacelog.Error(err, "Failed to get environmentrequest in namespace",
+			"name", executionspace.Name,
+			"namespace", executionspace.Namespace,
+			"environmentRequest", namespacedName.Name,
+		)
 		return err
 	}
 

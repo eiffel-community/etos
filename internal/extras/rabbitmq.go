@@ -21,7 +21,6 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -47,8 +46,8 @@ type RabbitMQDeployment struct {
 }
 
 // NewRabbitMQDeployment will create a new RabbitMQ reconciler.
-func NewRabbitMQDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) *RabbitMQDeployment {
-	return &RabbitMQDeployment{spec, client, scheme, "", false}
+func NewRabbitMQDeployment(spec etosv1alpha1.RabbitMQ, sch *runtime.Scheme, cli client.Client) *RabbitMQDeployment {
+	return &RabbitMQDeployment{spec, cli, sch, "", false}
 }
 
 // Reconcile will reconcile RabbitMQ to its expected state.
@@ -62,19 +61,19 @@ func (r *RabbitMQDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha
 		r.Port = fmt.Sprintf("%d", rabbitmqPort)
 	}
 
-	secret, err := r.reconcileSecret(ctx, logger, namespacedName, cluster)
+	secret, err := r.reconcileSecret(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the RabbitMQ secret")
 		return err
 	}
 	r.SecretName = secret.Name
 
-	_, err = r.reconcileStatefulset(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the RabbitMQ statefulset")
 		return err
 	}
-	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the RabbitMQ service")
 		return err
@@ -84,7 +83,8 @@ func (r *RabbitMQDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha
 }
 
 // reconcileSecret will reconcile the RabbitMQ secret to its expected state.
-func (r *RabbitMQDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *RabbitMQDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
 	target, err := r.secret(ctx, name, owner.GetName())
 	if err != nil {
 		return target, err
@@ -115,7 +115,8 @@ func (r *RabbitMQDeployment) reconcileSecret(ctx context.Context, logger logr.Lo
 }
 
 // reconcileStatefulset will reconcile the RabbitMQ statefulset to its expected state.
-func (r *RabbitMQDeployment) reconcileStatefulset(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
+func (r *RabbitMQDeployment) reconcileStatefulset(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
+	logger := log.FromContext(ctx)
 	target := r.statefulset(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -147,7 +148,8 @@ func (r *RabbitMQDeployment) reconcileStatefulset(ctx context.Context, logger lo
 }
 
 // reconcileService will reconcile the RabbitMQ service to its expected state.
-func (r *RabbitMQDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *RabbitMQDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+	logger := log.FromContext(ctx)
 	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err

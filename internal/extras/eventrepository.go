@@ -24,7 +24,6 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -53,8 +52,8 @@ type EventRepositoryDeployment struct {
 }
 
 // NewEventRepositoryDeployment will create a new event repository reconciler.
-func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, scheme *runtime.Scheme, client client.Client, mongodb *MongoDBDeployment, rabbitmqSecret string, cfg config.Config) *EventRepositoryDeployment {
-	return &EventRepositoryDeployment{spec, client, scheme, mongodb.URL, rabbitmqSecret, mongodb.SecretName, false, cfg}
+func NewEventRepositoryDeployment(spec *etosv1alpha1.EventRepository, sch *runtime.Scheme, cli client.Client, mongodb *MongoDBDeployment, rabbitmqSecret string, cfg config.Config) *EventRepositoryDeployment {
+	return &EventRepositoryDeployment{spec, cli, sch, mongodb.URL, rabbitmqSecret, mongodb.SecretName, false, cfg}
 }
 
 // Reconcile will reconcile the event repository to its expected state.
@@ -63,7 +62,7 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 	logger := log.FromContext(ctx, "Reconciler", "EventRepository", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-	cfg, err := r.reconcileConfig(ctx, logger, namespacedName, cluster)
+	cfg, err := r.reconcileConfig(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the EventRepository configuration")
 		return err
@@ -75,17 +74,17 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 		configName = namespacedName.Name
 	}
 
-	_, err = r.reconcileDeployment(ctx, logger, namespacedName, configName, cluster)
+	_, err = r.reconcileDeployment(ctx, namespacedName, configName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the EventRepository deployment")
 		return err
 	}
-	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the EventRepository service")
 		return err
 	}
-	_, err = r.reconcileIngress(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileIngress(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the EventRepository ingress")
 		return err
@@ -105,7 +104,8 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 }
 
 // reconcileConfig will reconcile the secret to use as configuration for the event repository.
-func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
 	var err error
 	var target *corev1.Secret
 	if r.Deploy {
@@ -143,7 +143,8 @@ func (r *EventRepositoryDeployment) reconcileConfig(ctx context.Context, logger 
 }
 
 // reconcileDeployment will reconcile the event repository deployment to its expected state.
-func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+	logger := log.FromContext(ctx)
 	target := r.deployment(name, secretName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -179,7 +180,8 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, log
 }
 
 // reconcileService will reconcile the event repository service to its expected state.
-func (r *EventRepositoryDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *EventRepositoryDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+	logger := log.FromContext(ctx)
 	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -205,7 +207,8 @@ func (r *EventRepositoryDeployment) reconcileService(ctx context.Context, logger
 }
 
 // reconcileIngress will reconcile the event repository ingress to its expected state.
-func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*networkingv1.Ingress, error) {
+func (r *EventRepositoryDeployment) reconcileIngress(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*networkingv1.Ingress, error) {
+	logger := log.FromContext(ctx)
 	target := r.ingress(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err

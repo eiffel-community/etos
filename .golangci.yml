@@ -35,6 +35,9 @@ linters:
     modernize:
       disable:
         - omitzero
+    goconst:
+      ignore-string-values:
+      - 'true|false'
   exclusions:
     generated: lax
     rules:
@@ -59,5 +62,3 @@ formatters:
       - third_party$
       - builtin$
       - examples$
-  # goconst:
-  #   ignore-strings: 'true|false'

@@ -24,7 +24,6 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -56,8 +55,8 @@ type ETOSSSEDeployment struct {
 }
 
 // NewETOSSSEDeployment will create a new ETOS SSE reconciler.
-func NewETOSSSEDeployment(spec etosv1alpha1.ETOSSSE, scheme *runtime.Scheme, client client.Client, messagebusSecret string, cfg config.Config) *ETOSSSEDeployment {
-	return &ETOSSSEDeployment{spec, client, scheme, messagebusSecret, false, cfg}
+func NewETOSSSEDeployment(spec etosv1alpha1.ETOSSSE, sch *runtime.Scheme, cli client.Client, messagebusSecret string, cfg config.Config) *ETOSSSEDeployment {
+	return &ETOSSSEDeployment{spec, cli, sch, messagebusSecret, false, cfg}
 }
 
 // Reconcile will reconcile the ETOS SSE service to its expected state.
@@ -67,33 +66,33 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	logger := log.FromContext(ctx, "Reconciler", "ETOSSSE", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-	cfg, err := r.reconcileConfig(ctx, logger, namespacedName, cluster)
+	cfg, err := r.reconcileConfig(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the config for the ETOS SSE")
 		return err
 	}
-	_, err = r.reconcileDeployment(ctx, logger, namespacedName, cfg.Name, cluster)
+	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.Name, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the deployment for the ETOS SSE")
 		return err
 	}
 
-	_, err = r.reconcileRole(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileRole(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role for the ETOS SSE")
 		return err
 	}
-	_, err = r.reconcileServiceAccount(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileServiceAccount(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service account for the ETOS SSE")
 		return err
 	}
-	_, err = r.reconcileRolebinding(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileRolebinding(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role binding for the ETOS SSE")
 		return err
 	}
-	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service for the ETOS SSE")
 		return err
@@ -102,7 +101,8 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 }
 
 // reconcileConfig will reconcile the secret to use as configuration for ETOS SSE.
-func (r *ETOSSSEDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *ETOSSSEDeployment) reconcileConfig(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
 	target, err := r.config(ctx, name, owner.GetName())
 	if err != nil {
@@ -132,7 +132,8 @@ func (r *ETOSSSEDeployment) reconcileConfig(ctx context.Context, logger logr.Log
 }
 
 // reconcileDeployment will reconcile the ETOS SSE deployment to its expected state.
-func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+	logger := log.FromContext(ctx)
 	target := r.deployment(name, secretName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -163,7 +164,8 @@ func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, logger logr
 }
 
 // reconcileRole will reconcile the ETOS SSE service account role to its expected state.
-func (r *ETOSSSEDeployment) reconcileRole(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
+func (r *ETOSSSEDeployment) reconcileRole(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
+	logger := log.FromContext(ctx)
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s:sa:esr-reader", name.Name)
 
@@ -187,7 +189,8 @@ func (r *ETOSSSEDeployment) reconcileRole(ctx context.Context, logger logr.Logge
 }
 
 // reconcileServiceAccount will reconcile the ETOS SSE service account to its expected state.
-func (r *ETOSSSEDeployment) reconcileServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
+func (r *ETOSSSEDeployment) reconcileServiceAccount(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
+	logger := log.FromContext(ctx)
 	target := r.serviceaccount(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -208,7 +211,8 @@ func (r *ETOSSSEDeployment) reconcileServiceAccount(ctx context.Context, logger 
 }
 
 // reconcileRolebinding will reconcile the ETOS SSE service account rolebinding to its expected state.
-func (r *ETOSSSEDeployment) reconcileRolebinding(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
+func (r *ETOSSSEDeployment) reconcileRolebinding(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
+	logger := log.FromContext(ctx)
 	target := r.rolebinding(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -229,7 +233,8 @@ func (r *ETOSSSEDeployment) reconcileRolebinding(ctx context.Context, logger log
 }
 
 // reconcileService will reconcile the ETOS SSE service to its expected state.
-func (r *ETOSSSEDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *ETOSSSEDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+	logger := log.FromContext(ctx)
 	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err

@@ -32,7 +32,8 @@ func main() {
 }
 
 // Provision provisions a new IUT.
-func (p *genericIutProvider) Provision(ctx context.Context, logger logr.Logger, cfg provider.ProvisionConfig) error {
+func (p *genericIutProvider) Provision(ctx context.Context, cfg provider.ProvisionConfig) error {
+	logger := logr.FromContextOrDiscard(ctx)
 	environmentRequest := cfg.EnvironmentRequest
 	if cfg.MinimumAmount <= 0 {
 		return errors.New("minimum amount of IUTs requested is less than or equal to 0")
@@ -53,7 +54,8 @@ func (p *genericIutProvider) Provision(ctx context.Context, logger logr.Logger, 
 }
 
 // Release releases an IUT.
-func (p *genericIutProvider) Release(ctx context.Context, logger logr.Logger, cfg provider.ReleaseConfig) error {
+func (p *genericIutProvider) Release(ctx context.Context, cfg provider.ReleaseConfig) error {
+	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Releasing IUT", "Name", cfg.Name, "Namespace", cfg.Namespace)
 	iut, err := provider.GetIUT(ctx, cfg.Name, cfg.Namespace)
 	if err != nil {

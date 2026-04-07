@@ -55,7 +55,7 @@ func SetupProviderWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 // getFromSecretKeySelector returns the value of a key in a secret.
-func getFromSecretKeySelector(ctx context.Context, client client.Client, secretKeySelector *corev1.SecretKeySelector, namespace string) ([]byte, error) {
+func getFromSecretKeySelector(ctx context.Context, cli client.Client, secretKeySelector *corev1.SecretKeySelector, namespace string) ([]byte, error) {
 	name := types.NamespacedName{Name: secretKeySelector.Name, Namespace: namespace}
 	obj := &corev1.Secret{}
 
@@ -65,7 +65,7 @@ func getFromSecretKeySelector(ctx context.Context, client client.Client, secretK
 	// There is a race where, for example, a provider and a custom secret resource (such as a SealedSecret)
 	// are created at the same time and the secret does not get generated in time.
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
-		err := client.Get(ctx, name, obj)
+		err := cli.Get(ctx, name, obj)
 		if err != nil {
 			providerlog.Error(err, "retry")
 			return err
@@ -83,7 +83,7 @@ func getFromSecretKeySelector(ctx context.Context, client client.Client, secretK
 }
 
 // getFromConfigMapKeySelector returns the value of a key in a configmap.
-func getFromConfigMapKeySelector(ctx context.Context, client client.Client, configMapKeySelector *corev1.ConfigMapKeySelector, namespace string) ([]byte, error) {
+func getFromConfigMapKeySelector(ctx context.Context, cli client.Client, configMapKeySelector *corev1.ConfigMapKeySelector, namespace string) ([]byte, error) {
 	name := types.NamespacedName{Name: configMapKeySelector.Name, Namespace: namespace}
 	obj := &corev1.ConfigMap{}
 
@@ -91,7 +91,7 @@ func getFromConfigMapKeySelector(ctx context.Context, client client.Client, conf
 	// There is a race where, for example, a provider and a custom configmap resource are created at the
 	// same time and the configmap does not get generated in time.
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
-		return client.Get(ctx, name, obj)
+		return cli.Get(ctx, name, obj)
 	})
 	if err != nil {
 		return nil, err
@@ -104,12 +104,12 @@ func getFromConfigMapKeySelector(ctx context.Context, client client.Client, conf
 }
 
 // Get the value from a secret or configmap ref.
-func (r *ProviderCustomDefaulter) Get(ctx context.Context, provider *etosv1alpha1.Provider, client client.Client, namespace string) ([]byte, error) {
+func (r *ProviderCustomDefaulter) Get(ctx context.Context, provider *etosv1alpha1.Provider, cli client.Client, namespace string) ([]byte, error) {
 	if provider.Spec.JSONTasSource.SecretKeyRef != nil {
-		return getFromSecretKeySelector(ctx, client, provider.Spec.JSONTasSource.SecretKeyRef, namespace)
+		return getFromSecretKeySelector(ctx, cli, provider.Spec.JSONTasSource.SecretKeyRef, namespace)
 	}
 	if provider.Spec.JSONTasSource.ConfigMapKeyRef != nil {
-		return getFromConfigMapKeySelector(ctx, client, provider.Spec.JSONTasSource.ConfigMapKeyRef, namespace)
+		return getFromConfigMapKeySelector(ctx, cli, provider.Spec.JSONTasSource.ConfigMapKeyRef, namespace)
 	}
 	return nil, errors.New("found no source for key")
 }

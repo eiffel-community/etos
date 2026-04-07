@@ -75,7 +75,10 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alp
 	if testrun.Spec.Cluster == "" {
 		testrunlog.Info("TestRun cluster is empty, checking if a cluster is deployed in namespace")
 		if err := cli.List(ctx, clusters, client.InNamespace(testrun.Namespace)); err != nil {
-			testrunlog.Error(err, "name", testrun.Name, "namespace", testrun.Namespace, "Failed to get clusters in namespace")
+			testrunlog.Error(err, "Failed to get clusters in namespace",
+				"name", testrun.Name,
+				"namespace", testrun.Namespace,
+			)
 		}
 		testrunlog.Info("Number of clusters found in namespace", "count", len(clusters.Items))
 		if len(clusters.Items) == 1 {
@@ -91,8 +94,11 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alp
 		testrunlog.Info("Getting cluster from specification", "name", clusterNamespacedName.Name, "namespace", clusterNamespacedName.Namespace)
 		clu := &etosv1alpha1.Cluster{}
 		if err := cli.Get(ctx, clusterNamespacedName, clu); err != nil {
-			testrunlog.Error(err, "name", testrun.Name, "namespace", testrun.Namespace, "cluster", clusterNamespacedName.Name,
-				"Failed to get cluster in namespace")
+			testrunlog.Error(err, "Failed to get cluster in namespace",
+				"name", testrun.Name,
+				"namespace", testrun.Namespace,
+				"cluster", clusterNamespacedName.Name,
+			)
 		}
 		cluster = clu
 	}
