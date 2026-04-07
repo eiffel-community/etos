@@ -58,7 +58,6 @@ func New(name, providerType string) *ETOSTracer {
 
 // Start initializes the OpenTelemetry tracer provider and sets it as the global tracer provider.
 func (t *ETOSTracer) Start(ctx context.Context) error {
-	// logger := logging.LoggerFromContext(ctx)
 	logger := logr.FromContextOrDiscard(ctx)
 	if !t.enabled {
 		logger.Info("OpenTelemetry is not enabled, skipping tracer initialization")
