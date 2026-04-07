@@ -18,12 +18,9 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
@@ -35,7 +32,7 @@ var providerlog = logf.Log.WithName("provider-resource")
 
 // SetupProviderWebhookWithManager registers the webhook for Provider in the manager.
 func SetupProviderWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha1.Provider{}).
+	return ctrl.NewWebhookManagedBy(mgr, &etosv1alpha1.Provider{}).
 		WithValidator(&ProviderCustomValidator{}).
 		WithDefaulter(&ProviderCustomDefaulter{}).
 		Complete()
@@ -54,16 +51,9 @@ type ProviderCustomDefaulter struct {
 	// TODO(user): Add more fields as needed for defaulting
 }
 
-var _ webhook.CustomDefaulter = &ProviderCustomDefaulter{}
-
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Provider.
-func (d *ProviderCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	provider, ok := obj.(*etosv1alpha1.Provider)
-
-	if !ok {
-		return fmt.Errorf("expected an Provider object but got %T", obj)
-	}
-	providerlog.Info("Defaulting for Provider", "name", provider.GetName())
+func (d *ProviderCustomDefaulter) Default(_ context.Context, obj *etosv1alpha1.Provider) error {
+	providerlog.Info("Defaulting for Provider", "name", obj.GetName())
 
 	// TODO(user): fill in your defaulting logic.
 
@@ -71,8 +61,7 @@ func (d *ProviderCustomDefaulter) Default(ctx context.Context, obj runtime.Objec
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
-// Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+// NOTE: If you want to customise the 'path', use the flags '--defaulting-path' or '--validation-path'.
 // +kubebuilder:webhook:path=/validate-etos-eiffel-community-github-io-v1alpha1-provider,mutating=false,failurePolicy=fail,sideEffects=None,groups=etos.eiffel-community.github.io,resources=providers,verbs=create;update,versions=v1alpha1,name=vprovider-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // ProviderCustomValidator struct is responsible for validating the Provider resource
@@ -84,15 +73,9 @@ type ProviderCustomValidator struct {
 	// TODO(user): Add more fields as needed for validation
 }
 
-var _ webhook.CustomValidator = &ProviderCustomValidator{}
-
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Provider.
-func (v *ProviderCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	provider, ok := obj.(*etosv1alpha1.Provider)
-	if !ok {
-		return nil, fmt.Errorf("expected a Provider object but got %T", obj)
-	}
-	providerlog.Info("Validation for Provider upon creation", "name", provider.GetName())
+func (v *ProviderCustomValidator) ValidateCreate(_ context.Context, obj *etosv1alpha1.Provider) (admission.Warnings, error) {
+	providerlog.Info("Validation for Provider upon creation", "name", obj.GetName())
 
 	// TODO(user): fill in your validation logic upon object creation.
 
@@ -100,12 +83,8 @@ func (v *ProviderCustomValidator) ValidateCreate(ctx context.Context, obj runtim
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Provider.
-func (v *ProviderCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	provider, ok := newObj.(*etosv1alpha1.Provider)
-	if !ok {
-		return nil, fmt.Errorf("expected a Provider object for the newObj but got %T", newObj)
-	}
-	providerlog.Info("Validation for Provider upon update", "name", provider.GetName())
+func (v *ProviderCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj *etosv1alpha1.Provider) (admission.Warnings, error) {
+	providerlog.Info("Validation for Provider upon update", "name", newObj.GetName())
 
 	// TODO(user): fill in your validation logic upon object update.
 
@@ -113,12 +92,8 @@ func (v *ProviderCustomValidator) ValidateUpdate(ctx context.Context, oldObj, ne
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Provider.
-func (v *ProviderCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	provider, ok := obj.(*etosv1alpha1.Provider)
-	if !ok {
-		return nil, fmt.Errorf("expected a Provider object but got %T", obj)
-	}
-	providerlog.Info("Validation for Provider upon deletion", "name", provider.GetName())
+func (v *ProviderCustomValidator) ValidateDelete(_ context.Context, obj *etosv1alpha1.Provider) (admission.Warnings, error) {
+	providerlog.Info("Validation for Provider upon deletion", "name", obj.GetName())
 
 	// TODO(user): fill in your validation logic upon object deletion.
 

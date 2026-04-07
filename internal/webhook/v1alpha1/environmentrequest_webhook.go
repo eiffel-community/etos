@@ -18,12 +18,9 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 )
@@ -34,7 +31,7 @@ var environmentrequestlog = logf.Log.WithName("environmentrequest-resource")
 
 // SetupEnvironmentRequestWebhookWithManager registers the webhook for EnvironmentRequest in the manager.
 func SetupEnvironmentRequestWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha1.EnvironmentRequest{}).
+	return ctrl.NewWebhookManagedBy(mgr, &etosv1alpha1.EnvironmentRequest{}).
 		WithDefaulter(&EnvironmentRequestCustomDefaulter{}).
 		Complete()
 }
@@ -52,16 +49,9 @@ type EnvironmentRequestCustomDefaulter struct {
 	// TODO(user): Add more fields as needed for defaulting
 }
 
-var _ webhook.CustomDefaulter = &EnvironmentRequestCustomDefaulter{}
-
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind EnvironmentRequest.
-func (d *EnvironmentRequestCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	environmentrequest, ok := obj.(*etosv1alpha1.EnvironmentRequest)
-
-	if !ok {
-		return fmt.Errorf("expected an EnvironmentRequest object but got %T", obj)
-	}
-	environmentrequestlog.Info("Defaulting for EnvironmentRequest", "name", environmentrequest.GetName())
+func (d *EnvironmentRequestCustomDefaulter) Default(_ context.Context, obj *etosv1alpha1.EnvironmentRequest) error {
+	environmentrequestlog.Info("Defaulting for EnvironmentRequest", "name", obj.GetName())
 
 	// TODO(user): fill in your defaulting logic.
 
