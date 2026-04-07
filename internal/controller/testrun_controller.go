@@ -215,6 +215,15 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 	message := "Unknown status"
 	reason := status.ReasonPending
 
+	// Priority from lowest to highest: Active < Failed < Completed.
+	// These are plain if-blocks (not else-if), so later matches overwrite
+	// earlier ones. Active is checked first so that failures and completion
+	// always take precedence.
+	if isStatusReason(conditions, status.StatusSuiteRunner, status.ReasonActive) {
+		condition = metav1.ConditionTrue
+		reason = status.ReasonActive
+		message = "Waiting for suite runners to finish"
+	}
 	if isStatusReason(conditions, status.StatusEnvironment, status.ReasonFailed) {
 		environment := meta.FindStatusCondition(conditions, status.StatusEnvironment)
 		if environment != nil {
@@ -235,11 +244,6 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 		condition = metav1.ConditionFalse
 		reason = status.ReasonCompleted
 		message = "Suite runners finished successfully"
-	}
-	if isStatusReason(conditions, status.StatusSuiteRunner, status.ReasonActive) {
-		condition = metav1.ConditionTrue
-		reason = status.ReasonActive
-		message = "Waiting for suite runners to finish"
 	}
 
 	if condition != metav1.ConditionUnknown {
