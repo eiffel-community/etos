@@ -18,6 +18,7 @@ package readiness
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/eiffel-community/etos/internal/controller/status"
 	appsv1 "k8s.io/api/apps/v1"
@@ -29,21 +30,28 @@ func IsNotReadyError(err error) bool {
 	return errors.As(err, &notReady)
 }
 
-// DeploymentReady checks whether a Deployment has its desired number of ready replicas.
-// Returns nil if ready, or a NotReadyError if not yet ready.
-func DeploymentReady(dep *appsv1.Deployment) error {
-	desired := int32(1)
-	if dep.Spec.Replicas != nil {
-		desired = *dep.Spec.Replicas
+// NotReady returns a NotReadyError for the given resource name and message.
+func NotReady(name string, message string) error {
+	return &status.NotReadyError{
+		Name:    name,
+		Message: message,
 	}
-	if dep.Status.ReadyReplicas < desired {
-		return &status.NotReadyError{
-			Name:            dep.Name,
-			ReadyReplicas:   dep.Status.ReadyReplicas,
-			DesiredReplicas: desired,
+}
+
+// DeploymentReady checks whether a Deployment is fully rolled out by inspecting
+// the Progressing condition. A deployment is considered ready when
+// Progressing=True with Reason=NewReplicaSetAvailable.
+// See https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#complete-deployment
+func DeploymentReady(dep *appsv1.Deployment) error {
+	for _, c := range dep.Status.Conditions {
+		if c.Type == appsv1.DeploymentProgressing {
+			if c.Status == "True" && c.Reason == "NewReplicaSetAvailable" {
+				return nil
+			}
+			return NotReady(dep.Name, fmt.Sprintf("progressing: %s", c.Message))
 		}
 	}
-	return nil
+	return NotReady(dep.Name, "deployment has no Progressing condition yet")
 }
 
 // StatefulSetReady checks whether a StatefulSet has its desired number of ready replicas.
@@ -54,11 +62,7 @@ func StatefulSetReady(ss *appsv1.StatefulSet) error {
 		desired = *ss.Spec.Replicas
 	}
 	if ss.Status.ReadyReplicas < desired {
-		return &status.NotReadyError{
-			Name:            ss.Name,
-			ReadyReplicas:   ss.Status.ReadyReplicas,
-			DesiredReplicas: desired,
-		}
+		return NotReady(ss.Name, fmt.Sprintf("%d/%d replicas ready", ss.Status.ReadyReplicas, desired))
 	}
 	return nil
 }

@@ -76,15 +76,6 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 	}
 
 
-	var notReadyErr error
-	_, err = r.reconcileDeployment(ctx, namespacedName, configName, cluster)
-	if err != nil {
-		if !readiness.IsNotReadyError(err) {
-			logger.Error(err, "Failed to reconcile the EventRepository deployment")
-			return err
-		}
-		notReadyErr = err
-	}
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the EventRepository service")
@@ -107,7 +98,12 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 		logger.Info("Host for the EventRepository", "host", r.Host)
 	}
 
-	return notReadyErr
+	_, err = r.reconcileDeployment(ctx, namespacedName, configName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the EventRepository deployment")
+		return err
+	}
+	return nil
 }
 
 // reconcileConfig will reconcile the secret to use as configuration for the event repository.
@@ -168,7 +164,7 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, nam
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
-			return target, readiness.DeploymentReady(target)
+			return target, readiness.NotReady(target.Name, "deployment just created")
 		}
 		return target, nil
 	} else if !r.Deploy {
@@ -187,7 +183,7 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, nam
 	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
 		return target, err
 	}
-	return target, readiness.DeploymentReady(target)
+	return target, readiness.NotReady(target.Name, "deployment just updated")
 }
 
 // reconcileService will reconcile the event repository service to its expected state.

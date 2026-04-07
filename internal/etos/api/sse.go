@@ -73,16 +73,6 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 		return err
 	}
 
-	var notReadyErr error
-	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.Name, cluster)
-	if err != nil {
-		if !readiness.IsNotReadyError(err) {
-			logger.Error(err, "Failed to reconcile the deployment for the ETOS SSE")
-			return err
-		}
-		notReadyErr = err
-	}
-
 	_, err = r.reconcileRole(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role for the ETOS SSE")
@@ -103,7 +93,12 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 		logger.Error(err, "Failed to reconcile the service for the ETOS SSE")
 		return err
 	}
-	return notReadyErr
+	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.ObjectMeta.Name, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the deployment for the ETOS SSE")
+		return err
+	}
+	return nil
 }
 
 // reconcileConfig will reconcile the secret to use as configuration for ETOS SSE.
@@ -155,7 +150,7 @@ func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, name types.
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
-		return target, readiness.DeploymentReady(target)
+		return target, readiness.NotReady(target.Name, "deployment just created")
 	} else if r.restartRequired {
 		logger.Info("Configuration(s) have changed, restarting deployment")
 		if target.Spec.Template.Annotations == nil {
@@ -169,7 +164,7 @@ func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, name types.
 	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
 		return target, err
 	}
-	return target, readiness.DeploymentReady(target)
+	return target, readiness.NotReady(target.Name, "deployment just updated")
 }
 
 // reconcileRole will reconcile the ETOS SSE service account role to its expected state.

@@ -86,22 +86,18 @@ func (r *MongoDBDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	r.SecretName = secret.Name
 
 
-	var notReadyErr error
-	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
-	if err != nil {
-		if !readiness.IsNotReadyError(err) {
-			logger.Error(err, "Failed to reconcile the MongoDB statefulset")
-			return err
-		}
-		notReadyErr = err
-	}
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the MongoDB service")
 		return err
 	}
+	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the MongoDB statefulset")
+		return err
+	}
 
-	return notReadyErr
+	return nil
 }
 
 // reconcileSecret will reconcile the MongoDB secret to its expected state.
@@ -156,7 +152,7 @@ func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, name types
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
-			return target, readiness.StatefulSetReady(target)
+			return target, readiness.NotReady(target.Name, "statefulset just created")
 		}
 		return mongodb, nil
 	} else if !r.Deploy {

@@ -63,15 +63,6 @@ func (r *ETOSLogAreaDeployment) Reconcile(ctx context.Context, cluster *etosv1al
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
 
-	var notReadyErr error
-	_, err = r.reconcileDeployment(ctx, namespacedName, cluster)
-	if err != nil {
-		if !readiness.IsNotReadyError(err) {
-			logger.Error(err, "Failed to reconcile the deployment for the ETOS LogArea")
-			return err
-		}
-		notReadyErr = err
-	}
 	_, err = r.reconcileServiceAccount(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service account for the ETOS LogArea")
@@ -82,7 +73,12 @@ func (r *ETOSLogAreaDeployment) Reconcile(ctx context.Context, cluster *etosv1al
 		logger.Error(err, "Failed to reconcile the service for the ETOS LogArea")
 		return err
 	}
-	return notReadyErr
+	_, err = r.reconcileDeployment(ctx, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the deployment for the ETOS LogArea")
+		return err
+	}
+	return nil
 }
 
 // reconcileDeployment will reconcile the ETOS logarea deployment to its expected state.
@@ -103,7 +99,7 @@ func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, name ty
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
-		return target, readiness.DeploymentReady(target)
+		return target, readiness.NotReady(target.Name, "deployment just created")
 	}
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
 		return deployment, readiness.DeploymentReady(deployment)
@@ -111,7 +107,7 @@ func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, name ty
 	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
 		return target, err
 	}
-	return target, readiness.DeploymentReady(target)
+	return target, readiness.NotReady(target.Name, "deployment just updated")
 }
 
 // reconcileServiceAccount will reconcile the ETOS logarea service account to its expected state.

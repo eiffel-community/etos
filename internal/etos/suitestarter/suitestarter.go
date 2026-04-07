@@ -93,15 +93,6 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 	}
 	logger.Info("Suite runner template", "suiteRunnerTemplateName", suiteRunnerTemplateName)
 
-	var notReadyErr error
-	_, err = r.reconcileDeployment(ctx, cfg.Name, suiteRunnerTemplateName, suiteStarterName, cluster)
-	if err != nil {
-		if !readiness.IsNotReadyError(err) {
-			logger.Error(err, "Failed to reconcile the deployment for the ETOS Suite Starter")
-			return err
-		}
-		notReadyErr = err
-	}
 	_, err = r.reconcileSecret(ctx, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the secret for the ETOS Suite Starter")
@@ -140,7 +131,12 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 		logger.Error(err, "Failed to reconcile the Suite Runner role binding")
 		return err
 	}
-	return notReadyErr
+	_, err = r.reconcileDeployment(ctx, cfg.ObjectMeta.Name, suiteRunnerTemplateName, suiteStarterName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the deployment for the ETOS Suite Starter")
+		return err
+	}
+	return nil
 }
 
 // reconcileSuiteRunnerRole will reconcile the ETOS Suite Runner role to its expected state.
@@ -270,7 +266,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, se
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
-		return target, readiness.DeploymentReady(target)
+		return target, readiness.NotReady(target.Name, "deployment just created")
 	} else if r.restartRequired {
 		logger.Info("Configuration(s) have changed, restarting deployment")
 		if target.Spec.Template.Annotations == nil {
@@ -284,7 +280,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, se
 	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
 		return target, err
 	}
-	return target, readiness.DeploymentReady(target)
+	return target, readiness.NotReady(target.Name, "deployment just updated")
 }
 
 // reconcileSecret will reconcile the ETOS SuiteStarter service account secret to its expected state.

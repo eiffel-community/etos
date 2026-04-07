@@ -229,9 +229,8 @@ var _ = Describe("Cluster Controller", func() {
 			}
 
 			notReadyErr := &status.NotReadyError{
-				Name:            "test-etos-api",
-				ReadyReplicas:   0,
-				DesiredReplicas: 1,
+				Name:    "test-etos-api",
+				Message: "deployment just created",
 			}
 			result, err := reconciler.handleReconcileError(ctx, cluster, notReadyErr)
 			Expect(err).NotTo(HaveOccurred())
@@ -244,7 +243,7 @@ var _ = Describe("Cluster Controller", func() {
 			Expect(readyCond).NotTo(BeNil())
 			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(readyCond.Reason).To(Equal(status.ReasonPending))
-			Expect(readyCond.Message).To(ContainSubstring("0/1"))
+			Expect(readyCond.Message).To(ContainSubstring("test-etos-api"))
 		})
 
 		It("should set Ready=False with Failed reason for other errors", func() {
