@@ -70,7 +70,7 @@ func ReleaseJob(jobName, name, namespace string, environmentrequest *v1alpha1.En
 }
 
 // ReleaseContainer returns a container specification.
-func ReleaseContainer(name, containerName, namespace string, provider *v1alpha1.Provider, noDelete bool) (corev1.Container, error) {
+func ReleaseContainer(name, containerName, namespace string, provider *v1alpha1.Provider, environmentrequest *v1alpha1.EnvironmentRequest, noDelete bool) (corev1.Container, error) {
 	if provider == nil {
 		return corev1.Container{}, fmt.Errorf("provider is nil")
 	}
@@ -78,6 +78,8 @@ func ReleaseContainer(name, containerName, namespace string, provider *v1alpha1.
 		"-release",
 		fmt.Sprintf("-namespace=%s", namespace),
 		fmt.Sprintf("-name=%s", name),
+		fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
+		fmt.Sprintf("-provider=%s", provider.Name),
 	}
 	// noDelete tells a provider to not delete the resource it is responsible for.
 	// Resource in this case being 'Iut', 'LogArea' or 'ExecutionSpace'
