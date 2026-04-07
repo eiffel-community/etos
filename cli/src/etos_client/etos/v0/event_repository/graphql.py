@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """GraphQL query handler."""
+
 from typing import Iterator, Optional
 from etos_lib import ETOS
 from .graphql_queries import (

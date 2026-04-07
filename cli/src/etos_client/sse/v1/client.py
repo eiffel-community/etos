@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Get ETOS sse events."""
+
 import logging
 import time
 from json import JSONDecodeError
@@ -42,18 +43,21 @@ class LogRetry(Retry):
     """A Retry class that logs progress during initial connection attempts."""
 
     def __init__(self, *args, **kwargs):
+        """Initialize logging and attempt counter."""
         self.logger = logging.getLogger(__name__)
         self._attempt_count = 0
         super().__init__(*args, **kwargs)
 
-    def increment(self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None):
+    def increment(
+        self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None
+    ):
         """Override increment to add logging for initial connection attempts."""
         self._attempt_count += 1
         new_retry = super().increment(method, url, response, error, _pool, _stacktrace)
 
         # Copy counter to new retry instance
-        if hasattr(new_retry, '_attempt_count'):
-            new_retry._attempt_count = self._attempt_count
+        if hasattr(new_retry, "_attempt_count"):
+            new_retry._attempt_count = self._attempt_count  # pylint: disable=protected-access
 
         # Log progress for 404 responses (test run not ready) at specific intervals
         is_404_response = response is not None and response.status == 404

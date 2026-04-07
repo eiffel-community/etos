@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command line for managing ETOSv1alpha testruns."""
+
 from etosctl.command import SubCommand
 from etosctl.models import CommandMeta
 

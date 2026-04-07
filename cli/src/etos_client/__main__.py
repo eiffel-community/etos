@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS client entry point script so etosctl stays backwards compatible."""
+
 import sys
 import warnings
 from etosctl.__main__ import main
