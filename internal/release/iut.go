@@ -26,7 +26,7 @@ const IutReleaserName = "iut-releaser"
 
 // IutReleaser returns an IUT releaser job specification.
 func IutReleaser(iut *v1alpha2.Iut, environmentrequest *v1alpha1.EnvironmentRequest, provider *v1alpha1.Provider, skipDeletingIut bool) (*batchv1.Job, error) {
-	container, err := IutReleaserContainer(iut, provider, skipDeletingIut)
+	container, err := IutReleaserContainer(iut, provider, environmentrequest, skipDeletingIut)
 	if err != nil {
 		return nil, err
 	}
@@ -40,12 +40,13 @@ func IutReleaser(iut *v1alpha2.Iut, environmentrequest *v1alpha1.EnvironmentRequ
 }
 
 // IutReleaserContainer returns an IUT releaser container specification.
-func IutReleaserContainer(iut *v1alpha2.Iut, provider *v1alpha1.Provider, skipDeletingIut bool) (corev1.Container, error) {
+func IutReleaserContainer(iut *v1alpha2.Iut, provider *v1alpha1.Provider, environmentrequest *v1alpha1.EnvironmentRequest, skipDeletingIut bool) (corev1.Container, error) {
 	return ReleaseContainer(
 		iut.Name,
 		IutReleaserName,
 		iut.Namespace,
 		provider,
+		environmentrequest,
 		skipDeletingIut,
 	)
 }
