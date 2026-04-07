@@ -34,7 +34,6 @@ import (
 
 type Publisher interface {
 	Publish([]byte, string) error
-	Start() error
 	AddLogger(logr.Logger)
 	Close() error
 }
