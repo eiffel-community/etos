@@ -406,11 +406,19 @@ type ClusterStatus struct {
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message"
 type Cluster struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
 
-	Spec   ClusterSpec   `json:"spec"`
-	Status ClusterStatus `json:"status,omitempty"`
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	// spec defines the desired state of Cluster
+	// +required
+	Spec ClusterSpec `json:"spec"`
+
+	// status defines the observed state of Cluster
+	// +optional
+	Status ClusterStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -418,7 +426,7 @@ type Cluster struct {
 // ClusterList contains a list of Cluster
 type ClusterList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []Cluster `json:"items"`
 }
 

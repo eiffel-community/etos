@@ -24,7 +24,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -32,7 +31,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
@@ -50,14 +48,14 @@ func SetupProviderWebhookWithManager(mgr ctrl.Manager) error {
 	if cli == nil {
 		cli = mgr.GetClient()
 	}
-	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha1.Provider{}).
+	return ctrl.NewWebhookManagedBy(mgr, &etosv1alpha1.Provider{}).
 		WithValidator(&ProviderCustomValidator{}).
 		WithDefaulter(&ProviderCustomDefaulter{}).
 		Complete()
 }
 
 // getFromSecretKeySelector returns the value of a key in a secret.
-func getFromSecretKeySelector(ctx context.Context, client client.Client, secretKeySelector *corev1.SecretKeySelector, namespace string) ([]byte, error) {
+func getFromSecretKeySelector(ctx context.Context, cli client.Client, secretKeySelector *corev1.SecretKeySelector, namespace string) ([]byte, error) {
 	name := types.NamespacedName{Name: secretKeySelector.Name, Namespace: namespace}
 	obj := &corev1.Secret{}
 
@@ -67,7 +65,7 @@ func getFromSecretKeySelector(ctx context.Context, client client.Client, secretK
 	// There is a race where, for example, a provider and a custom secret resource (such as a SealedSecret)
 	// are created at the same time and the secret does not get generated in time.
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
-		err := client.Get(ctx, name, obj)
+		err := cli.Get(ctx, name, obj)
 		if err != nil {
 			providerlog.Error(err, "retry")
 			return err
@@ -85,7 +83,7 @@ func getFromSecretKeySelector(ctx context.Context, client client.Client, secretK
 }
 
 // getFromConfigMapKeySelector returns the value of a key in a configmap.
-func getFromConfigMapKeySelector(ctx context.Context, client client.Client, configMapKeySelector *corev1.ConfigMapKeySelector, namespace string) ([]byte, error) {
+func getFromConfigMapKeySelector(ctx context.Context, cli client.Client, configMapKeySelector *corev1.ConfigMapKeySelector, namespace string) ([]byte, error) {
 	name := types.NamespacedName{Name: configMapKeySelector.Name, Namespace: namespace}
 	obj := &corev1.ConfigMap{}
 
@@ -93,7 +91,7 @@ func getFromConfigMapKeySelector(ctx context.Context, client client.Client, conf
 	// There is a race where, for example, a provider and a custom configmap resource are created at the
 	// same time and the configmap does not get generated in time.
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
-		return client.Get(ctx, name, obj)
+		return cli.Get(ctx, name, obj)
 	})
 	if err != nil {
 		return nil, err
@@ -106,12 +104,12 @@ func getFromConfigMapKeySelector(ctx context.Context, client client.Client, conf
 }
 
 // Get the value from a secret or configmap ref.
-func (r *ProviderCustomDefaulter) Get(ctx context.Context, provider *etosv1alpha1.Provider, client client.Client, namespace string) ([]byte, error) {
+func (r *ProviderCustomDefaulter) Get(ctx context.Context, provider *etosv1alpha1.Provider, cli client.Client, namespace string) ([]byte, error) {
 	if provider.Spec.JSONTasSource.SecretKeyRef != nil {
-		return getFromSecretKeySelector(ctx, client, provider.Spec.JSONTasSource.SecretKeyRef, namespace)
+		return getFromSecretKeySelector(ctx, cli, provider.Spec.JSONTasSource.SecretKeyRef, namespace)
 	}
 	if provider.Spec.JSONTasSource.ConfigMapKeyRef != nil {
-		return getFromConfigMapKeySelector(ctx, client, provider.Spec.JSONTasSource.ConfigMapKeyRef, namespace)
+		return getFromConfigMapKeySelector(ctx, cli, provider.Spec.JSONTasSource.ConfigMapKeyRef, namespace)
 	}
 	return nil, errors.New("found no source for key")
 }
@@ -125,15 +123,8 @@ func (r *ProviderCustomDefaulter) Get(ctx context.Context, provider *etosv1alpha
 // as it is used only for temporary operations and does not need to be deeply copied.
 type ProviderCustomDefaulter struct{}
 
-var _ webhook.CustomDefaulter = &ProviderCustomDefaulter{}
-
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Provider.
-func (d *ProviderCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	provider, ok := obj.(*etosv1alpha1.Provider)
-
-	if !ok {
-		return fmt.Errorf("expected a Provider object but got %T", obj)
-	}
+func (d *ProviderCustomDefaulter) Default(ctx context.Context, provider *etosv1alpha1.Provider) error {
 	providerlog.Info("Defaulting for Provider", "name", provider.GetName())
 
 	if provider.Spec.JSONTasSource == nil {
@@ -205,37 +196,20 @@ func (d *ProviderCustomValidator) validate(provider *etosv1alpha1.Provider) erro
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type ProviderCustomValidator struct{}
 
-var _ webhook.CustomValidator = &ProviderCustomValidator{}
-
 // ValidateCreate validates the creation of a Provider.
-func (d *ProviderCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	provider, ok := obj.(*etosv1alpha1.Provider)
-
-	if !ok {
-		return nil, fmt.Errorf("expected a Provider object but got %T", obj)
-	}
+func (d *ProviderCustomValidator) ValidateCreate(_ context.Context, provider *etosv1alpha1.Provider) (admission.Warnings, error) {
 	providerlog.Info("Validation for Provider upon creation", "name", provider.GetName())
 	return nil, d.validate(provider)
 }
 
 // ValidateUpdate validates the updates of a Provider.
-func (d *ProviderCustomValidator) ValidateUpdate(_ context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
-	provider, ok := newObj.(*etosv1alpha1.Provider)
-
-	if !ok {
-		return nil, fmt.Errorf("expected a Provider object but got %T", newObj)
-	}
+func (d *ProviderCustomValidator) ValidateUpdate(_ context.Context, _, provider *etosv1alpha1.Provider) (admission.Warnings, error) {
 	providerlog.Info("Validation for Provider upon update", "name", provider.GetName())
 	return nil, d.validate(provider)
 }
 
 // ValidateDelete validates the deletion of a Provider.
-func (d *ProviderCustomValidator) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	provider, ok := obj.(*etosv1alpha1.Provider)
-
-	if !ok {
-		return nil, fmt.Errorf("expected a Provider object but got %T", obj)
-	}
+func (d *ProviderCustomValidator) ValidateDelete(_ context.Context, provider *etosv1alpha1.Provider) (admission.Warnings, error) {
 	providerlog.Info("Validation for Provider upon deletion", "name", provider.GetName())
 	return nil, nil
 }

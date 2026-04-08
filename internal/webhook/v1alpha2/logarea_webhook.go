@@ -18,14 +18,11 @@ package v1alpha2
 
 import (
 	"context"
-	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
@@ -37,7 +34,7 @@ var logarealog = logf.Log.WithName("logarea-resource")
 
 // SetupLogAreaWebhookWithManager registers the webhook for LogArea in the manager.
 func SetupLogAreaWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha2.LogArea{}).
+	return ctrl.NewWebhookManagedBy(mgr, &etosv1alpha2.LogArea{}).
 		WithDefaulter(&LogAreaCustomDefaulter{mgr.GetClient()}).
 		Complete()
 }
@@ -53,17 +50,8 @@ type LogAreaCustomDefaulter struct {
 	client.Reader
 }
 
-var _ webhook.CustomDefaulter = &LogAreaCustomDefaulter{}
-
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind LogArea.
-func (d *LogAreaCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	logarea, ok := obj.(*etosv1alpha2.LogArea)
-
-	if !ok {
-		return fmt.Errorf("expected an LogArea object but got %T", obj)
-	}
-	logarealog.Info("Defaulting for LogArea", "name", logarea.GetName())
-
+func (d *LogAreaCustomDefaulter) Default(ctx context.Context, logarea *etosv1alpha2.LogArea) error {
 	environmentrequest := &v1alpha1.EnvironmentRequest{}
 	namespacedName := types.NamespacedName{Name: logarea.Spec.EnvironmentRequest, Namespace: logarea.Namespace}
 	if err := d.Get(ctx, namespacedName, environmentrequest); err != nil {

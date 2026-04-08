@@ -112,7 +112,6 @@ type EnvironmentRequestStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
-// +kubebuilder:conversion:hub
 // +kubebuilder:subresource:status
 
 // EnvironmentRequest is the Schema for the environmentrequests API
@@ -121,11 +120,19 @@ type EnvironmentRequestStatus struct {
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message"
 // +kubebuilder:printcolumn:name="TestRun",type="string",JSONPath=.metadata.labels.etos\.eiffel-community\.github\.io/id
 type EnvironmentRequest struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
 
-	Spec   EnvironmentRequestSpec   `json:"spec,omitempty"`
-	Status EnvironmentRequestStatus `json:"status,omitempty"`
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	// spec defines the desired state of EnvironmentRequest
+	// +required
+	Spec EnvironmentRequestSpec `json:"spec"`
+
+	// status defines the observed state of EnvironmentRequest
+	// +optional
+	Status EnvironmentRequestStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -133,7 +140,7 @@ type EnvironmentRequest struct {
 // EnvironmentRequestList contains a list of EnvironmentRequest
 type EnvironmentRequestList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []EnvironmentRequest `json:"items"`
 }
 

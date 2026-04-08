@@ -43,7 +43,7 @@ func VerifyETOSTestruns() {
 			By("removing finalizers from EnvironmentRequests and Environments")
 			cmd = exec.Command("kubectl", "get", "environmentrequests", "-o", "custom-columns=:metadata.name")
 			output, _ := utils.Run(cmd)
-			for _, name := range strings.Split(output, "\n") {
+			for name := range strings.SplitSeq(output, "\n") {
 				if name == "" {
 					continue
 				}
@@ -55,7 +55,7 @@ func VerifyETOSTestruns() {
 			}
 			cmd = exec.Command("kubectl", "get", "environments", "-o", "custom-columns=:metadata.name")
 			output, _ = utils.Run(cmd)
-			for _, name := range strings.Split(output, "\n") {
+			for name := range strings.SplitSeq(output, "\n") {
 				if name == "" {
 					continue
 				}

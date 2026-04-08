@@ -48,7 +48,7 @@ type ProviderReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 
@@ -70,7 +70,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// run healthcheck on first reconciliation and update status after that
 		provider.Status.LastHealthCheckTime = &lastHealthCheckTime
 	} else {
-		next := provider.Status.LastHealthCheckTime.Time.Add(interval)
+		next := provider.Status.LastHealthCheckTime.Add(interval)
 		if time.Until(next) > 0 {
 			// postpone healthcheck if it is too early to do it now
 			return ctrl.Result{RequeueAfter: time.Until(next)}, nil

@@ -67,7 +67,7 @@ type ClusterReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
@@ -130,8 +130,8 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.update(ctx, cluster, metav1.ConditionFalse, err.Error())
 	}
 
-	etos := etos.NewETOSDeployment(cluster.Spec.ETOS, r.Scheme, r.Client, eiffelbus.SecretName, etosbus.SecretName, r.Config)
-	if err := etos.Reconcile(ctx, cluster); err != nil {
+	etosDeployment := etos.NewETOSDeployment(cluster.Spec.ETOS, r.Scheme, r.Client, eiffelbus.SecretName, etosbus.SecretName, r.Config)
+	if err := etosDeployment.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}

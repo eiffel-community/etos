@@ -51,11 +51,6 @@ func ControllerPodName() (string, error) {
 func DeployVerifyController() {
 	var controllerPodName string
 	Context("Manager", func() {
-		AfterAll(func() {
-			By("cleaning up the curl pod for metrics")
-			cmd := exec.Command("kubectl", "delete", "pod", "curl-metrics", "-n", namespace)
-			_, _ = utils.Run(cmd)
-		})
 		It("should run successfully", func() {
 			By("validating that the controller-manager pod is running as expected")
 			verifyControllerUp := func(g Gomega) {
@@ -107,26 +102,66 @@ func DeployVerifyController() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(token).NotTo(BeEmpty())
 
-			By("waiting for the metrics endpoint to be ready")
-			verifyMetricsEndpointReady := func(g Gomega) {
-				cmd := exec.Command("kubectl", "get", "endpoints", metricsServiceName, "-n", namespace)
+			By("ensuring the controller pod is ready")
+			verifyControllerPodReady := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get", "pod", controllerPodName, "-n", namespace,
+					"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].status}")
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(output).To(ContainSubstring("8443"), "Metrics endpoint is not ready")
+				g.Expect(output).To(Equal("True"), "Controller pod not ready")
 			}
-			Eventually(verifyMetricsEndpointReady).Should(Succeed())
+			Eventually(verifyControllerPodReady, 3*time.Minute, time.Second).Should(Succeed())
 
 			By("verifying that the controller manager is serving the metrics server")
 			verifyMetricsServerStarted := func(g Gomega) {
 				cmd := exec.Command("kubectl", "logs", controllerPodName, "-n", namespace)
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(output).To(ContainSubstring("controller-runtime.metrics\tServing metrics server"),
+				g.Expect(output).To(ContainSubstring("Serving metrics server"),
 					"Metrics server not yet started")
 			}
-			Eventually(verifyMetricsServerStarted).Should(Succeed())
+			Eventually(verifyMetricsServerStarted, 3*time.Minute, time.Second).Should(Succeed())
+
+			By("waiting for the webhook service endpoints to be ready")
+			verifyWebhookEndpointsReady := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get", "endpointslices.discovery.k8s.io", "-n", namespace,
+					"-l", "kubernetes.io/service-name=etos-webhook-service",
+					"-o", "jsonpath={range .items[*]}{range .endpoints[*]}{.addresses[*]}{end}{end}")
+				output, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred(), "Webhook endpoints should exist")
+				g.Expect(output).ShouldNot(BeEmpty(), "Webhook endpoints not yet ready")
+			}
+			Eventually(verifyWebhookEndpointsReady, 3*time.Minute, time.Second).Should(Succeed())
+
+			By("verifying the mutating webhook server is ready")
+			verifyMutatingWebhookReady := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get", "mutatingwebhookconfigurations.admissionregistration.k8s.io",
+					"etos-mutating-webhook-configuration",
+					"-o", "jsonpath={.webhooks[0].clientConfig.caBundle}")
+				output, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred(), "MutatingWebhookConfiguration should exist")
+				g.Expect(output).ShouldNot(BeEmpty(), "Mutating webhook CA bundle not yet injected")
+			}
+			Eventually(verifyMutatingWebhookReady, 3*time.Minute, time.Second).Should(Succeed())
+
+			By("verifying the validating webhook server is ready")
+			verifyValidatingWebhookReady := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get", "validatingwebhookconfigurations.admissionregistration.k8s.io",
+					"etos-validating-webhook-configuration",
+					"-o", "jsonpath={.webhooks[0].clientConfig.caBundle}")
+				output, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred(), "ValidatingWebhookConfiguration should exist")
+				g.Expect(output).ShouldNot(BeEmpty(), "Validating webhook CA bundle not yet injected")
+			}
+			Eventually(verifyValidatingWebhookReady, 3*time.Minute, time.Second).Should(Succeed())
+
+			By("waiting additional time for webhook server to stabilize")
+			time.Sleep(5 * time.Second)
+
+			// +kubebuilder:scaffold:e2e-metrics-webhooks-readiness
 
 			By("creating the curl-metrics pod to access the metrics endpoint")
+			//nolint:lll // Cannot find a good way to reduce the line length for the curl command args.
 			cmd = exec.Command("kubectl", "run", "curl-metrics", "--restart=Never",
 				"--namespace", namespace,
 				"--image=curlimages/curl:latest",
@@ -137,8 +172,11 @@ func DeployVerifyController() {
 							"name": "curl",
 							"image": "curlimages/curl:latest",
 							"command": ["/bin/sh", "-c"],
-							"args": ["curl -v -k -H 'Authorization: Bearer %s' https://%s.%s.svc.cluster.local:8443/metrics"],
+							"args": [
+								"for i in $(seq 1 30); do curl -v -k -H 'Authorization: Bearer %s' https://%s.%s.svc.cluster.local:8443/metrics && exit 0 || sleep 2; done; exit 1"
+							],
 							"securityContext": {
+								"readOnlyRootFilesystem": true,
 								"allowPrivilegeEscalation": false,
 								"capabilities": {
 									"drop": ["ALL"]
@@ -150,7 +188,7 @@ func DeployVerifyController() {
 								}
 							}
 						}],
-						"serviceAccount": "%s"
+						"serviceAccountName": "%s"
 					}
 				}`, token, metricsServiceName, namespace, serviceAccountName))
 			_, err = utils.Run(cmd)
@@ -168,10 +206,13 @@ func DeployVerifyController() {
 			Eventually(verifyCurlUp, 5*time.Minute).Should(Succeed())
 
 			By("getting the metrics by checking curl-metrics logs")
-			metricsOutput := getMetricsOutput()
-			Expect(metricsOutput).To(ContainSubstring(
-				"controller_runtime_reconcile_total",
-			))
+			verifyMetricsAvailable := func(g Gomega) {
+				metricsOutput, err := getMetricsOutput()
+				g.Expect(err).NotTo(HaveOccurred(), "Failed to retrieve logs from curl pod")
+				g.Expect(metricsOutput).NotTo(BeEmpty())
+				g.Expect(metricsOutput).To(ContainSubstring("< HTTP/1.1 200 OK"))
+			}
+			Eventually(verifyMetricsAvailable, 2*time.Minute).Should(Succeed())
 		})
 
 		It("should provisioned cert-manager", func() {
@@ -212,16 +253,16 @@ func DeployVerifyController() {
 			Eventually(verifyCAInjection).Should(Succeed())
 		})
 
-		It("should have CA injection for mutating webhooks", func() {
-			By("checking CA injection for mutating webhooks")
+		It("should have CA injection for TestRun conversion webhook", func() {
+			By("checking CA injection for TestRun conversion webhook")
 			verifyCAInjection := func(g Gomega) {
 				cmd := exec.Command("kubectl", "get",
-					"mutatingwebhookconfigurations.admissionregistration.k8s.io",
-					"etos-mutating-webhook-configuration",
-					"-o", "go-template={{ range .webhooks }}{{ .clientConfig.caBundle }}{{ end }}")
-				mwhOutput, err := utils.Run(cmd)
+					"customresourcedefinitions.apiextensions.k8s.io",
+					"testruns.etos.eiffel-community.github.io",
+					"-o", "go-template={{ .spec.conversion.webhook.clientConfig.caBundle }}")
+				vwhOutput, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(len(mwhOutput)).To(BeNumerically(">", 10))
+				g.Expect(len(vwhOutput)).To(BeNumerically(">", 10))
 			}
 			Eventually(verifyCAInjection).Should(Succeed())
 		})
@@ -232,20 +273,6 @@ func DeployVerifyController() {
 				cmd := exec.Command("kubectl", "get",
 					"customresourcedefinitions.apiextensions.k8s.io",
 					"providers.etos.eiffel-community.github.io",
-					"-o", "go-template={{ .spec.conversion.webhook.clientConfig.caBundle }}")
-				vwhOutput, err := utils.Run(cmd)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(len(vwhOutput)).To(BeNumerically(">", 10))
-			}
-			Eventually(verifyCAInjection).Should(Succeed())
-		})
-
-		It("should have CA injection for TestRun conversion webhook", func() {
-			By("checking CA injection for TestRun conversion webhook")
-			verifyCAInjection := func(g Gomega) {
-				cmd := exec.Command("kubectl", "get",
-					"customresourcedefinitions.apiextensions.k8s.io",
-					"testruns.etos.eiffel-community.github.io",
 					"-o", "go-template={{ .spec.conversion.webhook.clientConfig.caBundle }}")
 				vwhOutput, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
@@ -267,6 +294,7 @@ func DeployVerifyController() {
 			}
 			Eventually(verifyCAInjection).Should(Succeed())
 		})
+
 		// +kubebuilder:scaffold:e2e-webhooks-checks
 	})
 }
@@ -313,13 +341,10 @@ func serviceAccountToken() (string, error) {
 }
 
 // getMetricsOutput retrieves and returns the logs from the curl pod used to access the metrics endpoint.
-func getMetricsOutput() string {
+func getMetricsOutput() (string, error) {
 	By("getting the curl-metrics logs")
 	cmd := exec.Command("kubectl", "logs", "curl-metrics", "-n", namespace)
-	metricsOutput, err := utils.Run(cmd)
-	Expect(err).NotTo(HaveOccurred(), "Failed to retrieve logs from curl pod")
-	Expect(metricsOutput).To(ContainSubstring("< HTTP/1.1 200 OK"))
-	return metricsOutput
+	return utils.Run(cmd)
 }
 
 // tokenRequest is a simplified representation of the Kubernetes TokenRequest API response,

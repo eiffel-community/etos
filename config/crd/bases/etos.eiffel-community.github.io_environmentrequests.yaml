@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: environmentrequests.etos.eiffel-community.github.io
 spec:
   group: etos.eiffel-community.github.io
@@ -51,7 +51,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: EnvironmentRequestSpec defines the desired state of EnvironmentRequest
+            description: spec defines the desired state of EnvironmentRequest
             properties:
               Config:
                 description: EnvironmentProviderJobConfig defines parameters required
@@ -531,7 +531,7 @@ spec:
             - splitter
             type: object
           status:
-            description: EnvironmentRequestStatus defines the observed state of EnvironmentRequest
+            description: status defines the observed state of EnvironmentRequest
             properties:
               completionTime:
                 format: date-time
@@ -642,6 +642,8 @@ spec:
                 format: date-time
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

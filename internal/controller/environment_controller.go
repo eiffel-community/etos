@@ -56,7 +56,7 @@ type EnvironmentReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
@@ -69,7 +69,7 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// If the environment is considered 'Completed', it has been released. Check that the object is
 	// being deleted and contains the finalizer and remove the finalizer.
 	if environment.Status.CompletionTime != nil {
-		if !environment.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !environment.DeletionTimestamp.IsZero() {
 			if controllerutil.ContainsFinalizer(environment, releaseFinalizer) {
 				controllerutil.RemoveFinalizer(environment, releaseFinalizer)
 				if err := r.Update(ctx, environment); err != nil {
@@ -93,7 +93,7 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Check deadline and delete if exceeded
-	if environment.Spec.Deadline != 0 && environment.ObjectMeta.DeletionTimestamp.IsZero() {
+	if environment.Spec.Deadline != 0 && environment.DeletionTimestamp.IsZero() {
 		convertedDeadline := time.Unix(environment.Spec.Deadline, 0)
 		if time.Now().After(convertedDeadline) {
 			logger.Info("Environment deadline exceeded, deleting environment", "deadline", convertedDeadline)
@@ -130,7 +130,7 @@ func (r *EnvironmentReconciler) reconcile(ctx context.Context, environment *etos
 			})
 		return r.Status().Update(ctx, environment)
 	}
-	if environment.ObjectMeta.DeletionTimestamp.IsZero() {
+	if environment.DeletionTimestamp.IsZero() {
 		if !controllerutil.ContainsFinalizer(environment, releaseFinalizer) {
 			controllerutil.AddFinalizer(environment, releaseFinalizer)
 			return r.Update(ctx, environment)

@@ -22,7 +22,6 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -49,8 +48,8 @@ type MongoDBDeployment struct {
 }
 
 // NewMongoDBDeployment will create a new MongoDB reconciler.
-func NewMongoDBDeployment(spec etosv1alpha1.MongoDB, scheme *runtime.Scheme, client client.Client) *MongoDBDeployment {
-	return &MongoDBDeployment{spec, client, scheme, url.URL{}, "", false}
+func NewMongoDBDeployment(spec etosv1alpha1.MongoDB, sch *runtime.Scheme, cli client.Client) *MongoDBDeployment {
+	return &MongoDBDeployment{spec, cli, sch, url.URL{}, "", false}
 }
 
 // Reconcile will reconcile MongoDB to its expected state.
@@ -78,19 +77,19 @@ func (r *MongoDBDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	} else {
 		logger.Info("Not deploying MongoDB")
 	}
-	secret, err := r.reconcileSecret(ctx, logger, namespacedName, cluster)
+	secret, err := r.reconcileSecret(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the MongoDB secret")
 		return err
 	}
 	r.SecretName = secret.Name
 
-	_, err = r.reconcileStatefulset(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the MongoDB statefulset")
 		return err
 	}
-	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the MongoDB service")
 		return err
@@ -100,7 +99,8 @@ func (r *MongoDBDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 }
 
 // reconcileSecret will reconcile the MongoDB secret to its expected state.
-func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
 	target := r.secret(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -133,7 +133,8 @@ func (r *MongoDBDeployment) reconcileSecret(ctx context.Context, logger logr.Log
 }
 
 // reconcileStatefulset will reconcile the MongoDB statefulset to its expected state.
-func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
+func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
+	logger := log.FromContext(ctx)
 	target := r.statefulset(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -165,7 +166,8 @@ func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, logger log
 }
 
 // reconcileService will reconcile the MongoDB service to its expected state.
-func (r *MongoDBDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *MongoDBDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+	logger := log.FromContext(ctx)
 	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err

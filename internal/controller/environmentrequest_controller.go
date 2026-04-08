@@ -67,7 +67,7 @@ type EnvironmentRequestReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 
@@ -488,7 +488,7 @@ func (r EnvironmentRequestReconciler) deleteEnvironments(ctx context.Context, en
 	var err error
 	var allErr error
 	for _, environment := range environments.Items {
-		if environment.ObjectMeta.DeletionTimestamp.IsZero() {
+		if environment.DeletionTimestamp.IsZero() {
 			if err = r.Delete(ctx, &environment); err != nil {
 				if !apierrors.IsNotFound(err) {
 					logger.Error(err, "failed to delete environment", "environment", environment)
@@ -561,7 +561,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 						{
 							Name:            environmentrequest.Name,
 							Image:           environmentrequest.Spec.Image.Image,
-							ImagePullPolicy: environmentrequest.Spec.Image.ImagePullPolicy,
+							ImagePullPolicy: environmentrequest.Spec.ImagePullPolicy,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),

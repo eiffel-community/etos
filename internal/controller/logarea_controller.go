@@ -52,7 +52,7 @@ type LogAreaReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.22.1/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 
@@ -74,7 +74,7 @@ func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		}
-		if logarea.ObjectMeta.DeletionTimestamp.IsZero() {
+		if logarea.DeletionTimestamp.IsZero() {
 			// The LogArea is not being deleted, in use by environment
 			if meta.SetStatusCondition(&logarea.Status.Conditions,
 				metav1.Condition{
@@ -115,7 +115,7 @@ func (r *LogAreaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// If the LogArea is considered 'Completed', it has been released. Check that the object is
 	// being deleted and contains the finalizer and remove the finalizer.
 	if logarea.Status.CompletionTime != nil {
-		if !logarea.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !logarea.DeletionTimestamp.IsZero() {
 			if controllerutil.ContainsFinalizer(logarea, providerFinalizer) {
 				controllerutil.RemoveFinalizer(logarea, providerFinalizer)
 				if err := r.Update(ctx, logarea); err != nil {
@@ -158,7 +158,7 @@ func (r *LogAreaReconciler) reconcile(ctx context.Context, logarea *etosv1alpha2
 		logger.Info("LogArea failed, reconciliation canceled")
 		return nil
 	}
-	if logarea.ObjectMeta.DeletionTimestamp.IsZero() {
+	if logarea.DeletionTimestamp.IsZero() {
 		if !controllerutil.ContainsFinalizer(logarea, providerFinalizer) {
 			controllerutil.AddFinalizer(logarea, providerFinalizer)
 			logger.Info("LogArea is being managed by LogArea controller", "logarea", logarea.Name)
@@ -166,7 +166,7 @@ func (r *LogAreaReconciler) reconcile(ctx context.Context, logarea *etosv1alpha2
 		}
 	}
 
-	if !logarea.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !logarea.DeletionTimestamp.IsZero() {
 		return r.reconcileLogAreaReleaser(ctx, logarea)
 	}
 	return nil

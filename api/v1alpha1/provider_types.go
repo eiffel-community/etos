@@ -189,18 +189,25 @@ type ProviderStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
-// +kubebuilder:conversion:hub
 // +kubebuilder:subresource:status
 
 // Provider is the Schema for the providers API
 // +kubebuilder:printcolumn:name="Available",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].status"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].message"
 type Provider struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
 
-	Spec   ProviderSpec   `json:"spec,omitempty"`
-	Status ProviderStatus `json:"status,omitempty"`
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	// spec defines the desired state of Provider
+	// +required
+	Spec ProviderSpec `json:"spec"`
+
+	// status defines the observed state of Provider
+	// +optional
+	Status ProviderStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -208,7 +215,7 @@ type Provider struct {
 // ProviderList contains a list of Provider
 type ProviderList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []Provider `json:"items"`
 }
 

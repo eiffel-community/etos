@@ -30,46 +30,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-etos-eiffel-community-github-io-v1alpha1-provider
-  failurePolicy: Fail
-  name: mprovider-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - etos.eiffel-community.github.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - providers
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /mutate-etos-eiffel-community-github-io-v1alpha1-testrun
-  failurePolicy: Fail
-  name: mtestrun-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - etos.eiffel-community.github.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - testruns
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /mutate-etos-eiffel-community-github-io-v1alpha2-executionspace
   failurePolicy: Fail
   name: mexecutionspace-v1alpha2.kb.io
@@ -123,6 +83,46 @@ webhooks:
     - UPDATE
     resources:
     - logarea
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha1-provider
+  failurePolicy: Fail
+  name: mprovider-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - providers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha1-testrun
+  failurePolicy: Fail
+  name: mtestrun-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - testruns
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1

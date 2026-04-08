@@ -21,7 +21,6 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -47,8 +46,8 @@ type MessageBusDeployment struct {
 }
 
 // NewMessageBusDeployment will create a new messagebus reconciler.
-func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, scheme *runtime.Scheme, client client.Client) *MessageBusDeployment {
-	return &MessageBusDeployment{spec, client, scheme, "", false}
+func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, sch *runtime.Scheme, cli client.Client) *MessageBusDeployment {
+	return &MessageBusDeployment{spec, cli, sch, "", false}
 }
 
 // Reconcile will reconcile the messagebus to its expected state.
@@ -63,7 +62,7 @@ func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alp
 		r.StreamPort = fmt.Sprintf("%d", rabbitmqStreamPort)
 	}
 
-	secret, err := r.reconcileSecret(ctx, logger, namespacedName, cluster)
+	secret, err := r.reconcileSecret(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the MessageBus secret")
 		return err
@@ -73,18 +72,18 @@ func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alp
 	// A headless service is required for when we enable rabbitmq-streams since each node in the RabbitMQ cluster
 	// advertises itself and expects clients to connect to that specific node. A headless service allows clients
 	// to connect directly to the advertised host.
-	_, err = r.reconcileHeadlessService(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileHeadlessService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the MessageBus headless service")
 		return err
 	}
 
-	_, err = r.reconcileStatefulset(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the MessageBus statefulset")
 		return err
 	}
-	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the MessageBus service")
 		return err
@@ -93,7 +92,8 @@ func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alp
 }
 
 // reconcileSecret will reconcile the messagebus secret to its expected state.
-func (r *MessageBusDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *MessageBusDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
 	target, err := r.secret(ctx, name, owner.GetName())
 	if err != nil {
 		return target, err
@@ -123,7 +123,8 @@ func (r *MessageBusDeployment) reconcileSecret(ctx context.Context, logger logr.
 }
 
 // reconcileStatefulset will reconcile the messagebus statefulset to its expected state.
-func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
+func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*appsv1.StatefulSet, error) {
+	logger := log.FromContext(ctx)
 	target := r.statefulset(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -155,7 +156,8 @@ func (r *MessageBusDeployment) reconcileStatefulset(ctx context.Context, logger 
 }
 
 // reconcileHeadlessService will reconcile the messagebus headless service to its expected state.
-func (r *MessageBusDeployment) reconcileHeadlessService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *MessageBusDeployment) reconcileHeadlessService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+	logger := log.FromContext(ctx)
 	selectorName := name.Name
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-headless", name.Name), Namespace: name.Namespace}
 	target := r.service(name, owner.GetName(), selectorName, true)
@@ -183,7 +185,8 @@ func (r *MessageBusDeployment) reconcileHeadlessService(ctx context.Context, log
 }
 
 // reconcileService will reconcile the messagebus service to its expected state.
-func (r *MessageBusDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *MessageBusDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+	logger := log.FromContext(ctx)
 	target := r.service(name, owner.GetName(), name.Name, false)
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err

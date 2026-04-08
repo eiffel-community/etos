@@ -52,7 +52,7 @@ type ExecutionSpaceReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.22.1/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *ExecutionSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 
@@ -74,7 +74,7 @@ func (r *ExecutionSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				return ctrl.Result{}, err
 			}
 		}
-		if executionSpace.ObjectMeta.DeletionTimestamp.IsZero() {
+		if executionSpace.DeletionTimestamp.IsZero() {
 			// The ExecutionSpace is not being deleted, in use by environment
 			if meta.SetStatusCondition(&executionSpace.Status.Conditions,
 				metav1.Condition{
@@ -115,7 +115,7 @@ func (r *ExecutionSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// If the ExecutionSpace is considered 'Completed', it has been released. Check that the object is
 	// being deleted and contains the finalizer and remove the finalizer.
 	if executionSpace.Status.CompletionTime != nil {
-		if !executionSpace.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !executionSpace.DeletionTimestamp.IsZero() {
 			if controllerutil.ContainsFinalizer(executionSpace, providerFinalizer) {
 				controllerutil.RemoveFinalizer(executionSpace, providerFinalizer)
 				if err := r.Update(ctx, executionSpace); err != nil {
@@ -158,7 +158,7 @@ func (r *ExecutionSpaceReconciler) reconcile(ctx context.Context, executionSpace
 		logger.Info("Execution space failed, reconciliation canceled")
 		return nil
 	}
-	if executionSpace.ObjectMeta.DeletionTimestamp.IsZero() {
+	if executionSpace.DeletionTimestamp.IsZero() {
 		if !controllerutil.ContainsFinalizer(executionSpace, providerFinalizer) {
 			controllerutil.AddFinalizer(executionSpace, providerFinalizer)
 			logger.Info("ExecutionSpace is being managed by ExecutionSpace controller", "executionSpace", executionSpace.Name)
@@ -166,7 +166,7 @@ func (r *ExecutionSpaceReconciler) reconcile(ctx context.Context, executionSpace
 		}
 	}
 
-	if !executionSpace.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !executionSpace.DeletionTimestamp.IsZero() {
 		return r.reconcileExecutionSpaceReleaser(ctx, executionSpace)
 	}
 	return nil

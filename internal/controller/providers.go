@@ -53,7 +53,7 @@ func checkProvider(ctx context.Context, c client.Reader, name string, namespace 
 	if meta.IsStatusConditionPresentAndEqual(provider.Status.Conditions, status.StatusAvailable, metav1.ConditionTrue) {
 		return nil
 	}
-	return fmt.Errorf("Provider '%s' does not have a status field", name)
+	return fmt.Errorf("provider '%s' does not have a status field", name)
 }
 
 // getProvider fetches a Provider resource by name from Kubernetes.
