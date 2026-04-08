@@ -46,8 +46,8 @@ const (
 )
 
 // NewPublisher creates a new Publisher instance.
-func NewPublisher(ctx context.Context, config v1alpha1.RabbitMQ, client client.Client, namespace string) (Publisher, error) {
-	return newRabbitMQStreamPublisher(ctx, "provider", config, client, namespace)
+func NewPublisher(ctx context.Context, config v1alpha1.RabbitMQ, cli client.Client, namespace string) (Publisher, error) {
+	return newRabbitMQStreamPublisher(ctx, "provider", config, cli, namespace)
 }
 
 // RabbitMQStreamPublisher is a structure implementing the Publisher interface. Used to publish events
@@ -88,10 +88,10 @@ func newRabbitMQStreamPublisher(
 	ctx context.Context,
 	name string,
 	config v1alpha1.RabbitMQ,
-	client client.Client,
+	cli client.Client,
 	namespace string,
 ) (*rabbitMQStreamPublisher, error) {
-	password, err := config.Password.Get(ctx, client, namespace)
+	password, err := config.Password.Get(ctx, cli, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RabbitMQ password: %w", err)
 	}
@@ -173,7 +173,7 @@ func (s *rabbitMQStreamPublisher) AddLogger(logger logr.Logger) {
 }
 
 // Publish an event to the RabbitMQ stream.
-func (s *rabbitMQStreamPublisher) Publish(msg []byte, filterString string) error {
+func (s *rabbitMQStreamPublisher) Publish(b []byte, filterString string) error {
 	filter := Filter{}.FromString(filterString)
 	if s.shutdown || s.producer == nil {
 		err := errors.New("Publisher closed")
@@ -181,16 +181,16 @@ func (s *rabbitMQStreamPublisher) Publish(msg []byte, filterString string) error
 		return err
 	}
 	s.unConfirmed.Add(1)
-	message := amqp.NewMessage(msg)
+	msg := amqp.NewMessage(b)
 	if filter.Meta == "" {
 		filter.Meta = "*"
 	}
-	message.ApplicationProperties = map[string]any{
+	msg.ApplicationProperties = map[string]any{
 		"identifier": filter.Identifier,
 		"type":       filter.Type,
 		"meta":       filter.Meta,
 	}
-	s.unConfirmedMessages <- message
+	s.unConfirmedMessages <- msg
 	s.logger.Info("Message published to unconfirmed channel")
 	return nil
 }

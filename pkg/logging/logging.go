@@ -36,9 +36,8 @@ import (
 // If no logger is found in the context, it returns a no-op logger.
 func FromContextOrDiscard(ctx context.Context) logr.Logger {
 	logger := logr.FromContextOrDiscard(ctx)
-	for key, value := range carrierFromContext(ctx) {
-		logger = logger.WithValues(key, value)
-	}
+	carrier := carrierFromContext(ctx)
+	logger = logger.WithValues("trace_id", carrier["trace_id"], "span_id", carrier["span_id"])
 	return logger
 }
 

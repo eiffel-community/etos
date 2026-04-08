@@ -69,14 +69,14 @@ func (t *ETOSTracer) Start(ctx context.Context) error {
 	}
 
 	traceExporter := trace.WithBatcher(exporter)
-	resource, err := t.newOtelResource(ctx)
+	res, err := t.newOtelResource(ctx)
 	if err != nil {
 		return err
 	}
 
 	tracerProvider := trace.NewTracerProvider(
 		traceExporter,
-		trace.WithResource(resource),
+		trace.WithResource(res),
 	)
 	t.tracerProvider = tracerProvider
 
@@ -90,17 +90,17 @@ func (t *ETOSTracer) Start(ctx context.Context) error {
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
-	return t.logger(ctx, resource)
+	return t.logger(ctx, res)
 }
 
 // logger initializes the OpenTelemetry logger provider and sets it as the global logger provider.
-func (t *ETOSTracer) logger(ctx context.Context, resource *resource.Resource) error {
+func (t *ETOSTracer) logger(ctx context.Context, res *resource.Resource) error {
 	exporter, err := otlploggrpc.New(ctx)
 	if err != nil {
 		return errors.Join(err, errors.New("failed to create OpenTelemetry gRPC log exporter"))
 	}
 	logProvider := log.NewLoggerProvider(
-		log.WithResource(resource),
+		log.WithResource(res),
 		log.WithProcessor(
 			log.NewBatchProcessor(exporter),
 		),
