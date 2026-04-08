@@ -11,7 +11,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: clusters.etos.eiffel-community.github.io
 spec:
   group: etos.eiffel-community.github.io
@@ -52,7 +52,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: ClusterSpec defines the desired state of Cluster
+            description: spec defines the desired state of Cluster
             properties:
               database:
                 default: {}
@@ -885,7 +885,7 @@ spec:
             - etos
             type: object
           status:
-            description: ClusterStatus defines the observed state of Cluster
+            description: status defines the observed state of Cluster
             properties:
               conditions:
                 items:
@@ -957,7 +957,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: environmentrequests.etos.eiffel-community.github.io
 spec:
   conversion:
@@ -1015,7 +1015,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: EnvironmentRequestSpec defines the desired state of EnvironmentRequest
+            description: spec defines the desired state of EnvironmentRequest
             properties:
               Config:
                 description: EnvironmentProviderJobConfig defines parameters required
@@ -1495,7 +1495,7 @@ spec:
             - splitter
             type: object
           status:
-            description: EnvironmentRequestStatus defines the observed state of EnvironmentRequest
+            description: status defines the observed state of EnvironmentRequest
             properties:
               completionTime:
                 format: date-time
@@ -1606,6 +1606,8 @@ spec:
                 format: date-time
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true
@@ -1616,7 +1618,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: environments.etos.eiffel-community.github.io
 spec:
   group: etos.eiffel-community.github.io
@@ -1666,7 +1668,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: EnvironmentSpec defines the desired state of Environment
+            description: spec defines the desired state of Environment
             properties:
               artifact:
                 pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
@@ -1790,7 +1792,7 @@ spec:
             - test_suite_started_id
             type: object
           status:
-            description: EnvironmentStatus defines the observed state of Environment
+            description: status defines the observed state of Environment
             properties:
               completionTime:
                 format: date-time
@@ -1898,6 +1900,8 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true
@@ -1908,7 +1912,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: executionspaces.etos.eiffel-community.github.io
 spec:
   group: etos.eiffel-community.github.io
@@ -2122,7 +2126,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: iuts.etos.eiffel-community.github.io
 spec:
   group: etos.eiffel-community.github.io
@@ -2296,7 +2300,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: logarea.etos.eiffel-community.github.io
 spec:
   group: etos.eiffel-community.github.io
@@ -2549,7 +2553,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: providers.etos.eiffel-community.github.io
 spec:
   conversion:
@@ -2600,7 +2604,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: ProviderSpec defines the desired state of Provider
+            description: spec defines the desired state of Provider
             properties:
               env:
                 description: Env describes environment variables to be passed to the
@@ -2610,7 +2614,9 @@ spec:
                     a Container.
                   properties:
                     name:
-                      description: Name of the environment variable. Must be a C_IDENTIFIER.
+                      description: |-
+                        Name of the environment variable.
+                        May consist of any printable ASCII characters except '='.
                       type: string
                     value:
                       description: |-
@@ -2666,6 +2672,43 @@ spec:
                               type: string
                           required:
                           - fieldPath
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        fileKeyRef:
+                          description: |-
+                            FileKeyRef selects a key of the env file.
+                            Requires the EnvFiles feature gate to be enabled.
+                          properties:
+                            key:
+                              description: |-
+                                The key within the env file. An invalid key will prevent the pod from starting.
+                                The keys defined within a source may consist of any printable ASCII characters except '='.
+                                During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                              type: string
+                            optional:
+                              default: false
+                              description: |-
+                                Specify whether the file or its key must be defined. If the file or key
+                                does not exist, then the env var is not published.
+                                If optional is set to true and the specified key does not exist,
+                                the environment variable will not be set in the Pod's containers.
+
+                                If optional is set to false and the specified key does not exist,
+                                an error will be returned during Pod creation.
+                              type: boolean
+                            path:
+                              description: |-
+                                The path within the volume from which to select the file.
+                                Must be relative and may not contain the '..' path or start with '..'.
+                              type: string
+                            volumeName:
+                              description: The name of the volume mount containing
+                                the env file.
+                              type: string
+                          required:
+                          - key
+                          - path
+                          - volumeName
                           type: object
                           x-kubernetes-map-type: atomic
                         resourceFieldRef:
@@ -2726,6 +2769,7 @@ spec:
                   to the provider container.
                 items:
                   description: EnvFromSource represents the source of a set of ConfigMaps
+                    or Secrets
                   properties:
                     configMapRef:
                       description: The ConfigMap to select from
@@ -2745,8 +2789,9 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     prefix:
-                      description: An optional identifier to prepend to each key in
-                        the ConfigMap. Must be a C_IDENTIFIER.
+                      description: |-
+                        Optional text to prepend to the name of each environment variable.
+                        May consist of any printable ASCII characters except '='.
                       type: string
                     secretRef:
                       description: The Secret to select from
@@ -3101,7 +3146,7 @@ spec:
             - type
             type: object
           status:
-            description: ProviderStatus defines the observed state of Provider
+            description: status defines the observed state of Provider
             properties:
               conditions:
                 items:
@@ -3163,6 +3208,8 @@ spec:
                 format: date-time
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true
@@ -3174,7 +3221,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: testruns.etos.eiffel-community.github.io
 spec:
   conversion:
@@ -3240,7 +3287,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: TestRunSpec defines the desired state of TestRun
+            description: spec defines the desired state of TestRun
             properties:
               artifact:
                 description: Artifact is the ID of the software under test. The ID
@@ -3418,7 +3465,7 @@ spec:
             - suites
             type: object
           status:
-            description: TestRunStatus defines the observed state of TestRun
+            description: status defines the observed state of TestRun
             properties:
               completionTime:
                 format: date-time
@@ -3577,6 +3624,8 @@ spec:
               verdict:
                 type: string
             type: object
+        required:
+        - spec
         type: object
     selectableFields:
     - jsonPath: .spec.cluster
@@ -4469,7 +4518,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:f4153c5e
+        image: ghcr.io/eiffel-community/etos-controller:2f150ea9
         livenessProbe:
           httpGet:
             path: /healthz
@@ -4499,6 +4548,7 @@ spec:
           capabilities:
             drop:
             - ALL
+          readOnlyRootFilesystem: true
         volumeMounts:
         - mountPath: /tmp/k8s-metrics-server/metrics-certs
           name: metrics-certs
@@ -4640,46 +4690,6 @@ webhooks:
     service:
       name: etos-webhook-service
       namespace: etos-system
-      path: /mutate-etos-eiffel-community-github-io-v1alpha1-provider
-  failurePolicy: Fail
-  name: mprovider-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - etos.eiffel-community.github.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - providers
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: etos-webhook-service
-      namespace: etos-system
-      path: /mutate-etos-eiffel-community-github-io-v1alpha1-testrun
-  failurePolicy: Fail
-  name: mtestrun-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - etos.eiffel-community.github.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - testruns
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: etos-webhook-service
-      namespace: etos-system
       path: /mutate-etos-eiffel-community-github-io-v1alpha2-executionspace
   failurePolicy: Fail
   name: mexecutionspace-v1alpha2.kb.io
@@ -4733,6 +4743,46 @@ webhooks:
     - UPDATE
     resources:
     - logarea
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: etos-webhook-service
+      namespace: etos-system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha1-provider
+  failurePolicy: Fail
+  name: mprovider-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - providers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: etos-webhook-service
+      namespace: etos-system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha1-testrun
+  failurePolicy: Fail
+  name: mtestrun-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - testruns
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
