@@ -39,9 +39,6 @@ type Publisher interface {
 }
 
 const (
-	IgnoreUnfiltered    = false
-	MaxLengthBytes      = "2gb"
-	MaxAge              = 10 * time.Second
 	ConfirmationTimeout = 2 * time.Second
 )
 
