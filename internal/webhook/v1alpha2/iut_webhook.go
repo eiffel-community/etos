@@ -55,7 +55,7 @@ func (d *IutCustomDefaulter) Default(ctx context.Context, iut *etosv1alpha2.Iut)
 	environmentrequest := &v1alpha1.EnvironmentRequest{}
 	namespacedName := types.NamespacedName{Name: iut.Spec.EnvironmentRequest, Namespace: iut.Namespace}
 	if err := d.Get(ctx, namespacedName, environmentrequest); err != nil {
-		iutlog.Error(err, "Failed to get iut in namespace",
+		iutlog.Error(err, "Failed to get environmentrequest in namespace",
 			"name", iut.Name,
 			"namespace", iut.Namespace,
 			"environmentRequest", namespacedName.Name,
