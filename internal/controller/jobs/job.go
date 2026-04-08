@@ -78,6 +78,7 @@ func (j *job) Result(ctx context.Context, containerName string, containerNames .
 	logger := log.FromContext(ctx)
 	names := make([]string, 0, len(containerNames)+1)
 	names = append(names, containerNames...)
+	names = append(names, containerName)
 	var jobs []*batchv1.Job
 	if j.successful() {
 		jobs = j.successfulJobs

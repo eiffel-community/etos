@@ -297,6 +297,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			result.Verdict = jobs.VerdictNone
 		}
 		testrun.Status.Verdict = string(result.Verdict)
+		logger.Info("SuiteRunner job failed", "verdict", result.Verdict, "description", result.Description)
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusSuiteRunner,
@@ -312,6 +313,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			result.Verdict = jobs.VerdictNone
 		}
 		testrun.Status.Verdict = string(result.Verdict)
+		logger.Info("SuiteRunner job completed", "verdict", result.Verdict, "description", result.Description)
 
 		var condition metav1.Condition
 		if result.Conclusion == jobs.ConclusionFailed {
