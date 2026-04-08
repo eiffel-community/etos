@@ -75,11 +75,19 @@ type EnvironmentStatus struct {
 // +kubebuilder:printcolumn:name="Environment Request",type="string",JSONPath=.metadata.labels.etos\.eiffel-community\.github\.io/environment-request
 // +kubebuilder:printcolumn:name="TestRun",type="string",JSONPath=.metadata.labels.etos\.eiffel-community\.github\.io/id
 type Environment struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
 
-	Spec   EnvironmentSpec   `json:"spec,omitempty"`
-	Status EnvironmentStatus `json:"status,omitempty"`
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	// spec defines the desired state of Environment
+	// +required
+	Spec EnvironmentSpec `json:"spec"`
+
+	// status defines the observed state of Environment
+	// +optional
+	Status EnvironmentStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -87,7 +95,7 @@ type Environment struct {
 // EnvironmentList contains a list of Environment
 type EnvironmentList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []Environment `json:"items"`
 }
 

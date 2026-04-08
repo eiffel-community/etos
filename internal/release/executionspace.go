@@ -26,7 +26,7 @@ const ExecutionSpaceReleaserName = "execution-space-releaser"
 
 // ExecutionSpaceReleaser returns an ExecutionSpace releaser job specification.
 func ExecutionSpaceReleaser(executionSpace *v1alpha2.ExecutionSpace, environmentrequest *v1alpha1.EnvironmentRequest, provider *v1alpha1.Provider, skipDeletingExecutionSpace bool) (*batchv1.Job, error) {
-	container, err := ExecutionSpaceReleaserContainer(executionSpace, provider, skipDeletingExecutionSpace)
+	container, err := ExecutionSpaceReleaserContainer(executionSpace, provider, environmentrequest, skipDeletingExecutionSpace)
 	if err != nil {
 		return nil, err
 	}
@@ -40,12 +40,13 @@ func ExecutionSpaceReleaser(executionSpace *v1alpha2.ExecutionSpace, environment
 }
 
 // ExecutionSpaceReleaserContainer returns an ExecutionSpace releaser container specification.
-func ExecutionSpaceReleaserContainer(executionSpace *v1alpha2.ExecutionSpace, provider *v1alpha1.Provider, skipDeletingExecutionSpace bool) (corev1.Container, error) {
+func ExecutionSpaceReleaserContainer(executionSpace *v1alpha2.ExecutionSpace, provider *v1alpha1.Provider, environmentrequest *v1alpha1.EnvironmentRequest, skipDeletingExecutionSpace bool) (corev1.Container, error) {
 	return ReleaseContainer(
 		executionSpace.Name,
 		ExecutionSpaceReleaserName,
 		executionSpace.Namespace,
 		provider,
+		environmentrequest,
 		skipDeletingExecutionSpace,
 	)
 }

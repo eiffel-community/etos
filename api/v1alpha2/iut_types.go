@@ -87,7 +87,7 @@ type Iut struct {
 
 	// metadata is a standard object metadata
 	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty,omitzero"`
+	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	// spec defines the desired state of Iut
 	// +required
@@ -95,7 +95,7 @@ type Iut struct {
 
 	// status defines the observed state of Iut
 	// +optional
-	Status IutStatus `json:"status,omitempty,omitzero"`
+	Status IutStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -103,7 +103,7 @@ type Iut struct {
 // IutList contains a list of Iut
 type IutList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []Iut `json:"items"`
 }
 

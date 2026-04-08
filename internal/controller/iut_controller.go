@@ -52,7 +52,7 @@ type IutReconciler struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.22.1/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 
@@ -75,7 +75,7 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			}
 		}
 
-		if iut.ObjectMeta.DeletionTimestamp.IsZero() {
+		if iut.DeletionTimestamp.IsZero() {
 			// The IUT is not being deleted, in use by environment
 			if meta.SetStatusCondition(&iut.Status.Conditions,
 				metav1.Condition{
@@ -117,7 +117,7 @@ func (r *IutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// If the IUT is considered 'Completed', it has been released. Check that the object is
 	// being deleted and contains the finalizer and remove the finalizer.
 	if iut.Status.CompletionTime != nil {
-		if !iut.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !iut.DeletionTimestamp.IsZero() {
 			if controllerutil.ContainsFinalizer(iut, providerFinalizer) {
 				controllerutil.RemoveFinalizer(iut, providerFinalizer)
 				if err := r.Update(ctx, iut); err != nil {
@@ -160,7 +160,7 @@ func (r *IutReconciler) reconcile(ctx context.Context, iut *etosv1alpha2.Iut) er
 		logger.Info("IUT failed, reconciliation canceled")
 		return nil
 	}
-	if iut.ObjectMeta.DeletionTimestamp.IsZero() {
+	if iut.DeletionTimestamp.IsZero() {
 		if !controllerutil.ContainsFinalizer(iut, providerFinalizer) {
 			controllerutil.AddFinalizer(iut, providerFinalizer)
 			logger.Info("Iut is being managed by Iut controller", "iut", iut.Name)
@@ -168,7 +168,7 @@ func (r *IutReconciler) reconcile(ctx context.Context, iut *etosv1alpha2.Iut) er
 		}
 	}
 
-	if !iut.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !iut.DeletionTimestamp.IsZero() {
 		return r.reconcileIutReleaser(ctx, iut)
 	}
 	return nil

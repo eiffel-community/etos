@@ -142,7 +142,6 @@ type TestRunStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
-// +kubebuilder:conversion:hub
 // +kubebuilder:subresource:status
 
 // TestRun is the Schema for the testruns API
@@ -156,11 +155,19 @@ type TestRunStatus struct {
 // +kubebuilder:selectablefield:JSONPath=".spec.cluster"
 // +kubebuilder:selectablefield:JSONPath=".spec.artifact"
 type TestRun struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
 
-	Spec   TestRunSpec   `json:"spec,omitempty"`
-	Status TestRunStatus `json:"status,omitempty"`
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	// spec defines the desired state of TestRun
+	// +required
+	Spec TestRunSpec `json:"spec"`
+
+	// status defines the observed state of TestRun
+	// +optional
+	Status TestRunStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -168,7 +175,7 @@ type TestRun struct {
 // TestRunList contains a list of TestRun
 type TestRunList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []TestRun `json:"items"`
 }
 

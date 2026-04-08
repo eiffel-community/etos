@@ -149,7 +149,7 @@ type LogArea struct {
 	// ObjectMeta is metadata that all persisted resources must have, which includes all objects
 	// users must create.
 	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty,omitzero"`
+	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	// spec defines the desired state of LogArea
 	// +required
@@ -157,7 +157,7 @@ type LogArea struct {
 
 	// status defines the observed state of LogArea
 	// +optional
-	Status LogAreaStatus `json:"status,omitempty,omitzero"`
+	Status LogAreaStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -168,12 +168,8 @@ type LogAreaList struct {
 	// with strings representing the type of the object and its API schema version.
 	// Structures that are versioned or persisted should inline TypeMeta.
 	metav1.TypeMeta `json:",inline"`
-	// ListMeta describes metadata that synthetic resources must have, including lists and
-	// various status objects. A resource may have only one of {ObjectMeta, ListMeta}.
-	metav1.ListMeta `json:"metadata,omitempty"`
-
-	// Items defines a slice of LogAreas when listing.
-	Items []LogArea `json:"items"`
+	metav1.ListMeta `json:"metadata,omitzero"`
+	Items           []LogArea `json:"items"`
 }
 
 func init() {

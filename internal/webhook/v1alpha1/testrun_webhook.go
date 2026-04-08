@@ -18,10 +18,8 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -29,7 +27,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
@@ -45,7 +42,7 @@ func SetupTestRunWebhookWithManager(mgr ctrl.Manager, cfg config.Config) error {
 	if cli == nil {
 		cli = mgr.GetClient()
 	}
-	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha1.TestRun{}).
+	return ctrl.NewWebhookManagedBy(mgr, &etosv1alpha1.TestRun{}).
 		WithValidator(&TestRunCustomValidator{}).
 		WithDefaulter(&TestRunCustomDefaulter{cfg}).
 		Complete()
@@ -62,15 +59,8 @@ type TestRunCustomDefaulter struct {
 	cfg config.Config
 }
 
-var _ webhook.CustomDefaulter = &TestRunCustomDefaulter{}
-
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind TestRun.
-func (d *TestRunCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	testrun, ok := obj.(*etosv1alpha1.TestRun)
-
-	if !ok {
-		return fmt.Errorf("expected a TestRun object but got %T", obj)
-	}
+func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
 	testrunlog.Info("Defaulting for TestRun", "name", testrun.GetName())
 	testrunlog.Info("TestRun spec", "spec", testrun.Spec)
 
@@ -85,7 +75,10 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 	if testrun.Spec.Cluster == "" {
 		testrunlog.Info("TestRun cluster is empty, checking if a cluster is deployed in namespace")
 		if err := cli.List(ctx, clusters, client.InNamespace(testrun.Namespace)); err != nil {
-			testrunlog.Error(err, "name", testrun.Name, "namespace", testrun.Namespace, "Failed to get clusters in namespace")
+			testrunlog.Error(err, "Failed to get clusters in namespace",
+				"name", testrun.Name,
+				"namespace", testrun.Namespace,
+			)
 		}
 		testrunlog.Info("Number of clusters found in namespace", "count", len(clusters.Items))
 		if len(clusters.Items) == 1 {
@@ -101,8 +94,11 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 		testrunlog.Info("Getting cluster from specification", "name", clusterNamespacedName.Name, "namespace", clusterNamespacedName.Namespace)
 		clu := &etosv1alpha1.Cluster{}
 		if err := cli.Get(ctx, clusterNamespacedName, clu); err != nil {
-			testrunlog.Error(err, "name", testrun.Name, "namespace", testrun.Namespace, "cluster", clusterNamespacedName.Name,
-				"Failed to get cluster in namespace")
+			testrunlog.Error(err, "Failed to get cluster in namespace",
+				"name", testrun.Name,
+				"namespace", testrun.Namespace,
+				"cluster", clusterNamespacedName.Name,
+			)
 		}
 		cluster = clu
 	}
@@ -138,18 +134,18 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 	}
 
 	addLabel := true
-	if testrun.ObjectMeta.Labels != nil {
-		for key := range testrun.ObjectMeta.GetLabels() {
+	if testrun.Labels != nil {
+		for key := range testrun.GetLabels() {
 			if key == "etos.eiffel-community.github.io/id" {
 				addLabel = false
 			}
 		}
 	} else {
-		testrun.ObjectMeta.Labels = map[string]string{}
+		testrun.Labels = map[string]string{}
 	}
 	if addLabel {
 		testrunlog.Info("Adding ETOS test run ID label", "id", testrun.Spec.ID)
-		testrun.ObjectMeta.Labels["etos.eiffel-community.github.io/id"] = testrun.Spec.ID
+		testrun.Labels["etos.eiffel-community.github.io/id"] = testrun.Spec.ID
 	}
 	testrunlog.Info("Defaulting webhook has finished")
 
@@ -164,8 +160,6 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type TestRunCustomValidator struct{}
-
-var _ webhook.CustomValidator = &TestRunCustomValidator{}
 
 // validate that the required parameters are set. This validation is done here instead of directly in the struct since
 // we do mutate the input in the Default function.
@@ -222,34 +216,19 @@ func (d *TestRunCustomValidator) validate(testrun *etosv1alpha1.TestRun) error {
 }
 
 // ValidateCreate validates the creation of a TestRun.
-func (d *TestRunCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	testrun, ok := obj.(*etosv1alpha1.TestRun)
-
-	if !ok {
-		return nil, fmt.Errorf("expected a TestRun object but got %T", obj)
-	}
+func (d *TestRunCustomValidator) ValidateCreate(_ context.Context, testrun *etosv1alpha1.TestRun) (admission.Warnings, error) {
 	testrunlog.Info("Validation for TestRun upon creation", "name", testrun.GetName())
 	return nil, d.validate(testrun)
 }
 
 // ValidateUpdate validates the updates of a TestRun.
-func (d *TestRunCustomValidator) ValidateUpdate(_ context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
-	testrun, ok := newObj.(*etosv1alpha1.TestRun)
-
-	if !ok {
-		return nil, fmt.Errorf("expected a TestRun object but got %T", newObj)
-	}
+func (d *TestRunCustomValidator) ValidateUpdate(_ context.Context, _, testrun *etosv1alpha1.TestRun) (admission.Warnings, error) {
 	testrunlog.Info("Validation for TestRun upon update", "name", testrun.GetName())
 	return nil, d.validate(testrun)
 }
 
 // ValidateDelete validates the deletion of a TestRun.
-func (d *TestRunCustomValidator) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	testrun, ok := obj.(*etosv1alpha1.TestRun)
-
-	if !ok {
-		return nil, fmt.Errorf("expected a TestRun object but got %T", obj)
-	}
+func (d *TestRunCustomValidator) ValidateDelete(_ context.Context, testrun *etosv1alpha1.TestRun) (admission.Warnings, error) {
 	testrunlog.Info("Validation for TestRun upon deletion", "name", testrun.GetName())
 	return nil, nil
 }

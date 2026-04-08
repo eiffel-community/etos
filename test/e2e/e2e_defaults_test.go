@@ -40,7 +40,7 @@ func VerifyClusterDefaults() {
 		AfterAll(func() {
 			By("setting back the controller image to the original")
 			cmd := exec.Command("kubectl", "set", "image", "deploy/etos-controller-manager",
-				fmt.Sprintf("manager=%s", projectImage), "-n", namespace)
+				fmt.Sprintf("manager=%s", managerImage), "-n", namespace)
 			_, err := utils.Run(cmd)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to set back the controller image")
 			By("validating that the controller-manager pod is running as expected")

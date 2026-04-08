@@ -51,10 +51,11 @@ type dataset struct {
 
 // Provision provisions a new ExecutionSpace.
 func (p *genericExecutionSpaceProvider) Provision(
-	ctx context.Context, logger logr.Logger, cfg provider.ProvisionConfig,
+	ctx context.Context, cfg provider.ProvisionConfig,
 ) error {
 
-	client, err := provider.KubernetesClient()
+	logger := logr.FromContextOrDiscard(ctx)
+	cli, err := provider.KubernetesClient()
 	if err != nil {
 		return err
 	}
@@ -62,7 +63,7 @@ func (p *genericExecutionSpaceProvider) Provision(
 	if cfg.MinimumAmount <= 0 {
 		return errors.New("minimum amount of ExecutionSpaces requested is less than or equal to 0")
 	}
-	key, err := environmentRequest.Spec.Config.EncryptionKey.Get(ctx, client, environmentRequest.Namespace)
+	key, err := environmentRequest.Spec.Config.EncryptionKey.Get(ctx, cli, environmentRequest.Namespace)
 	if err != nil {
 		return err
 	}
@@ -80,14 +81,14 @@ func (p *genericExecutionSpaceProvider) Provision(
 		"Amount", cfg.MinimumAmount,
 	)
 	etosMessagebusPassword, err := getAndEncrypt(ctx,
-		client, environmentRequest.Spec.Config.EtosMessageBus.Password,
+		cli, environmentRequest.Spec.Config.EtosMessageBus.Password,
 		environmentRequest.Namespace, encryptionKey,
 	)
 	if err != nil {
 		return err
 	}
 	eiffelMessagebusPassword, err := getAndEncrypt(ctx,
-		client, environmentRequest.Spec.Config.EiffelMessageBus.Password,
+		cli, environmentRequest.Spec.Config.EiffelMessageBus.Password,
 		environmentRequest.Namespace, encryptionKey,
 	)
 	if err != nil {
@@ -258,8 +259,9 @@ func (p *genericExecutionSpaceProvider) start(
 
 // Release releases an ExecutionSpace.
 func (p *genericExecutionSpaceProvider) Release(
-	ctx context.Context, logger logr.Logger, cfg provider.ReleaseConfig,
+	ctx context.Context, cfg provider.ReleaseConfig,
 ) error {
+	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Releasing ExecutionSpace", "Name", cfg.Name, "Namespace", cfg.Namespace)
 	executionSpace, err := provider.GetExecutionSpace(ctx, cfg.Name, cfg.Namespace)
 	if err != nil {
@@ -279,12 +281,12 @@ func encrypt(s []byte, key *fernet.Key) ([]byte, error) {
 
 // getAndEncrypt gets a value from a Var struct and encrypts it using the provided Fernet key.
 func getAndEncrypt(
-	ctx context.Context, client client.Client, s *v1alpha1.Var, namespace string, key *fernet.Key,
+	ctx context.Context, cli client.Client, s *v1alpha1.Var, namespace string, key *fernet.Key,
 ) ([]byte, error) {
 	if s == nil {
 		return nil, errors.New("no value provided")
 	}
-	value, err := s.Get(ctx, client, namespace)
+	value, err := s.Get(ctx, cli, namespace)
 	if err != nil {
 		return nil, err
 	}

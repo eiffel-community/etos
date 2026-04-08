@@ -24,7 +24,6 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -53,8 +52,8 @@ type ETOSSuiteStarterDeployment struct {
 }
 
 // NewETOSSuiteStarterDeployment will create a new ETOS SuiteStarter reconciler.
-func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, scheme *runtime.Scheme, client client.Client, rabbitmqSecret, messagebusSecret string, etosSecret *corev1.Secret, encryption *corev1.Secret, cfg config.Config) *ETOSSuiteStarterDeployment {
-	return &ETOSSuiteStarterDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, etosSecret, encryption, false, cfg}
+func NewETOSSuiteStarterDeployment(spec etosv1alpha1.ETOSSuiteStarter, sch *runtime.Scheme, cli client.Client, rabbitmqSecret, messagebusSecret string, etosSecret *corev1.Secret, encryption *corev1.Secret, cfg config.Config) *ETOSSuiteStarterDeployment {
+	return &ETOSSuiteStarterDeployment{spec, cli, sch, rabbitmqSecret, messagebusSecret, etosSecret, encryption, false, cfg}
 }
 
 // Reconcile will reconcile the ETOS suite starter to its expected state.
@@ -64,55 +63,55 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 	suiteRunnerName := types.NamespacedName{Name: fmt.Sprintf("%s-etos-suite-runner", cluster.Name), Namespace: cluster.Namespace}
 
 	logger := log.FromContext(ctx, "Reconciler", "ETOSSuiteStarter", "BaseName", suiteStarterName.Name)
-	err = r.reconcileServiceAccount(ctx, logger, suiteRunnerName, cluster)
+	err = r.reconcileServiceAccount(ctx, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite runner service account")
 		return err
 	}
 	// This secret is in use when running the TestRun controller. When the suite starter is removed, this MUST still be created.
-	secret, err := r.reconcileSuiteRunnerSecret(ctx, logger, suiteRunnerName, cluster)
+	secret, err := r.reconcileSuiteRunnerSecret(ctx, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite runner secret")
 		return err
 	}
-	cfg, err := r.reconcileConfig(ctx, logger, secret.ObjectMeta.Name, suiteStarterName, cluster)
+	cfg, err := r.reconcileConfig(ctx, secret.Name, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite starter config")
 		return err
 	}
-	template, err := r.reconcileTemplate(ctx, logger, suiteRunnerName, cluster)
+	template, err := r.reconcileTemplate(ctx, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite runner template")
 		return err
 	}
 	var suiteRunnerTemplateName string
 	if r.SuiteRunnerTemplateSecretName == "" {
-		suiteRunnerTemplateName = template.ObjectMeta.Name
+		suiteRunnerTemplateName = template.Name
 	} else {
 		suiteRunnerTemplateName = r.SuiteRunnerTemplateSecretName
 	}
 	logger.Info("Suite runner template", "suiteRunnerTemplateName", suiteRunnerTemplateName)
-	_, err = r.reconcileDeployment(ctx, logger, cfg.ObjectMeta.Name, suiteRunnerTemplateName, suiteStarterName, cluster)
+	_, err = r.reconcileDeployment(ctx, cfg.Name, suiteRunnerTemplateName, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the deployment for the ETOS Suite Starter")
 		return err
 	}
-	_, err = r.reconcileSecret(ctx, logger, suiteStarterName, cluster)
+	_, err = r.reconcileSecret(ctx, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the secret for the ETOS Suite Starter")
 		return err
 	}
-	_, err = r.reconcileRole(ctx, logger, suiteStarterName, cluster)
+	_, err = r.reconcileRole(ctx, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role for the ETOS Suite Starter")
 		return err
 	}
-	err = r.reconcileServiceAccount(ctx, logger, suiteStarterName, cluster)
+	err = r.reconcileServiceAccount(ctx, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service account for the ETOS Suite Starter")
 		return err
 	}
-	err = r.reconcileRolebinding(ctx, logger, suiteStarterName, "esr-handler", cluster)
+	err = r.reconcileRolebinding(ctx, suiteStarterName, "esr-handler", cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role binding for the ETOS Suite Starter")
 		return err
@@ -124,13 +123,13 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 		return err
 	}
 
-	err = r.reconcileServiceAccount(ctx, logger, suiteRunnerName, cluster)
+	err = r.reconcileServiceAccount(ctx, suiteRunnerName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite Runner service account")
 		return err
 	}
 
-	err = r.reconcileRolebinding(ctx, logger, suiteRunnerName, "testrun-reader", cluster)
+	err = r.reconcileRolebinding(ctx, suiteRunnerName, "testrun-reader", cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the Suite Runner role binding")
 		return err
@@ -162,8 +161,9 @@ func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerRole(ctx context.Contex
 }
 
 // reconcileSuiteRunnerSecret will reconcile the ETOS suite runner secret to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
-	name.Name = fmt.Sprintf("%s-etos-suite-runner-cfg", cluster.ObjectMeta.Name)
+func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerSecret(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
+	name.Name = fmt.Sprintf("%s-etos-suite-runner-cfg", cluster.Name)
 	target, err := r.mergedSecret(ctx, name, cluster)
 	if err != nil {
 		return nil, err
@@ -187,7 +187,8 @@ func (r *ETOSSuiteStarterDeployment) reconcileSuiteRunnerSecret(ctx context.Cont
 }
 
 // reconcileConfigmap will reconcile the ETOS suite starter config to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, secretName string, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
+func (r *ETOSSuiteStarterDeployment) reconcileConfig(ctx context.Context, secretName string, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
 	target, err := r.config(ctx, name, secretName, cluster)
 	if err != nil {
@@ -217,7 +218,8 @@ func (r *ETOSSuiteStarterDeployment) reconcileConfig(ctx context.Context, logger
 }
 
 // reconcileTemplate will reconcile the ETOS SuiteRunner template to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, logger logr.Logger, saName types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, saName types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
 	name := types.NamespacedName{Name: fmt.Sprintf("%s-template", saName.Name), Namespace: saName.Namespace}
 	target := r.suiteRunnerTemplate(name, saName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
@@ -245,7 +247,8 @@ func (r *ETOSSuiteStarterDeployment) reconcileTemplate(ctx context.Context, logg
 }
 
 // reconcileDeployment will reconcile the ETOS SuiteStarter deployment to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, secretName string, suiteRunnerTemplate string, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
+func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, secretName string, suiteRunnerTemplate string, name types.NamespacedName, owner metav1.Object) (*appsv1.Deployment, error) {
+	logger := log.FromContext(ctx)
 	target := r.deployment(name, secretName, suiteRunnerTemplate, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -276,7 +279,8 @@ func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, lo
 }
 
 // reconcileSecret will reconcile the ETOS SuiteStarter service account secret to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *ETOSSuiteStarterDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
 	tokenName := types.NamespacedName{Name: fmt.Sprintf("%s-token", name.Name), Namespace: name.Namespace}
 	target := r.secret(tokenName, name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
@@ -302,7 +306,8 @@ func (r *ETOSSuiteStarterDeployment) reconcileSecret(ctx context.Context, logger
 }
 
 // reconcileRole will reconcile the ETOS SuiteStarter service account role to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileRole(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
+func (r *ETOSSuiteStarterDeployment) reconcileRole(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
+	logger := log.FromContext(ctx)
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s:sa:esr-handler", name.Name)
 
@@ -326,7 +331,8 @@ func (r *ETOSSuiteStarterDeployment) reconcileRole(ctx context.Context, logger l
 }
 
 // reconcileServiceAccount will reconcile the ETOS SuiteStarter service account to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) error {
+func (r *ETOSSuiteStarterDeployment) reconcileServiceAccount(ctx context.Context, name types.NamespacedName, owner metav1.Object) error {
+	logger := log.FromContext(ctx)
 	target := r.serviceaccount(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return err
@@ -347,7 +353,8 @@ func (r *ETOSSuiteStarterDeployment) reconcileServiceAccount(ctx context.Context
 }
 
 // reconcileRolebinding will reconcile the ETOS SuiteStarter service account role binding to its expected state.
-func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, logger logr.Logger, name types.NamespacedName, roleName string, owner metav1.Object) error {
+func (r *ETOSSuiteStarterDeployment) reconcileRolebinding(ctx context.Context, name types.NamespacedName, roleName string, owner metav1.Object) error {
+	logger := log.FromContext(ctx)
 	target := r.rolebinding(name, roleName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return err
@@ -373,7 +380,7 @@ func (r *ETOSSuiteStarterDeployment) config(ctx context.Context, name types.Name
 	data := map[string][]byte{
 		"SUITE_RUNNER":                  []byte(config.ImageOrDefault(r.cfg.SuiteRunner, cluster.Spec.ETOS.SuiteRunner.Image)),
 		"LOG_LISTENER":                  []byte(config.ImageOrDefault(r.cfg.LogListener, cluster.Spec.ETOS.SuiteRunner.LogListener.Image)),
-		"ETOS_CONFIGMAP":                []byte(r.etosSecret.ObjectMeta.Name),
+		"ETOS_CONFIGMAP":                []byte(r.etosSecret.Name),
 		"ETOS_RABBITMQ_SECRET":          []byte(secretName),
 		"ETOS_ESR_TTL":                  []byte(r.Config.TTL),
 		"ETOS_TERMINATION_GRACE_PERIOD": []byte(r.Config.GracePeriod),
@@ -589,7 +596,7 @@ func (r *ETOSSuiteStarterDeployment) container(name types.NamespacedName, secret
 // suiteRunnerTemplate creates a secret resource for the ETOS SuiteStarter.
 func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.NamespacedName, saName types.NamespacedName, clusterName string) *corev1.Secret {
 	data := map[string][]byte{
-		"suite_runner_template.yaml": []byte(fmt.Sprintf(`
+		"suite_runner_template.yaml": fmt.Appendf(nil, `
       apiVersion: batch/v1
       kind: Job
       metadata:
@@ -712,7 +719,7 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
                 mountPath: /kubexit
             restartPolicy: Never
         backoffLimit: 0
-    `, saName.Name)),
+    `, saName.Name),
 	}
 	return &corev1.Secret{
 		ObjectMeta: r.meta(templateName, clusterName),

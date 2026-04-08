@@ -132,7 +132,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:4c54f619
+        image: ghcr.io/eiffel-community/etos-controller:2f150ea9
         livenessProbe:
           httpGet:
             path: /healthz
@@ -162,6 +162,7 @@ spec:
           capabilities:
             drop:
             - ALL
+          readOnlyRootFilesystem: true
         volumeMounts:
         - mountPath: /tmp/k8s-metrics-server/metrics-certs
           name: metrics-certs

@@ -18,14 +18,11 @@ package v1alpha2
 
 import (
 	"context"
-	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
@@ -39,7 +36,7 @@ const etos = "etos"
 
 // SetupExecutionSpaceWebhookWithManager registers the webhook for ExecutionSpace in the manager.
 func SetupExecutionSpaceWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha2.ExecutionSpace{}).
+	return ctrl.NewWebhookManagedBy(mgr, &etosv1alpha2.ExecutionSpace{}).
 		WithDefaulter(&ExecutionSpaceCustomDefaulter{mgr.GetClient()}).
 		Complete()
 }
@@ -55,22 +52,16 @@ type ExecutionSpaceCustomDefaulter struct {
 	client.Reader
 }
 
-var _ webhook.CustomDefaulter = &ExecutionSpaceCustomDefaulter{}
-
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind ExecutionSpace.
-func (d *ExecutionSpaceCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	executionspace, ok := obj.(*etosv1alpha2.ExecutionSpace)
-
-	if !ok {
-		return fmt.Errorf("expected an ExecutionSpace object but got %T", obj)
-	}
-	executionspacelog.Info("Defaulting for ExecutionSpace", "name", executionspace.GetName())
-
+func (d *ExecutionSpaceCustomDefaulter) Default(ctx context.Context, executionspace *etosv1alpha2.ExecutionSpace) error {
 	environmentrequest := &v1alpha1.EnvironmentRequest{}
 	namespacedName := types.NamespacedName{Name: executionspace.Spec.EnvironmentRequest, Namespace: executionspace.Namespace}
 	if err := d.Get(ctx, namespacedName, environmentrequest); err != nil {
-		executionspacelog.Error(err, "name", executionspace.Name, "namespace", executionspace.Namespace, "environmentRequest", namespacedName.Name,
-			"Failed to get environmentrequest in namespace")
+		executionspacelog.Error(err, "Failed to get environmentrequest in namespace",
+			"name", executionspace.Name,
+			"namespace", executionspace.Namespace,
+			"environmentRequest", namespacedName.Name,
+		)
 		return err
 	}
 

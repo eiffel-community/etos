@@ -24,7 +24,6 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -58,8 +57,8 @@ type ETOSApiDeployment struct {
 }
 
 // NewETOSApiDeployment will create a new ETOS API reconciler.
-func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, scheme *runtime.Scheme, client client.Client, rabbitmqSecret, messagebusSecret, etosSecret string, cfg config.Config) *ETOSApiDeployment {
-	return &ETOSApiDeployment{spec, client, scheme, rabbitmqSecret, messagebusSecret, etosSecret, false, cfg}
+func NewETOSApiDeployment(spec etosv1alpha1.ETOSAPI, sch *runtime.Scheme, cli client.Client, rabbitmqSecret, messagebusSecret, etosSecret string, cfg config.Config) *ETOSApiDeployment {
+	return &ETOSApiDeployment{spec, cli, sch, rabbitmqSecret, messagebusSecret, etosSecret, false, cfg}
 }
 
 // Reconcile will reconcile the ETOS API to its expected state.
@@ -69,37 +68,37 @@ func (r *ETOSApiDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	logger := log.FromContext(ctx, "Reconciler", "ETOSApi", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-	cfg, err := r.reconcileConfig(ctx, logger, namespacedName, cluster)
+	cfg, err := r.reconcileConfig(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the config for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileDeployment(ctx, logger, namespacedName, cfg.ObjectMeta.Name, cluster)
+	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.Name, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the deployment for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileSecret(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileSecret(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the secret for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileRole(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileRole(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileServiceAccount(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileServiceAccount(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service account for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileRolebinding(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileRolebinding(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the role binding for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileService(ctx, logger, namespacedName, cluster)
+	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service for the ETOS API")
 		return err
@@ -108,7 +107,8 @@ func (r *ETOSApiDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 }
 
 // reconcileConfig will reconcile the secret to use as configuration for the ETOS API.
-func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
 	target, err := r.config(ctx, name, owner.GetName())
 	if err != nil {
@@ -138,7 +138,8 @@ func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, logger logr.Log
 }
 
 // reconcileDeployment will reconcile the ETOS API deployment to its expected state.
-func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, logger logr.Logger, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+	logger := log.FromContext(ctx)
 	target := r.deployment(name, secretName, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -169,7 +170,8 @@ func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, logger logr
 }
 
 // reconcileSecret will reconcile the ETOS API service account secret to its expected state.
-func (r *ETOSApiDeployment) reconcileSecret(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *ETOSApiDeployment) reconcileSecret(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
 	tokenName := types.NamespacedName{Name: fmt.Sprintf("%s-token", name.Name), Namespace: name.Namespace}
 	target := r.secret(tokenName, name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
@@ -195,7 +197,8 @@ func (r *ETOSApiDeployment) reconcileSecret(ctx context.Context, logger logr.Log
 }
 
 // reconcileRole will reconcile the ETOS API service account role to its expected state.
-func (r *ETOSApiDeployment) reconcileRole(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
+func (r *ETOSApiDeployment) reconcileRole(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*rbacv1.Role, error) {
+	logger := log.FromContext(ctx)
 	labelName := name.Name
 	name.Name = fmt.Sprintf("%s:sa:esr-handler", name.Name)
 
@@ -219,7 +222,8 @@ func (r *ETOSApiDeployment) reconcileRole(ctx context.Context, logger logr.Logge
 }
 
 // reconcileServiceAccount will reconcile the ETOS API service account to its expected state.
-func (r *ETOSApiDeployment) reconcileServiceAccount(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
+func (r *ETOSApiDeployment) reconcileServiceAccount(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.ServiceAccount, error) {
+	logger := log.FromContext(ctx)
 	target := r.serviceaccount(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -240,7 +244,8 @@ func (r *ETOSApiDeployment) reconcileServiceAccount(ctx context.Context, logger 
 }
 
 // reconcileRolebinding will reconcile the ETOS API service account role binding to its expected state.
-func (r *ETOSApiDeployment) reconcileRolebinding(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
+func (r *ETOSApiDeployment) reconcileRolebinding(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*rbacv1.RoleBinding, error) {
+	logger := log.FromContext(ctx)
 	target := r.rolebinding(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -261,7 +266,8 @@ func (r *ETOSApiDeployment) reconcileRolebinding(ctx context.Context, logger log
 }
 
 // reconcileService will reconcile the ETOS API service to its expected state.
-func (r *ETOSApiDeployment) reconcileService(ctx context.Context, logger logr.Logger, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+func (r *ETOSApiDeployment) reconcileService(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Service, error) {
+	logger := log.FromContext(ctx)
 	target := r.service(name, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
@@ -291,14 +297,14 @@ func (r *ETOSApiDeployment) config(ctx context.Context, name types.NamespacedNam
 	if err := r.Get(ctx, types.NamespacedName{Name: r.messagebusSecret, Namespace: name.Namespace}, etos); err != nil {
 		return nil, err
 	}
-	config := &corev1.Secret{}
-	if err := r.Get(ctx, types.NamespacedName{Name: r.etosSecret, Namespace: name.Namespace}, config); err != nil {
+	cfg := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: r.etosSecret, Namespace: name.Namespace}, cfg); err != nil {
 		return nil, err
 	}
 	data := map[string][]byte{}
 	maps.Copy(data, eiffel.Data)
 	maps.Copy(data, etos.Data)
-	maps.Copy(data, config.Data)
+	maps.Copy(data, cfg.Data)
 	return &corev1.Secret{
 		ObjectMeta: r.meta(name, clusterName),
 		Data:       data,

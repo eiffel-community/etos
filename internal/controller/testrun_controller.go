@@ -63,7 +63,7 @@ the "real" clock just calls `time.Now`.
 */
 type realClock struct{}
 
-func (_ realClock) Now() time.Time { return time.Now() }
+func (realClock) Now() time.Time { return time.Now() }
 
 // Clock knows how to get the current time.
 // It can be used to fake out timing for testing.
@@ -87,7 +87,7 @@ type Clock interface {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
@@ -134,7 +134,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	clusterNamespacedName := types.NamespacedName{
 		Name:      testrun.Spec.Cluster,
-		Namespace: req.NamespacedName.Namespace,
+		Namespace: req.Namespace,
 	}
 	cluster := &etosv1alpha1.Cluster{}
 	if err := r.Get(ctx, clusterNamespacedName, cluster); err != nil {
@@ -297,6 +297,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			result.Verdict = jobs.VerdictNone
 		}
 		testrun.Status.Verdict = string(result.Verdict)
+		logger.Info("SuiteRunner job failed", "verdict", result.Verdict, "description", result.Description)
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusSuiteRunner,
@@ -312,6 +313,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			result.Verdict = jobs.VerdictNone
 		}
 		testrun.Status.Verdict = string(result.Verdict)
+		logger.Info("SuiteRunner job completed", "verdict", result.Verdict, "description", result.Description)
 
 		var condition metav1.Condition
 		if result.Conclusion == jobs.ConclusionFailed {
@@ -447,7 +449,7 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 				}) {
 				return true, r.Status().Update(ctx, testrun)
 			}
-			if environmentRequest.ObjectMeta.DeletionTimestamp.IsZero() {
+			if environmentRequest.DeletionTimestamp.IsZero() {
 				if err := r.Delete(ctx, &environmentRequest); err != nil {
 					logger.Error(err, "failed to delete environment", "environmentRequest", environmentRequest)
 				}
@@ -469,7 +471,7 @@ func (r *TestRunReconciler) deleteEnvironmentRequests(ctx context.Context, testr
 		}
 	}
 	for _, environmentRequest := range environmentRequestList.Items {
-		if environmentRequest.ObjectMeta.DeletionTimestamp.IsZero() {
+		if environmentRequest.DeletionTimestamp.IsZero() {
 			if err := r.Delete(ctx, &environmentRequest, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 				if !apierrors.IsNotFound(err) {
 					return err

@@ -34,8 +34,9 @@ func main() {
 
 // Provision provisions a new LogArea.
 func (p *genericLogAreaProvider) Provision(
-	ctx context.Context, logger logr.Logger, cfg provider.ProvisionConfig,
+	ctx context.Context, cfg provider.ProvisionConfig,
 ) error {
+	logger := logr.FromContextOrDiscard(ctx)
 	environmentRequest := cfg.EnvironmentRequest
 	if cfg.MinimumAmount <= 0 {
 		return errors.New("minimum amount of LogAreas requested is less than or equal to 0")
@@ -67,7 +68,8 @@ func (p *genericLogAreaProvider) Provision(
 }
 
 // Release releases a LogArea.
-func (p *genericLogAreaProvider) Release(ctx context.Context, logger logr.Logger, cfg provider.ReleaseConfig) error {
+func (p *genericLogAreaProvider) Release(ctx context.Context, cfg provider.ReleaseConfig) error {
+	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Releasing LogArea", "Name", cfg.Name, "Namespace", cfg.Namespace)
 	logArea, err := provider.GetLogArea(ctx, cfg.Name, cfg.Namespace)
 	if err != nil {

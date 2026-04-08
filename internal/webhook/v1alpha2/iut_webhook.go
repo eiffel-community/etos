@@ -18,14 +18,11 @@ package v1alpha2
 
 import (
 	"context"
-	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
@@ -37,7 +34,7 @@ var iutlog = logf.Log.WithName("iut-resource")
 
 // SetupIutWebhookWithManager registers the webhook for Iut in the manager.
 func SetupIutWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&etosv1alpha2.Iut{}).
+	return ctrl.NewWebhookManagedBy(mgr, &etosv1alpha2.Iut{}).
 		WithDefaulter(&IutCustomDefaulter{mgr.GetClient()}).
 		Complete()
 }
@@ -53,22 +50,16 @@ type IutCustomDefaulter struct {
 	client.Reader
 }
 
-var _ webhook.CustomDefaulter = &IutCustomDefaulter{}
-
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Iut.
-func (d *IutCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	iut, ok := obj.(*etosv1alpha2.Iut)
-
-	if !ok {
-		return fmt.Errorf("expected an Iut object but got %T", obj)
-	}
-	iutlog.Info("Defaulting for Iut", "name", iut.GetName())
-
+func (d *IutCustomDefaulter) Default(ctx context.Context, iut *etosv1alpha2.Iut) error {
 	environmentrequest := &v1alpha1.EnvironmentRequest{}
 	namespacedName := types.NamespacedName{Name: iut.Spec.EnvironmentRequest, Namespace: iut.Namespace}
 	if err := d.Get(ctx, namespacedName, environmentrequest); err != nil {
-		iutlog.Error(err, "name", iut.Name, "namespace", iut.Namespace, "environmentRequest", namespacedName.Name,
-			"Failed to get environmentrequest in namespace")
+		iutlog.Error(err, "Failed to get environmentrequest in namespace",
+			"name", iut.Name,
+			"namespace", iut.Namespace,
+			"environmentRequest", namespacedName.Name,
+		)
 		return err
 	}
 
