@@ -196,10 +196,6 @@ func VerifyETOSTestruns() {
 				"etos-encryption-key", "--from-literal", "ETOS_ENCRYPTION_KEY=ZmgcW2Qz43KNJfIuF0vYCoPneViMVyObH4GR8R9JE4g=")
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create an encryption key secret")
-			// Getting an EOF error every now and then from the environment-provider.
-			// I think it is because ETCD reports that it is up, but it is not ready
-			// to accept connections. A wait for ETCD to respond is a better fix.
-			time.Sleep(30 * time.Second)
 		})
 
 		It("should be able to execute a v1alpha testrun", func() {

@@ -228,6 +228,8 @@ func CreateEnvironment(
 		"etos.eiffel-community.github.io/sub-suite-id":           executionSpace.Spec.ID,
 		"app.kubernetes.io/name":                                 "environment-provider",
 		"app.kubernetes.io/part-of":                              "etos",
+		// Required by the ESR to find the environment
+		"etos.eiffel-community.github.io/suite-id": environmentrequest.Spec.ID,
 	}
 	if cluster := environmentrequest.Labels["etos.eiffel-community.github.io/cluster"]; cluster != "" {
 		labels["etos.eiffel-community.github.io/cluster"] = cluster
