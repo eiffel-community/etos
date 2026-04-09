@@ -263,7 +263,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	return nil
 }
 
-// cleanupUnused deletes IUTs, LogAreas and ExecutionSpaces without Environments i.e. danglig resources.
+// cleanupUnused deletes IUTs, LogAreas and ExecutionSpaces without Environments i.e. dangling resources.
 func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
 	logger := logf.FromContext(ctx)
 	var iuts etosv1alpha2.IutList
@@ -587,7 +587,7 @@ func (r EnvironmentRequestReconciler) deleteLogAreas(ctx context.Context, enviro
 	logger := logf.FromContext(ctx)
 	var logAreas etosv1alpha2.LogAreaList
 	if err := r.List(ctx, &logAreas, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier}); err != nil {
-		logger.Error(err, fmt.Sprintf("could not list iuts for environmentrequest %s", environmentrequest.Name))
+		logger.Error(err, fmt.Sprintf("could not list log areas for environmentrequest %s", environmentrequest.Name))
 		return -1, err
 	}
 	var err error
@@ -610,7 +610,7 @@ func (r EnvironmentRequestReconciler) deleteExecutionSpaces(ctx context.Context,
 	logger := logf.FromContext(ctx)
 	var executionSpaces etosv1alpha2.ExecutionSpaceList
 	if err := r.List(ctx, &executionSpaces, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/id": environmentrequest.Spec.Identifier}); err != nil {
-		logger.Error(err, fmt.Sprintf("could not list iuts for environmentrequest %s", environmentrequest.Name))
+		logger.Error(err, fmt.Sprintf("could not list execution spaces for environmentrequest %s", environmentrequest.Name))
 		return -1, err
 	}
 	var err error

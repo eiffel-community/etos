@@ -174,7 +174,7 @@ func (d *ProviderCustomValidator) validate(provider *etosv1alpha1.Provider) erro
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec").Child("healthCheck"),
 				provider.Spec.Healthcheck,
-				"healthCheck must be set when JSONTas and Image is not"))
+				"healthCheck must be set when JSONTas and Image are not"))
 		}
 		if provider.Spec.Host == "" && provider.Spec.Image == "" {
 			allErrs = append(allErrs, field.Invalid(
