@@ -424,22 +424,6 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 		if err := r.createEnvironmentRequests(ctx, suite, environmentRequestList, testrun, cluster); err != nil {
 			return false, err
 		}
-		// found := false
-		// for _, request := range environmentRequestList.Items {
-		// 	if request.Spec.Name == suite.Name {
-		// 		found = true
-		// 	}
-		// }
-		// if !found {
-		// 	request := r.environmentRequest(ctx, suite.Name, cluster, testrun, suite.Tests, suite.Dataset)
-		// 	if err := ctrl.SetControllerReference(testrun, request, r.Scheme); err != nil {
-		// 		return true, err
-		// 	}
-		// 	logger.Info("Creating a new environment request", "request", request.Name)
-		// 	if err := r.Create(ctx, request); err != nil {
-		// 		return true, err
-		// 	}
-		// }
 	}
 
 	for _, environmentRequest := range environmentRequestList.Items {
