@@ -14,11 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Local ETOS packs."""
+
 from .cert_manager import CertManager
 from .controller import Controller
 from .etos import Etos
 from .prometheus import Prometheus
-from .providers import Providers
 from .verify import Verify
 
-PACKS = [Prometheus, CertManager, Controller, Etos, Providers, Verify]
+PACKS = [Prometheus, CertManager, Controller, Etos, Verify]

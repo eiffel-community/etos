@@ -22,6 +22,7 @@ import (
 	"maps"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/config"
 	etosapi "github.com/eiffel-community/etos/internal/etos/api"
 	etossuitestarter "github.com/eiffel-community/etos/internal/etos/suitestarter"
@@ -56,6 +57,7 @@ func NewETOSDeployment(spec etosv1alpha1.ETOS, sch *runtime.Scheme, cli client.C
 // Reconcile will reconcile ETOS to its expected state.
 func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
 	var err error
+
 	logger := log.FromContext(ctx, "Reconciler", "ETOS", "BaseName", cluster.Name)
 	namespacedName := types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}
 	if _, err := r.reconcileIngress(ctx, namespacedName, cluster); err != nil {
@@ -96,6 +98,24 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 	_, err = r.reconcileEnvironmentProviderConfig(ctx, namespacedName, encryption.Name, cfg.Name, cluster)
 	if err != nil {
 		logger.Error(err, "Environment provider config reconciliation failed")
+		return err
+	}
+
+	_, err = r.reconcileIutProvider(ctx, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "IUT provider reconciliation failed")
+		return err
+	}
+
+	_, err = r.reconcileLogAreaProvider(ctx, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "IUT provider reconciliation failed")
+		return err
+	}
+
+	_, err = r.reconcileExecutionSpaceProvider(ctx, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "IUT provider reconciliation failed")
 		return err
 	}
 
@@ -310,6 +330,109 @@ func (r *ETOSDeployment) reconcileEnvironmentProviderConfig(ctx context.Context,
 		return target, nil
 	}
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
+}
+
+// reconcileIutProvider will reconcile the IUT provider to its expected state.
+func (r *ETOSDeployment) reconcileIutProvider(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*etosv1alpha1.Provider, error) {
+	logger := log.FromContext(ctx)
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-iut-provider", name.Name), Namespace: name.Namespace}
+	target := r.provider(name, "iut", config.ImageOrDefault(r.cfg.IutProvider, etosv1alpha1.Image{}), owner.GetName())
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+	scheme.Scheme.Default(target)
+
+	provider := &etosv1alpha1.Provider{}
+	if err := r.Get(ctx, name, provider); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return provider, err
+		}
+		logger.Info("Creating the IUT provider")
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	// Patching does not work if the resource version is not set, and it is not set
+	// by default when creating custom resources.
+	target.ObjectMeta = provider.ObjectMeta
+	return target, r.Patch(ctx, target, client.MergeFrom(provider))
+}
+
+// reconcileLogAreaProvider will reconcile the LogArea provider to its expected state.
+func (r *ETOSDeployment) reconcileLogAreaProvider(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*etosv1alpha1.Provider, error) {
+	logger := log.FromContext(ctx)
+	clusterName := name.Name
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-log-area-provider", name.Name), Namespace: name.Namespace}
+	target := r.provider(name, "log-area", config.ImageOrDefault(r.cfg.LogAreaProvider, etosv1alpha1.Image{}), owner.GetName())
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+	target.Spec.LogAreaProviderConfig = &etosv1alpha1.LogAreaProviderConfig{
+		LiveLogs: fmt.Sprintf("http://%s-etos-logarea/logarea/v1alpha/$context", clusterName),
+		Upload: etosv1alpha2.Upload{
+			AsJSON: false,
+			Method: "POST",
+			URL:    fmt.Sprintf("http://%s-etos-logarea/logarea/v1alpha/upload", clusterName),
+		},
+	}
+
+	provider := &etosv1alpha1.Provider{}
+	if err := r.Get(ctx, name, provider); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return provider, err
+		}
+		logger.Info("Creating the LogArea provider")
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	// Patching does not work if the resource version is not set, and it is not set
+	// by default when creating custom resources.
+	target.ObjectMeta = provider.ObjectMeta
+	return target, r.Patch(ctx, target, client.MergeFrom(provider))
+}
+
+// reconcileExecutionSpaceProvider will reconcile the Execution Space provider to its expected state.
+func (r *ETOSDeployment) reconcileExecutionSpaceProvider(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*etosv1alpha1.Provider, error) {
+	logger := log.FromContext(ctx)
+	name = types.NamespacedName{Name: fmt.Sprintf("%s-execution-space-provider", name.Name), Namespace: name.Namespace}
+	target := r.provider(name, "execution-space", config.ImageOrDefault(r.cfg.ExecutionSpaceProvider, etosv1alpha1.Image{}), owner.GetName())
+	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+		return target, err
+	}
+
+	provider := &etosv1alpha1.Provider{}
+	if err := r.Get(ctx, name, provider); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return provider, err
+		}
+		logger.Info("Creating the Execution Space provider")
+		if err := r.Create(ctx, target); err != nil {
+			return target, err
+		}
+		return target, nil
+	}
+	// Patching does not work if the resource version is not set, and it is not set
+	// by default when creating custom resources.
+	target.ObjectMeta = provider.ObjectMeta
+	return target, r.Patch(ctx, target, client.MergeFrom(provider))
+}
+
+// provider creates a provider definition for the ETOS API.
+func (r *ETOSDeployment) provider(name types.NamespacedName, providerType, image, clusterName string) *etosv1alpha1.Provider {
+	return &etosv1alpha1.Provider{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: etosv1alpha1.GroupVersion.String(),
+			Kind:       "Provider",
+		},
+		ObjectMeta: r.meta(name, clusterName),
+		Spec: etosv1alpha1.ProviderSpec{
+			Type:  providerType,
+			Image: image,
+		},
+	}
 }
 
 // config creates a new Secret to be used as configuration for the ETOS API.

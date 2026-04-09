@@ -40,6 +40,9 @@ type Config struct {
 	LogListener            Service
 	TestRunner             Service
 	EnvironmentProvider    Service
+	IutProvider            Service
+	LogAreaProvider        Service
+	ExecutionSpaceProvider Service
 	EventRepositoryAPI     Service
 	EventRepositoryStorage Service
 }
@@ -55,6 +58,9 @@ func New() Config {
 		LogListener:            loadDefaults("defaults/log_listener.yaml"),
 		TestRunner:             loadDefaults("defaults/test_runner.yaml"),
 		EnvironmentProvider:    loadDefaults("defaults/environment_provider.yaml"),
+		IutProvider:            loadDefaults("defaults/iut_provider.yaml"),
+		LogAreaProvider:        loadDefaults("defaults/log_area_provider.yaml"),
+		ExecutionSpaceProvider: loadDefaults("defaults/execution_space_provider.yaml"),
 		EventRepositoryAPI:     loadDefaults("defaults/event_repository_api.yaml"),
 		EventRepositoryStorage: loadDefaults("defaults/event_repository_storage.yaml"),
 	}

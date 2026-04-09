@@ -10,9 +10,9 @@ spec:
   artifact: 268dd4db-93da-4232-a544-bf4c0fb26dac  # This is used by e2e test, don't change
   cluster: cluster-sample
   providers:
-    iut: iut-provider-sample  # This is used by e2e test, don't change
-    executionSpace: execution-space-provider-sample  # This is used by e2e test, don't change
-    logArea: log-area-provider-sample  # This is used by e2e test, don't change
+    iut: cluster-sample-iut-provider # This is used by e2e test, don't change
+    executionSpace: cluster-sample-execution-space-provider  # This is used by e2e test, don't change
+    logArea: cluster-sample-log-area-provider  # This is used by e2e test, don't change
   suites:
   - name: testrun-sample
     dataset:
