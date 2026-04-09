@@ -497,7 +497,7 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 						{
 							Name:            "environment-provider",
 							Image:           environmentRequest.Spec.Image.Image,
-							ImagePullPolicy: environmentRequest.Spec.Image.ImagePullPolicy,
+							ImagePullPolicy: environmentRequest.Spec.ImagePullPolicy,
 							Env:             envList,
 							Args: []string{
 								"-release",

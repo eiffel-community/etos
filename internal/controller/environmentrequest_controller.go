@@ -272,7 +272,7 @@ func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, enviro
 		return err
 	}
 	for _, iut := range iuts.Items {
-		if !ownedByEnvironment(iut.ObjectMeta.OwnerReferences) {
+		if !ownedByEnvironment(iut.OwnerReferences) {
 			if err := r.Delete(ctx, &iut); err != nil {
 				return err
 			}
@@ -284,7 +284,7 @@ func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, enviro
 		return err
 	}
 	for _, executionSpace := range executionSpaces.Items {
-		if !ownedByEnvironment(executionSpace.ObjectMeta.OwnerReferences) {
+		if !ownedByEnvironment(executionSpace.OwnerReferences) {
 			if err := r.Delete(ctx, &executionSpace); err != nil {
 				return err
 			}
@@ -296,7 +296,7 @@ func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, enviro
 		return err
 	}
 	for _, logArea := range logAreas.Items {
-		if !ownedByEnvironment(logArea.ObjectMeta.OwnerReferences) {
+		if !ownedByEnvironment(logArea.OwnerReferences) {
 			if err := r.Delete(ctx, &logArea); err != nil {
 				return err
 			}
@@ -570,7 +570,7 @@ func (r EnvironmentRequestReconciler) deleteIuts(ctx context.Context, environmen
 	var err error
 	var allErr error
 	for _, iut := range iuts.Items {
-		if iut.ObjectMeta.DeletionTimestamp.IsZero() {
+		if iut.DeletionTimestamp.IsZero() {
 			if err = r.Delete(ctx, &iut); err != nil {
 				if !apierrors.IsNotFound(err) {
 					logger.Error(err, "failed to delete iut", "iut", iut)
@@ -593,7 +593,7 @@ func (r EnvironmentRequestReconciler) deleteLogAreas(ctx context.Context, enviro
 	var err error
 	var allErr error
 	for _, logArea := range logAreas.Items {
-		if logArea.ObjectMeta.DeletionTimestamp.IsZero() {
+		if logArea.DeletionTimestamp.IsZero() {
 			if err = r.Delete(ctx, &logArea); err != nil {
 				if !apierrors.IsNotFound(err) {
 					logger.Error(err, "failed to delete logArea", "logArea", logArea)
@@ -616,7 +616,7 @@ func (r EnvironmentRequestReconciler) deleteExecutionSpaces(ctx context.Context,
 	var err error
 	var allErr error
 	for _, executionSpace := range executionSpaces.Items {
-		if executionSpace.ObjectMeta.DeletionTimestamp.IsZero() {
+		if executionSpace.DeletionTimestamp.IsZero() {
 			if err = r.Delete(ctx, &executionSpace); err != nil {
 				if !apierrors.IsNotFound(err) {
 					logger.Error(err, "failed to delete executionSpace", "executionSpace", executionSpace)
@@ -738,7 +738,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 							Name:            "environment-provider",
 							Image:           environmentrequest.Spec.Image.Image,
 							Env:             envVarList,
-							ImagePullPolicy: environmentrequest.Spec.Image.ImagePullPolicy,
+							ImagePullPolicy: environmentrequest.Spec.ImagePullPolicy,
 							Args: []string{
 								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
 								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
