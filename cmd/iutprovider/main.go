@@ -18,10 +18,13 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/eiffel-community/etos/api/v1alpha2"
+	"github.com/eiffel-community/etos/pkg/logging"
 	"github.com/eiffel-community/etos/pkg/provider"
-	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type genericIutProvider struct{}
@@ -33,37 +36,63 @@ func main() {
 
 // Provision provisions a new IUT.
 func (p *genericIutProvider) Provision(ctx context.Context, cfg provider.ProvisionConfig) error {
-	logger := logr.FromContextOrDiscard(ctx)
+	ctx, span := cfg.Tracer.Start(ctx, "Provision", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+	logger := logging.FromContextOrDiscard(ctx)
 	environmentRequest := cfg.EnvironmentRequest
 	if cfg.MinimumAmount <= 0 {
-		return errors.New("minimum amount of IUTs requested is less than or equal to 0")
+		err := errors.New("minimum amount of IUTs requested is less than or equal to 0")
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "invalid minimum amount of IUTs requested")
+		return err
 	}
 	logger.Info("Provisioning a new IUT for EnvironmentRequest",
 		"EnvironmentRequest", environmentRequest.Name,
 		"Namespace", environmentRequest.Namespace,
 		"Amount", cfg.MinimumAmount,
 	)
+	ctx, span = cfg.Tracer.Start(ctx, "CreateIUTs", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+	logger = logging.FromContextOrDiscard(ctx)
+
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic IUT")
-		if _, err := provider.CreateIUT(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.IutSpec{}); err != nil {
+		iut, err := provider.CreateIUT(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.IutSpec{})
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to create IUT")
 			return err
 		}
-		logger.Info("IUT created")
+		logger.Info(fmt.Sprintf("IUT created with name '%s'", iut.Name))
 	}
+	span.SetStatus(codes.Ok, "successfully provisioned IUTs")
 	return nil
 }
 
 // Release releases an IUT.
 func (p *genericIutProvider) Release(ctx context.Context, cfg provider.ReleaseConfig) error {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Releasing IUT", "Name", cfg.Name, "Namespace", cfg.Namespace)
+	ctx, span := cfg.Tracer.Start(ctx, "Release", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+
+	logger := logging.FromContextOrDiscard(ctx)
+
+	logger.Info(fmt.Sprintf("Releasing IUT with name %s", cfg.Name), "Namespace", cfg.Namespace)
 	iut, err := provider.GetIUT(ctx, cfg.Name, cfg.Namespace)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get IUT")
 		return err
 	}
-	logger.Info("IUT", "name", iut.Name)
 	if cfg.NoDelete {
+		span.SetStatus(codes.Ok, "no-delete flag set, skipping deletion of IUT")
 		return nil
 	}
-	return provider.DeleteIUT(ctx, iut)
+	if err := provider.DeleteIUT(ctx, iut); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to delete IUT")
+		return err
+	}
+	logger.Info(fmt.Sprintf("IUT '%s' released", cfg.Name))
+	span.SetStatus(codes.Ok, "successfully released IUT")
+	return nil
 }

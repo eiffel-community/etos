@@ -205,7 +205,8 @@ func (u *userLogs) Write(p []byte) (n int, err error) {
 	}
 	routingKey := fmt.Sprintf("%s.message.%s", e.Identifier, e.Level)
 	if err := u.publisher.Publish(message, routingKey); err != nil {
-		return 0, fmt.Errorf("failed to publish log entry: %w", err)
+		fmt.Printf("failed to publish log entry: %s\n", err.Error())
+		return 0, nil
 	}
 	return len(p), nil
 }

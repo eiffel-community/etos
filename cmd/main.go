@@ -17,12 +17,15 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"go.opentelemetry.io/otel"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/utils/clock"
 
@@ -42,6 +45,8 @@ import (
 	"github.com/eiffel-community/etos/internal/controller"
 	webhookv1alpha1 "github.com/eiffel-community/etos/internal/webhook/v1alpha1"
 	webhookv1alpha2 "github.com/eiffel-community/etos/internal/webhook/v1alpha2"
+	"github.com/eiffel-community/etos/pkg/opentelemetry"
+	"github.com/go-logr/logr"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -207,10 +212,26 @@ func main() {
 		"EventRepositoryStorage Version", cfg.EventRepositoryStorage.Version,
 	)
 
+	ctx := ctrl.SetupSignalHandler()
+	ctx = logr.NewContext(ctx, setupLog)
+	otelTracer := opentelemetry.New("controller", "etos")
+	if err := otelTracer.Start(ctx); err != nil {
+		setupLog.Error(err, "Failed to start OpenTelemetry tracer")
+		os.Exit(1)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := otelTracer.Shutdown(shutdownCtx); err != nil {
+			setupLog.Error(err, "Failed to shutdown OpenTelemetry tracer")
+		}
+	}()
+
 	if err = (&controller.TestRunReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Clock:  &clock.RealClock{},
+		Tracer: otel.Tracer("testrun-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "TestRun")
 		os.Exit(1)
@@ -319,7 +340,7 @@ func main() {
 	}
 
 	setupLog.Info("Starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "Failed to run manager")
 		os.Exit(1)
 	}

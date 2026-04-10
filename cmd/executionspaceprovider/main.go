@@ -24,10 +24,14 @@ import (
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
+	"github.com/eiffel-community/etos/pkg/logging"
 	"github.com/eiffel-community/etos/pkg/provider"
 	"github.com/fernet/fernet-go"
-	"github.com/go-logr/logr"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -53,26 +57,39 @@ type dataset struct {
 func (p *genericExecutionSpaceProvider) Provision(
 	ctx context.Context, cfg provider.ProvisionConfig,
 ) error {
+	ctx, span := cfg.Tracer.Start(ctx, "Provision", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
 
-	logger := logr.FromContextOrDiscard(ctx)
+	logger := logging.FromContextOrDiscard(ctx)
 	cli, err := provider.KubernetesClient()
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create Kubernetes client")
 		return err
 	}
 	environmentRequest := cfg.EnvironmentRequest
 	if cfg.MinimumAmount <= 0 {
-		return errors.New("minimum amount of ExecutionSpaces requested is less than or equal to 0")
+		err := errors.New("minimum amount of ExecutionSpaces requested is less than or equal to 0")
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "invalid minimum amount of ExecutionSpaces requested")
+		return err
 	}
 	key, err := environmentRequest.Spec.Config.EncryptionKey.Get(ctx, cli, environmentRequest.Namespace)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get encryption key")
 		return err
 	}
 	encryptionKey, err := fernet.DecodeKey(string(key))
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to decode encryption key")
 		return err
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get hostname")
 		return err
 	}
 	logger.Info("Provisioning a new ExecutionSpace for EnvironmentRequest",
@@ -85,6 +102,8 @@ func (p *genericExecutionSpaceProvider) Provision(
 		environmentRequest.Namespace, encryptionKey,
 	)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get and encrypt ETOS MessageBus password")
 		return err
 	}
 	eiffelMessagebusPassword, err := getAndEncrypt(ctx,
@@ -92,30 +111,38 @@ func (p *genericExecutionSpaceProvider) Provision(
 		environmentRequest.Namespace, encryptionKey,
 	)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get and encrypt Eiffel MessageBus password")
 		return err
 	}
+
 	environment := map[string]string{
-		"SOURCE_HOST":            hostname,
-		"ETOS_API":               environmentRequest.Spec.Config.EtosApi,
-		"ETR_VERSION":            environmentRequest.Spec.Providers.ExecutionSpace.TestRunner,
-		"ETOS_GRAPHQL_SERVER":    environmentRequest.Spec.Config.GraphQlServer,
-		"ETOS_RABBITMQ_EXCHANGE": environmentRequest.Spec.Config.EtosMessageBus.Exchange,
-		"ETOS_RABBITMQ_HOST":     environmentRequest.Spec.Config.EtosMessageBus.Host,
-		"ETOS_RABBITMQ_PASSWORD": string(etosMessagebusPassword),
-		"ETOS_RABBITMQ_PORT":     environmentRequest.Spec.Config.EtosMessageBus.Port,
-		"ETOS_RABBITMQ_USERNAME": environmentRequest.Spec.Config.EtosMessageBus.Username,
-		"ETOS_RABBITMQ_VHOST":    environmentRequest.Spec.Config.EtosMessageBus.Vhost,
-		"ETOS_RABBITMQ_SSL":      environmentRequest.Spec.Config.EtosMessageBus.SSL,
-		"RABBITMQ_EXCHANGE":      environmentRequest.Spec.Config.EiffelMessageBus.Exchange,
-		"RABBITMQ_HOST":          environmentRequest.Spec.Config.EiffelMessageBus.Host,
-		"RABBITMQ_PASSWORD":      string(eiffelMessagebusPassword),
-		"RABBITMQ_PORT":          environmentRequest.Spec.Config.EiffelMessageBus.Port,
-		"RABBITMQ_USERNAME":      environmentRequest.Spec.Config.EiffelMessageBus.Username,
-		"RABBITMQ_VHOST":         environmentRequest.Spec.Config.EiffelMessageBus.Vhost,
-		"RABBITMQ_SSL":           environmentRequest.Spec.Config.EiffelMessageBus.SSL,
+		"SOURCE_HOST":                 hostname,
+		"ETOS_API":                    environmentRequest.Spec.Config.EtosApi,
+		"ETR_VERSION":                 environmentRequest.Spec.Providers.ExecutionSpace.TestRunner,
+		"ETOS_GRAPHQL_SERVER":         environmentRequest.Spec.Config.GraphQlServer,
+		"ETOS_RABBITMQ_EXCHANGE":      environmentRequest.Spec.Config.EtosMessageBus.Exchange,
+		"ETOS_RABBITMQ_HOST":          environmentRequest.Spec.Config.EtosMessageBus.Host,
+		"ETOS_RABBITMQ_PASSWORD":      string(etosMessagebusPassword),
+		"ETOS_RABBITMQ_PORT":          environmentRequest.Spec.Config.EtosMessageBus.Port,
+		"ETOS_RABBITMQ_USERNAME":      environmentRequest.Spec.Config.EtosMessageBus.Username,
+		"ETOS_RABBITMQ_VHOST":         environmentRequest.Spec.Config.EtosMessageBus.Vhost,
+		"ETOS_RABBITMQ_SSL":           environmentRequest.Spec.Config.EtosMessageBus.SSL,
+		"RABBITMQ_EXCHANGE":           environmentRequest.Spec.Config.EiffelMessageBus.Exchange,
+		"RABBITMQ_HOST":               environmentRequest.Spec.Config.EiffelMessageBus.Host,
+		"RABBITMQ_PASSWORD":           string(eiffelMessagebusPassword),
+		"RABBITMQ_PORT":               environmentRequest.Spec.Config.EiffelMessageBus.Port,
+		"RABBITMQ_USERNAME":           environmentRequest.Spec.Config.EiffelMessageBus.Username,
+		"RABBITMQ_VHOST":              environmentRequest.Spec.Config.EiffelMessageBus.Vhost,
+		"RABBITMQ_SSL":                environmentRequest.Spec.Config.EiffelMessageBus.SSL,
+		"OTEL_EXPORTER_OTLP_ENDPOINT": os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		"OTEL_EXPORTER_OTLP_INSECURE": os.Getenv("OTEL_EXPORTER_OTLP_INSECURE"),
 	}
+
 	ds := dataset{}
 	if err := json.Unmarshal(environmentRequest.Spec.Dataset.Raw, &ds); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to unmarshal dataset")
 		return err
 	}
 	if ds.Dev {
@@ -127,6 +154,13 @@ func (p *genericExecutionSpaceProvider) Provision(
 	if ds.ETRRepo != "" {
 		environment["ETR_REPOSITORY"] = ds.ETRRepo
 	}
+
+	ctx, span = cfg.Tracer.Start(ctx, "CreateExecutionSpaces", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+	logger = logging.FromContextOrDiscard(ctx)
+	// Add traceparent, tracestate and baggage to the environment variables so that they can be
+	// propagated to the test runner.
+	otel.GetTextMapPropagator().Inject(ctx, propagation.MapCarrier(environment))
 
 	for range cfg.MinimumAmount {
 		id := uuid.NewString()
@@ -148,14 +182,20 @@ func (p *genericExecutionSpaceProvider) Provision(
 				},
 			})
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to create ExecutionSpace")
 			return err
 		}
-		logger.Info("ExecutionSpace created, launching ETR")
+		logger.Info(fmt.Sprintf("ExecutionSpace created with name '%s', launching ETOS test runner",
+			executionSpace.Name))
 		if err := p.start(ctx, environmentRequest, executionSpace); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to start ETOS test runner")
 			return err
 		}
-		logger.Info("ETR launched")
+		logger.Info("Test runner has launched and is waiting for tests")
 	}
+	span.SetStatus(codes.Ok, "successfully provisioned ExecutionSpaces")
 	return nil
 }
 
@@ -261,17 +301,30 @@ func (p *genericExecutionSpaceProvider) start(
 func (p *genericExecutionSpaceProvider) Release(
 	ctx context.Context, cfg provider.ReleaseConfig,
 ) error {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Releasing ExecutionSpace", "Name", cfg.Name, "Namespace", cfg.Namespace)
+	ctx, span := cfg.Tracer.Start(ctx, "Release", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+
+	logger := logging.FromContextOrDiscard(ctx)
+
+	logger.Info(fmt.Sprintf("Releasing ExecutionSpace with name %s", cfg.Name), "Namespace", cfg.Namespace)
 	executionSpace, err := provider.GetExecutionSpace(ctx, cfg.Name, cfg.Namespace)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get ExecutionSpace")
 		return err
 	}
-	logger.Info("ExecutionSpace", "name", executionSpace.Name)
 	if cfg.NoDelete {
+		span.SetStatus(codes.Ok, "no-delete flag set, not deleting ExecutionSpace")
 		return nil
 	}
-	return provider.DeleteExecutionSpace(ctx, executionSpace)
+	if err := provider.DeleteExecutionSpace(ctx, executionSpace); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to delete ExecutionSpace")
+		return err
+	}
+	logger.Info(fmt.Sprintf("ExecutionSpace '%s' released", cfg.Name))
+	span.SetStatus(codes.Ok, "successfully released ExecutionSpace")
+	return nil
 }
 
 // encrypt encrypts a string using the provided Fernet key.
