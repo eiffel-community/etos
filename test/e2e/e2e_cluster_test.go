@@ -52,7 +52,11 @@ func DeployVerifyCluster() {
 			By("patching the cluster with the newly built environment provider image")
 			cmd := exec.Command("kubectl", "patch", "cluster", clusterName,
 				"-n", clusterNamespace,
-				"--type=json", "-p", fmt.Sprintf(`[{"op":"replace","path":"/spec/etos/environmentProvider","value":{"image":"%s"}}]`, environmentProviderImage),
+				"--type=json", "-p",
+				fmt.Sprintf(
+					`[{"op":"replace","path":"/spec/etos/environmentProvider","value":{"image":"%s"}}]`,
+					environmentProviderImage,
+				),
 			)
 			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to patch the cluster with a new environment provider image")
@@ -180,7 +184,9 @@ func DeployVerifyCluster() {
 			Expect(err).NotTo(HaveOccurred(), "Failed to patch the LogArea provider with a new image")
 
 			By("patching the ExecutionSpace provider with the newly built image")
-			cmd = exec.Command("kubectl", "patch", "provider", fmt.Sprintf("%s-%s", clusterName, partialExecutionSpaceProviderName),
+			cmd = exec.Command(
+				"kubectl", "patch", "provider",
+				fmt.Sprintf("%s-%s", clusterName, partialExecutionSpaceProviderName),
 				"-n", clusterNamespace,
 				"--type=json", "-p", fmt.Sprintf(`[{"op":"replace","path":"/spec/image","value":"%s"}]`, executionSpaceImage),
 			)
