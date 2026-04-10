@@ -505,12 +505,16 @@ func (r TestRunReconciler) createEnvironmentRequests(ctx context.Context, suite 
 	logger := logf.FromContext(ctx)
 
 	testrunners := map[string][]etosv1alpha1.Test{}
+	indices := make(map[string]int)
+	index := 0
 	for _, test := range suite.Tests {
+		if _, ok := indices[test.Execution.TestRunner]; !ok {
+			indices[test.Execution.TestRunner] = index
+			index++
+		}
 		testrunners[test.Execution.TestRunner] = append(testrunners[test.Execution.TestRunner], test)
 	}
-	index := 0
 	for testrunner, tests := range testrunners {
-		index++
 		found := false
 		for _, request := range environmentRequests.Items {
 			testrunnerImage := request.Spec.Providers.ExecutionSpace.TestRunnerImage
@@ -524,7 +528,7 @@ func (r TestRunReconciler) createEnvironmentRequests(ctx context.Context, suite 
 			logger.Info("Creating an environmentrequest for testrunner", "testrunner", testrunner, "suite", suite.Name)
 			var name string
 			if len(testrunners) > 1 {
-				name = fmt.Sprintf("%s-%d", suite.Name, index)
+				name = fmt.Sprintf("%s-%d", suite.Name, indices[testrunner])
 			} else {
 				name = suite.Name
 			}
