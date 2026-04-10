@@ -27,6 +27,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const Inconclusive = "Inconclusive"
+const Failed = "Failed"
+
 // VerifyETOSTestruns runs tests to verify ETOS testrun functionality.
 func VerifyETOSTestruns() {
 	Context("ETOS Testruns", func() {
@@ -127,9 +130,9 @@ func VerifyETOSTestruns() {
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
 				switch output {
-				case "Failed":
+				case Failed:
 					return StopTrying("TestRun failed")
-				case "Inconclusive":
+				case Inconclusive:
 					return StopTrying("TestRun became inconclusive")
 				}
 				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
@@ -152,9 +155,9 @@ func VerifyETOSTestruns() {
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
 				switch output {
-				case "Failed":
+				case Failed:
 					return StopTrying("TestRun failed")
-				case "Inconclusive":
+				case Inconclusive:
 					return StopTrying("TestRun became inconclusive")
 				}
 				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
@@ -177,9 +180,9 @@ func VerifyETOSTestruns() {
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
 				switch output {
-				case "Failed":
+				case Failed:
 					return StopTrying("TestRun failed")
-				case "Inconclusive":
+				case Inconclusive:
 					return StopTrying("TestRun became inconclusive")
 				}
 				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
