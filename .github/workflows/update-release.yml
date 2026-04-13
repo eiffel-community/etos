@@ -7,7 +7,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         repository: eiffel-community/etos-suite-runner
     - name: Get version
@@ -22,7 +22,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         repository: eiffel-community/etos-suite-starter
     - name: Get version
@@ -37,7 +37,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         repository: eiffel-community/etos-api
     - name: Get version
@@ -51,9 +51,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [suiteRunner, suiteStarter, api]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Update manifests
-      uses: fjogeleit/yaml-update-action@main
+      uses: fjogeleit/yaml-update-action@v0.16.1
       with:
         branch: main
         commitChange: true

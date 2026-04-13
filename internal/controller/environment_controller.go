@@ -424,15 +424,18 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 		}
 	}
 
-	traceparent, ok := environmentRequest.Annotations["etos.eiffel-community.github.io/traceparent"]
-	if !ok {
-		traceparent = ""
-	}
-
 	envList := []corev1.EnvVar{
 		{
-			Name:  "OTEL_CONTEXT",
-			Value: traceparent,
+			Name:  "TRACEPARENT",
+			Value: environmentRequest.Annotations["etos.eiffel-community.github.io/traceparent"],
+		},
+		{
+			Name:  "BAGGAGE",
+			Value: environmentRequest.Annotations["etos.eiffel-community.github.io/baggage"],
+		},
+		{
+			Name:  "TRACESTATE",
+			Value: environmentRequest.Annotations["etos.eiffel-community.github.io/tracestate"],
 		},
 	}
 	if cluster != nil && cluster.Spec.OpenTelemetry.Enabled {
