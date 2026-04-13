@@ -506,6 +506,8 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 								"-release",
 								fmt.Sprintf("-name=%s", environment.Name),
 								fmt.Sprintf("-namespace=%s", environment.Namespace),
+								fmt.Sprintf("-environment-request=%s", environmentRequest.Name),
+								"-provider=environment-provider",
 							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{

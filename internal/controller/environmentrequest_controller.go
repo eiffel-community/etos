@@ -742,6 +742,7 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 							Args: []string{
 								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
 								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
+								"-provider=environment-provider",
 							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
