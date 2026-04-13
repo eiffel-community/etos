@@ -62,7 +62,6 @@ func (r *ETOSLogAreaDeployment) Reconcile(ctx context.Context, cluster *etosv1al
 	logger := log.FromContext(ctx, "Reconciler", "ETOSLogArea", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-
 	_, err = r.reconcileServiceAccount(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service account for the ETOS LogArea")

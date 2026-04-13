@@ -153,7 +153,7 @@ func (r *ClusterReconciler) handleReconcileError(ctx context.Context, cluster *e
 	// For NotReadyErrors requeue after a short delay; for other errors
 	// return the error so that controller-runtime applies exponential backoff.
 	if readiness.IsNotReadyError(err) {
-		if result.RequeueAfter == 0 && !result.Requeue {
+		if result.RequeueAfter == 0 {
 			result.RequeueAfter = 5 * time.Second
 		}
 		return result, nil

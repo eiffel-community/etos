@@ -75,7 +75,6 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 		configName = namespacedName.Name
 	}
 
-
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the EventRepository service")
