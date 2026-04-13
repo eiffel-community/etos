@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -86,13 +87,19 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	var notReadyErr error
+
 	eiffelbus := extras.NewRabbitMQDeployment(cluster.Spec.MessageBus.EiffelMessageBus, r.Scheme, r.Client)
 	if err := eiffelbus.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
-		logger.Error(err, "Error reconciling the Eiffel event bus")
-		return r.handleReconcileError(ctx, cluster, err)
+		if readiness.IsNotReadyError(err) {
+			notReadyErr = errors.Join(notReadyErr, err)
+		} else {
+			logger.Error(err, "Error reconciling the Eiffel event bus")
+			return r.handleReconcileError(ctx, cluster, err)
+		}
 	}
 
 	etosbus := extras.NewMessageBusDeployment(cluster.Spec.MessageBus.ETOSMessageBus, r.Scheme, r.Client)
@@ -100,8 +107,12 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
-		logger.Error(err, "Error reconciling the ETOS message bus")
-		return r.handleReconcileError(ctx, cluster, err)
+		if readiness.IsNotReadyError(err) {
+			notReadyErr = errors.Join(notReadyErr, err)
+		} else {
+			logger.Error(err, "Error reconciling the ETOS message bus")
+			return r.handleReconcileError(ctx, cluster, err)
+		}
 	}
 
 	mongodb := extras.NewMongoDBDeployment(cluster.Spec.EventRepository.Database, r.Scheme, r.Client)
@@ -109,8 +120,12 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
-		logger.Error(err, "Error reconciling the Eiffel event bus database")
-		return r.handleReconcileError(ctx, cluster, err)
+		if readiness.IsNotReadyError(err) {
+			notReadyErr = errors.Join(notReadyErr, err)
+		} else {
+			logger.Error(err, "Error reconciling the Eiffel event bus database")
+			return r.handleReconcileError(ctx, cluster, err)
+		}
 	}
 
 	eventrepository := extras.NewEventRepositoryDeployment(&cluster.Spec.EventRepository, r.Scheme, r.Client, mongodb, eiffelbus.SecretName, r.Config)
@@ -118,8 +133,12 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
-		logger.Error(err, "Error reconciling the Eiffel event repository")
-		return r.handleReconcileError(ctx, cluster, err)
+		if readiness.IsNotReadyError(err) {
+			notReadyErr = errors.Join(notReadyErr, err)
+		} else {
+			logger.Error(err, "Error reconciling the Eiffel event repository")
+			return r.handleReconcileError(ctx, cluster, err)
+		}
 	}
 
 	etcd := etos.NewETCDDeployment(&cluster.Spec.Database, r.Scheme, r.Client)
@@ -127,8 +146,12 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
-		logger.Error(err, "Error reconciling the ETOS database")
-		return r.handleReconcileError(ctx, cluster, err)
+		if readiness.IsNotReadyError(err) {
+			notReadyErr = errors.Join(notReadyErr, err)
+		} else {
+			logger.Error(err, "Error reconciling the ETOS database")
+			return r.handleReconcileError(ctx, cluster, err)
+		}
 	}
 
 	etosDeployment := etos.NewETOSDeployment(cluster.Spec.ETOS, r.Scheme, r.Client, eiffelbus.SecretName, etosbus.SecretName, r.Config)
@@ -136,10 +159,17 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
-		logger.Error(err, "Error reconciling ETOS")
-		return r.handleReconcileError(ctx, cluster, err)
+		if readiness.IsNotReadyError(err) {
+			notReadyErr = errors.Join(notReadyErr, err)
+		} else {
+			logger.Error(err, "Error reconciling ETOS")
+			return r.handleReconcileError(ctx, cluster, err)
+		}
 	}
 
+	if notReadyErr != nil {
+		return r.handleReconcileError(ctx, cluster, notReadyErr)
+	}
 	return r.update(ctx, cluster, metav1.ConditionTrue, status.ReasonCompleted, "Cluster is up and running")
 }
 

@@ -83,9 +83,9 @@ var _ = Describe("Cluster Controller", func() {
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+			// The test environment lacks full secret configuration, so
+			// the reconciler is expected to return an error.
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -254,6 +254,7 @@ var _ = Describe("Cluster Controller", func() {
 
 			_, err := reconciler.handleReconcileError(ctx, cluster, fmt.Errorf("connection refused"))
 			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("connection refused"))
 
 			updated := &etosv1alpha1.Cluster{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
