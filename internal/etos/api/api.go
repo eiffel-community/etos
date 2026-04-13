@@ -100,7 +100,7 @@ func (r *ETOSApiDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 		logger.Error(err, "Failed to reconcile the service for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.ObjectMeta.Name, cluster)
+	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.Name, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the deployment for the ETOS API")
 		return err

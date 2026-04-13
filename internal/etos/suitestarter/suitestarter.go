@@ -131,7 +131,7 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 		logger.Error(err, "Failed to reconcile the Suite Runner role binding")
 		return err
 	}
-	_, err = r.reconcileDeployment(ctx, cfg.ObjectMeta.Name, suiteRunnerTemplateName, suiteStarterName, cluster)
+	_, err = r.reconcileDeployment(ctx, cfg.Name, suiteRunnerTemplateName, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the deployment for the ETOS Suite Starter")
 		return err

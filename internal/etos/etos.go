@@ -25,7 +25,6 @@ import (
 	"github.com/eiffel-community/etos/internal/config"
 	etosapi "github.com/eiffel-community/etos/internal/etos/api"
 	etossuitestarter "github.com/eiffel-community/etos/internal/etos/suitestarter"
-
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -99,7 +98,6 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		logger.Error(err, "Environment provider config reconciliation failed")
 		return err
 	}
-
 
 	api := etosapi.NewETOSApiDeployment(r.API, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, cfg.Name, r.cfg)
 	if err := api.Reconcile(ctx, cluster); err != nil {
