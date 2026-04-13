@@ -177,6 +177,10 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 	if _, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]; ok {
 		return ctx, nil
 	}
+	if r.Tracer == nil {
+		logger.Info("No tracer configured, skipping traceparent injection")
+		return ctx, nil
+	}
 	var err error
 	logger.Info("Starting span for TestRun creation", "name", testrun.Name)
 	ctx, span := r.Tracer.Start(
@@ -636,9 +640,9 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 	if ok {
 		annotations["etos.eiffel-community.github.io/traceparent"] = traceparent
 	}
-	baggage, ok := testrun.Annotations["etos.eiffel-community.github.io/baggage"]
+	b, ok := testrun.Annotations["etos.eiffel-community.github.io/baggage"]
 	if ok {
-		annotations["etos.eiffel-community.github.io/baggage"] = baggage
+		annotations["etos.eiffel-community.github.io/baggage"] = b
 	}
 	// Using ParseInt directly instead of Atoi since Atoi returns int, not int64
 	environmentTimeout, err := strconv.ParseInt(cluster.Spec.ETOS.Config.EnvironmentTimeout, 10, 0)
