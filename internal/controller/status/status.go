@@ -16,7 +16,6 @@
 package status
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -47,10 +46,4 @@ type NotReadyError struct {
 
 func (e *NotReadyError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Name, e.Message)
-}
-
-// IsNotReadyError returns true if the error is (or wraps) a NotReadyError.
-func IsNotReadyError(err error) bool {
-	var notReady *NotReadyError
-	return errors.As(err, &notReady)
 }

@@ -222,7 +222,7 @@ var _ = Describe("Cluster Controller", func() {
 			}
 		})
 
-		It("should set Ready=False with Pending reason for NotReadyError and requeue", func() {
+		It("should set Ready=False with Pending reason and requeue for NotReadyError", func() {
 			reconciler := &ClusterReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
@@ -246,14 +246,14 @@ var _ = Describe("Cluster Controller", func() {
 			Expect(readyCond.Message).To(ContainSubstring("test-etos-api"))
 		})
 
-		It("should set Ready=False with Failed reason for other errors", func() {
+		It("should set Ready=False with Pending reason and return error for non-NotReadyError", func() {
 			reconciler := &ClusterReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
 
 			_, err := reconciler.handleReconcileError(ctx, cluster, fmt.Errorf("connection refused"))
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 
 			updated := &etosv1alpha1.Cluster{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
@@ -261,7 +261,7 @@ var _ = Describe("Cluster Controller", func() {
 			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
 			Expect(readyCond).NotTo(BeNil())
 			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(readyCond.Reason).To(Equal(status.ReasonFailed))
+			Expect(readyCond.Reason).To(Equal(status.ReasonPending))
 			Expect(readyCond.Message).To(Equal("connection refused"))
 		})
 	})

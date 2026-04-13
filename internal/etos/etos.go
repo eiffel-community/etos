@@ -18,7 +18,6 @@ package etos
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 
@@ -27,7 +26,6 @@ import (
 	etosapi "github.com/eiffel-community/etos/internal/etos/api"
 	etossuitestarter "github.com/eiffel-community/etos/internal/etos/suitestarter"
 
-	"github.com/eiffel-community/etos/internal/readiness"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -103,47 +101,31 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 	}
 
 
-	// notReadyErr collects NotReadyError values from sub-reconcilers so that
-	// all components are reconciled even when some pods are not yet ready.
-	var notReadyErr error
-
 	api := etosapi.NewETOSApiDeployment(r.API, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, cfg.Name, r.cfg)
 	if err := api.Reconcile(ctx, cluster); err != nil {
-		if !readiness.IsNotReadyError(err) {
-			logger.Error(err, "ETOS API reconciliation failed")
-			return err
-		}
-		notReadyErr = errors.Join(notReadyErr, err)
+		logger.Error(err, "ETOS API reconciliation failed")
+		return err
 	}
 
 	sse := etosapi.NewETOSSSEDeployment(r.SSE, r.Scheme, r.Client, r.messagebusSecret, r.cfg)
 	if err := sse.Reconcile(ctx, cluster); err != nil {
-		if !readiness.IsNotReadyError(err) {
-			logger.Error(err, "ETOS SSE reconciliation failed")
-			return err
-		}
-		notReadyErr = errors.Join(notReadyErr, err)
+		logger.Error(err, "ETOS SSE reconciliation failed")
+		return err
 	}
 
 	logarea := etosapi.NewETOSLogAreaDeployment(r.LogArea, r.Scheme, r.Client, r.cfg)
 	if err := logarea.Reconcile(ctx, cluster); err != nil {
-		if !readiness.IsNotReadyError(err) {
-			logger.Error(err, "ETOS LogArea reconciliation failed")
-			return err
-		}
-		notReadyErr = errors.Join(notReadyErr, err)
+		logger.Error(err, "ETOS LogArea reconciliation failed")
+		return err
 	}
 
 	suitestarter := etossuitestarter.NewETOSSuiteStarterDeployment(r.SuiteStarter, r.Scheme, r.Client, r.rabbitmqSecret, r.messagebusSecret, cfg, encryption, r.cfg)
 	if err := suitestarter.Reconcile(ctx, cluster); err != nil {
-		if !readiness.IsNotReadyError(err) {
-			logger.Error(err, "ETOS SuiteStarter reconciliation failed")
-			return err
-		}
-		notReadyErr = errors.Join(notReadyErr, err)
+		logger.Error(err, "ETOS SuiteStarter reconciliation failed")
+		return err
 	}
 
-	return notReadyErr
+	return nil
 }
 
 // reconcileIngress will reconcile the ETOS ingress to its expected state.
