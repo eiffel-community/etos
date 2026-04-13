@@ -85,7 +85,6 @@ func (r *MongoDBDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	}
 	r.SecretName = secret.Name
 
-
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the MongoDB service")
