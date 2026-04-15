@@ -83,8 +83,10 @@ var _ = Describe("Cluster Controller", func() {
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
-			// The test environment lacks full secret configuration, so
-			// the reconciler is expected to return an error.
+			// The Cluster spec is created with empty fields, so the ETOS
+			// sub-reconciler fails resolving encryption key Var references.
+			// TODO: set up proper secrets/configmaps so this test can verify
+			// a full successful reconciliation.
 			Expect(err).To(HaveOccurred())
 		})
 	})
