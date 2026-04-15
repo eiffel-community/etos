@@ -60,87 +60,104 @@ func (p *genericExecutionSpaceProvider) Provision(
 	ctx, span := cfg.Tracer.Start(ctx, "Provision", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 
-	logger := logging.FromContextOrDiscard(ctx)
-	cli, err := provider.KubernetesClient()
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "failed to create Kubernetes client")
-		return err
-	}
-	environmentRequest := cfg.EnvironmentRequest
 	if cfg.MinimumAmount <= 0 {
 		err := errors.New("minimum amount of ExecutionSpaces requested is less than or equal to 0")
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "invalid minimum amount of ExecutionSpaces requested")
 		return err
 	}
-	key, err := environmentRequest.Spec.Config.EncryptionKey.Get(ctx, cli, environmentRequest.Namespace)
-	if err != nil {
+	if err := p.createExecutionSpaces(ctx, cfg); err != nil {
 		span.RecordError(err)
-		span.SetStatus(codes.Error, "failed to get encryption key")
+		span.SetStatus(codes.Error, "failed to create ExecutionSpaces")
 		return err
+	}
+	span.SetStatus(codes.Ok, "successfully provisioned ExecutionSpaces")
+	return nil
+}
+
+// createEnvironment creates a map of environment variables for the ETOS test runner based on the EnvironmentRequest.
+func (p *genericExecutionSpaceProvider) createEnvironment(ctx context.Context, cfg provider.ProvisionConfig) (map[string]string, error) {
+	var environment map[string]string
+	logger := logging.FromContextOrDiscard(ctx)
+	cli, err := provider.KubernetesClient()
+	if err != nil {
+		return environment, err
+	}
+	key, err := cfg.EnvironmentRequest.Spec.Config.EncryptionKey.Get(ctx, cli, cfg.EnvironmentRequest.Namespace)
+	if err != nil {
+		return environment, errors.Join(errors.New("failed to get encryption key"), err)
 	}
 	encryptionKey, err := fernet.DecodeKey(string(key))
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "failed to decode encryption key")
-		return err
+		return environment, errors.Join(errors.New("failed to decode encryption key"), err)
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "failed to get hostname")
-		return err
+		return environment, errors.Join(errors.New("failed to get hostname"), err)
 	}
 	logger.Info("Provisioning a new ExecutionSpace for EnvironmentRequest",
-		"EnvironmentRequest", environmentRequest.Name,
-		"Namespace", environmentRequest.Namespace,
+		"EnvironmentRequest", cfg.EnvironmentRequest.Name,
+		"Namespace", cfg.EnvironmentRequest.Namespace,
 		"Amount", cfg.MinimumAmount,
 	)
 	etosMessagebusPassword, err := getAndEncrypt(ctx,
-		cli, environmentRequest.Spec.Config.EtosMessageBus.Password,
-		environmentRequest.Namespace, encryptionKey,
+		cli, cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Password,
+		cfg.EnvironmentRequest.Namespace, encryptionKey,
 	)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "failed to get and encrypt ETOS MessageBus password")
-		return err
+		return environment, errors.Join(errors.New("failed to get and encrypt ETOS MessageBus password"), err)
 	}
 	eiffelMessagebusPassword, err := getAndEncrypt(ctx,
-		cli, environmentRequest.Spec.Config.EiffelMessageBus.Password,
-		environmentRequest.Namespace, encryptionKey,
+		cli, cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Password,
+		cfg.EnvironmentRequest.Namespace, encryptionKey,
 	)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "failed to get and encrypt Eiffel MessageBus password")
-		return err
+		return environment, errors.Join(errors.New("failed to get and encrypt Eiffel MessageBus password"), err)
 	}
 
-	environment := map[string]string{
+	environment = map[string]string{
 		"SOURCE_HOST":                 hostname,
-		"ETOS_API":                    environmentRequest.Spec.Config.EtosApi,
-		"ETR_VERSION":                 environmentRequest.Spec.Providers.ExecutionSpace.TestRunner,
-		"ETOS_GRAPHQL_SERVER":         environmentRequest.Spec.Config.GraphQlServer,
-		"ETOS_RABBITMQ_EXCHANGE":      environmentRequest.Spec.Config.EtosMessageBus.Exchange,
-		"ETOS_RABBITMQ_HOST":          environmentRequest.Spec.Config.EtosMessageBus.Host,
+		"ETOS_API":                    cfg.EnvironmentRequest.Spec.Config.EtosApi,
+		"ETR_VERSION":                 cfg.EnvironmentRequest.Spec.Providers.ExecutionSpace.TestRunner,
+		"ETOS_GRAPHQL_SERVER":         cfg.EnvironmentRequest.Spec.Config.GraphQlServer,
+		"ETOS_RABBITMQ_EXCHANGE":      cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Exchange,
+		"ETOS_RABBITMQ_HOST":          cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Host,
 		"ETOS_RABBITMQ_PASSWORD":      string(etosMessagebusPassword),
-		"ETOS_RABBITMQ_PORT":          environmentRequest.Spec.Config.EtosMessageBus.Port,
-		"ETOS_RABBITMQ_USERNAME":      environmentRequest.Spec.Config.EtosMessageBus.Username,
-		"ETOS_RABBITMQ_VHOST":         environmentRequest.Spec.Config.EtosMessageBus.Vhost,
-		"ETOS_RABBITMQ_SSL":           environmentRequest.Spec.Config.EtosMessageBus.SSL,
-		"RABBITMQ_EXCHANGE":           environmentRequest.Spec.Config.EiffelMessageBus.Exchange,
-		"RABBITMQ_HOST":               environmentRequest.Spec.Config.EiffelMessageBus.Host,
+		"ETOS_RABBITMQ_PORT":          cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Port,
+		"ETOS_RABBITMQ_USERNAME":      cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Username,
+		"ETOS_RABBITMQ_VHOST":         cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Vhost,
+		"ETOS_RABBITMQ_SSL":           cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.SSL,
+		"RABBITMQ_EXCHANGE":           cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Exchange,
+		"RABBITMQ_HOST":               cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Host,
 		"RABBITMQ_PASSWORD":           string(eiffelMessagebusPassword),
-		"RABBITMQ_PORT":               environmentRequest.Spec.Config.EiffelMessageBus.Port,
-		"RABBITMQ_USERNAME":           environmentRequest.Spec.Config.EiffelMessageBus.Username,
-		"RABBITMQ_VHOST":              environmentRequest.Spec.Config.EiffelMessageBus.Vhost,
-		"RABBITMQ_SSL":                environmentRequest.Spec.Config.EiffelMessageBus.SSL,
+		"RABBITMQ_PORT":               cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Port,
+		"RABBITMQ_USERNAME":           cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Username,
+		"RABBITMQ_VHOST":              cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Vhost,
+		"RABBITMQ_SSL":                cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.SSL,
 		"OTEL_EXPORTER_OTLP_ENDPOINT": os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		"OTEL_EXPORTER_OTLP_INSECURE": os.Getenv("OTEL_EXPORTER_OTLP_INSECURE"),
 	}
+	return environment, nil
+}
+
+// createExecutionSpaces creates the specified number of ExecutionSpaces for an EnvironmentRequest.
+func (p *genericExecutionSpaceProvider) createExecutionSpaces(
+	ctx context.Context, cfg provider.ProvisionConfig,
+) error {
+	logger := logging.FromContextOrDiscard(ctx)
+	ctx, span := cfg.Tracer.Start(ctx, "CreateExecutionSpaces", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+	logger = logging.FromContextOrDiscard(ctx)
+
+	environment, err := p.createEnvironment(ctx, cfg)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create environment variables for ExecutionSpace")
+		return err
+	}
 
 	ds := dataset{}
-	if err := json.Unmarshal(environmentRequest.Spec.Dataset.Raw, &ds); err != nil {
+	if err := json.Unmarshal(cfg.EnvironmentRequest.Spec.Dataset.Raw, &ds); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to unmarshal dataset")
 		return err
@@ -154,28 +171,24 @@ func (p *genericExecutionSpaceProvider) Provision(
 	if ds.ETRRepo != "" {
 		environment["ETR_REPOSITORY"] = ds.ETRRepo
 	}
-
-	ctx, span = cfg.Tracer.Start(ctx, "CreateExecutionSpaces", trace.WithSpanKind(trace.SpanKindInternal))
-	defer span.End()
-	logger = logging.FromContextOrDiscard(ctx)
 	// Add traceparent, tracestate and baggage to the environment variables so that they can be
 	// propagated to the test runner.
 	otel.GetTextMapPropagator().Inject(ctx, propagation.MapCarrier(environment))
 
 	for range cfg.MinimumAmount {
 		id := uuid.NewString()
-		testrunner := environmentRequest.Spec.Providers.ExecutionSpace.TestRunnerImage
+		testrunner := cfg.EnvironmentRequest.Spec.Providers.ExecutionSpace.TestRunnerImage
 		logger.Info("Creating a generic ExecutionSpace",
-			"id", id, "image", testrunner, "identifier", environmentRequest.Spec.Identifier,
+			"id", id, "image", testrunner, "identifier", cfg.EnvironmentRequest.Spec.Identifier,
 		)
 		environment["ENVIRONMENT_ID"] = id
-		environment["ENVIRONMENT_URL"] = fmt.Sprintf("%s/v1alpha/testrun/%s", environmentRequest.Spec.Config.EtosApi, id)
-		executionSpace, err := provider.CreateExecutionSpace(ctx, environmentRequest, cfg.Namespace, "",
+		environment["ENVIRONMENT_URL"] = fmt.Sprintf("%s/v1alpha/testrun/%s", cfg.EnvironmentRequest.Spec.Config.EtosApi, id)
+		executionSpace, err := provider.CreateExecutionSpace(ctx, cfg.EnvironmentRequest, cfg.Namespace, "",
 			v1alpha2.ExecutionSpaceSpec{
 				ID:         id,
 				TestRunner: testrunner,
 				Instructions: v1alpha2.Instructions{
-					Identifier:  environmentRequest.Spec.Identifier,
+					Identifier:  cfg.EnvironmentRequest.Spec.Identifier,
 					Image:       testrunner,
 					Parameters:  map[string]string{},
 					Environment: environment,
@@ -188,14 +201,13 @@ func (p *genericExecutionSpaceProvider) Provision(
 		}
 		logger.Info(fmt.Sprintf("ExecutionSpace created with name '%s', launching ETOS test runner",
 			executionSpace.Name))
-		if err := p.start(ctx, environmentRequest, executionSpace); err != nil {
+		if err := p.start(ctx, cfg.EnvironmentRequest, executionSpace); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "failed to start ETOS test runner")
 			return err
 		}
 		logger.Info("Test runner has launched and is waiting for tests")
 	}
-	span.SetStatus(codes.Ok, "successfully provisioned ExecutionSpaces")
 	return nil
 }
 

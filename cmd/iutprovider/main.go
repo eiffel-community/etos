@@ -39,7 +39,6 @@ func (p *genericIutProvider) Provision(ctx context.Context, cfg provider.Provisi
 	ctx, span := cfg.Tracer.Start(ctx, "Provision", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 	logger := logging.FromContextOrDiscard(ctx)
-	environmentRequest := cfg.EnvironmentRequest
 	if cfg.MinimumAmount <= 0 {
 		err := errors.New("minimum amount of IUTs requested is less than or equal to 0")
 		span.RecordError(err)
@@ -47,17 +46,29 @@ func (p *genericIutProvider) Provision(ctx context.Context, cfg provider.Provisi
 		return err
 	}
 	logger.Info("Provisioning a new IUT for EnvironmentRequest",
-		"EnvironmentRequest", environmentRequest.Name,
-		"Namespace", environmentRequest.Namespace,
+		"EnvironmentRequest", cfg.EnvironmentRequest.Name,
+		"Namespace", cfg.EnvironmentRequest.Namespace,
 		"Amount", cfg.MinimumAmount,
 	)
-	ctx, span = cfg.Tracer.Start(ctx, "CreateIUTs", trace.WithSpanKind(trace.SpanKindInternal))
+	if err := p.createIUTs(ctx, cfg); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create IUTs")
+		return err
+	}
+	span.SetStatus(codes.Ok, "successfully provisioned IUTs")
+	return nil
+}
+
+// createIUTs creates the specified number of IUTs for an EnvironmentRequest.
+func (p *genericIutProvider) createIUTs(ctx context.Context, cfg provider.ProvisionConfig) error {
+	logger := logging.FromContextOrDiscard(ctx)
+	ctx, span := cfg.Tracer.Start(ctx, "CreateIUTs", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 	logger = logging.FromContextOrDiscard(ctx)
 
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic IUT")
-		iut, err := provider.CreateIUT(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.IutSpec{})
+		iut, err := provider.CreateIUT(ctx, cfg.EnvironmentRequest, cfg.Namespace, "", v1alpha2.IutSpec{})
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "failed to create IUT")
@@ -65,7 +76,6 @@ func (p *genericIutProvider) Provision(ctx context.Context, cfg provider.Provisi
 		}
 		logger.Info(fmt.Sprintf("IUT created with name '%s'", iut.Name))
 	}
-	span.SetStatus(codes.Ok, "successfully provisioned IUTs")
 	return nil
 }
 

@@ -56,7 +56,24 @@ func (p *genericLogAreaProvider) Provision(
 		"Namespace", environmentRequest.Namespace,
 		"Amount", cfg.MinimumAmount,
 	)
-	logAreaProvider, err := provider.GetProvider(ctx, environmentRequest.Spec.Providers.LogArea.ID, cfg.Namespace)
+	if err := p.createLogAreas(ctx, cfg); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create LogAreas")
+		return err
+	}
+	span.SetStatus(codes.Ok, "successfully provisioned LogAreas")
+	return nil
+}
+
+// createLogAreas creates the specified number of LogAreas for an EnvironmentRequest.
+func (p *genericLogAreaProvider) createLogAreas(
+	ctx context.Context, cfg provider.ProvisionConfig,
+) error {
+	logger := logging.FromContextOrDiscard(ctx)
+	ctx, span := cfg.Tracer.Start(ctx, "CreateLogAreas", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+
+	logAreaProvider, err := provider.GetProvider(ctx, cfg.EnvironmentRequest.Spec.Providers.LogArea.ID, cfg.Namespace)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to get LogAreaProvider")
@@ -68,9 +85,6 @@ func (p *genericLogAreaProvider) Provision(
 		span.SetStatus(codes.Error, "LogAreaProvider has no LogAreaProviderConfig")
 		return err
 	}
-
-	ctx, span = cfg.Tracer.Start(ctx, "CreateLogAreas", trace.WithSpanKind(trace.SpanKindInternal))
-	defer span.End()
 	logger = logging.FromContextOrDiscard(ctx)
 
 	span.SetAttributes(
@@ -81,7 +95,7 @@ func (p *genericLogAreaProvider) Provision(
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic LogArea")
 		logger.V(1).Info(fmt.Sprintf("Logs will be uploaded to %s", logAreaProvider.Spec.LogAreaProviderConfig.Upload.URL))
-		logarea, err := provider.CreateLogArea(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
+		logarea, err := provider.CreateLogArea(ctx, cfg.EnvironmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
 			LiveLogs: logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs,
 			Logs:     map[string]string{},
 			Upload:   logAreaProvider.Spec.LogAreaProviderConfig.Upload,
@@ -93,7 +107,6 @@ func (p *genericLogAreaProvider) Provision(
 		}
 		logger.Info(fmt.Sprintf("LogArea created with name %s", logarea.Name))
 	}
-	span.SetStatus(codes.Ok, "successfully provisioned LogAreas")
 	return nil
 }
 
