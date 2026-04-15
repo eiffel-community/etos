@@ -34,7 +34,7 @@ import (
 //
 // This function panics on errors, propagating errors back to the controller that executed it.
 func RunLogAreaProvider(provider Provider) {
-	if err := run(provider, ParseParameters("ExecutionSpace", GetIUTCount)); err != nil {
+	if err := run(provider, ParseParameters("LogArea", GetIUTCount)); err != nil {
 		panic(err)
 	}
 }
