@@ -109,13 +109,13 @@ func (r *ETOSDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 
 	_, err = r.reconcileLogAreaProvider(ctx, namespacedName, cluster)
 	if err != nil {
-		logger.Error(err, "IUT provider reconciliation failed")
+		logger.Error(err, "Log area provider reconciliation failed")
 		return err
 	}
 
 	_, err = r.reconcileExecutionSpaceProvider(ctx, namespacedName, cluster)
 	if err != nil {
-		logger.Error(err, "IUT provider reconciliation failed")
+		logger.Error(err, "Execution space provider reconciliation failed")
 		return err
 	}
 
