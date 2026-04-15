@@ -262,12 +262,12 @@ func (r *ETOSSSEDeployment) config(ctx context.Context, name types.NamespacedNam
 	rabbitmqURL := url.URL{}
 	if d, ok := etos.Data["ETOS_RABBITMQ_SSL"]; ok {
 		if string(d) == "true" {
-			rabbitmqURL.Scheme = "amqps"
+			rabbitmqURL.Scheme = "rabbitmq-stream+tls"
 		} else {
-			rabbitmqURL.Scheme = "amqp"
+			rabbitmqURL.Scheme = "rabbitmq-stream"
 		}
 	} else {
-		rabbitmqURL.Scheme = "amqp"
+		rabbitmqURL.Scheme = "rabbitmq-stream"
 	}
 	if d, ok := etos.Data["ETOS_RABBITMQ_USERNAME"]; ok {
 		rabbitmqURL.User = url.User(string(d))
