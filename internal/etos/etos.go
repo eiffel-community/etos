@@ -376,6 +376,7 @@ func (r *ETOSDeployment) reconcileLogAreaProvider(ctx context.Context, name type
 			URL:    fmt.Sprintf("http://%s-etos-logarea/logarea/v1alpha/upload", clusterName),
 		},
 	}
+	scheme.Scheme.Default(target)
 
 	provider := &etosv1alpha1.Provider{}
 	if err := r.Get(ctx, name, provider); err != nil {
@@ -402,6 +403,7 @@ func (r *ETOSDeployment) reconcileExecutionSpaceProvider(ctx context.Context, na
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
+	scheme.Scheme.Default(target)
 
 	provider := &etosv1alpha1.Provider{}
 	if err := r.Get(ctx, name, provider); err != nil {
