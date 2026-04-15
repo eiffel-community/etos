@@ -210,11 +210,11 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 	}
 	b, err = b.SetMember(artifactIDMemberOrDie(testrun.Spec.Artifact))
 	if err != nil {
-		logger.Error(err, "Failed to set baggage member for TestRun ID", "id", testrun.Spec.ID)
+		logger.Error(err, "Failed to set baggage member for Artifact ID", "id", testrun.Spec.Artifact)
 	}
 	b, err = b.SetMember(clusterMemberOrDie(testrun.Spec.Cluster))
 	if err != nil {
-		logger.Error(err, "Failed to set baggage member for TestRun ID", "id", testrun.Spec.ID)
+		logger.Error(err, "Failed to set baggage member for Cluster", "name", testrun.Spec.Cluster)
 	}
 
 	if testrun.Annotations == nil {
@@ -639,6 +639,10 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name string, 
 	traceparent, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]
 	if ok {
 		annotations["etos.eiffel-community.github.io/traceparent"] = traceparent
+	}
+	tracestate, ok := testrun.Annotations["etos.eiffel-community.github.io/tracestate"]
+	if ok {
+		annotations["etos.eiffel-community.github.io/tracestate"] = tracestate
 	}
 	b, ok := testrun.Annotations["etos.eiffel-community.github.io/baggage"]
 	if ok {
