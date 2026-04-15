@@ -42,6 +42,12 @@ const (
 	ConfirmationTimeout = 2 * time.Second
 )
 
+type PublisherClosedError struct{}
+
+func (e *PublisherClosedError) Error() string {
+	return "Publisher is closed"
+}
+
 // NewPublisher creates a new Publisher instance.
 func NewPublisher(ctx context.Context, config v1alpha1.RabbitMQ, cli client.Client, namespace string) (Publisher, error) {
 	return newRabbitMQStreamPublisher(ctx, "provider", config, cli, namespace)
@@ -173,7 +179,7 @@ func (s *rabbitMQStreamPublisher) AddLogger(logger logr.Logger) {
 func (s *rabbitMQStreamPublisher) Publish(b []byte, filterString string) error {
 	filter := Filter{}.FromString(filterString)
 	if s.shutdown || s.producer == nil {
-		err := errors.New("Publisher closed")
+		err := &PublisherClosedError{}
 		s.logger.Error(err, "Publisher is closed")
 		return err
 	}

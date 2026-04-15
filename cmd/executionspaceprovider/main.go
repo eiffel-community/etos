@@ -76,7 +76,10 @@ func (p *genericExecutionSpaceProvider) Provision(
 }
 
 // createEnvironment creates a map of environment variables for the ETOS test runner based on the EnvironmentRequest.
-func (p *genericExecutionSpaceProvider) createEnvironment(ctx context.Context, cfg provider.ProvisionConfig) (map[string]string, error) {
+func (p *genericExecutionSpaceProvider) createEnvironment(
+	ctx context.Context,
+	cfg provider.ProvisionConfig,
+) (map[string]string, error) {
 	var environment map[string]string
 	logger := logging.FromContextOrDiscard(ctx)
 	cli, err := provider.KubernetesClient()
@@ -147,7 +150,6 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 	logger := logging.FromContextOrDiscard(ctx)
 	ctx, span := cfg.Tracer.Start(ctx, "CreateExecutionSpaces", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
-	logger = logging.FromContextOrDiscard(ctx)
 
 	environment, err := p.createEnvironment(ctx, cfg)
 	if err != nil {

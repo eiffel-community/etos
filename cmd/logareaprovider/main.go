@@ -85,7 +85,6 @@ func (p *genericLogAreaProvider) createLogAreas(
 		span.SetStatus(codes.Error, "LogAreaProvider has no LogAreaProviderConfig")
 		return err
 	}
-	logger = logging.FromContextOrDiscard(ctx)
 
 	span.SetAttributes(
 		semconv.ETOSLogAreaProviderLiveLogs(logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs),

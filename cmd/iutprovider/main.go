@@ -64,7 +64,6 @@ func (p *genericIutProvider) createIUTs(ctx context.Context, cfg provider.Provis
 	logger := logging.FromContextOrDiscard(ctx)
 	ctx, span := cfg.Tracer.Start(ctx, "CreateIUTs", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
-	logger = logging.FromContextOrDiscard(ctx)
 
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic IUT")
