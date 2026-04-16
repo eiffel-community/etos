@@ -169,18 +169,16 @@ func (d *ProviderCustomValidator) validate(provider *etosv1alpha1.Provider) erro
 				field.NewPath("spec").Child("host"),
 				provider.Spec.Host,
 				"host must be set when JSONTas and Image is not"))
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec").Child("image"),
+				provider.Spec.Image,
+				"image must be set when JSONTas and Host is not"))
 		}
 		if provider.Spec.Healthcheck == nil && provider.Spec.Image == "" {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec").Child("healthCheck"),
 				provider.Spec.Healthcheck,
 				"healthCheck must be set when JSONTas and Image are not"))
-		}
-		if provider.Spec.Host == "" && provider.Spec.Image == "" {
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec").Child("image"),
-				provider.Spec.Image,
-				"image must be set when JSONTas and Host is not"))
 		}
 	}
 
