@@ -76,8 +76,28 @@ func VerifyETOSTestruns() {
 		AfterEach(func() {
 			specReport := CurrentSpecReport()
 			if specReport.Failed() {
+				By("Fetching environment provider pods")
+				cmd := exec.Command("kubectl", "describe", "pods", "-n", clusterNamespace,
+					"-l", "app.kubernetes.io/name=environment-provider")
+				podOutput, err := utils.Run(cmd)
+				if err == nil {
+					_, _ = fmt.Fprintf(GinkgoWriter, "Testrun description:\n %s", podOutput)
+				} else {
+					_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get testrun description: %s", err)
+				}
+
+				By("Fetching suite runner pods")
+				cmd = exec.Command("kubectl", "describe", "pods", "-n", clusterNamespace,
+					"-l", "app.kubernetes.io/name=suite-runner")
+				podOutput, err = utils.Run(cmd)
+				if err == nil {
+					_, _ = fmt.Fprintf(GinkgoWriter, "Testrun description:\n %s", podOutput)
+				} else {
+					_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get testrun description: %s", err)
+				}
+
 				By("Fetching testrun description")
-				cmd := exec.Command("kubectl", "describe", "testruns", "-n", clusterNamespace)
+				cmd = exec.Command("kubectl", "describe", "testruns", "-n", clusterNamespace)
 				testrunOutput, err := utils.Run(cmd)
 				if err == nil {
 					_, _ = fmt.Fprintf(GinkgoWriter, "Testrun description:\n %s", testrunOutput)
