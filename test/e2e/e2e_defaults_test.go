@@ -73,6 +73,14 @@ func VerifyClusterDefaults() {
 			}
 			Eventually(verifyControllerUp).Should(Succeed())
 		})
+
+		// Since we update the defaults file within the tests when building the environmnent provider,
+		// the defaults that were there when we started the tests are used to verify the defaults in the
+		// tests. To avoid that, we override the image and the version in the configuration so tha
+		// the verifications below will work.
+		defaults.EnvironmentProvider.Image = environmentProviderImage
+		defaults.EnvironmentProvider.Version = environmentProviderVersion
+
 		services :=
 			[]struct {
 				name           string
