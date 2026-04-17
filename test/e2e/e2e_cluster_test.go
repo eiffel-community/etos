@@ -48,19 +48,6 @@ func DeployVerifyCluster() {
 			}
 			Eventually(verifyClusterReady).Should(Succeed())
 		})
-		It("should patch the cluster with the newly built environment provider image", func() {
-			By("patching the cluster with the newly built environment provider image")
-			cmd := exec.Command("kubectl", "patch", "cluster", clusterName,
-				"-n", clusterNamespace,
-				"--type=json", "-p",
-				fmt.Sprintf(
-					`[{"op":"replace","path":"/spec/etos/environmentProvider","value":{"image":"%s"}}]`,
-					environmentProviderImage,
-				),
-			)
-			_, err := utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to patch the cluster with a new environment provider image")
-		})
 		It("should deploy ETOS SSE", func() {
 			By("checking deployment status for ETOS SSE")
 			etosSSEName := fmt.Sprintf("%s-etos-sse", clusterName)
@@ -165,33 +152,6 @@ func DeployVerifyCluster() {
 				g.Expect(output).To(Equal("3"), "Incorrect ETOS Database statefulset status")
 			}
 			Eventually(verifyDatabaseReady).Should(Succeed())
-		})
-		It("should prepare the providers for use", func() {
-			By("patching the IUT provider with the newly built image")
-			cmd := exec.Command("kubectl", "patch", "provider", fmt.Sprintf("%s-%s", clusterName, partialIutProviderName),
-				"-n", clusterNamespace,
-				"--type=json", "-p", fmt.Sprintf(`[{"op":"replace","path":"/spec/image","value":"%s"}]`, iutImage),
-			)
-			_, err := utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to patch the IUT provider with a new image")
-
-			By("patching the LogArea provider with the newly built image")
-			cmd = exec.Command("kubectl", "patch", "provider", fmt.Sprintf("%s-%s", clusterName, partialLogAreaProviderName),
-				"-n", clusterNamespace,
-				"--type=json", "-p", fmt.Sprintf(`[{"op":"replace","path":"/spec/image","value":"%s"}]`, logAreaImage),
-			)
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to patch the LogArea provider with a new image")
-
-			By("patching the ExecutionSpace provider with the newly built image")
-			cmd = exec.Command(
-				"kubectl", "patch", "provider",
-				fmt.Sprintf("%s-%s", clusterName, partialExecutionSpaceProviderName),
-				"-n", clusterNamespace,
-				"--type=json", "-p", fmt.Sprintf(`[{"op":"replace","path":"/spec/image","value":"%s"}]`, executionSpaceImage),
-			)
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to patch the ExecutionSpace provider with a new image")
 		})
 	})
 }
