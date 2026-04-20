@@ -89,12 +89,14 @@ func DeployVerifyController() {
 				"--clusterrole=etos-metrics-reader",
 				fmt.Sprintf("--serviceaccount=%s:%s", namespace, serviceAccountName),
 			)
-			_, err := utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to create ClusterRoleBinding")
+			if _, err := utils.Run(cmd); err != nil {
+				// ClusterRoleBinding may already exist when reusing.
+				_, _ = fmt.Fprintf(GinkgoWriter, "ClusterRoleBinding already exists, continuing\n")
+			}
 
 			By("validating that the metrics service is available")
 			cmd = exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
-			_, err = utils.Run(cmd)
+			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Metrics service should exist")
 
 			By("getting the service account token")
@@ -159,6 +161,10 @@ func DeployVerifyController() {
 			time.Sleep(5 * time.Second)
 
 			// +kubebuilder:scaffold:e2e-metrics-webhooks-readiness
+
+			By("cleaning up any existing curl-metrics pod")
+			cmd = exec.Command("kubectl", "delete", "pod", "curl-metrics", "-n", namespace, "--ignore-not-found")
+			_, _ = utils.Run(cmd)
 
 			By("creating the curl-metrics pod to access the metrics endpoint")
 			//nolint:lll // Cannot find a good way to reduce the line length for the curl command args.

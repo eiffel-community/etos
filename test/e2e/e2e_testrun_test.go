@@ -35,12 +35,12 @@ func VerifyETOSTestruns() {
 	Context("ETOS Testruns", func() {
 		AfterAll(func() {
 			By("cleaning up the artifact injector pod")
-			cmd := exec.Command("kubectl", "delete", "pod", "artifact-injector", "--namespace", clusterNamespace)
+			cmd := exec.Command("kubectl", "delete", "pod", "artifact-injector", "--namespace", clusterNamespace, "--ignore-not-found")
 			_, _ = utils.Run(cmd)
 			By("cleaning up the ETOS testruns")
-			cmd = exec.Command("kubectl", "delete", "testrun", "testrun-sample", "-n", clusterNamespace)
+			cmd = exec.Command("kubectl", "delete", "testrun", "testrun-sample", "-n", clusterNamespace, "--ignore-not-found")
 			_, _ = utils.Run(cmd)
-			cmd = exec.Command("kubectl", "delete", "testrun", "testrun-sample-multi-suite", "-n", clusterNamespace)
+			cmd = exec.Command("kubectl", "delete", "testrun", "testrun-sample-multi-suite", "-n", clusterNamespace, "--ignore-not-found")
 			_, _ = utils.Run(cmd)
 
 			By("removing finalizers from EnvironmentRequests and Environments")
@@ -66,6 +66,37 @@ func VerifyETOSTestruns() {
 				_, _ = utils.Run(cmd)
 			}
 
+if reuseCluster {
+				_, _ = fmt.Fprintf(GinkgoWriter, "E2E_REUSE=true: preserving providers and goer\n")
+				// This wait is necessary to make sure we clean up all resources before
+				// the next test run.
+				time.Sleep(10 * time.Second)
+				return
+			}
+
+			By("cleaning up the goer service")
+			cmd = exec.Command("kubectl", "delete", "-n", clusterNamespace, "-f", goer)
+			_, _ = utils.Run(cmd)
+
+			By("cleaning up the etos IUT provider")
+			cmd = exec.Command("kubectl", "delete", "-n", clusterNamespace, "-f", iutProviderSample)
+			_, _ = utils.Run(cmd)
+
+			By("cleaning up the etos log area provider")
+			cmd = exec.Command("kubectl", "delete", "-n", clusterNamespace, "-f", logAreaProviderSample)
+			_, _ = utils.Run(cmd)
+
+			By("cleaning up the etos execution space provider")
+			cmd = exec.Command("kubectl", "delete", "-n", clusterNamespace, "-f", executionSpaceProviderSample)
+			_, _ = utils.Run(cmd)
+
+			By("undeploying the IUT provider")
+			cmd = exec.Command("kubectl", "delete", "-k", iutProviderKustomization, "-n", clusterNamespace)
+			_, _ = utils.Run(cmd)
+
+			By("undeploying the execution space provider")
+			cmd = exec.Command("kubectl", "delete", "-k", executionSpaceProviderKustomization, "-n", clusterNamespace)
+			_, _ = utils.Run(cmd)
 			// This wait is necessary to make sure we clean up all resources before deleting the CRs that are
 			// being used. If we don't delete them the tests won't pass since we'll get stuck waiting for the
 			// namespace being deleted.
@@ -73,7 +104,7 @@ func VerifyETOSTestruns() {
 			time.Sleep(10 * time.Second)
 		})
 
-		AfterEach(func() {
+AfterEach(func() {
 			specReport := CurrentSpecReport()
 			if specReport.Failed() {
 				By("Fetching environment provider pods")
@@ -116,11 +147,86 @@ func VerifyETOSTestruns() {
 			}
 		})
 
+		It("should be possible to deploy an ETOS execution space provider", func() {
+			By("deploying the sample Execution space provider")
+			cmd := exec.Command("kubectl", "apply",
+				"-f", executionSpaceProviderSample,
+				"-n", clusterNamespace)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
+			By("checking the status field")
+			verifyExecutionSpace := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get",
+					"provider", "execution-space-provider-sample", "-o",
+					"jsonpath={.status.conditions[?(@.type=='Available')].status}",
+					"-n", clusterNamespace)
+				output, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(output).To(Equal("True"), "Incorrect Provider status")
+			}
+			Eventually(verifyExecutionSpace).Should(Succeed())
+		})
+		It("should be possible to deploy an ETOS IUT provider", func() {
+			By("deploying the sample IUT provider")
+			cmd := exec.Command("kubectl", "apply",
+				"-f", iutProviderSample,
+				"-n", clusterNamespace)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
+			By("checking the status field")
+			verifyIut := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get",
+					"provider", "iut-provider-sample", "-o", "jsonpath={.status.conditions[?(@.type=='Available')].status}",
+					"-n", clusterNamespace)
+				output, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(output).To(Equal("True"), "Incorrect Provider status")
+			}
+			Eventually(verifyIut).Should(Succeed())
+		})
+		It("should be possible to deploy an ETOS log area provider", func() {
+			By("deploying the sample Log area provider")
+			cmd := exec.Command("kubectl", "apply",
+				"-f", logAreaProviderSample,
+				"-n", clusterNamespace)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
+			verifyLogArea := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get",
+					"provider", "log-area-provider-sample", "-o", "jsonpath={.status.conditions[?(@.type=='Available')].status}",
+					"-n", clusterNamespace)
+				output, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(output).To(Equal("True"), "Incorrect Provider status")
+			}
+			Eventually(verifyLogArea).Should(Succeed())
+		})
+		It("should deploy Goer for execution space provider", func() {
+			By("applying the yaml file")
+			cmd := exec.Command("kubectl", "apply", "-n", clusterNamespace, "-f", goer)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create a goer deployment")
+			verifyGoerReady := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get",
+					"deploy", "goer", "-o", "jsonpath={.status.readyReplicas}",
+					"-n", clusterNamespace)
+				output, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(output).To(Equal("1"), "Incorrect Eiffel Goer deployment status")
+			}
+			Eventually(verifyGoerReady).Should(Succeed())
+		})
+
 		cmd := "from eiffel_graphql_api.graphql.db.database import insert_to_db;" +
 			"from eiffellib.events import EiffelArtifactCreatedEvent;" +
 			fmt.Sprintf("event = EiffelArtifactCreatedEvent(); event.meta.event_id = '%s';", artifactID) +
 			fmt.Sprintf("event.data.identity = '%s';insert_to_db(event);", artifactIdentity)
 		It("should prepare test environment", func() {
+			By("cleaning up any existing artifact injector pod")
+			cleanupCmd := exec.Command("kubectl", "delete", "pod", "artifact-injector",
+				"--namespace", clusterNamespace, "--ignore-not-found")
+			_, _ = utils.Run(cleanupCmd)
+
 			By("injecting a fake artifact to test")
 			cmd := exec.Command("kubectl", "run", "artifact-injector", "--restart=Never",
 				"--namespace", clusterNamespace,
@@ -154,7 +260,12 @@ func VerifyETOSTestruns() {
 			// TODO: Remove when fixed: https://github.com/eiffel-community/etos/issues/408
 			By("creating a generic encryption key")
 			cmd = exec.Command("kubectl", "create", "secret", "-n", clusterNamespace, "generic",
-				"etos-encryption-key", "--from-literal", "ETOS_ENCRYPTION_KEY=ZmgcW2Qz43KNJfIuF0vYCoPneViMVyObH4GR8R9JE4g=")
+				"etos-encryption-key", "--from-literal", "ETOS_ENCRYPTION_KEY=ZmgcW2Qz43KNJfIuF0vYCoPneViMVyObH4GR8R9JE4g=",
+				"--dry-run=client", "-o", "yaml")
+			secretYaml, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to generate encryption key secret YAML")
+			cmd = exec.Command("kubectl", "apply", "-n", clusterNamespace, "-f", "-")
+			cmd.Stdin = strings.NewReader(secretYaml)
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create an encryption key secret")
 		})
