@@ -90,15 +90,6 @@ var _ = Describe("Manager", Ordered, func() {
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
 
-By("deploying the execution space provider")
-		cmd = exec.Command("kubectl", "apply", "-k", executionSpaceProviderKustomization, "-n", clusterNamespace)
-		_, err = utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to install execution space provider")
-
-		By("deploying the IUT provider")
-		cmd = exec.Command("kubectl", "apply", "-k", iutProviderKustomization, "-n", clusterNamespace)
-		_, err = utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to install IUT provider")
 		By("deploying the controller-manager")
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", managerImage))
 		_, err = utils.Run(cmd)
