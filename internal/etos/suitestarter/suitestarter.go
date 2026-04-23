@@ -24,6 +24,7 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -91,11 +92,7 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 		suiteRunnerTemplateName = r.SuiteRunnerTemplateSecretName
 	}
 	logger.Info("Suite runner template", "suiteRunnerTemplateName", suiteRunnerTemplateName)
-	_, err = r.reconcileDeployment(ctx, cfg.Name, suiteRunnerTemplateName, suiteStarterName, cluster)
-	if err != nil {
-		logger.Error(err, "Failed to reconcile the deployment for the ETOS Suite Starter")
-		return err
-	}
+
 	_, err = r.reconcileSecret(ctx, suiteStarterName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the secret for the ETOS Suite Starter")
@@ -134,7 +131,12 @@ func (r *ETOSSuiteStarterDeployment) Reconcile(ctx context.Context, cluster *eto
 		logger.Error(err, "Failed to reconcile the Suite Runner role binding")
 		return err
 	}
-	return err
+	_, err = r.reconcileDeployment(ctx, cfg.Name, suiteRunnerTemplateName, suiteStarterName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the deployment for the ETOS Suite Starter")
+		return err
+	}
+	return nil
 }
 
 // reconcileSuiteRunnerRole will reconcile the ETOS Suite Runner role to its expected state.
@@ -264,7 +266,7 @@ func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, se
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
-		return target, nil
+		return target, readiness.NotReady(target.Name, "deployment just created")
 	} else if r.restartRequired {
 		logger.Info("Configuration(s) have changed, restarting deployment")
 		if target.Spec.Template.Annotations == nil {
@@ -273,9 +275,12 @@ func (r *ETOSSuiteStarterDeployment) reconcileDeployment(ctx context.Context, se
 		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	if !r.restartRequired && equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
-		return deployment, nil
+		return deployment, readiness.DeploymentReady(deployment)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
+		return target, err
+	}
+	return target, readiness.NotReady(target.Name, "deployment just updated")
 }
 
 // reconcileSecret will reconcile the ETOS SuiteStarter service account secret to its expected state.

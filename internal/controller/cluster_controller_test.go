@@ -18,16 +18,18 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/controller/status"
 )
 
 var _ = Describe("Cluster Controller", func() {
@@ -81,9 +83,189 @@ var _ = Describe("Cluster Controller", func() {
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
+			// The Cluster spec is created with empty fields, so the ETOS
+			// sub-reconciler fails resolving encryption key Var references.
+			// TODO: set up proper secrets/configmaps so this test can verify
+			// a full successful reconciliation.
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("update", func() {
+		const clusterName = "update-test"
+		ctx := context.Background()
+
+		typeNamespacedName := types.NamespacedName{
+			Name:      clusterName,
+			Namespace: "default",
+		}
+
+		var cluster *etosv1alpha1.Cluster
+
+		BeforeEach(func() {
+			cluster = &etosv1alpha1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: "default",
+				},
+				Spec: etosv1alpha1.ClusterSpec{
+					ETOS:            etosv1alpha1.ETOS{},
+					Database:        etosv1alpha1.Database{},
+					MessageBus:      etosv1alpha1.MessageBus{},
+					EventRepository: etosv1alpha1.EventRepository{},
+				},
+			}
+			err := k8sClient.Get(ctx, typeNamespacedName, &etosv1alpha1.Cluster{})
+			if err != nil && errors.IsNotFound(err) {
+				Expect(k8sClient.Create(ctx, cluster)).To(Succeed())
+			}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, cluster)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			resource := &etosv1alpha1.Cluster{}
+			if err := k8sClient.Get(ctx, typeNamespacedName, resource); err == nil {
+				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			}
+		})
+
+		It("should set Ready=True with Completed reason when cluster is fully ready", func() {
+			reconciler := &ClusterReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := reconciler.update(ctx, cluster, metav1.ConditionTrue, status.ReasonCompleted, "Cluster is up and running")
 			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+
+			updated := &etosv1alpha1.Cluster{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+
+			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(readyCond.Reason).To(Equal(status.ReasonCompleted))
+			Expect(readyCond.Message).To(Equal("Cluster is up and running"))
+		})
+
+		It("should set Ready=False with Pending reason", func() {
+			reconciler := &ClusterReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := reconciler.update(ctx, cluster, metav1.ConditionFalse, status.ReasonPending, "test-api: 0/1 replicas ready")
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &etosv1alpha1.Cluster{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+
+			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(status.ReasonPending))
+			Expect(readyCond.Message).To(ContainSubstring("0/1"))
+		})
+
+		It("should set Ready=False with Failed reason", func() {
+			reconciler := &ClusterReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := reconciler.update(ctx, cluster, metav1.ConditionFalse, status.ReasonFailed, "something went wrong")
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &etosv1alpha1.Cluster{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+
+			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(status.ReasonFailed))
+		})
+	})
+
+	Context("handleReconcileError", func() {
+		const clusterName = "handle-error-test"
+		ctx := context.Background()
+
+		typeNamespacedName := types.NamespacedName{
+			Name:      clusterName,
+			Namespace: "default",
+		}
+
+		var cluster *etosv1alpha1.Cluster
+
+		BeforeEach(func() {
+			cluster = &etosv1alpha1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: "default",
+				},
+				Spec: etosv1alpha1.ClusterSpec{
+					ETOS:            etosv1alpha1.ETOS{},
+					Database:        etosv1alpha1.Database{},
+					MessageBus:      etosv1alpha1.MessageBus{},
+					EventRepository: etosv1alpha1.EventRepository{},
+				},
+			}
+			err := k8sClient.Get(ctx, typeNamespacedName, &etosv1alpha1.Cluster{})
+			if err != nil && errors.IsNotFound(err) {
+				Expect(k8sClient.Create(ctx, cluster)).To(Succeed())
+			}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, cluster)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			resource := &etosv1alpha1.Cluster{}
+			if err := k8sClient.Get(ctx, typeNamespacedName, resource); err == nil {
+				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			}
+		})
+
+		It("should set Ready=False with Pending reason and requeue for NotReadyError", func() {
+			reconciler := &ClusterReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			notReadyErr := &status.NotReadyError{
+				Name:    "test-etos-api",
+				Message: "deployment just created",
+			}
+			result, err := reconciler.handleReconcileError(ctx, cluster, notReadyErr)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeNumerically(">", 0), "should requeue to re-check readiness")
+
+			updated := &etosv1alpha1.Cluster{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+
+			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(status.ReasonPending))
+			Expect(readyCond.Message).To(ContainSubstring("test-etos-api"))
+		})
+
+		It("should set Ready=False with Pending reason and return error for non-NotReadyError", func() {
+			reconciler := &ClusterReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := reconciler.handleReconcileError(ctx, cluster, fmt.Errorf("connection refused"))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("connection refused"))
+
+			updated := &etosv1alpha1.Cluster{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+
+			readyCond := meta.FindStatusCondition(updated.Status.Conditions, status.StatusReady)
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(status.ReasonPending))
+			Expect(readyCond.Message).To(Equal("connection refused"))
 		})
 	})
 })

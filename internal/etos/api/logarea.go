@@ -22,6 +22,7 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -61,11 +62,6 @@ func (r *ETOSLogAreaDeployment) Reconcile(ctx context.Context, cluster *etosv1al
 	logger := log.FromContext(ctx, "Reconciler", "ETOSLogArea", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
 
-	_, err = r.reconcileDeployment(ctx, namespacedName, cluster)
-	if err != nil {
-		logger.Error(err, "Failed to reconcile the deployment for the ETOS LogArea")
-		return err
-	}
 	_, err = r.reconcileServiceAccount(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service account for the ETOS LogArea")
@@ -74,6 +70,11 @@ func (r *ETOSLogAreaDeployment) Reconcile(ctx context.Context, cluster *etosv1al
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service for the ETOS LogArea")
+		return err
+	}
+	_, err = r.reconcileDeployment(ctx, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the deployment for the ETOS LogArea")
 		return err
 	}
 	return nil
@@ -97,12 +98,15 @@ func (r *ETOSLogAreaDeployment) reconcileDeployment(ctx context.Context, name ty
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
-		return target, nil
+		return target, readiness.NotReady(target.Name, "deployment just created")
 	}
 	if equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
-		return deployment, nil
+		return deployment, readiness.DeploymentReady(deployment)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
+		return target, err
+	}
+	return target, readiness.NotReady(target.Name, "deployment just updated")
 }
 
 // reconcileServiceAccount will reconcile the ETOS logarea service account to its expected state.
