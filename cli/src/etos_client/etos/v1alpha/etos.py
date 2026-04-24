@@ -26,7 +26,6 @@ from uuid import uuid4
 
 from etos_lib import ETOS as ETOSLibrary
 from etos_lib.lib.http import Http
-from pydantic import ValidationError
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
 
@@ -126,10 +125,7 @@ class Etos:
 
     def __start(self) -> tuple[Optional[ResponseSchema], Optional[str]]:
         """Trigger ETOS, retrying on non-client errors until successful or timeout."""
-        try:
-            request = self.start_request.from_args(self.args)
-        except (ValueError, ValidationError) as exc:
-            return None, str(exc)
+        request = self.start_request.from_args(self.args)
         self.baggage.add("parent_activity", request.parent_activity)
         url = f"{self.cluster}/api/{self.version}/testrun"
         self.logger.info("Triggering ETOS using %r", url)

@@ -37,16 +37,9 @@ class RequestSchema(BaseModel):
     @classmethod
     def from_args(cls, args: dict) -> "RequestSchema":
         """Create a RequestSchema from an argument list from argparse."""
-        identity = args["--identity"]
-        if not identity or not identity.strip():
-            raise ValueError(
-                "Invalid --identity: value is empty. "
-                "Expected a valid UUID (e.g. '550e8400-e29b-41d4-a716-446655440000') "
-                "or PURL (e.g. 'pkg:docker/my-image@1.0')."
-            )
         return RequestSchema(
-            artifact_id=identity,
-            artifact_identity=identity,
+            artifact_id=args["--identity"],
+            artifact_identity=args["--identity"],
             parent_activity=args["--parent-activity"] or None,
             test_suite_url=args["--test-suite"],
             dataset=args["--dataset"],
