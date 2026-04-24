@@ -15,9 +15,6 @@
 # limitations under the License.
 """Tests for ETOS client error handling."""
 
-import json
-from unittest.mock import MagicMock, patch
-
 import pytest
 
 from etos_client.etos.v0.schema.request import RequestSchema as V0RequestSchema
@@ -104,8 +101,7 @@ class TestApiErrorDetailHandling:
         # This is the conversion logic from __start()
         if isinstance(detail, list):
             detail = "; ".join(
-                err.get("msg", str(err)) if isinstance(err, dict) else str(err)
-                for err in detail
+                err.get("msg", str(err)) if isinstance(err, dict) else str(err) for err in detail
             )
         assert isinstance(detail, str)
         assert "artifact_identity must be a string starting with 'pkg:'" in detail
@@ -118,8 +114,7 @@ class TestApiErrorDetailHandling:
         ]
         if isinstance(detail, list):
             detail = "; ".join(
-                err.get("msg", str(err)) if isinstance(err, dict) else str(err)
-                for err in detail
+                err.get("msg", str(err)) if isinstance(err, dict) else str(err) for err in detail
             )
         assert detail == "First error; Second error"
 
@@ -128,8 +123,7 @@ class TestApiErrorDetailHandling:
         detail = [{"type": "error", "loc": ["body"]}]
         if isinstance(detail, list):
             detail = "; ".join(
-                err.get("msg", str(err)) if isinstance(err, dict) else str(err)
-                for err in detail
+                err.get("msg", str(err)) if isinstance(err, dict) else str(err) for err in detail
             )
         assert isinstance(detail, str)
         assert "type" in detail
