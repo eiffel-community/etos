@@ -18,6 +18,7 @@ package logging
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -205,7 +206,14 @@ func (u *userLogs) Write(p []byte) (n int, err error) {
 	}
 	routingKey := fmt.Sprintf("%s.message.%s", e.Identifier, e.Level)
 	if err := u.publisher.Publish(message, routingKey); err != nil {
-		return 0, fmt.Errorf("failed to publish log entry: %w", err)
+		target := &messaging.PublisherClosedError{}
+		if errors.As(err, &target) {
+			// If the publisher is closed, we can ignore the error and stop trying to publish logs.
+			fmt.Println(err.Error())
+			return 0, nil
+		}
+		fmt.Printf("failed to publish log entry: %s\n", err.Error())
+		return 0, err
 	}
 	return len(p), nil
 }

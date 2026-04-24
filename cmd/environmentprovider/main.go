@@ -18,162 +18,108 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"flag"
 	"fmt"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
-	"github.com/eiffel-community/etos/internal/controller/jobs"
-	providerHelper "github.com/eiffel-community/etos/pkg/provider"
+	"github.com/eiffel-community/etos/pkg/logging"
+	"github.com/eiffel-community/etos/pkg/provider"
 	"github.com/eiffel-community/etos/pkg/splitter"
-	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-type environmentProvider struct {
-	environmentRequestName string
-	namespace              string
-	name                   string
-	releaseEnvironment     bool
-}
+type environmentProvider struct{}
 
-// main creates a new environment resource based on data in an EnvironmentRequest.
+// main creates a new Environment resource based on data in an EnvironmentRequest.
 func main() {
-	opts := zap.Options{
-		Development: true,
-	}
-	provider := environmentProvider{}
-	flag.BoolVar(&provider.releaseEnvironment, "release", false, "Release instead of creating")
-	flag.StringVar(&provider.environmentRequestName,
-		"environment-request", "", "The environment request to provision for.",
+	provider.RunEnvironmentProvider(&environmentProvider{})
+}
+
+// Provision provisions a new Environment.
+func (p *environmentProvider) Provision(ctx context.Context, cfg provider.ProvisionConfig) error {
+	ctx, span := cfg.Tracer.Start(ctx, "Provision", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+	logger := logging.FromContextOrDiscard(ctx)
+	environmentRequest := cfg.EnvironmentRequest
+
+	logger.Info("Starting environment provisioning",
+		"EnvironmentRequest", cfg.EnvironmentRequest.Name,
+		"Namespace", cfg.EnvironmentRequest.Namespace,
 	)
-	flag.StringVar(&provider.name, "name", "", "The name of the resource to release.")
-	flag.StringVar(&provider.namespace, "namespace", "", "The namespace of the environment request.")
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
-	logger := zap.New(zap.UseFlagOptions(&opts))
 
-	ctx := logr.NewContext(context.Background(), logger)
-
-	if provider.releaseEnvironment {
-		if err := runReleaser(provider); err != nil {
-			if writeErr := providerHelper.WriteResult(logger,
-				jobs.Result{
-					Conclusion:  jobs.ConclusionFailed,
-					Description: err.Error(),
-					Verdict:     jobs.VerdictNone,
-				}); writeErr != nil {
-				logger.Error(writeErr, "failed to write error result to termination-log")
-			}
-			panic(err)
-		}
-		if err := providerHelper.WriteResult(logger,
-			jobs.Result{
-				Conclusion:  jobs.ConclusionSuccessful,
-				Description: "Successfully released Environment",
-				Verdict:     jobs.VerdictNone,
-			}); err != nil {
-			logger.Error(err, "failed to write error result to termination-log")
-			panic(err)
-		}
-	} else {
-		if err := runProvider(ctx, provider); err != nil {
-			if writeErr := providerHelper.WriteResult(logger,
-				jobs.Result{
-					Conclusion:  jobs.ConclusionFailed,
-					Description: err.Error(),
-					Verdict:     jobs.VerdictNone,
-				}); writeErr != nil {
-				logger.Error(writeErr, "failed to write error result to termination-log")
-			}
-			panic(err)
-		}
-		if err := providerHelper.WriteResult(logger,
-			jobs.Result{
-				Conclusion:  jobs.ConclusionSuccessful,
-				Description: "Successfully provisioned Environments",
-				Verdict:     jobs.VerdictNone,
-			}); err != nil {
-			logger.Error(err, "failed to write error result to termination-log")
-			panic(err)
-		}
-	}
-}
-
-func runReleaser(_ environmentProvider) error {
-	// Currently does nothing
-	return nil
-}
-
-// runProvider is the base provider for the EnvironmentProvider.
-func runProvider(ctx context.Context, provider environmentProvider) error {
-	logger := logr.FromContextOrDiscard(ctx)
-	if provider.environmentRequestName == "" {
-		return errors.New("must set -environment-request")
-	}
-	if provider.namespace == "" {
-		return errors.New("must set -namespace")
-	}
-
-	cli, err := providerHelper.KubernetesClient()
+	iuts, err := provider.GetIUTs(ctx, environmentRequest.Spec.ID, cfg.Namespace)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get IUTs")
 		return err
 	}
-	var request v1alpha1.EnvironmentRequest
-	if err := cli.Get(
-		ctx, types.NamespacedName{Name: provider.environmentRequestName, Namespace: provider.namespace}, &request,
-	); err != nil {
-		return err
-	}
-	iuts, err := providerHelper.GetIUTs(ctx, request.Spec.ID, provider.namespace)
+	logAreas, err := provider.GetLogAreas(ctx, environmentRequest.Spec.ID, cfg.Namespace)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get LogAreas")
 		return err
 	}
-	logAreas, err := providerHelper.GetLogAreas(ctx, request.Spec.ID, provider.namespace)
+	executionSpaces, err := provider.GetExecutionSpaces(ctx, environmentRequest.Spec.ID, cfg.Namespace)
 	if err != nil {
-		return err
-	}
-	executionSpaces, err := providerHelper.GetExecutionSpaces(ctx, request.Spec.ID, provider.namespace)
-	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get ExecutionSpaces")
 		return err
 	}
 
-	minRequired := min(request.Spec.MaximumAmount, request.Spec.MinimumAmount)
+	minRequired := min(environmentRequest.Spec.MaximumAmount, environmentRequest.Spec.MinimumAmount)
 	maxPossible := min(len(iuts.Items), len(logAreas.Items), len(executionSpaces.Items))
 	if maxPossible < minRequired {
-		return fmt.Errorf(
+		err := fmt.Errorf(
 			`not enough resources to create environments, expected at least %d environments, got at
 			most %d environments with %d log areas and %d execution spaces`,
 			minRequired, maxPossible, len(logAreas.Items), len(executionSpaces.Items),
 		)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "not enough resources to create environments")
+		return err
 	}
 
 	// TODO: Choose strategy
 	split := splitter.NewRoundRobinSplitter().SetSize(maxPossible)
-	for _, test := range request.Spec.Splitter.Tests {
+	for _, test := range environmentRequest.Spec.Splitter.Tests {
 		split.AddTest(test)
 	}
 	tests := split.Split()
+
+	ctx, span = cfg.Tracer.Start(ctx, "CreateEnvironments", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+	logger = logging.FromContextOrDiscard(ctx)
 
 	for i := range maxPossible {
 		logArea := logAreas.Items[i]
 		executionSpace := executionSpaces.Items[i]
 		iut := iuts.Items[i]
 		if err := CreateEnvironment(
-			ctx, i, tests[i], &request, provider.namespace, iut, executionSpace, logArea,
+			ctx, i, tests[i], environmentRequest, cfg.Namespace, iut, executionSpace, logArea,
 		); err != nil {
 			// We have to fail environment provisioning if any environment fails to be created, since
 			// we split the tests across all environments and if one environment fails to be created,
 			// we can't guarantee that all tests will be executed.
 			logger.Error(err, "failed to create environment", "index", i)
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to create environment")
 			return err
 		}
 	}
 	logger.Info("Successfully created environment(s)")
+	span.SetStatus(codes.Ok, "successfully created environment(s)")
+	return nil
+}
+
+// Release releases the Environment. Currently, this does nothing.
+func (p *environmentProvider) Release(ctx context.Context, cfg provider.ReleaseConfig) error {
+	_, span := cfg.Tracer.Start(ctx, "Release", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+	// Currently does nothing
+	span.SetStatus(codes.Ok, "Successfully released environment(s)")
 	return nil
 }
 
@@ -218,7 +164,7 @@ func CreateEnvironment(
 	executionSpace v1alpha2.ExecutionSpace,
 	logArea v1alpha2.LogArea,
 ) error {
-	cli, err := providerHelper.KubernetesClient()
+	cli, err := provider.KubernetesClient()
 	if err != nil {
 		return err
 	}

@@ -38,19 +38,17 @@ type ETOSTracer struct {
 	enabled        bool
 	collectorHost  string
 	Name           string
-	providerType   string
+	namespace      string
 	tracerProvider *trace.TracerProvider
 	LoggerProvider *log.LoggerProvider
 }
 
-// New creates a new ETOSTracer with the given name and provider type.
-// It checks the environment variables to determine if OpenTelemetry is enabled and what the
-// collector host is.
-func New(name, providerType string) *ETOSTracer {
+// New creates a new ETOSTracer with the given name and namespace.
+func New(serviceName, serviceNamespace string) *ETOSTracer {
 	collectorHost, otelEnabled := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	return &ETOSTracer{
-		Name:          name,
-		providerType:  providerType,
+		Name:          serviceName,
+		namespace:     serviceNamespace,
 		enabled:       otelEnabled,
 		collectorHost: collectorHost,
 	}
@@ -63,11 +61,13 @@ func (t *ETOSTracer) Start(ctx context.Context) error {
 		logger.Info("OpenTelemetry is not enabled, skipping tracer initialization")
 		return nil
 	}
+	logger.Info("Initializing OpenTelemetry tracer")
 	exporter, err := otlptrace.New(ctx, otlptracegrpc.NewClient(t.opts(t.collectorHost)...))
 	if err != nil {
 		return errors.Join(err, errors.New("failed to create OpenTelemetry exporter"))
 	}
 
+	logger.Info("Creating OpenTelemetry tracer provider")
 	traceExporter := trace.WithBatcher(exporter)
 	res, err := t.newOtelResource(ctx)
 	if err != nil {
@@ -127,6 +127,7 @@ func (t *ETOSTracer) ContextFromEnvironmentRequest(
 func carrierFromEnvironmentRequest(environmentRequest *v1alpha1.EnvironmentRequest) map[string]string {
 	return map[string]string{
 		"traceparent": environmentRequest.Annotations["etos.eiffel-community.github.io/traceparent"],
+		"tracestate":  environmentRequest.Annotations["etos.eiffel-community.github.io/tracestate"],
 		"baggage":     environmentRequest.Annotations["etos.eiffel-community.github.io/baggage"],
 	}
 }
@@ -163,7 +164,7 @@ func (t *ETOSTracer) newOtelResource(ctx context.Context) (*resource.Resource, e
 	return resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String(t.Name),
-			semconv.ServiceNamespaceKey.String(t.providerType),
+			semconv.ServiceNamespaceKey.String(t.namespace),
 			semconv.ServiceInstanceIDKey.String(hostname),
 			semconv.ServiceVersionKey.String(vcsRevision()),
 		),

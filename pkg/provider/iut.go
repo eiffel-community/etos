@@ -34,21 +34,11 @@ import (
 //
 // This function panics on errors, propagating errors back to the controller that executed it.
 func RunIutProvider(provider Provider) {
-	params := ParseParameters()
-	params.providerType = "Iut"
-	params.amountFunc = func(_ context.Context, environmentRequest *v1alpha1.EnvironmentRequest) (int, error) {
-		return min(environmentRequest.Spec.MaximumAmount, environmentRequest.Spec.MinimumAmount), nil
-	}
-
-	ctx := context.TODO()
-	logger := params.logger.WithValues(
-		"providerType", params.providerType,
-		"environmentRequest", params.environmentRequestName,
-		"namespace", params.namespace,
-		"providerName", params.providerName,
-	)
-	ctx = logr.NewContext(ctx, logger)
-	if err := writeTerminationLog(ctx, runProvider, provider, params); err != nil {
+	if err := run(provider, ParseParameters(
+		"Iut",
+		func(_ context.Context, environmentRequest *v1alpha1.EnvironmentRequest) (int, error) {
+			return min(environmentRequest.Spec.MaximumAmount, environmentRequest.Spec.MinimumAmount), nil
+		})); err != nil {
 		panic(err)
 	}
 }

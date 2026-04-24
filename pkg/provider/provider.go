@@ -22,11 +22,21 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller/jobs"
+	"github.com/eiffel-community/etos/internal/messaging"
+	"github.com/eiffel-community/etos/pkg/logging"
+	"github.com/eiffel-community/etos/pkg/opentelemetry"
+	"github.com/eiffel-community/etos/pkg/opentelemetry/semconv"
 	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -53,7 +63,8 @@ type Parameters struct {
 	providerName           string
 	releaseEnvironment     bool
 	noDelete               bool
-	logger                 logr.Logger
+	tracer                 trace.Tracer
+	opts                   zap.Options
 }
 
 type ProvisionConfig struct {
@@ -61,12 +72,15 @@ type ProvisionConfig struct {
 	MaximumAmount      int
 	Namespace          string
 	EnvironmentRequest *v1alpha1.EnvironmentRequest
+	Tracer             trace.Tracer
 }
 
 type ReleaseConfig struct {
-	Name      string
-	Namespace string
-	NoDelete  bool
+	Name               string
+	Namespace          string
+	NoDelete           bool
+	EnvironmentRequest *v1alpha1.EnvironmentRequest
+	Tracer             trace.Tracer
 }
 
 // Provider is an interface for providers to implement for the Run* functions.
@@ -84,21 +98,121 @@ func init() {
 }
 
 // ParseParameters parses the input parameters for a provider.
-func ParseParameters() Parameters {
-	opts := zap.Options{
-		Development: true,
-	}
+func ParseParameters(providerType string, amountFunc AmountFunc) Parameters {
+	opts := zap.Options{}
 	params := Parameters{}
 	flag.BoolVar(&params.releaseEnvironment, "release", false, "Release instead of creating")
 	flag.BoolVar(&params.noDelete, "nodelete", false, "Don't delete the resource")
 	flag.StringVar(&params.environmentRequestName, "environment-request", "", "The environment request to provision for.")
 	flag.StringVar(&params.name, "name", "", "The name of the resource to release.")
-	flag.StringVar(&params.providerName, "provider", "", "The provider used to release.")
+	flag.StringVar(&params.providerName, "provider", "", "The provider used.")
 	flag.StringVar(&params.namespace, "namespace", "", "The namespace of the environment request.")
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
-	params.logger = zap.New(zap.UseFlagOptions(&opts))
+	params.opts = opts
+	params.providerType = providerType
+	params.amountFunc = amountFunc
+	params.tracer = otel.Tracer(params.providerName)
+
+	if params.environmentRequestName == "" {
+		panic("must set -environment-request")
+	}
+	if params.namespace == "" {
+		panic("must set -namespace")
+	}
 	return params
+}
+
+// run is the main function for running a provider. It will fetch the EnvironmentRequest,
+// create a messagebus publisher, and a logger, and then call the runProvider function.
+func run(provider Provider, params Parameters) error {
+	ctx := context.TODO()
+
+	tracer := opentelemetry.New(params.providerName, params.providerType)
+	if err := tracer.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start OpenTelemetry tracer: %w", err)
+	}
+
+	// Will get assigned properly later.
+	logger := logr.Discard()
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if shutdownErr := tracer.Shutdown(shutdownCtx); shutdownErr != nil {
+			logger.Error(shutdownErr, "failed to shutdown OpenTelemetry tracer")
+		}
+	}()
+
+	environmentRequest, err := EnvironmentRequest(
+		ctx,
+		params.environmentRequestName,
+		params.namespace,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get EnvironmentRequest: %w", err)
+	}
+
+	// Manage termination signals.
+	ctx, term := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer term()
+
+	ctx = tracer.ContextFromEnvironmentRequest(ctx, environmentRequest)
+	ctx, span := params.tracer.Start(
+		ctx, "RunProvider", trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End()
+
+	span.SetAttributes(
+		semconv.ETOSProviderEnvironmentRequest(params.environmentRequestName),
+		semconv.ETOSProviderNamespace(params.namespace),
+		semconv.ETOSProviderName(params.providerName),
+	)
+
+	cli, err := KubernetesClient()
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create Kubernetes client")
+		return fmt.Errorf("failed to create Kubernetes client: %w", err)
+	}
+
+	publisher, err := messaging.NewPublisher(ctx,
+		environmentRequest.Spec.Config.EtosMessageBus,
+		cli,
+		params.namespace,
+	)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create message bus publisher")
+		return fmt.Errorf("failed to create message bus publisher: %w", err)
+	}
+	defer func() {
+		if closeErr := publisher.Close(); closeErr != nil {
+			logger.Error(closeErr, "failed to close message bus publisher")
+		}
+	}()
+
+	ctx = logging.New(params.opts).
+		WithOtel(tracer).
+		WithUserLog(publisher).
+		WithConsole().
+		Start(ctx)
+	logger = logging.FromContextOrDiscard(ctx).WithValues(
+		"providerType", params.providerType,
+		"environmentRequest", params.environmentRequestName,
+		"namespace", params.namespace,
+		"providerName", params.providerName,
+		"identifier", environmentRequest.Spec.Identifier,
+	).WithName(params.providerName)
+	publisher.AddLogger(logger)
+	ctx = logr.NewContext(ctx, logger)
+
+	if err := writeTerminationLog(ctx, runProvider, provider, params, environmentRequest); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Provider execution failed")
+		return err
+	}
+	span.SetStatus(codes.Ok, "Provider execution succeeded")
+	return nil
 }
 
 // WriteResult writes a job result JSON structure to the termination-log if running in a Kubernetes pod.
@@ -174,68 +288,111 @@ func GetProvider(ctx context.Context, providerName, namespace string) (*v1alpha1
 //
 // If the releaseEnvironment parameter is set then it will run Release
 // If the releaseEnvironment parameter is not set then it will run Provision
-func runProvider(ctx context.Context, provider Provider, params Parameters) error {
+func runProvider(
+	ctx context.Context,
+	provider Provider,
+	params Parameters,
+	environmentRequest *v1alpha1.EnvironmentRequest,
+) error {
 	if params.releaseEnvironment {
-		return runReleaser(ctx, provider, params)
+		return runReleaser(ctx, provider, params, environmentRequest)
 	}
-	if params.namespace == "" {
-		return errors.New("must set -namespace")
-	}
-	if params.environmentRequestName == "" {
-		return errors.New("must set -environment-request")
-	}
-	environmentRequest, err := EnvironmentRequest(
-		ctx,
-		params.environmentRequestName,
-		params.namespace,
+	ctx, span := params.tracer.Start(
+		ctx, "runProvider", trace.WithSpanKind(trace.SpanKindInternal),
 	)
-	if err != nil {
-		return err
-	}
+	defer span.End()
+
+	// Manage deadline
+	deadline := time.Unix(environmentRequest.Spec.Deadline, 0)
+	ctx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
+
 	minimumAmount, err := params.amountFunc(ctx, environmentRequest)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to calculate minimum amount")
 		return err
 	}
-	return provider.Provision(ctx, ProvisionConfig{
+	span.SetAttributes(
+		semconv.ETOSProviderMinimumAmount(minimumAmount),
+		semconv.ETOSProviderMaximumAmount(environmentRequest.Spec.MaximumAmount),
+	)
+	if err := provider.Provision(ctx, ProvisionConfig{
 		EnvironmentRequest: environmentRequest,
 		Namespace:          params.namespace,
 		MaximumAmount:      environmentRequest.Spec.MaximumAmount,
 		MinimumAmount:      minimumAmount,
-	})
+		Tracer:             params.tracer,
+	}); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to provision resource")
+		return err
+	}
+	span.SetStatus(codes.Ok, "resource provisioned successfully")
+	return nil
 }
 
 // runReleaser runs the provision.Release function
-func runReleaser(ctx context.Context, provider Provider, params Parameters) error {
-	if params.namespace == "" {
-		return errors.New("must set -namespace")
-	}
+func runReleaser(
+	ctx context.Context,
+	provider Provider,
+	params Parameters,
+	environmentRequest *v1alpha1.EnvironmentRequest,
+) error {
+	ctx, span := params.tracer.Start(
+		ctx, "runReleaser", trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End()
 	if params.name == "" {
-		return errors.New("must set -name")
+		err := errors.New("must set -name")
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to release resource: name not set")
+		return err
 	}
-	return provider.Release(ctx, ReleaseConfig{
-		Name:      params.name,
-		Namespace: params.namespace,
-		NoDelete:  params.noDelete,
-	})
+	span.SetAttributes(
+		semconv.ETOSProviderName(params.name),
+	)
+	if err := provider.Release(ctx, ReleaseConfig{
+		Name:               params.name,
+		Namespace:          params.namespace,
+		NoDelete:           params.noDelete,
+		EnvironmentRequest: environmentRequest,
+		Tracer:             params.tracer,
+	}); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to release resource")
+		return err
+	}
+	span.SetStatus(codes.Ok, "resource released successfully")
+	return nil
 }
 
 // writeTerminationLog will run a function and will write the result into a termination log.
 func writeTerminationLog(
 	ctx context.Context,
-	run func(context.Context, Provider, Parameters) error,
+	run func(context.Context, Provider, Parameters, *v1alpha1.EnvironmentRequest) error,
 	provider Provider,
 	params Parameters,
+	environmentRequest *v1alpha1.EnvironmentRequest,
 ) error {
-	err := run(ctx, provider, params)
+	err := run(ctx, provider, params, environmentRequest)
 
+	ctx, span := params.tracer.Start(
+		ctx, "writeTerminationLog", trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer span.End()
+
+	logger := logging.FromContextOrDiscard(ctx)
 	if err != nil {
-		if writeErr := WriteResult(params.logger,
+		if writeErr := WriteResult(logger,
 			jobs.Result{
 				Conclusion:  jobs.ConclusionFailed,
 				Description: err.Error(),
 				Verdict:     jobs.VerdictNone,
 			}); writeErr != nil {
-			params.logger.Error(writeErr, "failed to write error result to termination-log")
+			logger.Error(writeErr, "failed to write error result to termination-log")
+			span.RecordError(writeErr)
+			span.SetStatus(codes.Error, "failed to write error result to termination-log")
 		}
 		return err
 	}
@@ -245,14 +402,36 @@ func writeTerminationLog(
 	} else {
 		successMessage = fmt.Sprintf("Successfully provisioned %s", params.providerType)
 	}
-	if err := WriteResult(params.logger,
+	span.SetAttributes(
+		semconv.ETOSProviderConclusion(string(jobs.ConclusionSuccessful)),
+		semconv.ETOSProviderVerdict(string(jobs.VerdictNone)),
+		semconv.ETOSProviderDescription(successMessage),
+	)
+	if err := WriteResult(logger,
 		jobs.Result{
 			Conclusion:  jobs.ConclusionSuccessful,
 			Description: successMessage,
 			Verdict:     jobs.VerdictNone,
 		}); err != nil {
-		params.logger.Error(err, "failed to write error result to termination-log")
+		logger.Error(err, "failed to write error result to termination-log")
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to write result to termination-log")
 		return err
 	}
+	span.SetStatus(codes.Ok, "result written to termination-log successfully")
 	return nil
+}
+
+// RunEnvironmentProvider is the base runner for an environmnt provider. Checks input parameters and calls either
+// Release or Provision on a Provider.
+//
+// This function panics on errors, propagating errors back to the controller that executed it.
+func RunEnvironmentProvider(provider Provider) {
+	if err := run(provider, ParseParameters(
+		"Environment",
+		func(_ context.Context, environmentRequest *v1alpha1.EnvironmentRequest) (int, error) {
+			return min(environmentRequest.Spec.MaximumAmount, environmentRequest.Spec.MinimumAmount), nil
+		})); err != nil {
+		panic(err)
+	}
 }
