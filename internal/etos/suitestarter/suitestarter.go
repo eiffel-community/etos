@@ -624,7 +624,8 @@ func (r *ETOSSuiteStarterDeployment) suiteRunnerTemplate(templateName types.Name
                 medium: Memory
             initContainers:
             - name: kubexit
-              image: karlkfi/kubexit:latest
+              image: karlkfi/kubexit@sha256:db2dac0ab628d90cbdfd2a6827c14565d0230de57889c29108be111de45a6099
+              imagePullPolicy: IfNotPresent
               command: ["cp", "/bin/kubexit", "/kubexit/kubexit"]
               resources:
                 requests:
