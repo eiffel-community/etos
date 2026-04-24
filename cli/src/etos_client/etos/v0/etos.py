@@ -26,6 +26,7 @@ from uuid import uuid4
 
 from etos_lib import ETOS as ETOSLibrary
 from etos_lib.lib.http import Http
+from pydantic import ValidationError
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
 
@@ -108,7 +109,10 @@ class Etos:
 
     def __start(self) -> tuple[Optional[ResponseSchema], Optional[str]]:
         """Trigger ETOS, retrying on non-client errors until successful or timeout."""
-        request = self.start_request.from_args(self.args)
+        try:
+            request = self.start_request.from_args(self.args)
+        except (ValueError, ValidationError) as exc:
+            return None, str(exc)
         self.baggage.add("parent_activity", str(request.parent_activity))
         url = f"{self.cluster}/api/etos"
         self.logger.info("Triggering ETOS using %r", url)
@@ -126,9 +130,19 @@ class Etos:
             except JSONDecodeError:
                 self.logger.info("Raw response from ETOS: %r", response.text)
                 response_json = {}
-            return None, response_json.get(
+            detail = response_json.get(
                 "detail", "Unknown error from ETOS, please contact ETOS support"
             )
+            if isinstance(detail, list):
+                # FastAPI 422 validation errors return detail as a list of dicts.
+                # Extract user-friendly messages from them.
+                detail = "; ".join(
+                    err.get("msg", str(err)) if isinstance(err, dict) else str(err)
+                    for err in detail
+                )
+            elif not isinstance(detail, str):
+                detail = str(detail)
+            return None, detail
         return self.start_response.from_response(response_json), None
 
     def __wait(
