@@ -53,7 +53,8 @@ type EventRepository struct {
 	// +kubebuilder:default="etos"
 	// +optional
 	EiffelQueueName string `json:"eiffelQueueName,omitempty"`
-	// EiffelQueueParams are the parameters to use for the event repository queue. Defaults to empty.
+	// EiffelQueueParams are the parameters to use for the event repository queue.
+	// +kubebuilder:default="{\"durable\": true}"
 	// +optional
 	EiffelQueueParams string `json:"eiffelQueueParams,omitempty"`
 
@@ -205,7 +206,8 @@ type ETOSSuiteStarter struct {
 	// +kubebuilder:default="etos-suite-starter"
 	// +optional
 	EiffelQueueName string `json:"eiffelQueueName,omitempty"`
-	// EiffelQueueParams are the parameters to use for the suite starter queue. Defaults to empty.
+	// EiffelQueueParams are the parameters to use for the suite starter queue.
+	// +kubebuilder:default="{\"durable\": true}"
 	// +optional
 	EiffelQueueParams string `json:"eiffelQueueParams,omitempty"`
 	// Provide a custom suite runner template.
@@ -244,7 +246,8 @@ type ETOSLogListener struct {
 	// +kubebuilder:default="etos-*-temp"
 	// +optional
 	ETOSQueueName string `json:"etosQueueName,omitempty"`
-	// ETOSQueueParams are the parameters to use for the log listener queue. Defaults to empty.
+	// ETOSQueueParams are the parameters to use for the log listener queue.
+	// +kubebuilder:default="{\"durable\": true}"
 	// +optional
 	ETOSQueueParams string `json:"etosQueueParams,omitempty"`
 }
