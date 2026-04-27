@@ -223,7 +223,8 @@ jobs:
       - name: Push docker image
         if: github.ref == 'refs/heads/main'
         run: |
-          make docker-push IMG=$IMAGE_ID:$VERSION
+          echo "Pushing image ${{ steps.image.outputs.image }}:${{ steps.image.outputs.version }}"
+          make docker-push IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
       - name: Commit changes
         if: github.ref == 'refs/heads/main'
         run: |
