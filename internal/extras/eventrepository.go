@@ -17,6 +17,7 @@ package extras
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"net/url"
@@ -259,6 +260,12 @@ func (r *EventRepositoryDeployment) config(ctx context.Context, name types.Names
 	maps.Copy(data, etos.Data)
 	data["RABBITMQ_QUEUE"] = []byte(r.EiffelQueueName)
 	data["RABBITMQ_QUEUE_PARAMS"] = []byte(r.EiffelQueueParams)
+	var queueParams map[string]any
+	if err := json.Unmarshal([]byte(r.EiffelQueueParams), &queueParams); err == nil {
+		if durable, ok := queueParams["durable"].(bool); ok && durable {
+			data["RABBITMQ_DURABLE_QUEUE"] = []byte("true")
+		}
+	}
 	return &corev1.Secret{
 		ObjectMeta: r.meta(name, clusterName),
 		Data:       data,

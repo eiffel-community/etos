@@ -372,8 +372,9 @@ spec:
                               conflicts between multiple log listeners.
                             type: string
                           etosQueueParams:
+                            default: '{"durable": true}'
                             description: ETOSQueueParams are the parameters to use
-                              for the log listener queue. Defaults to empty.
+                              for the log listener queue.
                             type: string
                           image:
                             description: Image describes the docker image to run for
@@ -422,8 +423,9 @@ spec:
                           incoming Eiffel events. Defaults to "etos-suite-starter".
                         type: string
                       eiffelQueueParams:
+                        default: '{"durable": true}'
                         description: EiffelQueueParams are the parameters to use for
-                          the suite starter queue. Defaults to empty.
+                          the suite starter queue.
                         type: string
                       image:
                         description: Image describes the docker image to run for a
@@ -487,8 +489,9 @@ spec:
                       the event repository. Defaults to "etos".
                     type: string
                   eiffelQueueParams:
+                    default: '{"durable": true}'
                     description: EiffelQueueParams are the parameters to use for the
-                      event repository queue. Defaults to empty.
+                      event repository queue.
                     type: string
                   host:
                     description: Host specifies the event repository API URL. Required

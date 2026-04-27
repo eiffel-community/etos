@@ -356,7 +356,7 @@ func (r *MessageBusDeployment) volumes(name types.NamespacedName) []corev1.Volum
 func (r *MessageBusDeployment) container(name types.NamespacedName) corev1.Container {
 	return corev1.Container{
 		Name:  name.Name,
-		Image: "rabbitmq:latest",
+		Image: "rabbitmq:4.3.0",
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      fmt.Sprintf("%s-data", name.Name),
