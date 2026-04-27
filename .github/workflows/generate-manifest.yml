@@ -19,6 +19,9 @@ permissions:
 jobs:
   build-iut-provider:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      version: ${{ steps.image.outputs.version }}
     steps:
     - uses: actions/checkout@v6
     - name: Login to GitHub Container Registry
@@ -47,20 +50,11 @@ jobs:
       run: |
         echo "Pushing image ${{ steps.image.outputs.image }}:${{ steps.image.outputs.version }}"
         make docker-push IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
-    - name: Update manifest
-      if: github.ref == 'refs/heads/main'
-      uses: fjogeleit/yaml-update-action@main
-      with:
-        commitChange: false
-        changes: |
-          {
-            "defaults/iut_provider.yaml": {
-              ".image": "${{ steps.image.outputs.image }}",
-              ".version": "${{ steps.image.outputs.version }}"
-            }
-          }
   build-execution-space-provider:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      version: ${{ steps.image.outputs.version }}
     steps:
     - uses: actions/checkout@v6
     - name: Login to GitHub Container Registry
@@ -89,20 +83,11 @@ jobs:
       run: |
         echo "Pushing image ${{ steps.image.outputs.image }}:${{ steps.image.outputs.version }}"
         make docker-push IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
-    - name: Update manifest
-      if: github.ref == 'refs/heads/main'
-      uses: fjogeleit/yaml-update-action@main
-      with:
-        commitChange: false
-        changes: |
-          {
-            "defaults/execution_space_provider.yaml": {
-              ".image": "${{ steps.image.outputs.image }}",
-              ".version": "${{ steps.image.outputs.version }}"
-            }
-          }
   build-log-area-provider:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      version: ${{ steps.image.outputs.version }}
     steps:
     - uses: actions/checkout@v6
     - name: Login to GitHub Container Registry
@@ -131,20 +116,11 @@ jobs:
       run: |
         echo "Pushing image ${{ steps.image.outputs.image }}:${{ steps.image.outputs.version }}"
         make docker-push IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
-    - name: Update manifest
-      if: github.ref == 'refs/heads/main'
-      uses: fjogeleit/yaml-update-action@main
-      with:
-        commitChange: false
-        changes: |
-          {
-            "defaults/log_area_provider.yaml": {
-              ".image": "${{ steps.image.outputs.image }}",
-              ".version": "${{ steps.image.outputs.version }}"
-            }
-          }
   build-environment-provider:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      version: ${{ steps.image.outputs.version }}
     steps:
     - uses: actions/checkout@v6
     - name: Login to GitHub Container Registry
@@ -173,18 +149,6 @@ jobs:
       run: |
         echo "Pushing image ${{ steps.image.outputs.image }}:${{ steps.image.outputs.version }}"
         make docker-push IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
-    - name: Update manifest
-      if: github.ref == 'refs/heads/main'
-      uses: fjogeleit/yaml-update-action@main
-      with:
-        commitChange: false
-        changes: |
-          {
-            "defaults/environment_provider.yaml": {
-              ".image": "${{ steps.image.outputs.image }}",
-              ".version": "${{ steps.image.outputs.version }}"
-            }
-          }
   build-controller:
     needs: [build-iut-provider, build-execution-space-provider, build-log-area-provider, build-environment-provider]
     runs-on: ubuntu-latest
@@ -215,6 +179,29 @@ jobs:
           echo VERSION=$VERSION
           echo "image=$IMAGE_ID" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Update provider manifests
+        uses: fjogeleit/yaml-update-action@main
+        with:
+          commitChange: false
+          changes: |
+            {
+              "defaults/iut_provider.yaml": {
+                ".image": "${{ needs.build-iut-provider.outputs.image }}",
+                ".version": "${{ needs.build-iut-provider.outputs.version }}"
+              },
+              "defaults/execution_space_provider.yaml": {
+                ".image": "${{ needs.build-execution-space-provider.outputs.image }}",
+                ".version": "${{ needs.build-execution-space-provider.outputs.version }}"
+              },
+              "defaults/log_area_provider.yaml": {
+                ".image": "${{ needs.build-log-area-provider.outputs.image }}",
+                ".version": "${{ needs.build-log-area-provider.outputs.version }}"
+              },
+              "defaults/environment_provider.yaml": {
+                ".image": "${{ needs.build-environment-provider.outputs.image }}",
+                ".version": "${{ needs.build-environment-provider.outputs.version }}"
+              }
+            }
       - name: Build controller and generate manifest
         run: |
           make docker-build split-installer IMG=${{steps.image.outputs.image}}:${{steps.image.outputs.version}}
