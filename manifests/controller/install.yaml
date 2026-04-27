@@ -3060,6 +3060,13 @@ spec:
                 description: LogAreaProviderConfig describes the configuration for
                   a log area provider.
                 properties:
+                  custom:
+                    description: |-
+                      The configuration of a provider is very implementation-specific and we cannot give
+                      a perfectly generic configuration for all cases. The following field allows any
+                      data-structure to be added to this configuration and it is expected that providers
+                      can handle the data they require themselves.
+                    x-kubernetes-preserve-unknown-fields: true
                   livelogs:
                     description: LiveLogs is a URI to where live logs of an execution
                       can be found.
@@ -4521,7 +4528,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:4b1fdddc
+        image: ghcr.io/eiffel-community/etos-controller:9d99af8e
         livenessProbe:
           httpGet:
             path: /healthz
