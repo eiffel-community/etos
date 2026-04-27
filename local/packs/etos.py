@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Local ETOS pack."""
+
 from local.commands.command import Command
 from local.commands.kubectl import Kubectl, Resource
 from local.commands.utilities import StdoutEquals, WaitUntil
@@ -24,12 +25,11 @@ from .base import BasePack
 class Etos(BasePack):
     """Etos pack to create an ETOS cluster.
 
-    Create the cluster spec, deploy GoER (for providers) and inject an
-    artifact into the system which can be used to verify the deployment.
+    Create the cluster spec and inject an artifact into the system which can be used to verify
+    the deployment.
     """
 
     cluster_sample = "config/samples/etos_v1alpha1_cluster.yaml"
-    goer = "testdata/goer.yaml"
 
     def name(self) -> str:
         """Name of the pack."""
@@ -54,24 +54,6 @@ class Etos(BasePack):
                 wait_for="jsonpath={.status.conditions[?(@.type=='Ready')].status}=True",
             ),
             *self.__wait_for_deployments(kubectl),
-            kubectl.create(
-                Resource(
-                    filename=self.goer, namespace=self.local_store["cluster_namespace"]
-                )
-            ),
-            WaitUntil(
-                StdoutEquals(
-                    kubectl.get(
-                        Resource(
-                            names="goer",
-                            type="deploy",
-                            namespace=self.local_store["cluster_namespace"],
-                        ),
-                        output="jsonpath='{.status.readyReplicas}'",
-                    ),
-                    value="1",
-                )
-            ),
             *self.__inject_artifact(kubectl),
             kubectl.create(
                 Resource(
@@ -102,11 +84,6 @@ class Etos(BasePack):
                     names="artifact-injector",
                     namespace=self.local_store["cluster_namespace"],
                 ),
-            ),
-            kubectl.delete(
-                Resource(
-                    filename=self.goer, namespace=self.local_store["cluster_namespace"]
-                )
             ),
             kubectl.delete(
                 Resource(

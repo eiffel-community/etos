@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Local ETOS make wrapper."""
+
 import logging
 
 from local.utilities.store import Value
@@ -33,9 +34,7 @@ class Make:
 
     def uninstall(self, ignore_not_found: bool = True) -> Command:
         """Command for running 'make uninstall'."""
-        return Shell(
-            ["make", "uninstall", f"ignore-not-found={str(ignore_not_found).lower()}"]
-        )
+        return Shell(["make", "uninstall", f"ignore-not-found={str(ignore_not_found).lower()}"])
 
     def deploy(self, image: str | Value) -> Command:
         """Command for running 'make deploy'."""
@@ -43,10 +42,13 @@ class Make:
         return Shell(["make", "deploy", f"IMG={image}"])
 
     def docker_build(self, image: str | Value) -> Command:
+        """Command for running 'make docker-build'."""
         return Shell(["make", "docker-build", f"IMG={image}"])
+
+    def provider_build(self, provider: str | Value, image: str | Value) -> Command:
+        """Command for running 'make <provider>-docker'."""
+        return Shell(["make", f"{provider}-docker", f"IMG={image}"])
 
     def undeploy(self, ignore_not_found: bool = True) -> Command:
         """Command for running 'make undeploy'."""
-        return Shell(
-            ["make", "undeploy", f"ignore-not-found={str(ignore_not_found).lower()}"]
-        )
+        return Shell(["make", "undeploy", f"ignore-not-found={str(ignore_not_found).lower()}"])

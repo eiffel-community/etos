@@ -19,8 +19,14 @@ from local.commands.command import Command
 from local.commands.kubectl import Kubectl, Resource
 from local.commands.make import Make
 from local.commands.shell import Shell
-from local.commands.utilities import (HasLines, StdoutEquals, StdoutLength,
-                                      StoreStdout, WaitUntil)
+from local.commands.utilities import (
+    HasLines,
+    StdoutEquals,
+    StdoutLength,
+    StoreStdout,
+    WaitUntil,
+)
+from local.utilities.store import Value
 
 from .base import BasePack
 
@@ -37,16 +43,28 @@ class Controller(BasePack):
         kubectl = Kubectl()
         make = Make()
         return [
-            kubectl.create(
-                Resource(type="namespace", names=self.local_store["namespace"])
+            *Provider("iut_provider").deploy(
+                self.local_store["iut_provider_image"],
+                self.local_store["iut_provider_version"],
             ),
+            *Provider("execution_space_provider").deploy(
+                self.local_store["execution_space_provider_image"],
+                self.local_store["execution_space_provider_version"],
+            ),
+            *Provider("log_area_provider").deploy(
+                self.local_store["log_area_provider_image"],
+                self.local_store["log_area_provider_version"],
+            ),
+            *Provider("environment_provider").deploy(
+                self.local_store["environment_provider_image"],
+                self.local_store["environment_provider_version"],
+            ),
+            kubectl.create(Resource(type="namespace", names=self.local_store["namespace"])),
             kubectl.label(
                 Resource(type="namespace", names=self.local_store["namespace"]),
                 "pod-security.kubernetes.io/enforce=restricted",
             ),
-            kubectl.create(
-                Resource(type="namespace", names=self.local_store["cluster_namespace"])
-            ),
+            kubectl.create(Resource(type="namespace", names=self.local_store["cluster_namespace"])),
             make.install(),
             make.docker_build(self.local_store["project_image"]),
             Shell(["kind", "load", "docker-image", self.local_store["project_image"]]),
@@ -62,12 +80,8 @@ class Controller(BasePack):
         return [
             make.undeploy(),
             make.uninstall(),
-            kubectl.delete(
-                Resource(type="namespace", names=self.local_store["cluster_namespace"])
-            ),
-            kubectl.delete(
-                Resource(type="namespace", names=self.local_store["namespace"])
-            ),
+            kubectl.delete(Resource(type="namespace", names=self.local_store["cluster_namespace"])),
+            kubectl.delete(Resource(type="namespace", names=self.local_store["namespace"])),
         ]
 
     def __wait_for_control_plane(self, kubectl: Kubectl) -> list[Command]:
@@ -169,3 +183,40 @@ class Controller(BasePack):
                 )
             )
         return commands
+
+
+class Provider:
+    """Helper class for generating provider deployment commands."""
+
+    def __init__(self, provider: str):
+        """Provider name."""
+        self.provider = provider
+
+    def deploy(self, image: str | Value, version: str | Value) -> list[Command]:
+        """Commands for deploying providers in the ETOS cluster."""
+        return [
+            Make().provider_build(self.provider.replace("_", ""), f"{image}:{version}"),
+            Shell(["kind", "load", "docker-image", f"{image}:{version}"]),
+            *self.set_image(image, version),
+        ]
+
+    def set_image(self, image: str | Value, version: str | Value) -> list[Command]:
+        """Command for setting the image of the controller."""
+        return [
+            Shell(
+                [
+                    "sed",
+                    "-i",
+                    f"s|image: .*|image: {image}|g",
+                    f"defaults/{self.provider}.yaml",
+                ]
+            ),
+            Shell(
+                [
+                    "sed",
+                    "-i",
+                    f"s|version: .*|version: {version}|g",
+                    f"defaults/{self.provider}.yaml",
+                ]
+            ),
+        ]

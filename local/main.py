@@ -164,6 +164,15 @@ def run(args: argparse.Namespace):
     store["cluster_namespace"] = "etos-test"
     store["cluster_name"] = "cluster-sample"
     store["project_image"] = "example.com/etos:v0.0.1"
+
+    store["iut_provider_image"] = "example.com/iutprovider"
+    store["iut_provider_version"] = "v0.0.1"
+    store["execution_space_provider_image"] = "example.com/executionspaceprovider"
+    store["execution_space_provider_version"] = "v0.0.1"
+    store["log_area_provider_image"] = "example.com/logareaprovider"
+    store["log_area_provider_version"] = "v0.0.1"
+    store["environment_provider_image"] = "example.com/environmentprovider"
+    store["environment_provider_version"] = "v0.0.1"
     store["artifact_id"] = "268dd4db-93da-4232-a544-bf4c0fb26dac"
     store["artifact_identity"] = "pkg:testrun/etos/eiffel_community"
 

@@ -164,17 +164,21 @@ func (d *ProviderCustomValidator) validate(provider *etosv1alpha1.Provider) erro
 			"only one of jsonTas and jsonTasSource is allowed"))
 	}
 	if provider.Spec.JSONTas == nil && provider.Spec.JSONTasSource == nil {
-		if provider.Spec.Host == "" {
+		if provider.Spec.Host == "" && provider.Spec.Image == "" {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec").Child("host"),
 				provider.Spec.Host,
-				"host must be set when JSONTas is not"))
+				"host must be set when JSONTas and Image is not"))
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec").Child("image"),
+				provider.Spec.Image,
+				"image must be set when JSONTas and Host is not"))
 		}
-		if provider.Spec.Healthcheck == nil {
+		if provider.Spec.Healthcheck == nil && provider.Spec.Image == "" {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec").Child("healthCheck"),
 				provider.Spec.Healthcheck,
-				"healthCheck must be set when JSONTas is not"))
+				"healthCheck must be set when JSONTas and Image are not"))
 		}
 	}
 

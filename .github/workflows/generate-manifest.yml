@@ -10,12 +10,183 @@ on:
       - completed
   workflow_dispatch:
 
+env:
+  MAIN_BRANCH: main
 permissions:
   contents: write
   packages: write
 
 jobs:
-  build-and-commit:
+  build-iut-provider:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Image ID
+      id: image
+      run: |
+        IMAGE_ID=ghcr.io/eiffel-community/etos-iut-provider
+        # Strip git ref prefix from version
+        VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+        # Strip "v" prefix from tag name
+        [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+        # Use Docker `latest` tag convention
+        [ "$VERSION" == "$MAIN_BRANCH" ] && VERSION=$(echo ${{ github.sha }} | cut -c1-8)
+        echo VERSION=$VERSION
+        echo "image=$IMAGE_ID" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    - name: Build app image
+      run: make iutprovider-docker IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
+    - name: Push app image
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "Pushing image ${{ steps.image.outputs.image }}:${{ steps.image.outputs.version }}"
+        make docker-push IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
+    - name: Update manifest
+      if: github.ref == 'refs/heads/main'
+      uses: fjogeleit/yaml-update-action@main
+      with:
+        commitChange: false
+        changes: |
+          {
+            "defaults/iut_provider.yaml": {
+              ".image": "${{ steps.image.outputs.image }}",
+              ".version": "${{ steps.image.outputs.version }}"
+            }
+          }
+  build-execution-space-provider:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Image ID
+      id: image
+      run: |
+        IMAGE_ID=ghcr.io/eiffel-community/etos-execution-space-provider
+        # Strip git ref prefix from version
+        VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+        # Strip "v" prefix from tag name
+        [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+        # Use Docker `latest` tag convention
+        [ "$VERSION" == "$MAIN_BRANCH" ] && VERSION=$(echo ${{ github.sha }} | cut -c1-8)
+        echo VERSION=$VERSION
+        echo "image=$IMAGE_ID" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    - name: Build app image
+      run: make executionspaceprovider-docker IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
+    - name: Push app image
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "Pushing image ${{ steps.image.outputs.image }}:${{ steps.image.outputs.version }}"
+        make docker-push IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
+    - name: Update manifest
+      if: github.ref == 'refs/heads/main'
+      uses: fjogeleit/yaml-update-action@main
+      with:
+        commitChange: false
+        changes: |
+          {
+            "defaults/execution_space_provider.yaml": {
+              ".image": "${{ steps.image.outputs.image }}",
+              ".version": "${{ steps.image.outputs.version }}"
+            }
+          }
+  build-log-area-provider:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Image ID
+      id: image
+      run: |
+        IMAGE_ID=ghcr.io/eiffel-community/etos-log-area-provider
+        # Strip git ref prefix from version
+        VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+        # Strip "v" prefix from tag name
+        [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+        # Use Docker `latest` tag convention
+        [ "$VERSION" == "$MAIN_BRANCH" ] && VERSION=$(echo ${{ github.sha }} | cut -c1-8)
+        echo VERSION=$VERSION
+        echo "image=$IMAGE_ID" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    - name: Build app image
+      run: make logareaprovider-docker IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
+    - name: Push app image
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "Pushing image ${{ steps.image.outputs.image }}:${{ steps.image.outputs.version }}"
+        make docker-push IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
+    - name: Update manifest
+      if: github.ref == 'refs/heads/main'
+      uses: fjogeleit/yaml-update-action@main
+      with:
+        commitChange: false
+        changes: |
+          {
+            "defaults/log_area_provider.yaml": {
+              ".image": "${{ steps.image.outputs.image }}",
+              ".version": "${{ steps.image.outputs.version }}"
+            }
+          }
+  build-environment-provider:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Image ID
+      id: image
+      run: |
+        IMAGE_ID=ghcr.io/eiffel-community/etos-environment-provider
+        # Strip git ref prefix from version
+        VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+        # Strip "v" prefix from tag name
+        [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+        # Use Docker `latest` tag convention
+        [ "$VERSION" == "$MAIN_BRANCH" ] && VERSION=$(echo ${{ github.sha }} | cut -c1-8)
+        echo VERSION=$VERSION
+        echo "image=$IMAGE_ID" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    - name: Build app image
+      run: make environmentprovider-docker IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
+    - name: Push app image
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "Pushing image ${{ steps.image.outputs.image }}:${{ steps.image.outputs.version }}"
+        make docker-push IMG=${{ steps.image.outputs.image }}:${{ steps.image.outputs.version}}
+    - name: Update manifest
+      if: github.ref == 'refs/heads/main'
+      uses: fjogeleit/yaml-update-action@main
+      with:
+        commitChange: false
+        changes: |
+          {
+            "defaults/environment_provider.yaml": {
+              ".image": "${{ steps.image.outputs.image }}",
+              ".version": "${{ steps.image.outputs.version }}"
+            }
+          }
+  build-controller:
+    needs: [build-iut-provider, build-execution-space-provider, build-log-area-provider, build-environment-provider]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -31,7 +202,8 @@ jobs:
       - name: Clean workspace
         run: |
           rm -r dist | true
-      - name: Generate manifest file
+      - name: Image ID
+        id: image
         run: |
           IMAGE_ID=ghcr.io/eiffel-community/etos-controller
           # Strip git ref prefix from version
@@ -40,11 +212,12 @@ jobs:
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
           # Use Docker `latest` tag convention
           [ "$VERSION" == "main" ] && VERSION=$(echo ${{ github.sha }} | cut -c1-8)
-          echo IMAGE_ID=$IMAGE_ID
           echo VERSION=$VERSION
-          echo "IMAGE_ID=$IMAGE_ID" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          make docker-build split-installer IMG=$IMAGE_ID:$VERSION
+          echo "image=$IMAGE_ID" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Build controller and generate manifest
+        run: |
+          make docker-build split-installer IMG=${{steps.image.outputs.image}}:${{steps.image.outputs.version}}
           mkdir -p manifests/controller
           cp dist/* manifests/controller/
       - name: Push docker image

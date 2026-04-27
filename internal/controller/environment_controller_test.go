@@ -20,17 +20,20 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller/status"
 )
 
@@ -50,8 +53,25 @@ var _ = Describe("Environment Controller", func() {
 		SetDefaultEventuallyPollingInterval(time.Second)
 
 		BeforeEach(func() {
+			By("creating the EnvironmentRequest resource that the Environment depends on")
+			environmentRequest, err := createEnvironmentRequest(ctx, "test-environment-request")
+			Expect(err).NotTo(HaveOccurred())
+			By("ensuring that the iut, executor and log area providers exist")
+			iutProvider, err := createProvider(ctx, environmentRequest.Spec.Providers.IUT.ID, "iut")
+			Expect(err).NotTo(HaveOccurred())
+			executorProvider, err := createProvider(ctx, environmentRequest.Spec.Providers.ExecutionSpace.ID, "execution-space")
+			Expect(err).NotTo(HaveOccurred())
+			logAreaProvider, err := createProvider(ctx, environmentRequest.Spec.Providers.LogArea.ID, "log-area")
+			Expect(err).NotTo(HaveOccurred())
+			By("ensuring that the iut, executor and log areas exist")
+			iut, err := createIut(ctx, iutProvider, environmentRequest, "iut")
+			Expect(err).NotTo(HaveOccurred())
+			executor, err := createExecutor(ctx, executorProvider, environmentRequest, "execution-space")
+			Expect(err).NotTo(HaveOccurred())
+			logArea, err := createLogArea(ctx, logAreaProvider, environmentRequest, "log-area")
+			Expect(err).NotTo(HaveOccurred())
 			By("creating the custom resource for the Kind Environment")
-			err := k8sClient.Get(ctx, typeNamespacedName, environment)
+			err = k8sClient.Get(ctx, typeNamespacedName, environment)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &etosv1alpha1.Environment{
 					ObjectMeta: metav1.ObjectMeta{
@@ -69,9 +89,9 @@ var _ = Describe("Environment Controller", func() {
 						Tests:       []etosv1alpha1.Test{},
 						TestRunner:  "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
 						Providers: &etosv1alpha1.Providers{
-							ExecutionSpace: "execution-space",
-							LogArea:        "log-area",
-							IUT:            "iut",
+							ExecutionSpace: executor.Name,
+							LogArea:        logArea.Name,
+							IUT:            iut.Name,
 						},
 						Iut: &apiextensionsv1.JSON{
 							Raw: []byte("{}"),
@@ -84,6 +104,7 @@ var _ = Describe("Environment Controller", func() {
 						},
 					},
 				}
+				Expect(controllerutil.SetControllerReference(environmentRequest, resource, k8sClient.Scheme())).To(Succeed())
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
 		})
@@ -95,6 +116,44 @@ var _ = Describe("Environment Controller", func() {
 
 			By("Cleanup the specific resource instance Environment")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			By("Cleaning up the iut, executor and log area providers")
+			Expect(k8sClient.Delete(ctx, &etosv1alpha1.Provider{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "iut",
+					Namespace: "default",
+				},
+			})).To(Succeed())
+			Expect(k8sClient.Delete(ctx, &etosv1alpha1.Provider{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "execution-space",
+					Namespace: "default",
+				},
+			})).To(Succeed())
+			Expect(k8sClient.Delete(ctx, &etosv1alpha1.Provider{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "log-area",
+					Namespace: "default",
+				},
+			})).To(Succeed())
+			By("Cleaning up the iut, executor and log areas")
+			Expect(k8sClient.Delete(ctx, &etosv1alpha2.Iut{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "iut",
+					Namespace: "default",
+				},
+			})).To(Succeed())
+			Expect(k8sClient.Delete(ctx, &etosv1alpha2.ExecutionSpace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "execution-space",
+					Namespace: "default",
+				},
+			})).To(Succeed())
+			Expect(k8sClient.Delete(ctx, &etosv1alpha2.LogArea{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "log-area",
+					Namespace: "default",
+				},
+			})).To(Succeed())
 		})
 
 		It("should successfully reconcile the custom resource for Environment", func() {
@@ -145,3 +204,133 @@ var _ = Describe("Environment Controller", func() {
 		})
 	})
 })
+
+// createProvider is a helper function to create a Provider resource with the specified name and type.
+func createProvider(ctx context.Context, name, providerType string) (client.Object, error) {
+	provider := &etosv1alpha1.Provider{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: etosv1alpha1.ProviderSpec{
+			Type:  providerType,
+			Image: "example.com/provider-image:latest",
+		},
+	}
+	return provider, k8sClient.Create(ctx, provider)
+}
+
+// createIut is a helper function to create an Iut resource with the specified name and owner.
+func createIut(ctx context.Context, owner client.Object, environmentRequest *etosv1alpha1.EnvironmentRequest, name string) (*etosv1alpha2.Iut, error) {
+	iut := &etosv1alpha2.Iut{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+			Labels: map[string]string{
+				"etos.eiffel-community.github.io/environment-request-id": environmentRequest.Spec.ID,
+				"etos.eiffel-community.github.io/environment-request":    environmentRequest.Spec.Name,
+				"etos.eiffel-community.github.io/provider":               owner.GetName(),
+			},
+		},
+		Spec: etosv1alpha2.IutSpec{
+			ID:                 uuid.NewString(),
+			ProviderID:         owner.GetName(),
+			EnvironmentRequest: environmentRequest.Name,
+			Identity:           "pkg:example/iut",
+		},
+	}
+	if err := controllerutil.SetControllerReference(owner, iut, k8sClient.Scheme()); err != nil {
+		return iut, err
+	}
+	return iut, k8sClient.Create(ctx, iut)
+}
+
+// createExecutor is a helper function to create an ExecutionSpace resource with the specified name and owner.
+func createExecutor(ctx context.Context, owner client.Object, environmentRequest *etosv1alpha1.EnvironmentRequest, name string) (*etosv1alpha2.ExecutionSpace, error) {
+	executor := &etosv1alpha2.ExecutionSpace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+			Labels: map[string]string{
+				"etos.eiffel-community.github.io/environment-request-id": environmentRequest.Spec.ID,
+				"etos.eiffel-community.github.io/environment-request":    environmentRequest.Spec.Name,
+				"etos.eiffel-community.github.io/provider":               owner.GetName(),
+			},
+		},
+		Spec: etosv1alpha2.ExecutionSpaceSpec{
+			ID:                 uuid.NewString(),
+			ProviderID:         owner.GetName(),
+			EnvironmentRequest: environmentRequest.Name,
+			TestRunner:         "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
+			Instructions: etosv1alpha2.Instructions{
+				Identifier:  uuid.NewString(),
+				Image:       "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
+				Parameters:  map[string]string{},
+				Environment: map[string]string{},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(owner, executor, k8sClient.Scheme()); err != nil {
+		return executor, err
+	}
+	return executor, k8sClient.Create(ctx, executor)
+}
+
+// createLogArea is a helper function to create a LogArea resource with the specified name and owner.
+func createLogArea(ctx context.Context, owner client.Object, environmentRequest *etosv1alpha1.EnvironmentRequest, name string) (*etosv1alpha2.LogArea, error) {
+	logArea := &etosv1alpha2.LogArea{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+			Labels: map[string]string{
+				"etos.eiffel-community.github.io/environment-request-id": environmentRequest.Spec.ID,
+				"etos.eiffel-community.github.io/environment-request":    environmentRequest.Spec.Name,
+				"etos.eiffel-community.github.io/provider":               owner.GetName(),
+			},
+		},
+		Spec: etosv1alpha2.LogAreaSpec{
+			ID:                 uuid.NewString(),
+			ProviderID:         owner.GetName(),
+			EnvironmentRequest: environmentRequest.Name,
+			LiveLogs:           "http://example.com/live-logs",
+			Logs:               map[string]string{},
+			Upload: etosv1alpha2.Upload{
+				Method: "GET",
+				URL:    "http://example.com/upload",
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(owner, logArea, k8sClient.Scheme()); err != nil {
+		return logArea, err
+	}
+	return logArea, k8sClient.Create(ctx, logArea)
+}
+
+// createEnvironmentRequest is a helper function to create an EnvironmentRequest resource with the specified name.
+func createEnvironmentRequest(ctx context.Context, name string) (*etosv1alpha1.EnvironmentRequest, error) {
+	environmentRequest := &etosv1alpha1.EnvironmentRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: etosv1alpha1.EnvironmentRequestSpec{
+			Image: &etosv1alpha1.Image{
+				Image: "ghcr.io/eiffel-community/etos-environment-provider:60bf50aa",
+			},
+			MinimumAmount: 1,
+			MaximumAmount: 1,
+			Providers: etosv1alpha1.EnvironmentProviders{
+				IUT:     etosv1alpha1.IutProvider{ID: "iut"},
+				LogArea: etosv1alpha1.LogAreaProvider{ID: "log-area"},
+				ExecutionSpace: etosv1alpha1.ExecutionSpaceProvider{
+					ID:         "execution-space",
+					TestRunner: "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
+				},
+			},
+			Splitter: etosv1alpha1.Splitter{
+				Tests: []etosv1alpha1.Test{},
+			},
+		},
+	}
+	return environmentRequest, k8sClient.Create(ctx, environmentRequest)
+}

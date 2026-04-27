@@ -38,6 +38,7 @@ type environmentProvider struct {
 	environmentRequestName string
 	namespace              string
 	name                   string
+	providerName           string
 	releaseEnvironment     bool
 }
 
@@ -52,6 +53,7 @@ func main() {
 		"environment-request", "", "The environment request to provision for.",
 	)
 	flag.StringVar(&provider.name, "name", "", "The name of the resource to release.")
+	flag.StringVar(&provider.providerName, "provider", "", "The provider used.")
 	flag.StringVar(&provider.namespace, "namespace", "", "The namespace of the environment request.")
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -228,6 +230,8 @@ func CreateEnvironment(
 		"etos.eiffel-community.github.io/sub-suite-id":           executionSpace.Spec.ID,
 		"app.kubernetes.io/name":                                 "environment-provider",
 		"app.kubernetes.io/part-of":                              "etos",
+		// Required by the ESR to find the environment
+		"etos.eiffel-community.github.io/suite-id": environmentrequest.Spec.ID,
 	}
 	if cluster := environmentrequest.Labels["etos.eiffel-community.github.io/cluster"]; cluster != "" {
 		labels["etos.eiffel-community.github.io/cluster"] = cluster

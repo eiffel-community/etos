@@ -180,6 +180,29 @@ func IsCertManagerCRDsInstalled() bool {
 	return false
 }
 
+// UpdateServiceDefaultVersion updates the default version of the service in the defaults yaml file.
+func UpdateServiceDefaultVersion(serviceName, image, newVersion string) error {
+	cmd := exec.Command(
+		"sed", "-i",
+		fmt.Sprintf("s|image: .*|image: %s|g", image),
+		fmt.Sprintf("defaults/%s.yaml", serviceName),
+	)
+	_, err := Run(cmd)
+	if err != nil {
+		return err
+	}
+	cmd = exec.Command(
+		"sed", "-i",
+		fmt.Sprintf("s|version: .*|version: %s|g", newVersion),
+		fmt.Sprintf("defaults/%s.yaml", serviceName),
+	)
+	_, err = Run(cmd)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // LoadImageToKindClusterWithName loads a local docker image to the kind cluster
 func LoadImageToKindClusterWithName(name string) error {
 	cluster := defaultKindCluster
