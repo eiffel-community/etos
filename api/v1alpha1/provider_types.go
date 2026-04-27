@@ -136,6 +136,13 @@ type ProviderSpec struct {
 
 // LogAreaProviderConfig describes the configuration for a log area provider.
 type LogAreaProviderConfig struct {
+	// The configuration of a provider is very implementation-specific and we cannot give
+	// a perfectly generic configuration for all cases. The following field allows any
+	// data-structure to be added to this configuration and it is expected that providers
+	// can handle the data they require themselves.
+	// +optional
+	Custom apiextensionsv1.JSON `json:"custom,omitempty"`
+
 	// LiveLogs is a URI to where live logs of an execution can be found.
 	// +kubebuilder:validation:Format="uri"
 	LiveLogs string `json:"livelogs"`
