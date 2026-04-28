@@ -352,6 +352,7 @@ func (r *ETOSDeployment) reconcileIutProvider(ctx context.Context, name types.Na
 	logger := log.FromContext(ctx)
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-iut-provider", name.Name), Namespace: name.Namespace}
 	target := r.provider(name, "iut", config.ImageOrDefault(r.cfg.IutProvider, etosv1alpha1.Image{}), owner.GetName())
+	target.Spec.Env = r.testResultTimeoutEnv()
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -415,6 +416,7 @@ func (r *ETOSDeployment) reconcileExecutionSpaceProvider(ctx context.Context, na
 	logger := log.FromContext(ctx)
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-execution-space-provider", name.Name), Namespace: name.Namespace}
 	target := r.provider(name, "execution-space", config.ImageOrDefault(r.cfg.ExecutionSpaceProvider, etosv1alpha1.Image{}), owner.GetName())
+	target.Spec.Env = r.testResultTimeoutEnv()
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -435,6 +437,19 @@ func (r *ETOSDeployment) reconcileExecutionSpaceProvider(ctx context.Context, na
 	// by default when creating custom resources.
 	target.ObjectMeta = provider.ObjectMeta
 	return target, r.Patch(ctx, target, client.MergeFrom(provider))
+}
+
+// testResultTimeoutEnv returns environment variables for the test result timeout
+// configuration. This sets ETOS_DEFAULT_TEST_RESULT_TIMEOUT in the provider containers
+// so that the etcd key TTL matches the configured timeout.
+func (r *ETOSDeployment) testResultTimeoutEnv() []corev1.EnvVar {
+	timeout := r.ETOS.Config.TestResultTimeout
+	if timeout == "" {
+		timeout = "86400"
+	}
+	return []corev1.EnvVar{
+		{Name: "ETOS_DEFAULT_TEST_RESULT_TIMEOUT", Value: timeout},
+	}
 }
 
 // provider creates a provider definition for the ETOS API.
