@@ -443,7 +443,7 @@ func (r *ETOSDeployment) reconcileExecutionSpaceProvider(ctx context.Context, na
 // configuration. This sets ETOS_DEFAULT_TEST_RESULT_TIMEOUT in the provider containers
 // so that the etcd key TTL matches the configured timeout.
 func (r *ETOSDeployment) testResultTimeoutEnv() []corev1.EnvVar {
-	timeout := r.ETOS.Config.TestResultTimeout
+	timeout := r.Config.TestResultTimeout
 	if timeout == "" {
 		timeout = "86400"
 	}
