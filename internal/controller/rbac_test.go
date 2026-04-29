@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -41,7 +42,7 @@ func parseRBACMarkers(filename string) ([]rbacRule, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var rules []rbacRule
 	scanner := bufio.NewScanner(file)
@@ -52,7 +53,7 @@ func parseRBACMarkers(filename string) ([]rbacRule, error) {
 		}
 		marker := strings.TrimPrefix(line, "// +kubebuilder:rbac:")
 		rule := rbacRule{}
-		for _, part := range strings.Split(marker, ",") {
+		for part := range strings.SplitSeq(marker, ",") {
 			kv := strings.SplitN(part, "=", 2)
 			if len(kv) != 2 {
 				continue
@@ -76,36 +77,15 @@ func parseRBACMarkers(filename string) ([]rbacRule, error) {
 // hasRule checks if the list of rules contains a rule matching the given group, resource, and all specified verbs.
 func hasRule(rules []rbacRule, group, resource string, verbs ...string) bool {
 	for _, rule := range rules {
-		groupMatch := false
-		for _, g := range rule.Groups {
-			if g == group {
-				groupMatch = true
-				break
-			}
-		}
-		if !groupMatch {
+		if !slices.Contains(rule.Groups, group) {
 			continue
 		}
-		resourceMatch := false
-		for _, r := range rule.Resources {
-			if r == resource {
-				resourceMatch = true
-				break
-			}
-		}
-		if !resourceMatch {
+		if !slices.Contains(rule.Resources, resource) {
 			continue
 		}
 		allVerbsPresent := true
 		for _, v := range verbs {
-			found := false
-			for _, rv := range rule.Verbs {
-				if rv == v {
-					found = true
-					break
-				}
-			}
-			if !found {
+			if !slices.Contains(rule.Verbs, v) {
 				allVerbsPresent = false
 				break
 			}
@@ -149,7 +129,7 @@ var validResourceNames = map[string]bool{
 	"pods": true, "pods/log": true,
 	"roles": true, "rolebindings": true,
 	"ingresses": true,
-	"jobs": true, "jobs/status": true,
+	"jobs":      true, "jobs/status": true,
 }
 
 // hasOnlyValidResourceNames checks that every resource name in the rules is in the whitelist.
@@ -167,7 +147,7 @@ func hasOnlyValidResourceNames(rules []rbacRule) []string {
 
 // formatRules formats rules for readable error messages.
 func formatRules(rules []rbacRule) string {
-	var lines []string
+	lines := make([]string, 0, len(rules))
 	for _, rule := range rules {
 		lines = append(lines, fmt.Sprintf("  groups=%s resources=%s verbs=%s",
 			strings.Join(rule.Groups, ";"),
@@ -198,6 +178,7 @@ var _ = Describe("RBAC Rules", func() {
 			{"", "secrets", []string{"get", "create", "update", "delete"}},
 			{"", "services", []string{"get", "create", "update", "delete"}},
 			{"", "serviceaccounts", []string{"get", "create", "update", "delete"}},
+			{"", "pods", []string{"get", "list", "watch"}},
 			{"rbac.authorization.k8s.io", "roles", []string{"get", "create", "update", "delete"}},
 			{"rbac.authorization.k8s.io", "rolebindings", []string{"get", "create", "update", "delete"}},
 			{"networking.k8s.io", "ingresses", []string{"get", "create", "update", "delete"}},
@@ -272,9 +253,6 @@ var _ = Describe("RBAC Rules", func() {
 	}
 
 	for file, expectations := range controllerExpectations {
-		file := file
-		expectations := expectations
-
 		Context(fmt.Sprintf("in %s", file), func() {
 			var rules []rbacRule
 
