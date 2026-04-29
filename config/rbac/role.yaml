@@ -16,7 +16,6 @@ rules:
   - ""
   resources:
   - secrets
-  - serviceaccounts
   - services
   verbs:
   - create
@@ -24,7 +23,16 @@ rules:
   - get
   - list
   - patch
-  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - get
+  - list
+  - patch
   - watch
 - apiGroups:
   - apps
@@ -37,7 +45,6 @@ rules:
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - batch
@@ -100,10 +107,22 @@ rules:
   - iuts
   - logarea
   - providers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - etos.eiffel-community.github.io
+  resources:
   - testruns
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -119,7 +138,6 @@ rules:
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - rbac.authorization.k8s.io
@@ -128,9 +146,7 @@ rules:
   - roles
   verbs:
   - create
-  - delete
   - get
   - list
   - patch
-  - update
   - watch
