@@ -30,7 +30,7 @@ func DeployVerifyCluster() {
 	Context("Cluster", func() {
 		It("should be possible to deploy an ETOS cluster", func() {
 			By("deploying the sample Cluster")
-			cmd := exec.Command("kubectl", "create",
+			cmd := exec.Command("kubectl", "apply",
 				"-f", clusterSample,
 				"-n", clusterNamespace)
 			_, err := utils.Run(cmd)

@@ -43,6 +43,9 @@ var (
 	shouldCleanupCertManager = false
 	// shouldCleanupPrometheus tracks whether Prometheus was installed by this suite.
 	shouldCleanupPrometheus = false
+	// reuseCluster indicates if the cluster and controller should be reused across runs.
+	// Set E2E_REUSE=true to enable this behavior.
+	reuseCluster = os.Getenv("E2E_REUSE") == "true"
 )
 
 // TestE2E runs the e2e test suite to validate the solution in an isolated environment.
@@ -127,6 +130,10 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	if reuseCluster {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Skipping suite cleanup (E2E_REUSE=true)\n")
+		return
+	}
 	teardownCertManager()
 	teardownPrometheusOperator()
 })

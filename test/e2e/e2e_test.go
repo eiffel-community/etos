@@ -54,22 +54,36 @@ var _ = Describe("Manager", Ordered, func() {
 	// Before running the tests, set up the environment by creating the namespace,
 	// enforce the restricted security policy to the namespace, installing CRDs,
 	// and deploying the controller.
+	// When E2E_REUSE=true, idempotent commands are used so that existing resources
+	// are reused rather than requiring a fresh setup every time.
 	BeforeAll(func() {
+		if reuseCluster {
+			_, _ = fmt.Fprintf(GinkgoWriter, "E2E_REUSE=true: reusing existing cluster and controller if present\n")
+		}
+
 		By("creating manager namespace")
 		cmd := exec.Command("kubectl", "create", "ns", namespace)
-		_, err := utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to create namespace")
+		if _, err := utils.Run(cmd); err != nil {
+			// Namespace may already exist when reusing.
+			cmd = exec.Command("kubectl", "get", "ns", namespace)
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Manager namespace does not exist and could not be created")
+		}
 
 		By("labeling the namespace to enforce the restricted security policy")
 		cmd = exec.Command("kubectl", "label", "--overwrite", "ns", namespace,
 			"pod-security.kubernetes.io/enforce=restricted")
-		_, err = utils.Run(cmd)
+		_, err := utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to label namespace with restricted policy")
 
 		By("creating cluster namespace")
 		cmd = exec.Command("kubectl", "create", "ns", clusterNamespace)
-		_, err = utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to create namespace")
+		if _, err = utils.Run(cmd); err != nil {
+			// Namespace may already exist when reusing.
+			cmd = exec.Command("kubectl", "get", "ns", clusterNamespace)
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Cluster namespace does not exist and could not be created")
+		}
 
 		By("installing CRDs")
 		cmd = exec.Command("make", "install")
@@ -80,11 +94,41 @@ var _ = Describe("Manager", Ordered, func() {
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", managerImage))
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the controller-manager")
+
+		if reuseCluster {
+			By("waiting for controller-manager rollout to complete")
+			cmd = exec.Command("kubectl", "rollout", "status",
+				"deployment/etos-controller-manager", "-n", namespace, "--timeout=120s")
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Controller-manager rollout did not complete")
+
+			By("annotating the cluster to trigger reconciliation")
+			cmd = exec.Command("kubectl", "annotate", "cluster", clusterName,
+				"-n", clusterNamespace,
+				fmt.Sprintf("etos.eiffel-community.github.io/reconcile-trigger=%d", time.Now().Unix()),
+				"--overwrite")
+			// Ignore errors here — the cluster may not exist yet on first run.
+			_, _ = utils.Run(cmd)
+		}
 	})
 
 	// After all tests have been executed, clean up by undeploying the controller, uninstalling CRDs,
-	// and deleting the namespace.
+	// and deleting the namespace. When E2E_REUSE=true, the controller and cluster infrastructure
+	// are preserved so they can be reused in the next run.
 	AfterAll(func() {
+		if reuseCluster {
+			_, _ = fmt.Fprintf(GinkgoWriter, "E2E_REUSE=true: preserving cluster, controller, CRDs and namespaces\n")
+
+			By("cleaning up the curl-metrics pod to allow re-creation")
+			cmd := exec.Command("kubectl", "delete", "pod", "curl-metrics", "-n", namespace, "--ignore-not-found")
+			_, _ = utils.Run(cmd)
+
+			By("removing metrics clusterrolebinding to allow re-creation")
+			cmd = exec.Command("kubectl", "delete", "clusterrolebinding", metricsRoleBindingName, "--ignore-not-found")
+			_, _ = utils.Run(cmd)
+			return
+		}
+
 		By("cleaning up the etos cluster")
 		cmd := exec.Command("kubectl", "delete", "-n", clusterNamespace, "-f", clusterSample)
 		_, _ = utils.Run(cmd)
