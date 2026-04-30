@@ -185,7 +185,7 @@ var _ = Describe("RBAC Rules", func() {
 			{"networking.k8s.io", "ingresses", []string{"get", "create", "patch", "delete"}},
 		},
 		"testrun_controller.go": {
-			{"etos.eiffel-community.github.io", "testruns", []string{"get", "list", "watch", "create", "update", "delete"}},
+			{"etos.eiffel-community.github.io", "testruns", []string{"get", "list", "watch", "create", "update", "delete", "deletecollection"}},
 			{"etos.eiffel-community.github.io", "testruns/status", []string{"get", "update", "patch"}},
 			{"etos.eiffel-community.github.io", "testruns/finalizers", []string{"update"}},
 			{"etos.eiffel-community.github.io", "clusters", []string{"get"}},
