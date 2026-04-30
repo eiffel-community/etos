@@ -691,10 +691,18 @@ func (r *ETOSDeployment) role(name types.NamespacedName, labelName, clusterName 
 				APIGroups: []string{""},
 				Resources: []string{
 					"pods",
-					"secrets",
 				},
 				Verbs: []string{
 					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{
+					"secrets",
+				},
+				Verbs: []string{
+					"get",
 				},
 			},
 		},
