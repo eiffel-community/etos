@@ -788,9 +788,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 					RestartPolicy:                 "Never",
 					InitContainers: []corev1.Container{
 						{
-							Name:    "kubexit",
-							Image:   "karlkfi/kubexit:latest",
-							Command: []string{"cp", "/bin/kubexit", "/kubexit/kubexit"},
+							Name:            "kubexit",
+							Image:           "karlkfi/kubexit@sha256:db2dac0ab628d90cbdfd2a6827c14565d0230de57889c29108be111de45a6099",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Command:         []string{"cp", "/bin/kubexit", "/kubexit/kubexit"},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("64Mi"),
