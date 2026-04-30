@@ -173,13 +173,7 @@ var _ = Describe("RBAC Rules", func() {
 		"cluster_controller.go": {
 			{"etos.eiffel-community.github.io", "clusters", []string{"get", "list", "watch"}},
 			{"etos.eiffel-community.github.io", "clusters/status", []string{"get", "update", "patch"}},
-			{"etos.eiffel-community.github.io", "testruns", []string{"get", "list", "watch", "create", "delete", "deletecollection"}},
-			{"etos.eiffel-community.github.io", "providers", []string{"get", "list", "watch"}},
-			{"etos.eiffel-community.github.io", "environmentrequests", []string{"get", "list", "watch"}},
-			{"etos.eiffel-community.github.io", "environments", []string{"get", "list", "watch", "create", "delete"}},
-			{"etos.eiffel-community.github.io", "iuts", []string{"get", "list", "watch", "create", "delete"}},
-			{"etos.eiffel-community.github.io", "logarea", []string{"get", "list", "watch", "create", "delete"}},
-			{"etos.eiffel-community.github.io", "executionspaces", []string{"get", "list", "watch", "create", "delete"}},
+			{"etos.eiffel-community.github.io", "providers", []string{"get", "list", "watch", "create", "patch", "delete"}},
 			{"apps", "deployments", []string{"get", "create", "patch", "delete"}},
 			{"apps", "statefulsets", []string{"get", "create", "patch", "delete"}},
 			{"", "secrets", []string{"get", "create", "patch", "delete"}},
@@ -189,7 +183,6 @@ var _ = Describe("RBAC Rules", func() {
 			{"rbac.authorization.k8s.io", "roles", []string{"get", "create", "patch"}},
 			{"rbac.authorization.k8s.io", "rolebindings", []string{"get", "create", "patch"}},
 			{"networking.k8s.io", "ingresses", []string{"get", "create", "patch", "delete"}},
-			{"batch", "jobs", []string{"get", "list", "watch", "create", "delete"}},
 		},
 		"testrun_controller.go": {
 			{"etos.eiffel-community.github.io", "testruns", []string{"get", "list", "watch", "create", "update", "delete"}},
