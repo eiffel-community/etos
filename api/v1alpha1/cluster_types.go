@@ -296,6 +296,12 @@ type ETOSConfig struct {
 	// +kubebuilder:default="3600"
 	// +required
 	EnvironmentTimeout string `json:"environmentTimeout,omitempty"`
+	// TestResultTimeout describes the maximum time in seconds that test results are expected to
+	// be available. This value is used as the basis for etcd key TTLs in the IUT and execution
+	// space provider services. Defaults to 86400 seconds (24 hours) if not set.
+	// +kubebuilder:default="86400"
+	// +optional
+	TestResultTimeout string `json:"testResultTimeout,omitempty"`
 	// Source describes the source tag added to all Eiffel events sent by ETOS.
 	// +kubebuilder:default="ETOS"
 	// +required
