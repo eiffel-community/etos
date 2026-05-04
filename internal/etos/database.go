@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -62,15 +63,15 @@ func (r *ETCDDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cl
 		r.Etcd.Host = name
 	}
 
-	_, err := r.reconcileStatefulset(ctx, namespacedName, cluster)
-	if err != nil {
-		return err
-	}
-	_, err = r.reconcileService(ctx, namespacedName, cluster)
+	_, err := r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		return err
 	}
 	_, err = r.reconcileClientService(ctx, namespacedName, cluster)
+	if err != nil {
+		return err
+	}
+	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
 	if err != nil {
 		return err
 	}
@@ -94,12 +95,16 @@ func (r *ETCDDeployment) reconcileStatefulset(ctx context.Context, name types.Na
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
+			return target, readiness.NotReady(target.Name, "statefulset just created")
 		}
 		return target, nil
 	} else if !r.Deploy {
 		return nil, r.Delete(ctx, etcd)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(etcd))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(etcd)); err != nil {
+		return target, err
+	}
+	return target, readiness.StatefulSetReady(target)
 }
 
 // reconcileService will reconcile the ETCD service to its expected state.

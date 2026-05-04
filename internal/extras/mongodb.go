@@ -22,6 +22,7 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -84,14 +85,14 @@ func (r *MongoDBDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	}
 	r.SecretName = secret.Name
 
-	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
-	if err != nil {
-		logger.Error(err, "Failed to reconcile the MongoDB statefulset")
-		return err
-	}
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the MongoDB service")
+		return err
+	}
+	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the MongoDB statefulset")
 		return err
 	}
 
@@ -150,6 +151,7 @@ func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, name types
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
+			return target, readiness.NotReady(target.Name, "statefulset just created")
 		}
 		return mongodb, nil
 	} else if !r.Deploy {
@@ -162,7 +164,10 @@ func (r *MongoDBDeployment) reconcileStatefulset(ctx context.Context, name types
 		}
 		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(mongodb))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(mongodb)); err != nil {
+		return target, err
+	}
+	return target, readiness.StatefulSetReady(target)
 }
 
 // reconcileService will reconcile the MongoDB service to its expected state.

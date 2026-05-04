@@ -146,9 +146,19 @@ class Etos:
             except JSONDecodeError:
                 self.logger.info("Raw response from ETOS: %r", response.text)
                 response_json = {}
-            return None, response_json.get(
+            detail = response_json.get(
                 "detail", "Unknown error from ETOS, please contact ETOS support"
             )
+            if isinstance(detail, list):
+                # FastAPI 422 validation errors return detail as a list of dicts.
+                # Extract user-friendly messages from them.
+                detail = "; ".join(
+                    err.get("msg", str(err)) if isinstance(err, dict) else str(err)
+                    for err in detail
+                )
+            elif not isinstance(detail, str):
+                detail = str(detail)
+            return None, detail
         return self.start_response.from_response(response_json), None
 
     def __wait(self, response: ResponseSchema) -> Result:

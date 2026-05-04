@@ -78,7 +78,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// We don't check the availability of JSONTas as it is not yet running as a service we can check.
-	if provider.Spec.JSONTas == nil {
+	if provider.Spec.JSONTas == nil && provider.Spec.Image == "" {
 		logger.Info("Healthcheck", "endpoint", fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
 		resp, err := http.Get(fmt.Sprintf("%s/%s", provider.Spec.Host, provider.Spec.Healthcheck.Endpoint))
 		if err != nil {

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -68,14 +69,14 @@ func (r *RabbitMQDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha
 	}
 	r.SecretName = secret.Name
 
-	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
-	if err != nil {
-		logger.Error(err, "Failed to reconcile the RabbitMQ statefulset")
-		return err
-	}
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the RabbitMQ service")
+		return err
+	}
+	_, err = r.reconcileStatefulset(ctx, namespacedName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the RabbitMQ statefulset")
 		return err
 	}
 
@@ -132,6 +133,7 @@ func (r *RabbitMQDeployment) reconcileStatefulset(ctx context.Context, name type
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
+			return target, readiness.NotReady(target.Name, "statefulset just created")
 		}
 		return target, nil
 	} else if !r.Deploy {
@@ -144,7 +146,10 @@ func (r *RabbitMQDeployment) reconcileStatefulset(ctx context.Context, name type
 		}
 		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(rabbitmq)); err != nil {
+		return target, err
+	}
+	return target, readiness.StatefulSetReady(target)
 }
 
 // reconcileService will reconcile the RabbitMQ service to its expected state.
@@ -286,7 +291,7 @@ func (r *RabbitMQDeployment) volume(name types.NamespacedName) corev1.Volume {
 func (r *RabbitMQDeployment) container(name types.NamespacedName) corev1.Container {
 	return corev1.Container{
 		Name:  name.Name,
-		Image: "rabbitmq:latest",
+		Image: "rabbitmq:4.3.0",
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      fmt.Sprintf("%s-data", name.Name),

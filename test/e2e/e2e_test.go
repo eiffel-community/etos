@@ -35,14 +35,7 @@ const clusterName = "cluster-sample"
 const clusterSample = "config/samples/etos_v1alpha1_cluster.yaml"
 const testRunSample = "config/samples/etos_v1alpha1_testrun.yaml"
 const multiSuiteTestRunSample = "config/samples/etos_v1alpha1_testrun_multi_suite.yaml"
-const iutProviderSample = "config/samples/etos_v1alpha1_iut_provider.yaml"
-const executionSpaceProviderSample = "config/samples/etos_v1alpha1_execution_space_provider.yaml"
-const logAreaProviderSample = "config/samples/etos_v1alpha1_log_area_provider.yaml"
-
-const executionSpaceProviderKustomization = "testdata/executionspace"
-const iutProviderKustomization = "testdata/iut"
-
-const goer = "testdata/goer.yaml"
+const multiTestrunnerTestRunSample = "config/samples/etos_v1alpha1_testrun_multi_testrunner.yaml"
 
 const artifactID = "268dd4db-93da-4232-a544-bf4c0fb26dac"
 const artifactIdentity = "pkg:testrun/etos/eiffel_community"
@@ -82,16 +75,6 @@ var _ = Describe("Manager", Ordered, func() {
 		cmd = exec.Command("make", "install")
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
-
-		By("deploying the execution space provider")
-		cmd = exec.Command("kubectl", "create", "-k", executionSpaceProviderKustomization, "-n", clusterNamespace)
-		_, err = utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to install execution space provider")
-
-		By("deploying the IUT provider")
-		cmd = exec.Command("kubectl", "create", "-k", iutProviderKustomization, "-n", clusterNamespace)
-		_, err = utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to install IUT provider")
 
 		By("deploying the controller-manager")
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", managerImage))
@@ -174,24 +157,6 @@ var _ = Describe("Manager", Ordered, func() {
 				fmt.Println("Pod description:\n", podDescription)
 			} else {
 				fmt.Println("Failed to describe controller pod")
-			}
-
-			By("Fetching testrun description")
-			cmd = exec.Command("kubectl", "describe", "testruns", "-n", clusterNamespace)
-			testrunOutput, err := utils.Run(cmd)
-			if err == nil {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Testrun description:\n %s", testrunOutput)
-			} else {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get testrun description: %s", err)
-			}
-
-			By("Fetching testrun, environment and environmentrequests")
-			cmd = exec.Command("kubectl", "get", "testruns,environments,environmentrequests", "-n", clusterNamespace)
-			listOutput, err := utils.Run(cmd)
-			if err == nil {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Testruns, environments and environmentrequests:\n %s", listOutput)
-			} else {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get testruns, environments and environmentrequests: %s", err)
 			}
 		}
 	})

@@ -15,6 +15,10 @@
 // limitations under the License.
 package status
 
+import (
+	"fmt"
+)
+
 const (
 	StatusAvailable   = "Available"
 	StatusReady       = "Ready"
@@ -32,3 +36,14 @@ const (
 	ReasonTimedOut  = "DeadlineExceeded"
 	ReasonCompleted = "Completed"
 )
+
+// NotReadyError is returned by sub-reconcilers when their resources have been
+// reconciled successfully but the underlying pods are not yet ready.
+type NotReadyError struct {
+	Name    string
+	Message string
+}
+
+func (e *NotReadyError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Name, e.Message)
+}

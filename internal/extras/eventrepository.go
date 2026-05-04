@@ -17,6 +17,7 @@ package extras
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"net/url"
@@ -24,6 +25,7 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -74,11 +76,6 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 		configName = namespacedName.Name
 	}
 
-	_, err = r.reconcileDeployment(ctx, namespacedName, configName, cluster)
-	if err != nil {
-		logger.Error(err, "Failed to reconcile the EventRepository deployment")
-		return err
-	}
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the EventRepository service")
@@ -99,6 +96,12 @@ func (r *EventRepositoryDeployment) Reconcile(ctx context.Context, cluster *etos
 	} else if r.Host == "" {
 		r.Host = fmt.Sprintf("http://%s:%d/graphql", namespacedName.Name, graphqlPort)
 		logger.Info("Host for the EventRepository", "host", r.Host)
+	}
+
+	_, err = r.reconcileDeployment(ctx, namespacedName, configName, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the EventRepository deployment")
+		return err
 	}
 	return nil
 }
@@ -161,6 +164,7 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, nam
 			if err := r.Create(ctx, target); err != nil {
 				return target, err
 			}
+			return target, readiness.NotReady(target.Name, "deployment just created")
 		}
 		return target, nil
 	} else if !r.Deploy {
@@ -174,9 +178,12 @@ func (r *EventRepositoryDeployment) reconcileDeployment(ctx context.Context, nam
 		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	if !r.restartRequired && equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
-		return deployment, nil
+		return deployment, readiness.DeploymentReady(deployment)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
+		return target, err
+	}
+	return target, readiness.NotReady(target.Name, "deployment just updated")
 }
 
 // reconcileService will reconcile the event repository service to its expected state.
@@ -253,6 +260,12 @@ func (r *EventRepositoryDeployment) config(ctx context.Context, name types.Names
 	maps.Copy(data, etos.Data)
 	data["RABBITMQ_QUEUE"] = []byte(r.EiffelQueueName)
 	data["RABBITMQ_QUEUE_PARAMS"] = []byte(r.EiffelQueueParams)
+	var queueParams map[string]any
+	if err := json.Unmarshal([]byte(r.EiffelQueueParams), &queueParams); err == nil {
+		if durable, ok := queueParams["durable"].(bool); ok && durable {
+			data["RABBITMQ_DURABLE_QUEUE"] = []byte("true")
+		}
+	}
 	return &corev1.Secret{
 		ObjectMeta: r.meta(name, clusterName),
 		Data:       data,

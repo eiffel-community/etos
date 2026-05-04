@@ -418,8 +418,9 @@ spec:
                               conflicts between multiple log listeners.'
                             type: string
                           etosQueueParams:
+                            default: '{"durable": true}'
                             description: ETOSQueueParams are the parameters to use
-                              for the log listener queue. Defaults to empty.
+                              for the log listener queue.
                             type: string
                           image:
                             description: Image describes the docker image to run for
@@ -474,8 +475,9 @@ spec:
                           incoming Eiffel events. Defaults to "etos-suite-starter".'
                         type: string
                       eiffelQueueParams:
+                        default: '{"durable": true}'
                         description: EiffelQueueParams are the parameters to use for
-                          the suite starter queue. Defaults to empty.
+                          the suite starter queue.
                         type: string
                       image:
                         description: Image describes the docker image to run for a
@@ -544,8 +546,9 @@ spec:
                       the event repository. Defaults to "etos".
                     type: string
                   eiffelQueueParams:
+                    default: '{"durable": true}'
                     description: EiffelQueueParams are the parameters to use for the
-                      event repository queue. Defaults to empty.
+                      event repository queue.
                     type: string
                   host:
                     description: Host specifies the event repository API URL. Required
@@ -3444,6 +3447,18 @@ spec:
                 description: LogAreaProviderConfig describes the configuration for
                   a log area provider.
                 properties:
+                  custom:
+                    description: 'The configuration of a provider is very implementation-specific
+                      and we cannot give
+
+                      a perfectly generic configuration for all cases. The following
+                      field allows any
+
+                      data-structure to be added to this configuration and it is expected
+                      that providers
+
+                      can handle the data they require themselves.'
+                    x-kubernetes-preserve-unknown-fields: true
                   livelogs:
                     description: LiveLogs is a URI to where live logs of an execution
                       can be found.

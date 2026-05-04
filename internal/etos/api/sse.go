@@ -24,6 +24,7 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
+	"github.com/eiffel-community/etos/internal/readiness"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -71,11 +72,6 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 		logger.Error(err, "Failed to reconcile the config for the ETOS SSE")
 		return err
 	}
-	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.Name, cluster)
-	if err != nil {
-		logger.Error(err, "Failed to reconcile the deployment for the ETOS SSE")
-		return err
-	}
 
 	_, err = r.reconcileRole(ctx, namespacedName, cluster)
 	if err != nil {
@@ -95,6 +91,11 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 	_, err = r.reconcileService(ctx, namespacedName, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the service for the ETOS SSE")
+		return err
+	}
+	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.Name, cluster)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile the deployment for the ETOS SSE")
 		return err
 	}
 	return nil
@@ -149,7 +150,7 @@ func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, name types.
 		if err := r.Create(ctx, target); err != nil {
 			return target, err
 		}
-		return target, nil
+		return target, readiness.NotReady(target.Name, "deployment just created")
 	} else if r.restartRequired {
 		logger.Info("Configuration(s) have changed, restarting deployment")
 		if target.Spec.Template.Annotations == nil {
@@ -158,9 +159,12 @@ func (r *ETOSSSEDeployment) reconcileDeployment(ctx context.Context, name types.
 		target.Spec.Template.Annotations["etos.eiffel-community.github.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	}
 	if !r.restartRequired && equality.Semantic.DeepDerivative(target.Spec, deployment.Spec) {
-		return deployment, nil
+		return deployment, readiness.DeploymentReady(deployment)
 	}
-	return target, r.Patch(ctx, target, client.StrategicMergeFrom(deployment))
+	if err := r.Patch(ctx, target, client.StrategicMergeFrom(deployment)); err != nil {
+		return target, err
+	}
+	return target, readiness.NotReady(target.Name, "deployment just updated")
 }
 
 // reconcileRole will reconcile the ETOS SSE service account role to its expected state.
@@ -262,12 +266,12 @@ func (r *ETOSSSEDeployment) config(ctx context.Context, name types.NamespacedNam
 	rabbitmqURL := url.URL{}
 	if d, ok := etos.Data["ETOS_RABBITMQ_SSL"]; ok {
 		if string(d) == "true" {
-			rabbitmqURL.Scheme = "amqps"
+			rabbitmqURL.Scheme = "rabbitmq-stream+tls"
 		} else {
-			rabbitmqURL.Scheme = "amqp"
+			rabbitmqURL.Scheme = "rabbitmq-stream"
 		}
 	} else {
-		rabbitmqURL.Scheme = "amqp"
+		rabbitmqURL.Scheme = "rabbitmq-stream"
 	}
 	if d, ok := etos.Data["ETOS_RABBITMQ_USERNAME"]; ok {
 		rabbitmqURL.User = url.User(string(d))
