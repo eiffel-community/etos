@@ -261,8 +261,9 @@ func writeTerminationLog(
 	return nil
 }
 
-// toRFC1123 converts a string to a valid RFC1123 dns subdomain by replacing invalid characters
-// with hyphens, converting to lowercase and ensuring it doesn't exceed maxlen characters.
+// toRFC1123 converts a string to a valid RFC1123 dns subdomain (but with a variable length)
+// by replacing invalid characters with hyphens, converting to lowercase and ensuring it
+// doesn't exceed maxlen characters.
 func toRFC1123(s string, maxlen int) string {
 	s = strings.ToLower(s)
 
