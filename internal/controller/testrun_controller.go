@@ -171,21 +171,21 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // maybeAddTraceparentLabel checks if the traceparent label is already set on the TestRun, and if not, it adds it to
 // enable distributed tracing.
 func (r *TestRunReconciler) maybeAddTraceparentLabel(
-	ctx context.Context,
+	originalCtx context.Context,
 	testrun *etosv1alpha1.TestRun,
-) (context.Context, error) {
+) (ctx context.Context, err error) {
 	logger := logf.FromContext(ctx)
 	if _, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]; ok {
-		return ctx, nil
+		return originalCtx, nil
 	}
 	if r.Tracer == nil {
 		logger.Info("No tracer configured, skipping traceparent injection")
-		return ctx, nil
+		return originalCtx, nil
 	}
-	var err error
+	// var err error
 	logger.Info("Starting span for TestRun creation", "name", testrun.Name)
 	ctx, span := r.Tracer.Start(
-		ctx, "start-etos", trace.WithSpanKind(trace.SpanKindInternal),
+		originalCtx, "start-etos", trace.WithSpanKind(trace.SpanKindInternal),
 	)
 	defer func() {
 		err = r.Update(ctx, testrun)
