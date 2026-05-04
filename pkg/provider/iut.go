@@ -18,7 +18,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
@@ -124,7 +123,9 @@ func CreateIUT(
 
 	var generateName string
 	if name == "" {
-		generateName = toRFC1123(fmt.Sprintf("%s-iut-", strings.ToLower(environmentrequest.Spec.Name)))
+		// 253 is the maximum length for a name, and we need to reserve one character for the
+		// hyphen added by generateName, so we use 252 here.
+		generateName = fmt.Sprintf("%s-", toRFC1123(environmentrequest.Spec.Name, 252))
 	}
 
 	isController := false

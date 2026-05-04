@@ -42,6 +42,8 @@ var (
 	cli            client.Client
 	Scheme         = runtime.NewScheme()
 	terminationLog = "/dev/termination-log"
+
+	nonAlphanumerics = regexp.MustCompile(`[^a-z0-9]+`)
 )
 
 type AmountFunc func(context.Context, *v1alpha1.EnvironmentRequest) (int, error)
@@ -260,19 +262,17 @@ func writeTerminationLog(
 }
 
 // toRFC1123 converts a string to a valid RFC1123 dns subdomain by replacing invalid characters
-// with hyphens, converting to lowercase and ensuring it doesn't exceed 253 characters.
-func toRFC1123(s string) string {
+// with hyphens, converting to lowercase and ensuring it doesn't exceed maxlen characters.
+func toRFC1123(s string, maxlen int) string {
 	s = strings.ToLower(s)
 
 	// Replace any non-alphanumeric character with a hyphen
-	reg := regexp.MustCompile(`[^a-z0-9]+`)
-	s = reg.ReplaceAllString(s, "-")
-
+	s = nonAlphanumerics.ReplaceAllString(s, "-")
 	s = strings.Trim(s, "-")
 
 	// 253 characters is the maximum length for an RFC1123 resource name in Kubernetes
-	if len(s) > 253 {
-		s = s[:253]
+	if len(s) > maxlen {
+		s = s[:maxlen]
 	}
 
 	// Ensure it doesn't end with a hyphen after truncation

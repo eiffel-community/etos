@@ -87,7 +87,7 @@ func TestToRFC1123(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := toRFC1123(tt.input)
+			result := toRFC1123(tt.input, 253)
 			if result != tt.expected {
 				t.Errorf("toRFC1123(%q) = %q; expected %q", tt.input, result, tt.expected)
 			}
