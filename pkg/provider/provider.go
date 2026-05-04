@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -50,6 +52,8 @@ var (
 	cli            client.Client
 	Scheme         = runtime.NewScheme()
 	terminationLog = "/dev/termination-log"
+
+	nonAlphanumerics = regexp.MustCompile(`[^a-z0-9]+`)
 )
 
 type AmountFunc func(context.Context, *v1alpha1.EnvironmentRequest) (int, error)
@@ -434,4 +438,24 @@ func RunEnvironmentProvider(provider Provider) {
 		})); err != nil {
 		panic(err)
 	}
+}
+
+// toRFC1123 converts a string to a valid RFC1123 dns subdomain (but with a variable length)
+// by replacing invalid characters with hyphens, converting to lowercase and ensuring it
+// doesn't exceed maxlen characters.
+func toRFC1123(s string, maxlen int) string {
+	s = strings.ToLower(s)
+
+	// Replace any non-alphanumeric character with a hyphen
+	s = nonAlphanumerics.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+
+	if len(s) > maxlen {
+		s = s[:maxlen]
+	}
+
+	// Ensure it doesn't end with a hyphen after truncation
+	s = strings.TrimSuffix(s, "-")
+
+	return s
 }
