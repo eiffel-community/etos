@@ -126,6 +126,20 @@ type TestRunSpec struct {
 	// It is used to set batchesUri in the TERCC event.
 	// +optional
 	SuiteSource string `json:"suiteSource,omitempty"`
+
+	// Timeout is the maximum duration, in seconds, the testrun is allowed to take.
+	// If not set, defaults to 86400 (24 hours). If both Timeout and Deadline are set,
+	// Deadline takes precedence.
+	// +optional
+	// +kubebuilder:default=86400
+	Timeout int64 `json:"timeout,omitempty"`
+
+	// Deadline is the timestamp, in unix epoch seconds, by which the testrun
+	// must have completed. If the deadline is exceeded, the controller will fail
+	// the testrun. If not set, it is computed from Timeout at the start of the testrun.
+	// If both Timeout and Deadline are set, Deadline takes precedence.
+	// +optional
+	Deadline int64 `json:"deadline,omitempty"`
 }
 
 // TestRunStatus defines the observed state of TestRun
