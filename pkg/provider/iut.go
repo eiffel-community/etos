@@ -124,7 +124,7 @@ func CreateIUT(
 
 	var generateName string
 	if name == "" {
-		generateName = fmt.Sprintf("%s-iut-", strings.ToLower(environmentrequest.Spec.Name))
+		generateName = toRFC1123(fmt.Sprintf("%s-iut-", strings.ToLower(environmentrequest.Spec.Name)))
 	}
 
 	isController := false

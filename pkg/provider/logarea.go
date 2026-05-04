@@ -121,7 +121,7 @@ func CreateLogArea(
 
 	var generateName string
 	if name == "" {
-		generateName = fmt.Sprintf("%s-log-area-", strings.ToLower(environmentrequest.Spec.Name))
+		generateName = toRFC1123(fmt.Sprintf("%s-log-area-", strings.ToLower(environmentrequest.Spec.Name)))
 	}
 
 	isController := false

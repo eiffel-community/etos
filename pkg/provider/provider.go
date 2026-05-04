@@ -22,6 +22,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
@@ -255,4 +257,26 @@ func writeTerminationLog(
 		return err
 	}
 	return nil
+}
+
+// toRFC1123 converts a string to a valid RFC1123 dns subdomain by replacing invalid characters
+// with hyphens, converting to lowercase and ensuring it doesn't exceed 253 characters.
+func toRFC1123(s string) string {
+	s = strings.ToLower(s)
+
+	// Replace any non-alphanumeric character with a hyphen
+	reg := regexp.MustCompile(`[^a-z0-9]+`)
+	s = reg.ReplaceAllString(s, "-")
+
+	s = strings.Trim(s, "-")
+
+	// 253 characters is the maximum length for an RFC1123 resource name in Kubernetes
+	if len(s) > 253 {
+		s = s[:253]
+	}
+
+	// Ensure it doesn't end with a hyphen after truncation
+	s = strings.TrimSuffix(s, "-")
+
+	return s
 }
