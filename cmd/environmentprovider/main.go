@@ -87,11 +87,38 @@ func (p *environmentProvider) Provision(ctx context.Context, cfg provider.Provis
 	for _, test := range environmentRequest.Spec.Splitter.Tests {
 		split.AddTest(test)
 	}
-	tests := split.Split()
+	if err := p.createEnvironments(
+		ctx,
+		cfg,
+		maxPossible,
+		split.Split(),
+		environmentRequest,
+		iuts,
+		logAreas,
+		executionSpaces,
+	); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create environments")
+		return err
+	}
+	span.SetStatus(codes.Ok, "successfully provisioned environment(s)")
+	return nil
+}
 
-	ctx, span = cfg.Tracer.Start(ctx, "CreateEnvironments", trace.WithSpanKind(trace.SpanKindInternal))
+// createEnvironments creates the Environment resources in Kubernetes.
+func (p *environmentProvider) createEnvironments(
+	ctx context.Context,
+	cfg provider.ProvisionConfig,
+	maxPossible int,
+	tests [][]v1alpha1.Test,
+	environmentRequest *v1alpha1.EnvironmentRequest,
+	iuts v1alpha2.IutList,
+	logAreas v1alpha2.LogAreaList,
+	executionSpaces v1alpha2.ExecutionSpaceList,
+) error {
+	ctx, span := cfg.Tracer.Start(ctx, "CreateEnvironments", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
-	logger = logging.FromContextOrDiscard(ctx)
+	logger := logging.FromContextOrDiscard(ctx)
 
 	for i := range maxPossible {
 		logArea := logAreas.Items[i]
