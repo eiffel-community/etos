@@ -120,9 +120,9 @@ func CreateLogArea(
 
 	var generateName string
 	if name == "" {
-		// 253 is the maximum length for a name, and we need to reserve one character for the
-		// hyphen added by generateName, so we use 252 here.
-		generateName = fmt.Sprintf("%s-", toRFC1123(environmentrequest.Spec.Name, 252))
+		// 63 is the maximum length for generateName, and we need to reserve one character for the
+		// hyphen added by generateName, so we use 62 here.
+		generateName = fmt.Sprintf("%s-", toRFC1123(environmentrequest.Spec.Name, 62))
 	}
 
 	isController := false

@@ -270,7 +270,6 @@ func toRFC1123(s string, maxlen int) string {
 	s = nonAlphanumerics.ReplaceAllString(s, "-")
 	s = strings.Trim(s, "-")
 
-	// 253 characters is the maximum length for an RFC1123 resource name in Kubernetes
 	if len(s) > maxlen {
 		s = s[:maxlen]
 	}

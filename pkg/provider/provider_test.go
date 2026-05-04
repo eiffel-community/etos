@@ -35,7 +35,7 @@ func TestToRFC1123(t *testing.T) {
 		},
 		{
 			name:     "input with uppercase letters",
-			input:    "My-IUT",
+			input:    "My----IUT",
 			expected: "my-iut",
 		},
 		{
@@ -45,7 +45,7 @@ func TestToRFC1123(t *testing.T) {
 		},
 		{
 			name:     "input with leading and trailing hyphens",
-			input:    "-my-iut-",
+			input:    "-my-iut--",
 			expected: "my-iut",
 		},
 		{
@@ -69,9 +69,9 @@ func TestToRFC1123(t *testing.T) {
 			expected: "myiutname",
 		},
 		{
-			name:     "input exceeding 253 characters",
-			input:    strings.Repeat("a", 255),
-			expected: strings.Repeat("a", 253),
+			name:     "input exceeding 63 characters",
+			input:    strings.Repeat("a", 65),
+			expected: strings.Repeat("a", 63),
 		},
 		{
 			name:     "input single word",
@@ -87,7 +87,7 @@ func TestToRFC1123(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := toRFC1123(tt.input, 253)
+			result := toRFC1123(tt.input, 63)
 			if result != tt.expected {
 				t.Errorf("toRFC1123(%q) = %q; expected %q", tt.input, result, tt.expected)
 			}
