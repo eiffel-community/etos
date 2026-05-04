@@ -174,7 +174,7 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 	originalCtx context.Context,
 	testrun *etosv1alpha1.TestRun,
 ) (ctx context.Context, err error) {
-	logger := logf.FromContext(ctx)
+	logger := logf.FromContext(originalCtx)
 	if _, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]; ok {
 		return originalCtx, nil
 	}
@@ -182,7 +182,6 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 		logger.Info("No tracer configured, skipping traceparent injection")
 		return originalCtx, nil
 	}
-	// var err error
 	logger.Info("Starting span for TestRun creation", "name", testrun.Name)
 	ctx, span := r.Tracer.Start(
 		originalCtx, "start-etos", trace.WithSpanKind(trace.SpanKindInternal),
