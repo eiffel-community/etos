@@ -21,8 +21,11 @@ import (
 	"fmt"
 
 	"github.com/eiffel-community/etos/api/v1alpha2"
+	"github.com/eiffel-community/etos/pkg/logging"
+	"github.com/eiffel-community/etos/pkg/opentelemetry/semconv"
 	"github.com/eiffel-community/etos/pkg/provider"
-	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type genericLogAreaProvider struct{}
@@ -36,48 +39,100 @@ func main() {
 func (p *genericLogAreaProvider) Provision(
 	ctx context.Context, cfg provider.ProvisionConfig,
 ) error {
-	logger := logr.FromContextOrDiscard(ctx)
+	ctx, span := cfg.Tracer.Start(ctx, "Provision", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+
+	logger := logging.FromContextOrDiscard(ctx)
+
 	environmentRequest := cfg.EnvironmentRequest
 	if cfg.MinimumAmount <= 0 {
-		return errors.New("minimum amount of LogAreas requested is less than or equal to 0")
+		err := errors.New("minimum amount of LogAreas requested is less than or equal to 0")
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "invalid minimum amount of LogAreas requested")
+		return err
 	}
 	logger.Info("Provisioning a new LogArea for EnvironmentRequest",
 		"EnvironmentRequest", environmentRequest.Name,
 		"Namespace", environmentRequest.Namespace,
 		"Amount", cfg.MinimumAmount,
 	)
-	logAreaProvider, err := provider.GetProvider(ctx, environmentRequest.Spec.Providers.LogArea.ID, cfg.Namespace)
+	if err := p.createLogAreas(ctx, cfg); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to create LogAreas")
+		return err
+	}
+	span.SetStatus(codes.Ok, "successfully provisioned LogAreas")
+	return nil
+}
+
+// createLogAreas creates the specified number of LogAreas for an EnvironmentRequest.
+func (p *genericLogAreaProvider) createLogAreas(
+	ctx context.Context, cfg provider.ProvisionConfig,
+) error {
+	logger := logging.FromContextOrDiscard(ctx)
+	ctx, span := cfg.Tracer.Start(ctx, "CreateLogAreas", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+
+	logAreaProvider, err := provider.GetProvider(ctx, cfg.EnvironmentRequest.Spec.Providers.LogArea.ID, cfg.Namespace)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get LogAreaProvider")
 		return err
 	}
 	if logAreaProvider.Spec.LogAreaProviderConfig == nil {
-		return fmt.Errorf("%s has no LogAreaProviderConfig", logAreaProvider.Name)
+		err := fmt.Errorf("%s has no LogAreaProviderConfig", logAreaProvider.Name)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "LogAreaProvider has no LogAreaProviderConfig")
+		return err
 	}
+
+	span.SetAttributes(
+		semconv.ETOSLogAreaProviderLiveLogs(logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs),
+		semconv.ETOSLogAreaProviderLogAreaUploadURL(logAreaProvider.Spec.LogAreaProviderConfig.Upload.URL),
+	)
+
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic LogArea")
-		if _, err := provider.CreateLogArea(ctx, environmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
+		logger.V(1).Info(fmt.Sprintf("Logs will be uploaded to %s", logAreaProvider.Spec.LogAreaProviderConfig.Upload.URL))
+		logarea, err := provider.CreateLogArea(ctx, cfg.EnvironmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
 			LiveLogs: logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs,
 			Logs:     map[string]string{},
 			Upload:   logAreaProvider.Spec.LogAreaProviderConfig.Upload,
-		}); err != nil {
+		})
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to create LogArea")
 			return err
 		}
-		logger.Info("LogArea created")
+		logger.Info(fmt.Sprintf("LogArea created with name %s", logarea.Name))
 	}
 	return nil
 }
 
 // Release releases a LogArea.
 func (p *genericLogAreaProvider) Release(ctx context.Context, cfg provider.ReleaseConfig) error {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Releasing LogArea", "Name", cfg.Name, "Namespace", cfg.Namespace)
+	ctx, span := cfg.Tracer.Start(ctx, "Release", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+
+	logger := logging.FromContextOrDiscard(ctx)
+
+	logger.Info(fmt.Sprintf("Releasing LogArea with name %s", cfg.Name), "Namespace", cfg.Namespace)
 	logArea, err := provider.GetLogArea(ctx, cfg.Name, cfg.Namespace)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to get LogArea")
 		return err
 	}
-	logger.Info("LogArea", "name", logArea.Name)
 	if cfg.NoDelete {
+		span.SetStatus(codes.Ok, "no-delete flag is set, not deleting LogArea")
 		return nil
 	}
-	return provider.DeleteLogArea(ctx, logArea)
+	if err := provider.DeleteLogArea(ctx, logArea); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to delete LogArea")
+		return err
+	}
+	logger.Info(fmt.Sprintf("LogArea '%s' released", cfg.Name))
+	span.SetStatus(codes.Ok, "successfully released LogArea")
+	return nil
 }

@@ -33,19 +33,7 @@ import (
 //
 // This function panics on errors, propagating errors back to the controller that executed it.
 func RunLogAreaProvider(provider Provider) {
-	params := ParseParameters()
-	params.providerType = "LogArea"
-	params.amountFunc = GetIUTCount
-
-	ctx := context.TODO()
-	logger := params.logger.WithValues(
-		"providerType", params.providerType,
-		"environmentRequest", params.environmentRequestName,
-		"namespace", params.namespace,
-		"providerName", params.providerName,
-	)
-	ctx = logr.NewContext(ctx, logger)
-	if err := writeTerminationLog(ctx, runProvider, provider, params); err != nil {
+	if err := run(provider, ParseParameters("LogArea", GetIUTCount)); err != nil {
 		panic(err)
 	}
 }

@@ -24,6 +24,11 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/baggage"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -56,6 +61,7 @@ type TestRunReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Clock
+	Tracer trace.Tracer
 }
 
 /*
@@ -100,6 +106,13 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Error getting testrun")
+		return ctrl.Result{}, err
+	}
+	// When creating a TestRun via the TestRun resource without ETOS API, the 'start-etos' span is not created,
+	// this call ensures that the 'start-etos' span gets created so that we get fully functional traces.
+	// Requires the controller to have the 'OTEL_EXPORTER_OTLP_ENDPOINT' set to export spans to a collector.
+	ctx, err := r.maybeAddTraceparentLabel(ctx, testrun)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -155,6 +168,68 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
+// maybeAddTraceparentLabel checks if the traceparent label is already set on the TestRun, and if not, it adds it to
+// enable distributed tracing.
+func (r *TestRunReconciler) maybeAddTraceparentLabel(
+	originalCtx context.Context,
+	testrun *etosv1alpha1.TestRun,
+) (ctx context.Context, err error) {
+	logger := logf.FromContext(originalCtx)
+	if _, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]; ok {
+		return originalCtx, nil
+	}
+	if r.Tracer == nil {
+		logger.Info("No tracer configured, skipping traceparent injection")
+		return originalCtx, nil
+	}
+	logger.Info("Starting span for TestRun creation", "name", testrun.Name)
+	ctx, span := r.Tracer.Start(
+		originalCtx, "start-etos", trace.WithSpanKind(trace.SpanKindInternal),
+	)
+	defer func() {
+		err = r.Update(ctx, testrun)
+		if err == nil {
+			// Only end the span if we successfully updated the TestRun with the traceparent annotation.
+			span.End()
+		}
+	}()
+	span.SetAttributes(
+		attribute.String("etos.id", testrun.Spec.ID),
+		attribute.String("etos.cluster", testrun.Spec.Cluster),
+		attribute.String("etos.artifact.id", testrun.Spec.Artifact),
+		attribute.String("etos.artifact.identity", testrun.Spec.Identity),
+	)
+
+	metadata := map[string]string{}
+	otel.GetTextMapPropagator().Inject(ctx, propagation.MapCarrier(metadata))
+	b := baggage.FromContext(ctx)
+
+	b, err = b.SetMember(testRunIDMemberOrDie(testrun))
+	if err != nil {
+		logger.Error(err, "Failed to set baggage member for TestRun ID", "id", testrun.Spec.ID)
+	}
+	b, err = b.SetMember(artifactIDMemberOrDie(testrun.Spec.Artifact))
+	if err != nil {
+		logger.Error(err, "Failed to set baggage member for Artifact ID", "id", testrun.Spec.Artifact)
+	}
+	b, err = b.SetMember(clusterMemberOrDie(testrun.Spec.Cluster))
+	if err != nil {
+		logger.Error(err, "Failed to set baggage member for Cluster", "name", testrun.Spec.Cluster)
+	}
+
+	if testrun.Annotations == nil {
+		testrun.Annotations = map[string]string{}
+	}
+	testrun.Annotations["etos.eiffel-community.github.io/traceparent"] = metadata["traceparent"]
+	testrun.Annotations["etos.eiffel-community.github.io/tracestate"] = metadata["tracestate"]
+	testrun.Annotations["etos.eiffel-community.github.io/baggage"] = b.String()
+	logger.Info("Added traceparent, tracestate and baggage labels to TestRun",
+		"traceparent", metadata["traceparent"],
+		"tracestate", metadata["tracestate"],
+		"baggage", metadata["baggage"],
+	)
+	return ctx, err
+}
 func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun) error {
 	// Check providers availability
 	if err := checkProviders(ctx, r, testrun.Namespace, testrun.Spec.Providers); err != nil {
@@ -598,9 +673,13 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrun
 	if ok {
 		annotations["etos.eiffel-community.github.io/traceparent"] = traceparent
 	}
-	baggage, ok := testrun.Annotations["etos.eiffel-community.github.io/baggage"]
+	tracestate, ok := testrun.Annotations["etos.eiffel-community.github.io/tracestate"]
 	if ok {
-		annotations["etos.eiffel-community.github.io/baggage"] = baggage
+		annotations["etos.eiffel-community.github.io/tracestate"] = tracestate
+	}
+	b, ok := testrun.Annotations["etos.eiffel-community.github.io/baggage"]
+	if ok {
+		annotations["etos.eiffel-community.github.io/baggage"] = b
 	}
 	// Using ParseInt directly instead of Atoi since Atoi returns int, not int64
 	environmentTimeout, err := strconv.ParseInt(cluster.Spec.ETOS.Config.EnvironmentTimeout, 10, 0)
@@ -1078,4 +1157,34 @@ func (r *TestRunReconciler) findTestrunsForProvider(ctx context.Context, provide
 		}
 	}
 	return requests
+}
+
+// testRunIDMemberOrDie creates a baggage member for the TestRun ID, which can be used for distributed tracing.
+// If the member cannot be created, it logs the error and panics.
+func testRunIDMemberOrDie(testrun *etosv1alpha1.TestRun) baggage.Member {
+	member, err := baggage.NewMemberRaw("testrun_id", testrun.Spec.ID)
+	if err != nil {
+		panic(err)
+	}
+	return member
+}
+
+// artifactIDMemberOrDie creates a baggage member for the artifact ID, which can be used for distributed tracing.
+// If the member cannot be created, it logs the error and panics.
+func artifactIDMemberOrDie(artifactID string) baggage.Member {
+	member, err := baggage.NewMemberRaw("artifact_id", artifactID)
+	if err != nil {
+		panic(err)
+	}
+	return member
+}
+
+// clusterMemberOrDie creates a baggage member for the cluster name, which can be used for distributed tracing.
+// If the member cannot be created, it logs the error and panics.
+func clusterMemberOrDie(cluster string) baggage.Member {
+	member, err := baggage.NewMemberRaw("etos_cluster", cluster)
+	if err != nil {
+		panic(err)
+	}
+	return member
 }
