@@ -152,19 +152,6 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	// Compute deadline from timeout if not explicitly set.
-	// This runs once: after the deadline is persisted it won't be recomputed.
-	if testrun.Spec.Deadline == 0 {
-		timeout := testrun.Spec.Timeout
-		if timeout <= 0 {
-			timeout = 86400
-		}
-		testrun.Spec.Deadline = r.Now().Unix() + timeout
-		if err := r.Update(ctx, testrun); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// Check deadline and fail the testrun if exceeded.
 	if testrun.Spec.Deadline != 0 {
 		convertedDeadline := time.Unix(testrun.Spec.Deadline, 0)

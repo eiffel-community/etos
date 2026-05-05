@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -147,6 +148,12 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alp
 		testrunlog.Info("Adding ETOS test run ID label", "id", testrun.Spec.ID)
 		testrun.Labels["etos.eiffel-community.github.io/id"] = testrun.Spec.ID
 	}
+
+	// Compute deadline from timeout if not explicitly set.
+	if testrun.Spec.Deadline == 0 {
+		testrun.Spec.Deadline = time.Now().Unix() + testrun.Spec.Timeout
+	}
+
 	testrunlog.Info("Defaulting webhook has finished")
 
 	return nil
