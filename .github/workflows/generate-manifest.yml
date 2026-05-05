@@ -4,11 +4,12 @@ on:
   push:
     branches:
       - main
-  workflow_run:
-    workflows: ["Update default ETOS versions"]
-    types:
-      - completed
   workflow_dispatch:
+
+# Setting concurrency to ensure that only one rebase workflow runs at a time.
+concurrency:
+  group: commit-to-repo
+  cancel-in-progress: false
 
 env:
   MAIN_BRANCH: main
