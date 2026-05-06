@@ -102,7 +102,11 @@ func newRabbitMQStreamPublisher(
 	if config.SSL == "true" {
 		scheme = "amqps"
 	}
-	address := fmt.Sprintf("%s://%s:%s@%s:%s%s",
+	if config.Vhost == "/" {
+		// Avoid having double slashes for the vhost in the following url.
+		config.Vhost = ""
+	}
+	address := fmt.Sprintf("%s://%s:%s@%s:%s/%s",
 		scheme,
 		config.Username,
 		password,
