@@ -114,9 +114,6 @@ var _ = BeforeSuite(func() {
 	err = SetupTestRunWebhookWithManager(mgr, cfg)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = SetupProviderWebhookWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
 	err = SetupEnvironmentRequestWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
