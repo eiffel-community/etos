@@ -17,6 +17,7 @@ package messaging
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"strings"
@@ -100,7 +101,7 @@ func newRabbitMQStreamPublisher(
 	}
 	scheme := "amqp"
 	if config.SSL == "true" {
-		scheme = "amqps"
+		scheme = "rabbitmq-stream+tls"
 	}
 	address := fmt.Sprintf("%s://%s:%s@%s:%s%s",
 		scheme,
@@ -111,6 +112,9 @@ func newRabbitMQStreamPublisher(
 		config.Vhost,
 	)
 	environmentOptions := stream.NewEnvironmentOptions().SetMaxProducersPerClient(1).SetUri(address)
+	if config.SSL == "true" {
+		environmentOptions = environmentOptions.SetTLSConfig(&tls.Config{ServerName: config.Host})
+	}
 	env, err := stream.NewEnvironment(environmentOptions)
 	if err != nil {
 		return nil, err
