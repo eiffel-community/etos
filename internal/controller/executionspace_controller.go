@@ -47,6 +47,10 @@ type ExecutionSpaceReconciler struct {
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=executionspaces,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=executionspaces/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=executionspaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=providers,verbs=get
+// +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests,verbs=get
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
