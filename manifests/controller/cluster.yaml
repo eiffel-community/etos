@@ -4345,16 +4345,39 @@ metadata:
   name: etos-manager-role
 rules:
 - apiGroups:
-  - '*'
+  - ''
   resources:
-  - configmaps
-  - deployments
-  - ingresses
-  - rolebindings
-  - roles
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
   - secrets
-  - serviceaccounts
   - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
   - statefulsets
   verbs:
   - create
@@ -4362,24 +4385,6 @@ rules:
   - get
   - list
   - patch
-  - update
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - jobs
-  verbs:
-  - delete
-  - get
-  - list
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
   - watch
 - apiGroups:
   - batch
@@ -4401,19 +4406,9 @@ rules:
   - etos.eiffel-community.github.io
   resources:
   - clusters
-  - environmentrequests
-  - environments
-  - executionspaces
-  - iuts
-  - logarea
-  - providers
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - etos.eiffel-community.github.io
@@ -4446,9 +4441,20 @@ rules:
 - apiGroups:
   - etos.eiffel-community.github.io
   resources:
-  - environmentsrequests/status
+  - environmentrequests
+  - environments
+  - executionspaces
+  - iuts
+  - logarea
+  - providers
   verbs:
+  - create
+  - delete
   - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - etos.eiffel-community.github.io
   resources:
@@ -4461,6 +4467,28 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - get
+  - list
+  - patch
   - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
