@@ -165,6 +165,26 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	// Check deadline and fail the testrun if exceeded.
+	if testrun.Spec.Deadline != 0 {
+		convertedDeadline := time.Unix(testrun.Spec.Deadline, 0)
+		if r.Now().After(convertedDeadline) {
+			logger.Info("Testrun deadline exceeded", "deadline", convertedDeadline)
+			if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{
+				Type:    status.StatusActive,
+				Status:  metav1.ConditionFalse,
+				Reason:  status.ReasonTimedOut,
+				Message: fmt.Sprintf("Testrun deadline of %s exceeded", convertedDeadline),
+			}) {
+				now := metav1.Now()
+				testrun.Status.CompletionTime = &now
+				return ctrl.Result{}, r.Status().Update(ctx, testrun)
+			}
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{RequeueAfter: time.Until(convertedDeadline)}, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 

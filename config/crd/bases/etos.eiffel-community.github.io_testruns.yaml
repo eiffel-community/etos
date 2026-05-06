@@ -69,6 +69,14 @@ spec:
               cluster:
                 description: Name of the ETOS cluster to execute the testrun in.
                 type: string
+              deadline:
+                description: |-
+                  Deadline is the timestamp, in unix epoch seconds, by which the testrun
+                  must have completed. If the deadline is exceeded, the controller will fail
+                  the testrun. If not set, it is computed from Timeout at the start of the testrun.
+                  If both Timeout and Deadline are set, Deadline takes precedence.
+                format: int64
+                type: integer
               environmentProvider:
                 properties:
                   image:
@@ -230,6 +238,14 @@ spec:
                 required:
                 - version
                 type: object
+              timeout:
+                default: 86400
+                description: |-
+                  Timeout is the maximum duration, in seconds, the testrun is allowed to take.
+                  If not set, defaults to 86400 (24 hours). If both Timeout and Deadline are set,
+                  Deadline takes precedence.
+                format: int64
+                type: integer
             required:
             - artifact
             - identity
