@@ -19,7 +19,7 @@ import json
 from typing import Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, ValidationInfo, field_validator
+from pydantic import BaseModel, ValidationInfo, field_validator, model_validator
 
 
 class RequestSchema(BaseModel):
@@ -33,6 +33,8 @@ class RequestSchema(BaseModel):
     execution_space_provider: Optional[str] = "default"
     iut_provider: Optional[str] = "default"
     log_area_provider: Optional[str] = "default"
+    timeout: Optional[int] = None
+    deadline: Optional[int] = None
 
     @classmethod
     def from_args(cls, args: dict) -> "RequestSchema":
@@ -74,3 +76,26 @@ class RequestSchema(BaseModel):
         if len(dataset) == 1:
             return json.loads(dataset[0])
         return [json.loads(data) for data in dataset]
+
+    @model_validator(mode="after")
+    def extract_timeout_and_deadline_from_dataset(self) -> "RequestSchema":
+        """Extract timeout and deadline from dataset dicts and set them as top-level fields.
+
+        The timeout and deadline keys are removed from the dataset dicts so they
+        are not forwarded to the environment provider. Only one of timeout or
+        deadline may be set.
+
+        :return: The validated model.
+        :rtype: RequestSchema
+        """
+        # dataset_list_trimming may return a dict (single dataset) or list[dict]
+        items = self.dataset if isinstance(self.dataset, list) else [self.dataset]
+        for data in items:
+            if isinstance(data, dict):
+                if "timeout" in data:
+                    self.timeout = int(data.pop("timeout"))
+                if "deadline" in data:
+                    self.deadline = int(data.pop("deadline"))
+        if self.timeout is not None and self.deadline is not None:
+            raise ValueError("Only one of 'timeout' or 'deadline' can be set, not both.")
+        return self
