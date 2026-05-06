@@ -136,9 +136,9 @@ var _ = Describe("Manager", Ordered, func() {
 			cmd = exec.Command("kubectl", "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
 			eventsOutput, err := utils.Run(cmd)
 			if err == nil {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Kubernetes events:\n%s", eventsOutput)
+				_, _ = fmt.Fprintf(GinkgoWriter, "Kubernetes events in %s:\n%s", namespace, eventsOutput)
 			} else {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get Kubernetes events: %s", err)
+				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get Kubernetes events from %s: %s", namespace, err)
 			}
 
 			By("Fetching curl-metrics logs")
