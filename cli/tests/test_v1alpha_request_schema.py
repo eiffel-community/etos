@@ -13,13 +13,28 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for the v1alpha RequestSchema, specifically timeout/deadline extraction."""
-
-import json
+"""Tests for the v1alpha RequestSchema timeout/deadline support."""
 
 import pytest
 
 from etos_client.etos.v1alpha.schema.request import RequestSchema
+
+
+def _make_args(**overrides):
+    """Create a minimal args dict mimicking docopt output, allowing overrides."""
+    defaults = {
+        "--identity": "12345678-1234-4321-abcd-123456789abc",
+        "--parent-activity": None,
+        "--test-suite": "http://example.com/suite.yaml",
+        "--dataset": [],
+        "--execution-space-provider": "default",
+        "--iut-provider": "default",
+        "--log-area-provider": "default",
+        "--timeout": None,
+        "--deadline": None,
+    }
+    defaults.update(overrides)
+    return defaults
 
 
 def _make_request(**kwargs):
@@ -38,84 +53,59 @@ def _make_request(**kwargs):
     return RequestSchema(**defaults)
 
 
-class TestTimeoutDeadlineExtraction:
-    """Test that timeout and deadline are extracted from the dataset."""
+class TestTimeoutDeadlineFlags:
+    """Test that timeout and deadline CLI flags work correctly."""
 
-    def test_timeout_extracted_from_dataset(self):
-        """Test that timeout is extracted from dataset and set on the model."""
-        request = _make_request(dataset=[json.dumps({"timeout": 3600})])
+    def test_timeout_from_args(self):
+        """Test that --timeout flag is passed through from_args."""
+        args = _make_args(**{"--timeout": "3600"})
+        request = RequestSchema.from_args(args)
         assert request.timeout == 3600
         assert request.deadline is None
-        # timeout should be removed from the dataset dict
-        ds = request.dataset if isinstance(request.dataset, list) else [request.dataset]
-        for data in ds:
-            assert "timeout" not in data
 
-    def test_deadline_extracted_from_dataset(self):
-        """Test that deadline is extracted from dataset and set on the model."""
-        request = _make_request(dataset=[json.dumps({"deadline": 1749200000})])
+    def test_deadline_from_args(self):
+        """Test that --deadline flag is passed through from_args."""
+        args = _make_args(**{"--deadline": "1749200000"})
+        request = RequestSchema.from_args(args)
         assert request.deadline == 1749200000
         assert request.timeout is None
-        ds = request.dataset if isinstance(request.dataset, list) else [request.dataset]
-        for data in ds:
-            assert "deadline" not in data
 
     def test_timeout_and_deadline_raises(self):
         """Test that setting both timeout and deadline raises an error."""
         with pytest.raises(ValueError, match="Only one of 'timeout' or 'deadline'"):
-            _make_request(dataset=[json.dumps({"timeout": 3600, "deadline": 1749200000})])
+            _make_request(timeout=3600, deadline=1749200000)
 
-    def test_no_timeout_or_deadline(self):
-        """Test that neither timeout nor deadline is set when not in dataset."""
-        request = _make_request(dataset=[json.dumps({"some_key": "some_value"})])
+    def test_neither_timeout_nor_deadline(self):
+        """Test that neither is set when not provided."""
+        args = _make_args()
+        request = RequestSchema.from_args(args)
         assert request.timeout is None
         assert request.deadline is None
-
-    def test_timeout_with_other_dataset_keys(self):
-        """Test that other dataset keys are preserved when timeout is extracted."""
-        request = _make_request(
-            dataset=[json.dumps({"timeout": 7200, "pool": "mypool", "count": 2})]
-        )
-        assert request.timeout == 7200
-        # Single dataset element is stored as a dict after validation
-        ds = request.dataset if isinstance(request.dataset, dict) else request.dataset[0]
-        assert ds == {"pool": "mypool", "count": 2}
-
-    def test_empty_dataset(self):
-        """Test that empty dataset works with no timeout/deadline."""
-        request = _make_request(dataset=None)
-        assert request.timeout is None
-        assert request.deadline is None
-        assert request.dataset == [{}]
 
     def test_timeout_included_in_model_dump(self):
         """Test that timeout appears in model_dump for API requests."""
-        request = _make_request(dataset=[json.dumps({"timeout": 1800})])
+        request = _make_request(timeout=1800)
         dumped = request.model_dump()
         assert dumped["timeout"] == 1800
         assert dumped["deadline"] is None
 
     def test_deadline_included_in_model_dump(self):
         """Test that deadline appears in model_dump for API requests."""
-        request = _make_request(dataset=[json.dumps({"deadline": 1749200000})])
+        request = _make_request(deadline=1749200000)
         dumped = request.model_dump()
         assert dumped["deadline"] == 1749200000
         assert dumped["timeout"] is None
 
-    def test_timeout_as_string_is_cast_to_int(self):
-        """Test that a string timeout value is cast to int."""
-        request = _make_request(dataset=[json.dumps({"timeout": "3600"})])
-        assert request.timeout == 3600
-        assert isinstance(request.timeout, int)
+    def test_none_args_produce_none_fields(self):
+        """Test that None args (docopt default) result in None fields."""
+        args = _make_args(**{"--timeout": None, "--deadline": None})
+        request = RequestSchema.from_args(args)
+        assert request.timeout is None
+        assert request.deadline is None
 
-    def test_multiple_datasets_timeout_from_last(self):
-        """Test that timeout from the last dataset dict wins if present in multiple."""
-        request = _make_request(
-            dataset=[
-                json.dumps({"timeout": 100, "pool": "a"}),
-                json.dumps({"timeout": 200, "pool": "b"}),
-            ]
-        )
-        assert request.timeout == 200
-        for data in request.dataset:
-            assert "timeout" not in data
+    def test_false_args_produce_none_fields(self):
+        """Test that False args (docopt when flag not provided) result in None fields."""
+        args = _make_args(**{"--timeout": False, "--deadline": False})
+        request = RequestSchema.from_args(args)
+        assert request.timeout is None
+        assert request.deadline is None
