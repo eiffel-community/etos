@@ -2844,21 +2844,6 @@ spec:
                       While using dev mode the ETR can be installed from github using ETRBranch and ETRRepository.
                     type: string
                 type: object
-              healthCheck:
-                default: {}
-                description: |-
-                  Healthcheck defines the health check endpoint and interval for providers.
-                  The defaults of this should work most of the time.
-                properties:
-                  endpoint:
-                    default: /v1alpha1/selftest/ping
-                    type: string
-                  intervalSeconds:
-                    default: 30
-                    type: integer
-                type: object
-              host:
-                type: string
               image:
                 description: Image describes the docker image to run when providing
                   a resource.
@@ -2874,187 +2859,6 @@ spec:
                       data-structure to be added to this configuration and it is expected that providers
                       can handle the data they require themselves.
                     x-kubernetes-preserve-unknown-fields: true
-                type: object
-              jsontas:
-                description: |-
-                  These are pointers so that they become nil in the Provider object in Kubernetes
-                  and don't muddle up the yaml with empty data.
-                properties:
-                  execution_space:
-                    description: JSONTasExecutionSpace is the execution space provider
-                      definition for the JSONTas provider
-                    properties:
-                      checkin:
-                        x-kubernetes-preserve-unknown-fields: true
-                      checkout:
-                        x-kubernetes-preserve-unknown-fields: true
-                      id:
-                        type: string
-                      list:
-                        description: JSONTasList is the List command in the JSONTas
-                          provider.
-                        properties:
-                          available:
-                            x-kubernetes-preserve-unknown-fields: true
-                          possible:
-                            x-kubernetes-preserve-unknown-fields: true
-                        required:
-                        - available
-                        - possible
-                        type: object
-                    required:
-                    - id
-                    - list
-                    type: object
-                  image:
-                    type: string
-                  iut:
-                    description: |-
-                      These are pointers so that they become nil in the Provider object in Kubernetes
-                      and don't muddle up the yaml with empty data.
-                    properties:
-                      checkin:
-                        x-kubernetes-preserve-unknown-fields: true
-                      checkout:
-                        x-kubernetes-preserve-unknown-fields: true
-                      id:
-                        type: string
-                      list:
-                        description: JSONTasList is the List command in the JSONTas
-                          provider.
-                        properties:
-                          available:
-                            x-kubernetes-preserve-unknown-fields: true
-                          possible:
-                            x-kubernetes-preserve-unknown-fields: true
-                        required:
-                        - available
-                        - possible
-                        type: object
-                      prepare:
-                        description: JSONTasIUTPrepare defines the preparation required
-                          for an IUT.
-                        properties:
-                          stages:
-                            description: JSONTasIUTPrepareStages defines the preparation
-                              stages required for an IUT.
-                            properties:
-                              environment_provider:
-                                description: Underscore used in these due to backwards
-                                  compatibility
-                                properties:
-                                  steps:
-                                    default: {}
-                                    x-kubernetes-preserve-unknown-fields: true
-                                type: object
-                              suite_runner:
-                                description: Stage is the definition of a stage where
-                                  to execute steps.
-                                properties:
-                                  steps:
-                                    default: {}
-                                    x-kubernetes-preserve-unknown-fields: true
-                                type: object
-                              test_runner:
-                                description: Stage is the definition of a stage where
-                                  to execute steps.
-                                properties:
-                                  steps:
-                                    default: {}
-                                    x-kubernetes-preserve-unknown-fields: true
-                                type: object
-                            required:
-                            - environment_provider
-                            - suite_runner
-                            - test_runner
-                            type: object
-                        required:
-                        - stages
-                        type: object
-                    required:
-                    - id
-                    - list
-                    type: object
-                  log:
-                    description: JSONTasLogArea is the log area provider definition
-                      for the JSONTas provider
-                    properties:
-                      checkin:
-                        x-kubernetes-preserve-unknown-fields: true
-                      checkout:
-                        x-kubernetes-preserve-unknown-fields: true
-                      id:
-                        type: string
-                      list:
-                        description: JSONTasList is the List command in the JSONTas
-                          provider.
-                        properties:
-                          available:
-                            x-kubernetes-preserve-unknown-fields: true
-                          possible:
-                            x-kubernetes-preserve-unknown-fields: true
-                        required:
-                        - available
-                        - possible
-                        type: object
-                    required:
-                    - id
-                    - list
-                    type: object
-                type: object
-              jsontasSource:
-                description: VarSource describes a value from either a secretmap or
-                  configmap.
-                properties:
-                  configMapKeyRef:
-                    description: ConfigMapKeyRef describes a value from a configmap.
-                      Cannot be set if SecretKeyRef is set.
-                    properties:
-                      key:
-                        description: The key to select.
-                        type: string
-                      name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        type: string
-                      optional:
-                        description: Specify whether the ConfigMap or its key must
-                          be defined
-                        type: boolean
-                    required:
-                    - key
-                    type: object
-                    x-kubernetes-map-type: atomic
-                  secretKeyRef:
-                    description: SecretKeyRef describes a value from a secret. Cannot
-                      be set if ConfigMapKeyRef is set.
-                    properties:
-                      key:
-                        description: The key of the secret to select from.  Must be
-                          a valid secret key.
-                        type: string
-                      name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        type: string
-                      optional:
-                        description: Specify whether the Secret or its key must be
-                          defined
-                        type: boolean
-                    required:
-                    - key
-                    type: object
-                    x-kubernetes-map-type: atomic
                 type: object
               logAreaProviderConfig:
                 description: LogAreaProviderConfig describes the configuration for
@@ -3214,9 +3018,6 @@ spec:
                   - type
                   type: object
                 type: array
-              lastHealthCheckTime:
-                format: date-time
-                type: string
             type: object
         required:
         - spec
@@ -4528,7 +4329,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:f7976840
+        image: ghcr.io/eiffel-community/etos-controller:9d890b65
         livenessProbe:
           httpGet:
             path: /healthz
@@ -4760,26 +4561,6 @@ webhooks:
     service:
       name: etos-webhook-service
       namespace: etos-system
-      path: /mutate-etos-eiffel-community-github-io-v1alpha1-provider
-  failurePolicy: Fail
-  name: mprovider-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - etos.eiffel-community.github.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - providers
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: etos-webhook-service
-      namespace: etos-system
       path: /mutate-etos-eiffel-community-github-io-v1alpha1-testrun
   failurePolicy: Fail
   name: mtestrun-v1alpha1.kb.io
@@ -4802,26 +4583,6 @@ metadata:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
   name: etos-validating-webhook-configuration
 webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: etos-webhook-service
-      namespace: etos-system
-      path: /validate-etos-eiffel-community-github-io-v1alpha1-provider
-  failurePolicy: Fail
-  name: vprovider-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - etos.eiffel-community.github.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - providers
-  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:
