@@ -99,7 +99,7 @@ func newRabbitMQStreamPublisher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RabbitMQ password: %w", err)
 	}
-	scheme := "amqp"
+	scheme := "rabbitmq-stream"
 	if config.SSL == "true" {
 		scheme = "rabbitmq-stream+tls"
 	}
