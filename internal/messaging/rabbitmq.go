@@ -156,7 +156,7 @@ func (s *rabbitMQStreamPublisher) Start() error {
 			go func() {
 				for _, msgStatus := range messageStatus {
 					if msgStatus.IsConfirmed() {
-						s.logger.Info("Message confirmed")
+						s.logger.V(1).Info("Message confirmed")
 						s.unConfirmed.Done()
 					} else {
 						s.logger.Error(msgStatus.GetError(), "Unconfirmed message")
@@ -198,7 +198,7 @@ func (s *rabbitMQStreamPublisher) Publish(b []byte, filterString string) error {
 		"meta":       filter.Meta,
 	}
 	s.unConfirmedMessages <- msg
-	s.logger.Info("Message published to unconfirmed channel")
+	s.logger.V(1).Info("Message published to unconfirmed channel")
 	return nil
 }
 
@@ -207,13 +207,13 @@ func (s *rabbitMQStreamPublisher) publish(done chan struct{}) {
 	for {
 		select {
 		case msg := <-s.unConfirmedMessages:
-			s.logger.Info("Publishing message to RabbitMQ stream")
+			s.logger.V(1).Info("Publishing message to RabbitMQ stream")
 			if err := s.producer.Send(msg); err != nil {
 				s.logger.Error(err, "Failed to send message")
 				s.unConfirmed.Done()
 				continue
 			}
-			s.logger.Info("Published")
+			s.logger.V(1).Info("Published")
 		case <-done:
 			return
 		}
