@@ -33,6 +33,7 @@ class RequestSchema(BaseModel):
     execution_space_provider: Optional[str] = "default"
     iut_provider: Optional[str] = "default"
     log_area_provider: Optional[str] = "default"
+    timeout: Optional[int] = None
 
     @classmethod
     def from_args(cls, args: dict) -> "RequestSchema":
@@ -46,6 +47,7 @@ class RequestSchema(BaseModel):
             execution_space_provider=args["--execution-space-provider"] or "default",
             iut_provider=args["--iut-provider"] or "default",
             log_area_provider=args["--log-area-provider"] or "default",
+            timeout=args["--timeout"],
         )
 
     @field_validator("artifact_identity")

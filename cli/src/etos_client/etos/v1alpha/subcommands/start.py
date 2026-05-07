@@ -52,6 +52,8 @@ class Start(SubCommand):
         --log-area-provider LOG_AREA_PROVIDER                     Which log area provider to use.
         --dataset DATASET                                         Additional dataset information to the environment provider.
                                                                   Check with your provider which information can be supplied.
+        --timeout TIMEOUT                                         Maximum duration in seconds the testrun is allowed to take.
+                                                                  Defaults to 86400 (24 hours) if not set.
         --ssev2alpha                                              Use the v2alpha version of sse.
         --version                                                 Show program's version number and exit
     """
