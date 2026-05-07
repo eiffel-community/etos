@@ -17,6 +17,7 @@ package messaging
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"strings"
@@ -98,9 +99,9 @@ func newRabbitMQStreamPublisher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RabbitMQ password: %w", err)
 	}
-	scheme := "amqp"
+	scheme := "rabbitmq-stream"
 	if config.SSL == "true" {
-		scheme = "amqps"
+		scheme = "rabbitmq-stream+tls"
 	}
 	if config.Vhost == "/" {
 		// Avoid having double slashes for the vhost in the following url.
@@ -115,6 +116,9 @@ func newRabbitMQStreamPublisher(
 		config.Vhost,
 	)
 	environmentOptions := stream.NewEnvironmentOptions().SetMaxProducersPerClient(1).SetUri(address)
+	if config.SSL == "true" {
+		environmentOptions = environmentOptions.SetTLSConfig(&tls.Config{ServerName: config.Host})
+	}
 	env, err := stream.NewEnvironment(environmentOptions)
 	if err != nil {
 		return nil, err
