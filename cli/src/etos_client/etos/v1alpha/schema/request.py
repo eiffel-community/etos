@@ -76,5 +76,3 @@ class RequestSchema(BaseModel):
         if len(dataset) == 1:
             return json.loads(dataset[0])
         return [json.loads(data) for data in dataset]
-
-
