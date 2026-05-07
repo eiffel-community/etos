@@ -53,9 +53,7 @@ class Start(SubCommand):
         --dataset DATASET                                         Additional dataset information to the environment provider.
                                                                   Check with your provider which information can be supplied.
         --timeout TIMEOUT                                         Maximum duration in seconds the testrun is allowed to take.
-                                                                  Defaults to 86400 (24 hours) if neither timeout nor deadline is set.
-        --deadline DEADLINE                                       Unix epoch timestamp by which the testrun must have completed.
-                                                                  Cannot be used together with --timeout.
+                                                                  Defaults to 86400 (24 hours) if not set.
         --ssev2alpha                                              Use the v2alpha version of sse.
         --version                                                 Show program's version number and exit
     """

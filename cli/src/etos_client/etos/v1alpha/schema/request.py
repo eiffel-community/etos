@@ -19,14 +19,7 @@ import json
 from typing import Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, ValidationInfo, field_validator, model_validator
-
-
-def _parse_optional_int(value: object) -> Optional[int]:
-    """Parse a value to an optional int, returning None for falsy values."""
-    if value is None or value is False:
-        return None
-    return int(value)
+from pydantic import BaseModel, ValidationInfo, field_validator
 
 
 class RequestSchema(BaseModel):
@@ -41,7 +34,6 @@ class RequestSchema(BaseModel):
     iut_provider: Optional[str] = "default"
     log_area_provider: Optional[str] = "default"
     timeout: Optional[int] = None
-    deadline: Optional[int] = None
 
     @classmethod
     def from_args(cls, args: dict) -> "RequestSchema":
@@ -55,8 +47,7 @@ class RequestSchema(BaseModel):
             execution_space_provider=args["--execution-space-provider"] or "default",
             iut_provider=args["--iut-provider"] or "default",
             log_area_provider=args["--log-area-provider"] or "default",
-            timeout=_parse_optional_int(args.get("--timeout")),
-            deadline=_parse_optional_int(args.get("--deadline")),
+            timeout=args["--timeout"],
         )
 
     @field_validator("artifact_identity")
@@ -86,16 +77,4 @@ class RequestSchema(BaseModel):
             return json.loads(dataset[0])
         return [json.loads(data) for data in dataset]
 
-    @model_validator(mode="after")
-    def validate_timeout_or_deadline(self) -> "RequestSchema":
-        """Validate that only one of timeout or deadline is set.
 
-        The controller will ignore timeout if deadline is set, so we should
-        prevent users from setting both to avoid confusion.
-
-        :return: The validated model.
-        :rtype: RequestSchema
-        """
-        if self.timeout is not None and self.deadline is not None:
-            raise ValueError("Only one of 'timeout' or 'deadline' can be set, not both.")
-        return self

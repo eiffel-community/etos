@@ -13,9 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for the v1alpha RequestSchema timeout/deadline support."""
-
-import pytest
+"""Tests for the v1alpha RequestSchema timeout support."""
 
 from etos_client.etos.v1alpha.schema.request import RequestSchema
 
@@ -31,7 +29,6 @@ def _make_args(**overrides):
         "--iut-provider": "default",
         "--log-area-provider": "default",
         "--timeout": None,
-        "--deadline": None,
     }
     defaults.update(overrides)
     return defaults
@@ -53,59 +50,36 @@ def _make_request(**kwargs):
     return RequestSchema(**defaults)
 
 
-class TestTimeoutDeadlineFlags:
-    """Test that timeout and deadline CLI flags work correctly."""
+class TestTimeoutFlag:
+    """Test that timeout CLI flag works correctly."""
 
     def test_timeout_from_args(self):
         """Test that --timeout flag is passed through from_args."""
         args = _make_args(**{"--timeout": "3600"})
         request = RequestSchema.from_args(args)
         assert request.timeout == 3600
-        assert request.deadline is None
 
-    def test_deadline_from_args(self):
-        """Test that --deadline flag is passed through from_args."""
-        args = _make_args(**{"--deadline": "1749200000"})
-        request = RequestSchema.from_args(args)
-        assert request.deadline == 1749200000
-        assert request.timeout is None
-
-    def test_timeout_and_deadline_raises(self):
-        """Test that setting both timeout and deadline raises an error."""
-        with pytest.raises(ValueError, match="Only one of 'timeout' or 'deadline'"):
-            _make_request(timeout=3600, deadline=1749200000)
-
-    def test_neither_timeout_nor_deadline(self):
-        """Test that neither is set when not provided."""
+    def test_timeout_not_set(self):
+        """Test that timeout is None when not provided."""
         args = _make_args()
         request = RequestSchema.from_args(args)
         assert request.timeout is None
-        assert request.deadline is None
 
     def test_timeout_included_in_model_dump(self):
         """Test that timeout appears in model_dump for API requests."""
         request = _make_request(timeout=1800)
         dumped = request.model_dump()
         assert dumped["timeout"] == 1800
-        assert dumped["deadline"] is None
 
-    def test_deadline_included_in_model_dump(self):
-        """Test that deadline appears in model_dump for API requests."""
-        request = _make_request(deadline=1749200000)
+    def test_timeout_none_in_model_dump(self):
+        """Test that timeout is None in model_dump when not set."""
+        request = _make_request()
         dumped = request.model_dump()
-        assert dumped["deadline"] == 1749200000
         assert dumped["timeout"] is None
 
-    def test_none_args_produce_none_fields(self):
-        """Test that None args (docopt default) result in None fields."""
-        args = _make_args(**{"--timeout": None, "--deadline": None})
+    def test_timeout_string_converted_to_int(self):
+        """Test that pydantic converts a string timeout to int."""
+        args = _make_args(**{"--timeout": "7200"})
         request = RequestSchema.from_args(args)
-        assert request.timeout is None
-        assert request.deadline is None
-
-    def test_false_args_produce_none_fields(self):
-        """Test that False args (docopt when flag not provided) result in None fields."""
-        args = _make_args(**{"--timeout": False, "--deadline": False})
-        request = RequestSchema.from_args(args)
-        assert request.timeout is None
-        assert request.deadline is None
+        assert request.timeout == 7200
+        assert isinstance(request.timeout, int)
