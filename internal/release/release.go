@@ -91,7 +91,7 @@ func ReleaseContainer(name, containerName, namespace string, provider *v1alpha1.
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Env:             provider.Spec.Env,
 		EnvFrom:         provider.Spec.EnvFrom,
-		Resources:       provider.Spec.Resources.ToResourceRequirements(),
+		Resources:       provider.Spec.Resources,
 		Args:            args,
 	}, nil
 }

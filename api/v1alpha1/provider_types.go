@@ -20,7 +20,6 @@ import (
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -40,9 +39,9 @@ type ProviderSpec struct {
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 
 	// Resources describes compute resource requirements for the provider container.
-	// +kubebuilder:default={}
+	// +kubebuilder:default={limits: {cpu: "250m", memory: "256Mi"}, requests: {cpu: "250m", memory: "256Mi"}}
 	// +optional
-	Resources ProviderResources `json:"resources,omitempty"`
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// IutProviderConfig describe the configuration for an IUT provider.
 	// +optional
@@ -146,46 +145,6 @@ type ProviderList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []Provider `json:"items"`
-}
-
-// ProviderResources describes compute resource requirements for a provider container.
-type ProviderResources struct {
-	// Limits describes the maximum amount of compute resources allowed.
-	// +kubebuilder:default={}
-	// +optional
-	Limits ProviderResourceList `json:"limits,omitempty"`
-
-	// Requests describes the minimum amount of compute resources required.
-	// +kubebuilder:default={}
-	// +optional
-	Requests ProviderResourceList `json:"requests,omitempty"`
-}
-
-// ProviderResourceList describes CPU and memory resources.
-type ProviderResourceList struct {
-	// CPU resource.
-	// +kubebuilder:default="250m"
-	// +optional
-	CPU string `json:"cpu,omitempty"`
-
-	// Memory resource.
-	// +kubebuilder:default="256Mi"
-	// +optional
-	Memory string `json:"memory,omitempty"`
-}
-
-// ToResourceRequirements converts ProviderResources to corev1.ResourceRequirements.
-func (r *ProviderResources) ToResourceRequirements() corev1.ResourceRequirements {
-	return corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(r.Limits.CPU),
-			corev1.ResourceMemory: resource.MustParse(r.Limits.Memory),
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(r.Requests.CPU),
-			corev1.ResourceMemory: resource.MustParse(r.Requests.Memory),
-		},
-	}
 }
 
 func init() {
