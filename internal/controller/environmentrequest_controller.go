@@ -705,10 +705,11 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 					RestartPolicy:                 "Never",
 					InitContainers: []corev1.Container{
 						{
-							Name:    "iut-provider",
-							Image:   iutProvider.Spec.Image,
-							Env:     append(iutProvider.Spec.Env, envVarList...),
-							EnvFrom: iutProvider.Spec.EnvFrom,
+							Name:      "iut-provider",
+							Image:     iutProvider.Spec.Image,
+							Env:       append(iutProvider.Spec.Env, envVarList...),
+							EnvFrom:   iutProvider.Spec.EnvFrom,
+							Resources: iutProvider.Spec.Resources,
 							Args: []string{
 								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
 								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
@@ -716,10 +717,11 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 							},
 						},
 						{
-							Name:    "log-area-provider",
-							Image:   logAreaProvider.Spec.Image,
-							Env:     append(logAreaProvider.Spec.Env, envVarList...),
-							EnvFrom: logAreaProvider.Spec.EnvFrom,
+							Name:      "log-area-provider",
+							Image:     logAreaProvider.Spec.Image,
+							Env:       append(logAreaProvider.Spec.Env, envVarList...),
+							EnvFrom:   logAreaProvider.Spec.EnvFrom,
+							Resources: logAreaProvider.Spec.Resources,
 							Args: []string{
 								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
 								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),
@@ -727,10 +729,11 @@ func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context
 							},
 						},
 						{
-							Name:    "execution-space-provider",
-							Image:   executionSpaceProvider.Spec.Image,
-							Env:     append(executionSpaceProvider.Spec.Env, envVarList...),
-							EnvFrom: executionSpaceProvider.Spec.EnvFrom,
+							Name:      "execution-space-provider",
+							Image:     executionSpaceProvider.Spec.Image,
+							Env:       append(executionSpaceProvider.Spec.Env, envVarList...),
+							EnvFrom:   executionSpaceProvider.Spec.EnvFrom,
+							Resources: executionSpaceProvider.Spec.Resources,
 							Args: []string{
 								fmt.Sprintf("-namespace=%s", environmentrequest.Namespace),
 								fmt.Sprintf("-environment-request=%s", environmentrequest.Name),

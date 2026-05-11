@@ -38,6 +38,11 @@ type ProviderSpec struct {
 	// +optional
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 
+	// Resources describes compute resource requirements for the provider container.
+	// When set, these will be applied to the init container running this provider.
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
 	// IutProviderConfig describe the configuration for an IUT provider.
 	// +optional
 	IutProviderConfig *IutProviderConfig `json:"iutProviderConfig,omitempty"`
