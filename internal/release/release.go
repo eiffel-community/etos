@@ -86,14 +86,9 @@ func ReleaseContainer(name, containerName, namespace string, provider *v1alpha1.
 	if noDelete {
 		args = append(args, "-nodelete")
 	}
-	return corev1.Container{
-		Name:            containerName,
-		Image:           provider.Spec.Image,
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		Env:             provider.Spec.Env,
-		EnvFrom:         provider.Spec.EnvFrom,
-		// TODO: Verify these resourceclaims
-		Resources: corev1.ResourceRequirements{
+	resources := provider.Spec.Resources
+	if len(resources.Limits) == 0 && len(resources.Requests) == 0 {
+		resources = corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("256Mi"),
 				corev1.ResourceCPU:    resource.MustParse("250m"),
@@ -102,7 +97,15 @@ func ReleaseContainer(name, containerName, namespace string, provider *v1alpha1.
 				corev1.ResourceMemory: resource.MustParse("128Mi"),
 				corev1.ResourceCPU:    resource.MustParse("100m"),
 			},
-		},
-		Args: args,
+		}
+	}
+	return corev1.Container{
+		Name:            containerName,
+		Image:           provider.Spec.Image,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Env:             provider.Spec.Env,
+		EnvFrom:         provider.Spec.EnvFrom,
+		Resources:       resources,
+		Args:            args,
 	}, nil
 }
