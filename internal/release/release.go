@@ -21,7 +21,6 @@ import (
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -86,26 +85,13 @@ func ReleaseContainer(name, containerName, namespace string, provider *v1alpha1.
 	if noDelete {
 		args = append(args, "-nodelete")
 	}
-	resources := provider.Spec.Resources
-	if len(resources.Limits) == 0 && len(resources.Requests) == 0 {
-		resources = corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("256Mi"),
-				corev1.ResourceCPU:    resource.MustParse("250m"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("128Mi"),
-				corev1.ResourceCPU:    resource.MustParse("100m"),
-			},
-		}
-	}
 	return corev1.Container{
 		Name:            containerName,
 		Image:           provider.Spec.Image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Env:             provider.Spec.Env,
 		EnvFrom:         provider.Spec.EnvFrom,
-		Resources:       resources,
+		Resources:       provider.Spec.Resources.ToResourceRequirements(),
 		Args:            args,
 	}, nil
 }
