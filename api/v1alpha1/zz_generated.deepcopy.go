@@ -1034,6 +1034,7 @@ func (in *ProviderSpec) DeepCopyInto(out *ProviderSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	in.Resources.DeepCopyInto(&out.Resources)
 	if in.IutProviderConfig != nil {
 		in, out := &in.IutProviderConfig, &out.IutProviderConfig
 		*out = new(IutProviderConfig)

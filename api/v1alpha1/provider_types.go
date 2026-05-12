@@ -38,6 +38,11 @@ type ProviderSpec struct {
 	// +optional
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 
+	// Resources describes compute resource requirements for the provider container.
+	// +kubebuilder:default={limits: {cpu: "250m", memory: "256Mi"}, requests: {cpu: "100m", memory: "128Mi"}}
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
 	// IutProviderConfig describe the configuration for an IUT provider.
 	// +optional
 	IutProviderConfig *IutProviderConfig `json:"iutProviderConfig,omitempty"`
