@@ -41,7 +41,6 @@ from etos_client.shared.downloader import Downloader
 from etos_client.shared.utilities import directories
 from etos_client.sse.v1.client import SSEClient as SSEV1Client
 from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient
-from etos_client.sse.v2alpha.client import TokenExpired
 from etos_client.types.result import Conclusion, Result, Verdict
 
 # Max total time for a ping request including delays with backoff factor 0.5 will be:
@@ -66,7 +65,6 @@ class Etos:
 
     version = "v1alpha"
     logger = logging.getLogger(__name__)
-    __apikey = None
     start_response = ResponseSchema
     start_request = RequestSchema
 
@@ -92,26 +90,6 @@ class Etos:
             self.logger.warning("Baggage size limit exceeded, dropping baggage")
         return headers
 
-    @property
-    def apikey(self) -> str:
-        """Generate and return an API key."""
-        http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
-        if self.__apikey is None:
-            url = f"{self.cluster}/keys/v1alpha/generate"
-            response = http.post(
-                url,
-                json={"identity": "etos-client", "scope": "post-testrun delete-testrun get-sse"},
-                headers=self.headers,
-            )
-            try:
-                response.raise_for_status()
-                response_json = response.json()
-            except HTTPError:
-                self.logger.exception("Failed to generate an API key for ETOS.")
-                response_json = {}
-            self.__apikey = response_json.get("token")
-        return self.__apikey or ""
-
     def run(self) -> Result:
         """Run ETOS v1alpha."""
         error = self.__check()
@@ -133,8 +111,6 @@ class Etos:
         response_json = {}
         http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
         headers = self.headers
-        if isinstance(self.sse_client, SSEV2AlphaClient):
-            headers["Authorization"] = f"Bearer {self.apikey}"
         response = http.post(url, json=request.model_dump(), headers=headers)
         try:
             response.raise_for_status()
@@ -188,9 +164,6 @@ class Etos:
                     else:
                         result = self.__track_v0(test_run, response, end)
                     break
-                except TokenExpired:
-                    self.__apikey = None
-                    continue
                 except SystemExit as exit:
                     clear_queue = False
                     result = Result(
@@ -229,7 +202,6 @@ class Etos:
         """Track a testrun."""
         shutdown = test_run.track(
             self.sse_client,
-            self.apikey,
             response,
             end,
         )

@@ -18,30 +18,15 @@
 import logging
 import sys
 import time
-from typing import Union
 from pathlib import Path
+from typing import Union
 
-# from etos_lib.messaging.events import Message, Report, Artifact, Shutdown  # import disabled due to: https://github.com/eiffel-community/etos/issues/417
+from etos_lib.messaging.events import Artifact, Message, Report, Shutdown
+
+from etos_client.shared.downloader import Downloadable, Downloader
 from etos_client.sse.v2alpha.client import SSEClient
-from etos_client.shared.downloader import Downloader, Downloadable
+
 from ..schema.response import ResponseSchema
-
-
-# dummy classes: remove when the etos_lib.messaging module is available: https://github.com/eiffel-community/etos/issues/417
-class Artifact:
-    pass
-
-
-class Message:
-    pass
-
-
-class Report:
-    pass
-
-
-class Shutdown:
-    pass
 
 
 class TestRun:
@@ -87,22 +72,18 @@ class TestRun:
         self.logger.info("Purl: %s", response.artifact_identity)
         self.logger.info("Event repository: %r", response.event_repository)
 
-    def track(
-        self, sse_client: SSEClient, apikey: str, response: ResponseSchema, end_time: float
-    ) -> Shutdown:
+    def track(self, sse_client: SSEClient, response: ResponseSchema, end_time: float) -> Shutdown:
         """Track, and wait for, an ETOS test run."""
         self.__log_debug_information(response)
         try:
-            shutdown = self.stream(sse_client, str(response.tercc), apikey, end_time)
+            shutdown = self.stream(sse_client, str(response.tercc), end_time)
         finally:
             sse_client.close()
         return shutdown
 
-    def stream(
-        self, sse_client: SSEClient, stream_id: str, apikey: str, end_time: float
-    ) -> Shutdown:
+    def stream(self, sse_client: SSEClient, stream_id: str, end_time: float) -> Shutdown:
         """Stream SSE."""
-        for event in sse_client.event_stream(stream_id, apikey):
+        for event in sse_client.event_stream(stream_id):
             if time.time() >= end_time:
                 raise TimeoutError("Timed out!")
             if isinstance(event, Shutdown):
