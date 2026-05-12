@@ -39,7 +39,7 @@ type ProviderSpec struct {
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 
 	// Resources describes compute resource requirements for the provider container.
-	// +kubebuilder:default={limits: {cpu: "250m", memory: "256Mi"}, requests: {cpu: "250m", memory: "256Mi"}}
+	// +kubebuilder:default={limits: {cpu: "250m", memory: "256Mi"}, requests: {cpu: "100m", memory: "128Mi"}}
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
