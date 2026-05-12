@@ -16,35 +16,15 @@
 # limitations under the License.
 """ETOS debug testrun."""
 
-import sys
 import logging
+import sys
 
-from etos_lib.lib.http import Http
-
-# from etos_lib.messaging.events import Artifact, Message, Report, Shutdown  # import disabled due to: https://github.com/eiffel-community/etos/issues/417
+from etos_lib.messaging.events import Artifact, Message, Report, Shutdown
 from urllib3.util import Retry
-from requests.exceptions import HTTPError
+
+from etos_client.sse.v2alpha.client import SSEClient
 from etosctl.command import Command
 from etosctl.models import CommandMeta
-from etos_client.sse.v2alpha.client import SSEClient
-
-
-# dummy classes: remove when the etos_lib.messaging module is available: https://github.com/eiffel-community/etos/issues/417
-class Artifact:  # pylint: disable=too-few-public-methods
-    """Dummy Artifact class. Remove when etos_lib.messaging is available."""
-
-
-class Message:  # pylint: disable=too-few-public-methods
-    """Dummy Message class. Remove when etos_lib.messaging is available."""
-
-
-class Report:  # pylint: disable=too-few-public-methods
-    """Dummy Report class. Remove when etos_lib.messaging is available."""
-
-
-class Shutdown:  # pylint: disable=too-few-public-methods
-    """Dummy Shutdown class. Remove when etos_lib.messaging is available."""
-
 
 LOGGER = logging.getLogger(__name__)
 # Max total time for a ping request including delays with backoff factor 0.5 will be:
@@ -76,27 +56,7 @@ class Debug(Command):
     )
     logger = logging.getLogger(__name__)
     remote_logger = logging.getLogger("ETOS")
-    __apikey = None
     cluster = None
-
-    @property
-    def apikey(self) -> str:
-        """Generate and return an API key."""
-        if self.__apikey is None:
-            http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
-            url = f"{self.cluster}/keys/v1alpha/generate"
-            response = http.post(
-                url,
-                json={"identity": "etos-debug", "scope": "get-sse"},
-            )
-            try:
-                response.raise_for_status()
-                response_json = response.json()
-            except HTTPError:
-                self.logger.exception("Failed to generate an API key for ETOS.")
-                response_json = {}
-            self.__apikey = response_json.get("token")
-        return self.__apikey or ""
 
     def __log(self, message: Message) -> None:
         """Log a message from the ETOS log API."""
@@ -144,7 +104,7 @@ class Debug(Command):
         reports = []
         shutdown = None
         messages = []
-        for event in client.event_stream(args["<testrun>"], self.apikey):
+        for event in client.event_stream(args["<testrun>"]):
             if isinstance(event, Message):
                 self.__log(event)
                 messages.append(event)

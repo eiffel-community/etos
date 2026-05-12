@@ -17,27 +17,13 @@
 
 import logging
 import time
-from json import loads, JSONDecodeError
+from json import JSONDecodeError, loads
 from typing import Callable, Iterable, Optional
 
+from etos_lib.messaging.events import Event, Shutdown, Unknown, parse
 from urllib3.exceptions import HTTPError, MaxRetryError
 from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry
-
-
-# from etos_lib.messaging.events import Shutdown, Event, parse # import disabled due to: https://github.com/eiffel-community/etos/issues/417
-# dummy classes: remove when the etos_lib.messaging module is available
-class Event:  # pylint: disable=too-few-public-methods
-    """Dummy Event class. Remove when etos_lib.messaging is available."""
-
-
-class Shutdown:  # pylint: disable=too-few-public-methods
-    """Dummy Shutdown class. Remove when etos_lib.messaging is available."""
-
-
-def parse(event):  # pylint: disable=unused-argument
-    """Parse an event. Stub — remove when etos_lib.messaging is available."""
-
 
 CHUNK_SIZE = 500
 RETRIES = Retry(
@@ -84,10 +70,6 @@ class Desynced(Exception):
     """The event stream has desynced."""
 
 
-class TokenExpired(Exception):
-    """The API key token has expired."""
-
-
 class ServerShutdown(Exception):
     """Server wants the client to shut down."""
 
@@ -124,9 +106,7 @@ class SSEClient:
         """SSE protocol version."""
         return "v2alpha"
 
-    def __connect(
-        self, stream_id: str, apikey: str, is_initial_connection=False
-    ) -> Iterable[bytes]:
+    def __connect(self, stream_id: str, is_initial_connection=False) -> Iterable[bytes]:
         """Handle connection for reconnections."""
         if is_initial_connection:
             # Use LogRetry with extended retries for initial connection
@@ -145,9 +125,9 @@ class SSEClient:
             # Standard retries for reconnections
             retries = RETRIES
 
-        return self.__do_connect(stream_id, apikey, retries)
+        return self.__do_connect(stream_id, retries)
 
-    def __do_connect(self, stream_id: str, apikey: str, retries: Retry) -> Iterable[bytes]:
+    def __do_connect(self, stream_id: str, retries: Retry) -> Iterable[bytes]:
         """Connect to an event-stream server with the given retry policy.
 
         Sets the attribute `__release` which must be closed before exiting.
@@ -155,7 +135,6 @@ class SSEClient:
         headers = {
             "Cache-Control": "no-cache",
             "Accept": "text/event-stream",
-            "Authorization": f"Bearer {apikey}",
         }
         if self.last_event_id is not None:
             headers["Last-Event-ID"] = str(self.last_event_id)
@@ -177,8 +156,6 @@ class SSEClient:
                 raise exception.reason
             raise
         if response.status >= 400:
-            if response.status == 401:
-                raise TokenExpired("API Key has expired")
             raise HTTPStatusError(f"Error code {response.status} when connecting to SSE server")
         if response.status == 204:
             raise NoResponse("Empty response from the SSE server")
@@ -233,7 +210,6 @@ class SSEClient:
             if event.id is None:
                 yield event
                 continue
-            # if event.id or 0 == self.last_event_id or 0:
             if self.__already_received(event):
                 continue  # Ignore if already received
             if self.__out_of_sync(event):
@@ -255,6 +231,9 @@ class SSEClient:
             event["data"] = loads(event["data"])
         except JSONDecodeError:
             pass
+        except KeyError:
+            self.logger.warning("Received event without data field: %r", feed)
+            return Unknown()
         return parse(event)
 
     def __already_received(self, event: Event) -> bool:
@@ -275,12 +254,12 @@ class SSEClient:
             return False
         return True
 
-    def event_stream(self, stream_id: str, apikey: str) -> Iterable[Event]:
+    def event_stream(self, stream_id: str) -> Iterable[Event]:
         """Follow the ETOS SSE event stream."""
         stream = []
         while not self.__shutdown:
             while self.__connected is False:
-                stream = self.__connect(stream_id, apikey, is_initial_connection=not bool(stream))
+                stream = self.__connect(stream_id, is_initial_connection=not bool(stream))
                 time.sleep(1)
                 if not stream:
                     self.logger.warning("Failed connecting to stream. Reconnecting")
