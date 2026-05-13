@@ -43,6 +43,7 @@ import (
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/config"
 	"github.com/eiffel-community/etos/internal/controller"
+	"github.com/eiffel-community/etos/internal/messaging"
 	webhookv1alpha1 "github.com/eiffel-community/etos/internal/webhook/v1alpha1"
 	webhookv1alpha2 "github.com/eiffel-community/etos/internal/webhook/v1alpha2"
 	"github.com/eiffel-community/etos/pkg/opentelemetry"
@@ -232,12 +233,19 @@ func main() {
 			setupLog.Error(err, "Failed to shutdown OpenTelemetry tracer")
 		}
 	}()
+	publisherPool := messaging.NewPublisherPool(ctx)
+	defer func() {
+		if err := publisherPool.Close(); err != nil {
+			setupLog.Error(err, "Failed to close messaging publisher pool")
+		}
+	}()
 
 	if err = (&controller.TestRunReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Clock:  &clock.RealClock{},
-		Tracer: otel.Tracer("testrun-controller"),
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Clock:      &clock.RealClock{},
+		Tracer:     otel.Tracer("testrun-controller"),
+		Publishers: publisherPool,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "TestRun")
 		os.Exit(1)
