@@ -23,6 +23,8 @@ import (
 	"os"
 
 	"github.com/eiffel-community/etos/internal/messaging"
+	"github.com/eiffel-community/etos/pkg/messaging/events"
+	"github.com/eiffel-community/etos/pkg/messaging/publisher"
 	"github.com/eiffel-community/etos/pkg/opentelemetry"
 	"github.com/go-logr/logr"
 	"go.opentelemetry.io/contrib/bridges/otelzap"
@@ -75,15 +77,15 @@ func (l *ETOSLogger) WithConsole() *ETOSLogger {
 	return l
 }
 
-// WithUserLog adds a user log core to the logger that writes to the provided messaging.Publisher.
+// WithUserLog adds a user log core to the logger that writes to the provided messaging.EventPublisher.
 // If the publisher is nil, it does not add the user log core.
-func (l *ETOSLogger) WithUserLog(publisher messaging.Publisher) *ETOSLogger {
-	if publisher == nil {
+func (l *ETOSLogger) WithUserLog(eventPublisher publisher.EventPublisher) *ETOSLogger {
+	if eventPublisher == nil {
 		return l
 	}
 	l.logcores = append(l.logcores, zapcore.NewCore(
 		l.opts.Encoder,
-		zapcore.AddSync(newUserLogWriter(publisher)),
+		zapcore.AddSync(newUserLogWriter(eventPublisher)),
 		_zap.DebugLevel,
 	))
 	return l
@@ -169,43 +171,27 @@ func addDefaults(opts zap.Options) zap.Options {
 }
 
 type userLogs struct {
-	publisher messaging.Publisher
+	eventPublisher publisher.EventPublisher
 }
 
 // newUserLogWriter creates a new userLogs instance.
-func newUserLogWriter(publisher messaging.Publisher) *userLogs {
-	return &userLogs{publisher: publisher}
-}
-
-type entry struct {
-	Message        string `json:"message"`
-	Level          string `json:"levelname"`
-	Identifier     string `json:"identifier"`
-	DisableUserLog bool   `json:"disableUserLog"`
-}
-
-type event struct {
-	Event string         `json:"event"`
-	Data  map[string]any `json:"data"`
+func newUserLogWriter(eventPublisher publisher.EventPublisher) *userLogs {
+	return &userLogs{eventPublisher: eventPublisher}
 }
 
 // Write implements the io.Writer interface for userLogs. It unmarshals the log entry and
 // publishes it to the ETOS messagebus if it contains an identifier and is not disabled for
 // user logs.
 func (u *userLogs) Write(p []byte) (n int, err error) {
-	e := entry{}
-	if err := json.Unmarshal(p, &e); err != nil {
+	l := events.Log{}
+	if err := json.Unmarshal(p, &l); err != nil {
 		return 0, fmt.Errorf("failed to unmarshal log entry: %w", err)
 	}
-	if !u.shouldLog(e) {
+	if !u.shouldLog(l) {
 		return len(p), nil
 	}
-	message, err := u.formatLog(p)
-	if err != nil {
-		return 0, fmt.Errorf("failed to format log entry: %w", err)
-	}
-	routingKey := fmt.Sprintf("%s.message.%s", e.Identifier, e.Level)
-	if err := u.publisher.Publish(message, routingKey); err != nil {
+	e := events.NewMessage(l)
+	if err := u.eventPublisher.Publish(l.Identifier, e); err != nil {
 		target := &messaging.PublisherClosedError{}
 		if errors.As(err, &target) {
 			// If the publisher is closed, we can ignore the error and stop trying to publish logs.
@@ -218,19 +204,8 @@ func (u *userLogs) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-// formatLog formats the log entry by unmarshaling it into a map and then marshaling it back
-// into JSON with an "event" field.
-func (u *userLogs) formatLog(p []byte) ([]byte, error) {
-	data := map[string]any{}
-	if err := json.Unmarshal(p, &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal log entry into map: %w", err)
-	}
-	event := event{Event: "message", Data: data}
-	return json.Marshal(event)
-}
-
 // shouldLog determines whether a log entry should be published to the ETOS messagebus.
 // It checks if the entry has an identifier and is not disabled for user logs.
-func (u *userLogs) shouldLog(e entry) bool {
+func (u *userLogs) shouldLog(e events.Log) bool {
 	return !e.DisableUserLog && e.Identifier != ""
 }

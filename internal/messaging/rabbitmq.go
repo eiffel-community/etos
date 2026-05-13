@@ -18,6 +18,7 @@ package messaging
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	"time"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/pkg/messaging/events"
 	"github.com/go-logr/logr"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/amqp"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/ha"
@@ -32,12 +34,6 @@ import (
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/stream"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type Publisher interface {
-	Publish([]byte, string) error
-	AddLogger(logr.Logger)
-	Close() error
-}
 
 const (
 	ConfirmationTimeout = 2 * time.Second
@@ -47,11 +43,6 @@ type PublisherClosedError struct{}
 
 func (e *PublisherClosedError) Error() string {
 	return "Publisher is closed"
-}
-
-// NewPublisher creates a new Publisher instance.
-func NewPublisher(ctx context.Context, config v1alpha1.RabbitMQ, cli client.Client, namespace string) (Publisher, error) {
-	return newRabbitMQStreamPublisher(ctx, "provider", config, cli, namespace)
 }
 
 // RabbitMQStreamPublisher is a structure implementing the Publisher interface. Used to publish events
@@ -74,21 +65,9 @@ type Filter struct {
 	Meta       string
 }
 
-// FromString creates a Filter struct from a string in the format "identifier.type.meta".
-// If the string does not have three parts, the missing parts will be set to an empty string.
-func (f Filter) FromString(s string) Filter {
-	parts := make([]string, 3)
-	copy(parts, strings.SplitN(s, ".", 3))
-	return Filter{
-		Identifier: parts[0],
-		Type:       parts[1],
-		Meta:       parts[2],
-	}
-}
-
-// newRabbitMQStreamPublisher creates a new RabbitMQ stream publisher. It connects to the
+// NewRabbitMQStreamPublisher creates a new RabbitMQ stream publisher. It connects to the
 // RabbitMQ stream and checks if the stream exists. If it does, it starts the publisher.
-func newRabbitMQStreamPublisher(
+func NewRabbitMQStreamPublisher(
 	ctx context.Context,
 	name string,
 	config v1alpha1.RabbitMQ,
@@ -184,25 +163,25 @@ func (s *rabbitMQStreamPublisher) AddLogger(logger logr.Logger) {
 }
 
 // Publish an event to the RabbitMQ stream.
-func (s *rabbitMQStreamPublisher) Publish(b []byte, filterString string) error {
-	filter := Filter{}.FromString(filterString)
+func (s *rabbitMQStreamPublisher) Publish(identifier string, e events.Event) error {
 	if s.shutdown || s.producer == nil {
 		err := &PublisherClosedError{}
 		s.logger.Error(err, "Publisher is closed")
 		return err
 	}
+	b, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
 	s.unConfirmed.Add(1)
 	msg := amqp.NewMessage(b)
-	if filter.Meta == "" {
-		filter.Meta = "*"
-	}
 	msg.ApplicationProperties = map[string]any{
-		"identifier": filter.Identifier,
-		"type":       filter.Type,
-		"meta":       filter.Meta,
+		"identifier": identifier,
+		"type":       strings.ToLower(e.EventType()),
+		"meta":       e.EventMeta(),
 	}
 	s.unConfirmedMessages <- msg
-	s.logger.V(1).Info("Message published to unconfirmed channel")
+	s.logger.V(1).Info("Event published to unconfirmed channel")
 	return nil
 }
 

@@ -31,8 +31,8 @@ import (
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller/jobs"
-	"github.com/eiffel-community/etos/internal/messaging"
 	"github.com/eiffel-community/etos/pkg/logging"
+	"github.com/eiffel-community/etos/pkg/messaging/publisher"
 	"github.com/eiffel-community/etos/pkg/opentelemetry"
 	"github.com/eiffel-community/etos/pkg/opentelemetry/semconv"
 	"github.com/go-logr/logr"
@@ -179,7 +179,7 @@ func run(provider Provider, params Parameters) error {
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	publisher, err := messaging.NewPublisher(ctx,
+	eventPublisher, err := publisher.NewPublisher(ctx,
 		environmentRequest.Spec.Config.EtosMessageBus,
 		cli,
 		params.namespace,
@@ -190,14 +190,14 @@ func run(provider Provider, params Parameters) error {
 		return fmt.Errorf("failed to create message bus publisher: %w", err)
 	}
 	defer func() {
-		if closeErr := publisher.Close(); closeErr != nil {
+		if closeErr := eventPublisher.Close(); closeErr != nil {
 			logger.Error(closeErr, "failed to close message bus publisher")
 		}
 	}()
 
 	ctx = logging.New(params.opts).
 		WithOtel(tracer).
-		WithUserLog(publisher).
+		WithUserLog(eventPublisher).
 		WithConsole().
 		Start(ctx)
 	logger = logging.FromContextOrDiscard(ctx).WithValues(
@@ -207,7 +207,7 @@ func run(provider Provider, params Parameters) error {
 		"providerName", params.providerName,
 		"identifier", environmentRequest.Spec.Identifier,
 	).WithName(params.providerName)
-	publisher.AddLogger(logger)
+	eventPublisher.AddLogger(logger)
 	ctx = logr.NewContext(ctx, logger)
 
 	if err := writeTerminationLog(ctx, runProvider, provider, params, environmentRequest); err != nil {
