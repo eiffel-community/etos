@@ -17,6 +17,7 @@ package extras
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -39,7 +40,7 @@ import (
 var rabbitmqStreamPort int32 = 5552
 
 type MessageBusDeployment struct {
-	etosv1alpha1.RabbitMQ
+	*etosv1alpha1.RabbitMQ
 	client.Client
 	Scheme          *runtime.Scheme
 	SecretName      string
@@ -47,12 +48,15 @@ type MessageBusDeployment struct {
 }
 
 // NewMessageBusDeployment will create a new messagebus reconciler.
-func NewMessageBusDeployment(spec etosv1alpha1.RabbitMQ, sch *runtime.Scheme, cli client.Client) *MessageBusDeployment {
+func NewMessageBusDeployment(spec *etosv1alpha1.RabbitMQ, sch *runtime.Scheme, cli client.Client) *MessageBusDeployment {
 	return &MessageBusDeployment{spec, cli, sch, "", false}
 }
 
 // Reconcile will reconcile the messagebus to its expected state.
 func (r *MessageBusDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
+	if r.RabbitMQ == nil {
+		return errors.New("ETOSMessageBus configuration is required")
+	}
 	name := fmt.Sprintf("%s-messagebus", cluster.Name)
 	logger := log.FromContext(ctx, "Reconciler", "MessageBus", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}
@@ -383,8 +387,16 @@ func (r *MessageBusDeployment) container(name types.NamespacedName) corev1.Conta
 				},
 			},
 			{
+				Name: "POD_NAMESPACE",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			},
+			{
 				Name:  "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS",
-				Value: "-rabbitmq_stream advertised_host \"$(POD_NAME).$(SERVICE_NAME)\"",
+				Value: "-rabbitmq_stream advertised_host \"$(POD_NAME).$(SERVICE_NAME).$(POD_NAMESPACE)\"",
 			},
 		},
 		Ports: []corev1.ContainerPort{

@@ -206,10 +206,10 @@ func (r *ETOSLogAreaDeployment) container(name types.NamespacedName, cluster *et
 				Scheme: "HTTP",
 			},
 		},
-		TimeoutSeconds:   1,
+		TimeoutSeconds:   5,
 		PeriodSeconds:    10,
 		SuccessThreshold: 1,
-		FailureThreshold: 3,
+		FailureThreshold: 5,
 	}
 	return corev1.Container{
 		Name:            name.Name,

@@ -20,11 +20,6 @@ spec:
       eiffelQueueName: etos-suite-starter
   database:
     deploy: true
-  messageBus:
-    eiffel:
-      deploy: true
-    logs:
-      deploy: true
   eventRepository:
     deploy: true
     eiffelQueueName: etos

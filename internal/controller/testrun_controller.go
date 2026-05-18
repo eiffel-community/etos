@@ -164,7 +164,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	eventPublisher, err := r.Publishers.GetPublisher(
 		cluster.Namespace,
 		r.Client,
-		cluster.Spec.MessageBus.ETOSMessageBus,
+		*cluster.Spec.MessageBus.ETOSMessageBus,
 	)
 	if err != nil {
 		logger.Error(err, "Failed to get event publisher for cluster", "cluster", cluster.Name)
@@ -812,8 +812,8 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrun
 			ServiceAccountName: fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
 			Deadline:           deadline,
 			Config: etosv1alpha1.EnvironmentProviderJobConfig{
-				EiffelMessageBus:                    eiffelMessageBus,
-				EtosMessageBus:                      etosMessageBus,
+				EiffelMessageBus:                    *eiffelMessageBus,
+				EtosMessageBus:                      *etosMessageBus,
 				EtosApi:                             etosAPI,
 				EncryptionKey:                       cluster.Spec.ETOS.Config.EncryptionKey,
 				RoutingKeyTag:                       cluster.Spec.ETOS.Config.RoutingKeyTag,

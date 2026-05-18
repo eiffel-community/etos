@@ -621,7 +621,6 @@ spec:
                   RabbitMQ instances if not set.
                 properties:
                   eiffel:
-                    default: {}
                     description: |-
                       EiffelMessageBus describes the message bus to use for Eiffel events. Defaults to a local
                       RabbitMQ if not set.
@@ -738,7 +737,6 @@ spec:
                         type: string
                     type: object
                   logs:
-                    default: {}
                     description: |-
                       ETOSMessageBus describes the message bus to use for ETOS internal communication. Defaults to
                       a local RabbitMQ if not set.
