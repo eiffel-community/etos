@@ -40,6 +40,10 @@ import (
 var testrunlog = logf.Log.WithName("testrun-resource")
 var cli client.Client
 
+// defaultProviderName is the sentinel value used by clients to indicate that the
+// webhook should resolve the actual default provider from labeled Provider CRDs.
+const defaultProviderName = "default"
+
 // SetupTestRunWebhookWithManager registers the webhook for TestRun in the manager.
 func SetupTestRunWebhookWithManager(mgr ctrl.Manager, cfg config.Config) error {
 	if cli == nil {
@@ -153,7 +157,7 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alp
 
 	// Default providers from those labeled as default in the namespace.
 	// Providers set to empty or the special value "default" trigger a lookup.
-	if testrun.Spec.Providers.IUT == "" || testrun.Spec.Providers.IUT == "default" {
+	if testrun.Spec.Providers.IUT == "" || testrun.Spec.Providers.IUT == defaultProviderName {
 		if name, err := findDefaultProvider(ctx, testrun.Namespace, "iut"); err != nil {
 			testrunlog.Error(err, "Failed to find default IUT provider")
 		} else {
@@ -161,7 +165,7 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alp
 			testrun.Spec.Providers.IUT = name
 		}
 	}
-	if testrun.Spec.Providers.ExecutionSpace == "" || testrun.Spec.Providers.ExecutionSpace == "default" {
+	if testrun.Spec.Providers.ExecutionSpace == "" || testrun.Spec.Providers.ExecutionSpace == defaultProviderName {
 		if name, err := findDefaultProvider(ctx, testrun.Namespace, "execution-space"); err != nil {
 			testrunlog.Error(err, "Failed to find default execution space provider")
 		} else {
@@ -169,7 +173,7 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alp
 			testrun.Spec.Providers.ExecutionSpace = name
 		}
 	}
-	if testrun.Spec.Providers.LogArea == "" || testrun.Spec.Providers.LogArea == "default" {
+	if testrun.Spec.Providers.LogArea == "" || testrun.Spec.Providers.LogArea == defaultProviderName {
 		if name, err := findDefaultProvider(ctx, testrun.Namespace, "log-area"); err != nil {
 			testrunlog.Error(err, "Failed to find default log area provider")
 		} else {
