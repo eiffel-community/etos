@@ -15,12 +15,10 @@
 // limitations under the License.
 package events
 
-import "github.com/eiffel-community/etos/internal/controller/jobs"
-
 type Result struct {
-	Conclusion  jobs.Conclusion `json:"conclusion"`
-	Verdict     jobs.Verdict    `json:"verdict"`
-	Description string          `json:"description,omitempty"`
+	Conclusion  Conclusion `json:"conclusion"`
+	Verdict     Verdict    `json:"verdict"`
+	Description string     `json:"description,omitempty"`
 }
 
 type Shutdown struct {

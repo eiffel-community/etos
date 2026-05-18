@@ -194,8 +194,8 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				now := metav1.Now()
 				testrun.Status.CompletionTime = &now
 				if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
-					Conclusion:  jobs.ConclusionTimedOut,
-					Verdict:     jobs.VerdictInconclusive,
+					Conclusion:  events.ConclusionTimedOut,
+					Verdict:     events.VerdictInconclusive,
 					Description: fmt.Sprintf("Testrun deadline of %s exceeded", convertedDeadline),
 				})); err != nil {
 					logger.Error(err, "Failed to publish shutdown event after testrun deadline exceeded")
@@ -404,8 +404,8 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 		logger.Info("SuiteRunner has failed, reconciliation canceled")
 		// Fail-safe event, sent if we did not manage to publish the event below where we have verdict and conclusion.
 		if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
-			Conclusion:  jobs.ConclusionFailed,
-			Verdict:     jobs.VerdictInconclusive,
+			Conclusion:  events.ConclusionFailed,
+			Verdict:     events.VerdictInconclusive,
 			Description: "SuiteRunner job failed",
 		})); err != nil {
 			logger.Error(err, "Failed to publish shutdown event after suite runner failure")
@@ -434,8 +434,8 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 				Message: result.Description,
 			}) {
 			if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
-				Conclusion:  result.Conclusion,
-				Verdict:     result.Verdict,
+				Conclusion:  events.Conclusion(result.Conclusion),
+				Verdict:     events.Verdict(result.Verdict),
 				Description: result.Description,
 			})); err != nil {
 				logger.Error(err, "Failed to publish shutdown event after suite runner failure")
@@ -468,8 +468,8 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 		}
 		if meta.SetStatusCondition(conditions, condition) {
 			if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
-				Conclusion:  result.Conclusion,
-				Verdict:     result.Verdict,
+				Conclusion:  events.Conclusion(result.Conclusion),
+				Verdict:     events.Verdict(result.Verdict),
 				Description: result.Description,
 			})); err != nil {
 				logger.Error(err, "Failed to publish shutdown event after suite runner completion")
@@ -509,8 +509,8 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 					Message: err.Error(),
 				}) {
 				if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
-					Conclusion:  jobs.ConclusionFailed,
-					Verdict:     jobs.VerdictInconclusive,
+					Conclusion:  events.ConclusionFailed,
+					Verdict:     events.VerdictInconclusive,
 					Description: fmt.Sprintf("Failed to create suite runner job: %s", err.Error()),
 				})); err != nil {
 					logger.Error(err, "Failed to publish shutdown event after suite runner job creation failure")
@@ -549,8 +549,8 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 	if isStatusReason(testrun.Status.Conditions, status.StatusEnvironment, status.ReasonFailed) {
 		logger.Info("Environment provisioning failed, reconciliation canceled")
 		if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
-			Conclusion:  jobs.ConclusionFailed,
-			Verdict:     jobs.VerdictInconclusive,
+			Conclusion:  events.ConclusionFailed,
+			Verdict:     events.VerdictInconclusive,
 			Description: "Environment provisioning failed",
 		})); err != nil {
 			logger.Error(err, "Failed to publish shutdown event after environment provisioning failure")

@@ -32,11 +32,10 @@ type Log struct {
 }
 
 type Message struct {
-	ID         int    `json:"id,omitempty"`
-	Identifier string `json:"identifier"`
-	Event      string `json:"event"`
-	Meta       string `json:"meta"`
-	Data       Log    `json:"data"`
+	ID    int    `json:"id,omitempty"`
+	Event string `json:"event"`
+	Meta  string `json:"meta"`
+	Data  Log    `json:"data"`
 }
 
 // NewMessage creates a new Message instance with the given Log.
@@ -68,17 +67,25 @@ func (e Message) EventMeta() string {
 func (l Log) MarshalJSON() ([]byte, error) {
 	// Avoid recursion
 	type Log_ Log
-	b, _ := json.Marshal(Log_(l))
+	b, err := json.Marshal(Log_(l))
+	if err != nil {
+		return nil, err
+	}
 
 	var m map[string]json.RawMessage
-	_ = json.Unmarshal(b, &m)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
 
 	for k, v := range l.Extra {
 		// Don't overwrite existing fields with extra fields
 		if _, ok := m[k]; ok {
 			continue
 		}
-		b, _ := json.Marshal(v)
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
 		m[k] = b
 	}
 	return json.Marshal(m)

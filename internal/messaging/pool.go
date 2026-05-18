@@ -34,7 +34,7 @@ type PublisherPool struct {
 	lock       sync.Mutex
 }
 
-// NewPublisherPool creates a new ConnectionPool instance.
+// NewPublisherPool creates a new PublisherPool instance.
 func NewPublisherPool(ctx context.Context) *PublisherPool {
 	return &PublisherPool{ctx, make(map[string]*Publisher), sync.Mutex{}}
 }

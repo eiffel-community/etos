@@ -59,12 +59,6 @@ type rabbitMQStreamPublisher struct {
 	shutdown            bool
 }
 
-type Filter struct {
-	Identifier string
-	Type       string
-	Meta       string
-}
-
 // NewRabbitMQStreamPublisher creates a new RabbitMQ stream publisher. It connects to the
 // RabbitMQ stream and checks if the stream exists. If it does, it starts the publisher.
 func NewRabbitMQStreamPublisher(
