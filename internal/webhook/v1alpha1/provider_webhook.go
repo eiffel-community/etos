@@ -92,19 +92,17 @@ func (v *ProviderCustomValidator) validateDefaultLabel(ctx context.Context, prov
 		if p.Name == provider.Name && p.Namespace == provider.Namespace {
 			continue
 		}
-		{
-			var allErrs field.ErrorList
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("metadata").Child("labels").Key("etos.eiffel-community.github.io/default"),
-				"true",
-				fmt.Sprintf("a default provider of type %q already exists in this namespace: %q", provider.Spec.Type, p.Name),
-			))
-			groupVersionKind := provider.GroupVersionKind()
-			return apierrors.NewInvalid(
-				schema.GroupKind{Group: groupVersionKind.Group, Kind: groupVersionKind.Kind},
-				provider.Name, allErrs,
-			)
-		}
+		var allErrs field.ErrorList
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("metadata").Child("labels").Key("etos.eiffel-community.github.io/default"),
+			"true",
+			fmt.Sprintf("a default provider of type %q already exists in this namespace: %q", provider.Spec.Type, p.Name),
+		))
+		groupVersionKind := provider.GroupVersionKind()
+		return apierrors.NewInvalid(
+			schema.GroupKind{Group: groupVersionKind.Group, Kind: groupVersionKind.Kind},
+			provider.Name, allErrs,
+		)
 	}
 	return nil
 }
