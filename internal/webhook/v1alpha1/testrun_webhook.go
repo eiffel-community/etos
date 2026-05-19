@@ -199,15 +199,14 @@ func findDefaultProvider(ctx context.Context, namespace, providerType string) (s
 	if err := cli.List(ctx, providers,
 		client.InNamespace(namespace),
 		client.MatchingLabels{"etos.eiffel-community.github.io/default": "true"},
+		client.MatchingFields{".spec.type": providerType},
 	); err != nil {
 		return "", fmt.Errorf("failed to list providers: %w", err)
 	}
-	for _, p := range providers.Items {
-		if p.Spec.Type == providerType {
-			return p.Name, nil
-		}
+	if len(providers.Items) == 0 {
+		return "", fmt.Errorf("no default provider of type %q found in namespace %q", providerType, namespace)
 	}
-	return "", fmt.Errorf("no default provider of type %q found in namespace %q", providerType, namespace)
+	return providers.Items[0].Name, nil
 }
 
 // +kubebuilder:webhook:path=/validate-etos-eiffel-community-github-io-v1alpha1-testrun,mutating=false,failurePolicy=fail,sideEffects=None,groups=etos.eiffel-community.github.io,resources=testruns,verbs=create;update,versions=v1alpha1,name=vtestrun-v1alpha1.kb.io,admissionReviewVersions=v1

@@ -35,8 +35,11 @@ var providerlog = logf.Log.WithName("provider-resource")
 
 // SetupProviderWebhookWithManager registers the webhook for Provider in the manager.
 func SetupProviderWebhookWithManager(mgr ctrl.Manager) error {
+	if cli == nil {
+		cli = mgr.GetClient()
+	}
 	return ctrl.NewWebhookManagedBy(mgr, &etosv1alpha1.Provider{}).
-		WithValidator(&ProviderCustomValidator{mgr.GetClient()}).
+		WithValidator(&ProviderCustomValidator{}).
 		Complete()
 }
 
@@ -47,9 +50,7 @@ func SetupProviderWebhookWithManager(mgr ctrl.Manager) error {
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
-type ProviderCustomValidator struct {
-	client client.Client
-}
+type ProviderCustomValidator struct{}
 
 // ValidateCreate validates the creation of a Provider.
 func (v *ProviderCustomValidator) ValidateCreate(ctx context.Context, provider *etosv1alpha1.Provider) (admission.Warnings, error) {
@@ -76,11 +77,12 @@ func (v *ProviderCustomValidator) validateDefaultLabel(ctx context.Context, prov
 		return nil
 	}
 
-	// List all providers in the namespace that are labeled as default.
+	// List all default providers of the same type in the namespace.
 	providers := &etosv1alpha1.ProviderList{}
-	if err := v.client.List(ctx, providers,
+	if err := cli.List(ctx, providers,
 		client.InNamespace(provider.Namespace),
 		client.MatchingLabels{"etos.eiffel-community.github.io/default": "true"},
+		client.MatchingFields{".spec.type": provider.Spec.Type},
 	); err != nil {
 		return fmt.Errorf("failed to list providers: %w", err)
 	}
@@ -90,7 +92,7 @@ func (v *ProviderCustomValidator) validateDefaultLabel(ctx context.Context, prov
 		if p.Name == provider.Name && p.Namespace == provider.Namespace {
 			continue
 		}
-		if p.Spec.Type == provider.Spec.Type {
+		{
 			var allErrs field.ErrorList
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("metadata").Child("labels").Key("etos.eiffel-community.github.io/default"),
