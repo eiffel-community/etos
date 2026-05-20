@@ -30,9 +30,9 @@ class RequestSchema(BaseModel):
     parent_activity: Optional[str]
     test_suite_url: str
     dataset: Optional[Union[dict, list]] = {}
-    execution_space_provider: Optional[str] = ""
-    iut_provider: Optional[str] = ""
-    log_area_provider: Optional[str] = ""
+    execution_space_provider: Optional[str] = None
+    iut_provider: Optional[str] = None
+    log_area_provider: Optional[str] = None
     timeout: Optional[int] = None
 
     @classmethod
@@ -44,9 +44,9 @@ class RequestSchema(BaseModel):
             parent_activity=args["--parent-activity"] or None,
             test_suite_url=args["--test-suite"],
             dataset=args["--dataset"],
-            execution_space_provider=args["--execution-space-provider"] or "",
-            iut_provider=args["--iut-provider"] or "",
-            log_area_provider=args["--log-area-provider"] or "",
+            execution_space_provider=args["--execution-space-provider"] or None,
+            iut_provider=args["--iut-provider"] or None,
+            log_area_provider=args["--log-area-provider"] or None,
             timeout=args["--timeout"],
         )
 
