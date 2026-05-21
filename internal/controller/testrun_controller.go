@@ -52,6 +52,9 @@ import (
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"github.com/eiffel-community/etos/internal/controller/status"
+	"github.com/eiffel-community/etos/internal/messaging"
+	"github.com/eiffel-community/etos/pkg/messaging/events"
+	"github.com/eiffel-community/etos/pkg/messaging/publisher"
 )
 
 const testRunKind = "TestRun"
@@ -61,7 +64,8 @@ type TestRunReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Clock
-	Tracer trace.Tracer
+	Tracer     trace.Tracer
+	Publishers *messaging.PublisherPool
 }
 
 /*
@@ -157,7 +161,17 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.reconcile(ctx, cluster, testrun); err != nil {
+	eventPublisher, err := r.Publishers.GetPublisher(
+		cluster.Namespace,
+		r.Client,
+		*cluster.Spec.MessageBus.ETOSMessageBus,
+	)
+	if err != nil {
+		logger.Error(err, "Failed to get event publisher for cluster", "cluster", cluster.Name)
+		return ctrl.Result{}, err
+	}
+
+	if err := r.reconcile(ctx, cluster, testrun, eventPublisher); err != nil {
 		if apierrors.IsConflict(err) {
 			logger.Error(err, "Conflict when updating testrun")
 			return ctrl.Result{Requeue: true}, nil
@@ -179,6 +193,13 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			}) {
 				now := metav1.Now()
 				testrun.Status.CompletionTime = &now
+				if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
+					Conclusion:  events.ConclusionTimedOut,
+					Verdict:     events.VerdictInconclusive,
+					Description: fmt.Sprintf("Testrun deadline of %s exceeded", convertedDeadline),
+				})); err != nil {
+					logger.Error(err, "Failed to publish shutdown event after testrun deadline exceeded")
+				}
 				return ctrl.Result{}, r.Status().Update(ctx, testrun)
 			}
 			return ctrl.Result{}, nil
@@ -251,7 +272,9 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 	)
 	return ctx, err
 }
-func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun) error {
+func (r *TestRunReconciler) reconcile(
+	ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, eventPublisher publisher.EventPublisher,
+) error {
 	// Check providers availability
 	if err := checkProviders(ctx, r, testrun.Namespace, testrun.Spec.Providers); err != nil {
 		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{
@@ -266,7 +289,7 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1
 	}
 
 	// Create environment request
-	if updated, err := r.reconcileEnvironmentRequest(ctx, cluster, testrun); updated || err != nil {
+	if updated, err := r.reconcileEnvironmentRequest(ctx, cluster, testrun, eventPublisher); updated || err != nil {
 		return err
 	}
 
@@ -281,7 +304,7 @@ func (r *TestRunReconciler) reconcile(ctx context.Context, cluster *etosv1alpha1
 	if err != nil {
 		return err
 	}
-	if updated, err := r.reconcileSuiteRunner(ctx, testrun, jobManager, jobStatus); updated || err != nil {
+	if updated, err := r.reconcileSuiteRunner(ctx, testrun, jobManager, jobStatus, eventPublisher); updated || err != nil {
 		return err
 	}
 	if updated, err := r.reconcileActiveStatus(ctx, testrun); updated || err != nil {
@@ -365,7 +388,7 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 }
 
 // reconcileSuiteRunner will check the status of suite runners, create new ones if necessary.
-func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *etosv1alpha1.TestRun, jobManager jobs.Job, jobStatus jobs.Status) (bool, error) {
+func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *etosv1alpha1.TestRun, jobManager jobs.Job, jobStatus jobs.Status, eventPublisher publisher.EventPublisher) (bool, error) {
 	logger := logf.FromContext(ctx)
 	if meta.FindStatusCondition(testrun.Status.Conditions, status.StatusSuiteRunner) == nil {
 		meta.SetStatusCondition(&testrun.Status.Conditions,
@@ -379,6 +402,14 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 	}
 	if isStatusReason(testrun.Status.Conditions, status.StatusSuiteRunner, status.ReasonFailed) {
 		logger.Info("SuiteRunner has failed, reconciliation canceled")
+		// Fail-safe event, sent if we did not manage to publish the event below where we have verdict and conclusion.
+		if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
+			Conclusion:  events.ConclusionFailed,
+			Verdict:     events.VerdictInconclusive,
+			Description: "SuiteRunner job failed",
+		})); err != nil {
+			logger.Error(err, "Failed to publish shutdown event after suite runner failure")
+		}
 		return false, errors.Join(jobManager.Delete(ctx), r.deleteEnvironmentRequests(ctx, testrun))
 	}
 	if !isStatusReason(testrun.Status.Conditions, status.StatusEnvironment, status.ReasonCompleted) {
@@ -402,6 +433,13 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 				Reason:  status.ReasonFailed,
 				Message: result.Description,
 			}) {
+			if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
+				Conclusion:  events.Conclusion(result.Conclusion),
+				Verdict:     events.Verdict(result.Verdict),
+				Description: result.Description,
+			})); err != nil {
+				logger.Error(err, "Failed to publish shutdown event after suite runner failure")
+			}
 			return true, r.Status().Update(ctx, testrun)
 		}
 	case jobs.StatusSuccessful:
@@ -429,6 +467,13 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			}
 		}
 		if meta.SetStatusCondition(conditions, condition) {
+			if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
+				Conclusion:  events.Conclusion(result.Conclusion),
+				Verdict:     events.Verdict(result.Verdict),
+				Description: result.Description,
+			})); err != nil {
+				logger.Error(err, "Failed to publish shutdown event after suite runner completion")
+			}
 			return true, r.Status().Update(ctx, testrun)
 		}
 	case jobs.StatusActive:
@@ -463,6 +508,13 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 					Reason:  status.ReasonFailed,
 					Message: err.Error(),
 				}) {
+				if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
+					Conclusion:  events.ConclusionFailed,
+					Verdict:     events.VerdictInconclusive,
+					Description: fmt.Sprintf("Failed to create suite runner job: %s", err.Error()),
+				})); err != nil {
+					logger.Error(err, "Failed to publish shutdown event after suite runner job creation failure")
+				}
 				return true, r.Status().Update(ctx, testrun)
 			}
 			return false, err
@@ -482,7 +534,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 }
 
 // reconcileEnvironmentRequest will check the status of environment requests, create new ones if necessary.
-func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun) (bool, error) {
+func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, eventPublisher publisher.EventPublisher) (bool, error) {
 	logger := logf.FromContext(ctx)
 	if meta.FindStatusCondition(testrun.Status.Conditions, status.StatusEnvironment) == nil {
 		meta.SetStatusCondition(&testrun.Status.Conditions,
@@ -496,6 +548,13 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 	}
 	if isStatusReason(testrun.Status.Conditions, status.StatusEnvironment, status.ReasonFailed) {
 		logger.Info("Environment provisioning failed, reconciliation canceled")
+		if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
+			Conclusion:  events.ConclusionFailed,
+			Verdict:     events.VerdictInconclusive,
+			Description: "Environment provisioning failed",
+		})); err != nil {
+			logger.Error(err, "Failed to publish shutdown event after environment provisioning failure")
+		}
 		return false, r.deleteEnvironmentRequests(ctx, testrun)
 	}
 
@@ -753,8 +812,8 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrun
 			ServiceAccountName: fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
 			Deadline:           deadline,
 			Config: etosv1alpha1.EnvironmentProviderJobConfig{
-				EiffelMessageBus:                    eiffelMessageBus,
-				EtosMessageBus:                      etosMessageBus,
+				EiffelMessageBus:                    *eiffelMessageBus,
+				EtosMessageBus:                      *etosMessageBus,
 				EtosApi:                             etosAPI,
 				EncryptionKey:                       cluster.Spec.ETOS.Config.EncryptionKey,
 				RoutingKeyTag:                       cluster.Spec.ETOS.Config.RoutingKeyTag,

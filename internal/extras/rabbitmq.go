@@ -17,6 +17,7 @@ package extras
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -39,7 +40,7 @@ import (
 var rabbitmqPort int32 = 5672
 
 type RabbitMQDeployment struct {
-	etosv1alpha1.RabbitMQ
+	*etosv1alpha1.RabbitMQ
 	client.Client
 	Scheme          *runtime.Scheme
 	SecretName      string
@@ -47,12 +48,15 @@ type RabbitMQDeployment struct {
 }
 
 // NewRabbitMQDeployment will create a new RabbitMQ reconciler.
-func NewRabbitMQDeployment(spec etosv1alpha1.RabbitMQ, sch *runtime.Scheme, cli client.Client) *RabbitMQDeployment {
+func NewRabbitMQDeployment(spec *etosv1alpha1.RabbitMQ, sch *runtime.Scheme, cli client.Client) *RabbitMQDeployment {
 	return &RabbitMQDeployment{spec, cli, sch, "", false}
 }
 
 // Reconcile will reconcile RabbitMQ to its expected state.
 func (r *RabbitMQDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1.Cluster) error {
+	if r.RabbitMQ == nil {
+		return errors.New("EiffelMessageBus configuration is required")
+	}
 	name := fmt.Sprintf("%s-rabbitmq", cluster.Name)
 	logger := log.FromContext(ctx, "Reconciler", "RabbitMQ", "BaseName", name)
 	namespacedName := types.NamespacedName{Name: name, Namespace: cluster.Namespace}

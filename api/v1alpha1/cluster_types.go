@@ -94,14 +94,12 @@ type OpenTelemetry struct {
 type MessageBus struct {
 	// EiffelMessageBus describes the message bus to use for Eiffel events. Defaults to a local
 	// RabbitMQ if not set.
-	// +kubebuilder:default={}
 	// +optional
-	EiffelMessageBus RabbitMQ `json:"eiffel,omitempty"`
+	EiffelMessageBus *RabbitMQ `json:"eiffel,omitempty"`
 	// ETOSMessageBus describes the message bus to use for ETOS internal communication. Defaults to
 	// a local RabbitMQ if not set.
-	// +kubebuilder:default={}
 	// +optional
-	ETOSMessageBus RabbitMQ `json:"logs,omitempty"`
+	ETOSMessageBus *RabbitMQ `json:"logs,omitempty"`
 }
 
 // Etcd describes the deployment of an ETCD database. Ignored if Deploy is set to false.

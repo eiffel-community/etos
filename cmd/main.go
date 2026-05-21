@@ -39,14 +39,16 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/go-logr/logr"
+
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/config"
 	"github.com/eiffel-community/etos/internal/controller"
+	"github.com/eiffel-community/etos/internal/messaging"
 	webhookv1alpha1 "github.com/eiffel-community/etos/internal/webhook/v1alpha1"
 	webhookv1alpha2 "github.com/eiffel-community/etos/internal/webhook/v1alpha2"
 	"github.com/eiffel-community/etos/pkg/opentelemetry"
-	"github.com/go-logr/logr"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -232,12 +234,19 @@ func main() {
 			setupLog.Error(err, "Failed to shutdown OpenTelemetry tracer")
 		}
 	}()
+	publisherPool := messaging.NewPublisherPool(ctx)
+	defer func() {
+		if err := publisherPool.Close(); err != nil {
+			setupLog.Error(err, "Failed to close messaging publisher pool")
+		}
+	}()
 
 	if err = (&controller.TestRunReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Clock:  &clock.RealClock{},
-		Tracer: otel.Tracer("testrun-controller"),
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Clock:      &clock.RealClock{},
+		Tracer:     otel.Tracer("testrun-controller"),
+		Publishers: publisherPool,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "TestRun")
 		os.Exit(1)
@@ -324,6 +333,13 @@ func main() {
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha2.SetupLogAreaWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "LogArea")
+			os.Exit(1)
+		}
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookv1alpha1.SetupClusterWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Cluster")
 			os.Exit(1)
 		}
 	}
