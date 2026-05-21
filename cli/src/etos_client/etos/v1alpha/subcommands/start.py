@@ -54,7 +54,7 @@ class Start(SubCommand):
                                                                   Check with your provider which information can be supplied.
         --timeout TIMEOUT                                         Maximum duration in seconds the testrun is allowed to take.
                                                                   Defaults to 86400 (24 hours) if not set.
-        --ssev2alpha                                              Use the v2alpha version of sse.
+        --ssev1                                                   Use the v1 version of sse.
         --version                                                 Show program's version number and exit
     """
 
@@ -104,10 +104,10 @@ class Start(SubCommand):
             "artifact.*",
             "shutdown.*",
         ]
-        if args["--ssev2alpha"]:
-            etos = Etos(args, SSEV2AlphaClient(args["<cluster>"], filter))
-        else:
+        if args["--ssev1"]:
             etos = Etos(args, SSEV1Client(args["<cluster>"]))
+        else:
+            etos = Etos(args, SSEV2AlphaClient(args["<cluster>"], filter))
         result = etos.run()
         if result.conclusion == Conclusion.FAILED:
             sys.exit(result.reason)
