@@ -692,7 +692,6 @@ spec:
                   RabbitMQ instances if not set.'
                 properties:
                   eiffel:
-                    default: {}
                     description: 'EiffelMessageBus describes the message bus to use
                       for Eiffel events. Defaults to a local
 
@@ -820,7 +819,6 @@ spec:
                         type: string
                     type: object
                   logs:
-                    default: {}
                     description: 'ETOSMessageBus describes the message bus to use
                       for ETOS internal communication. Defaults to
 
@@ -4780,6 +4778,26 @@ metadata:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
   name: etos-mutating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: etos-webhook-service
+      namespace: etos-system
+      path: /mutate-etos-eiffel-community-github-io-v1alpha1-cluster
+  failurePolicy: Fail
+  name: mcluster-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusters
+  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:
