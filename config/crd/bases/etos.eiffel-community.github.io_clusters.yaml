@@ -47,7 +47,6 @@ spec:
             description: spec defines the desired state of Cluster
             properties:
               database:
-                default: {}
                 description: |-
                   Database describes the deployment of a database for the cluster. Defaults to a local ETCD if
                   not set.
@@ -459,7 +458,6 @@ spec:
                 - config
                 type: object
               eventRepository:
-                default: {}
                 description: |-
                   EventRepository describes the deployment of an event repository for the cluster. Defaults to a
                   local event repository with a local MongoDB if not set.

@@ -376,9 +376,8 @@ type ClusterSpec struct {
 	ETOS ETOS `json:"etos,omitempty"`
 	// Database describes the deployment of a database for the cluster. Defaults to a local ETCD if
 	// not set.
-	// +kubebuilder:default={}
 	// +optional
-	Database Database `json:"database,omitempty"`
+	Database *Database `json:"database,omitempty"`
 	// MessageBus describes the deployment of message buses for the cluster. Defaults to local
 	// RabbitMQ instances if not set.
 	// +kubebuilder:default={}
@@ -386,9 +385,8 @@ type ClusterSpec struct {
 	MessageBus MessageBus `json:"messageBus"`
 	// EventRepository describes the deployment of an event repository for the cluster. Defaults to a
 	// local event repository with a local MongoDB if not set.
-	// +kubebuilder:default={}
 	// +optional
-	EventRepository EventRepository `json:"eventRepository,omitempty"`
+	EventRepository *EventRepository `json:"eventRepository,omitempty"`
 	// OpenTelemetry describes the configuration for an OpenTelemetry collector for the cluster.
 	// +kubebuilder:default={}
 	// +optional

@@ -63,6 +63,35 @@ func (d *ClusterCustomDefaulter) Default(_ context.Context, obj *etosv1alpha1.Cl
 			Host: fmt.Sprintf("%s-rabbitmq.%s.svc.cluster.local", obj.GetName(), obj.GetNamespace()),
 		}
 	}
+	if obj.Spec.Database == nil {
+		obj.Spec.Database = &etosv1alpha1.Database{Deploy: true}
+	}
+	if obj.Spec.Database.Etcd.Host == "" {
+		clusterlog.Info("Etcd host is not set, setting it to default values")
+		obj.Spec.Database.Etcd.Host = fmt.Sprintf("%s-etcd-client.%s.svc.cluster.local", obj.GetName(), obj.GetNamespace())
+	}
+	if obj.Spec.Database.Etcd.Port == "" {
+		clusterlog.Info("Etcd port is not set, setting it to default values")
+		obj.Spec.Database.Etcd.Port = "2379"
+	}
+	if obj.Spec.EventRepository == nil {
+		clusterlog.Info("Event Repository host is not set, setting it to default values")
+		obj.Spec.EventRepository = &etosv1alpha1.EventRepository{
+			Deploy:          true,
+			EiffelQueueName: obj.GetName(),
+			Host:            fmt.Sprintf("http://%s-graphql.%s.svc.cluster.local:5000/graphql", obj.GetName(), obj.GetNamespace()),
+			Database: etosv1alpha1.MongoDB{
+				Deploy: true,
+			},
+		}
+	}
+	if obj.Spec.ETOS.Ingress.Enabled {
+		obj.Spec.ETOS.Config.ETOSApiURL = obj.Spec.ETOS.Ingress.Host
+	} else if obj.Spec.ETOS.Config.ETOSApiURL == "" {
+		obj.Spec.ETOS.Config.ETOSApiURL = fmt.Sprintf(
+			"http://%s-etos-api.%s.svc.cluster.local/api", obj.GetName(), obj.GetNamespace(),
+		)
+	}
 
 	return nil
 }

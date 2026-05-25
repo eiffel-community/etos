@@ -114,9 +114,12 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// MongoDB is only used by the local event repository. When the event repository
 	// is not deployed, force MongoDB deploy to false to avoid creating unused resources.
-	mongoSpec := cluster.Spec.EventRepository.Database
-	if !cluster.Spec.EventRepository.Deploy {
-		mongoSpec.Deploy = false
+	mongoSpec := etosv1alpha1.MongoDB{Deploy: false}
+	if cluster.Spec.EventRepository != nil {
+		mongoSpec = cluster.Spec.EventRepository.Database
+		if !cluster.Spec.EventRepository.Deploy {
+			mongoSpec.Deploy = false
+		}
 	}
 	mongodb := extras.NewMongoDBDeployment(mongoSpec, r.Scheme, r.Client)
 	if err := mongodb.Reconcile(ctx, cluster); err != nil {
@@ -131,7 +134,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	eventrepository := extras.NewEventRepositoryDeployment(&cluster.Spec.EventRepository, r.Scheme, r.Client, mongodb, eiffelbus.SecretName, r.Config)
+	eventrepository := extras.NewEventRepositoryDeployment(cluster.Spec.EventRepository, r.Scheme, r.Client, mongodb, eiffelbus.SecretName, r.Config)
 	if err := eventrepository.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
@@ -144,7 +147,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	etcd := etos.NewETCDDeployment(&cluster.Spec.Database, r.Scheme, r.Client)
+	etcd := etos.NewETCDDeployment(cluster.Spec.Database, r.Scheme, r.Client)
 	if err := etcd.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil

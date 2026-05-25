@@ -506,26 +506,13 @@ func (r *ETOSDeployment) ingress(name types.NamespacedName, clusterName string) 
 
 // config creates a secret definition for ETOS.
 func (r *ETOSDeployment) config(name types.NamespacedName, cluster *etosv1alpha1.Cluster) *corev1.Secret {
-	etosHost := name.Name
-	if r.Ingress.Host != "" {
-		etosHost = r.Ingress.Host
-	}
-	etosApi := fmt.Sprintf("http://%s/api", etosHost)
-	if r.Config.ETOSApiURL != "" {
-		etosApi = r.Config.ETOSApiURL
-	}
-	eventRepository := cluster.Spec.EventRepository.Host
-	if r.Config.ETOSEventRepositoryURL != "" {
-		eventRepository = r.Config.ETOSEventRepositoryURL
-	}
-
 	data := map[string][]byte{
-		"ETOS_GRAPHQL_SERVER":                    []byte(eventRepository),
+		"ETOS_GRAPHQL_SERVER":                    []byte(cluster.Spec.EventRepository.Host),
 		"ETOS_CLUSTER":                           []byte(cluster.Name),
 		"ETOS_NAMESPACE":                         []byte(cluster.Namespace),
 		"ENVIRONMENT_PROVIDER_SERVICE_ACCOUNT":   fmt.Appendf(nil, "%s-provider", cluster.Name),
 		"SOURCE_HOST":                            []byte(r.Config.Source),
-		"ETOS_API":                               []byte(etosApi),
+		"ETOS_API":                               []byte(cluster.Spec.ETOS.Config.ETOSApiURL),
 		"SUITE_RUNNER_IMAGE":                     []byte(config.ImageOrDefault(r.cfg.SuiteRunner, cluster.Spec.ETOS.SuiteRunner.Image)),
 		"SUITE_RUNNER_IMAGE_PULL_POLICY":         []byte(config.PullPolicyOrDefault(r.cfg.SuiteRunner, cluster.Spec.ETOS.SuiteRunner.Image)),
 		"LOG_LISTENER_IMAGE":                     []byte(config.ImageOrDefault(r.cfg.LogListener, cluster.Spec.ETOS.SuiteRunner.LogListener.Image)),

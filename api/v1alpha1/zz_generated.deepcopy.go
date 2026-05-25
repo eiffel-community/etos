@@ -90,9 +90,17 @@ func (in *ClusterList) DeepCopyObject() runtime.Object {
 func (in *ClusterSpec) DeepCopyInto(out *ClusterSpec) {
 	*out = *in
 	in.ETOS.DeepCopyInto(&out.ETOS)
-	out.Database = in.Database
+	if in.Database != nil {
+		in, out := &in.Database, &out.Database
+		*out = new(Database)
+		**out = **in
+	}
 	in.MessageBus.DeepCopyInto(&out.MessageBus)
-	in.EventRepository.DeepCopyInto(&out.EventRepository)
+	if in.EventRepository != nil {
+		in, out := &in.EventRepository, &out.EventRepository
+		*out = new(EventRepository)
+		(*in).DeepCopyInto(*out)
+	}
 	out.OpenTelemetry = in.OpenTelemetry
 }
 
