@@ -85,8 +85,13 @@ func (d *ClusterCustomDefaulter) Default(_ context.Context, obj *etosv1alpha1.Cl
 			},
 		}
 	}
+
+	scheme := "https"
+	if !obj.Spec.ETOS.Ingress.SSL {
+		scheme = "http"
+	}
 	if obj.Spec.ETOS.Ingress.Enabled {
-		obj.Spec.ETOS.Config.ETOSApiURL = obj.Spec.ETOS.Ingress.Host
+		obj.Spec.ETOS.Config.ETOSApiURL = fmt.Sprintf("%s://%s/api", scheme, obj.Spec.ETOS.Ingress.Host)
 	} else if obj.Spec.ETOS.Config.ETOSApiURL == "" {
 		obj.Spec.ETOS.Config.ETOSApiURL = fmt.Sprintf(
 			"http://%s-etos-api.%s.svc.cluster.local/api", obj.GetName(), obj.GetNamespace(),

@@ -316,11 +316,6 @@ type ETOSConfig struct {
 	// +kubebuilder:default=""
 	// +required
 	ETOSApiURL string `json:"etosApiURL,omitempty"`
-	// ETOSEventRepositoryURL describes the URL to the event repository API for use by ETOS services.
-	// Defaults are used if not set, but in order to use the ETOS client it should be set to an
-	// externally available URL.
-	// +optional
-	ETOSEventRepositoryURL string `json:"etosEventRepositoryURL,omitempty"`
 
 	// RoutingKeyTag describes the tag to use for routing keys for ETOS eiffel events.
 	// +kubebuilder:default="etos"
