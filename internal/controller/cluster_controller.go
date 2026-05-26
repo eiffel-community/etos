@@ -114,12 +114,9 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// MongoDB is only used by the local event repository. When the event repository
 	// is not deployed, force MongoDB deploy to false to avoid creating unused resources.
-	mongoSpec := etosv1alpha1.MongoDB{Deploy: false}
-	if cluster.Spec.EventRepository != nil {
-		mongoSpec = cluster.Spec.EventRepository.Database
-		if !cluster.Spec.EventRepository.Deploy {
-			mongoSpec.Deploy = false
-		}
+	mongoSpec := cluster.Spec.EventRepository.Database
+	if !cluster.Spec.EventRepository.Deploy {
+		mongoSpec.Deploy = false
 	}
 	mongodb := extras.NewMongoDBDeployment(mongoSpec, r.Scheme, r.Client)
 	if err := mongodb.Reconcile(ctx, cluster); err != nil {
