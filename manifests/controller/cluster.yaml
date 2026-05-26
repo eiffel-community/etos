@@ -3494,6 +3494,8 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.type
     served: true
     storage: true
     subresources:
@@ -4905,6 +4907,26 @@ metadata:
     cert-manager.io/inject-ca-from: etos-system/etos-serving-cert
   name: etos-validating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: etos-webhook-service
+      namespace: etos-system
+      path: /validate-etos-eiffel-community-github-io-v1alpha1-provider
+  failurePolicy: Fail
+  name: vprovider-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - etos.eiffel-community.github.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - providers
+  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:
