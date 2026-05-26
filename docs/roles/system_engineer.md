@@ -63,7 +63,7 @@ When building a custom test runner Docker image that installs a test framework i
 ENV TEST_FRAMEWORK_VENV=/home/etos/.test-framework
 ```
 
-If `TEST_FRAMEWORK_VENV` is not set, the test runner falls back to pyenv (if available) for backward compatibility with older base images.
+If `TEST_FRAMEWORK_VENV` is not set, the test runner falls back to pyenv (if available) for backward compatibility with older base images. If neither is available, tests run in the default ETR Python environment.
 
 #### LogArea
 
