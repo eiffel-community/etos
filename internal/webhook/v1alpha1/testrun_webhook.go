@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -150,6 +151,32 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alp
 		testrun.Labels["etos.eiffel-community.github.io/id"] = testrun.Spec.ID
 	}
 
+	// Default providers from those labeled as default in the namespace.
+	if testrun.Spec.Providers.IUT == "" {
+		if name, err := findDefaultProvider(ctx, testrun.Namespace, "iut"); err != nil {
+			testrunlog.Error(err, "Failed to find default IUT provider")
+		} else {
+			testrunlog.Info("Defaulting IUT provider", "provider", name)
+			testrun.Spec.Providers.IUT = name
+		}
+	}
+	if testrun.Spec.Providers.ExecutionSpace == "" {
+		if name, err := findDefaultProvider(ctx, testrun.Namespace, "execution-space"); err != nil {
+			testrunlog.Error(err, "Failed to find default execution space provider")
+		} else {
+			testrunlog.Info("Defaulting execution space provider", "provider", name)
+			testrun.Spec.Providers.ExecutionSpace = name
+		}
+	}
+	if testrun.Spec.Providers.LogArea == "" {
+		if name, err := findDefaultProvider(ctx, testrun.Namespace, "log-area"); err != nil {
+			testrunlog.Error(err, "Failed to find default log area provider")
+		} else {
+			testrunlog.Info("Defaulting log area provider", "provider", name)
+			testrun.Spec.Providers.LogArea = name
+		}
+	}
+
 	// Compute deadline from timeout if not explicitly set.
 	if testrun.Spec.Deadline == 0 {
 		testrun.Spec.Deadline = time.Now().Unix() + testrun.Spec.Timeout
@@ -158,6 +185,23 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alp
 	testrunlog.Info("Defaulting webhook has finished")
 
 	return nil
+}
+
+// findDefaultProvider finds a provider of the given type that is labeled as the default
+// in the specified namespace. Returns the provider name or an error if none is found.
+func findDefaultProvider(ctx context.Context, namespace, providerType string) (string, error) {
+	providers := &etosv1alpha1.ProviderList{}
+	if err := cli.List(ctx, providers,
+		client.InNamespace(namespace),
+		client.MatchingLabels{"etos.eiffel-community.github.io/default": "true"},
+		client.MatchingFields{".spec.type": providerType},
+	); err != nil {
+		return "", fmt.Errorf("failed to list providers: %w", err)
+	}
+	if len(providers.Items) == 0 {
+		return "", fmt.Errorf("no default provider of type %q found in namespace %q", providerType, namespace)
+	}
+	return providers.Items[0].Name, nil
 }
 
 // +kubebuilder:webhook:path=/validate-etos-eiffel-community-github-io-v1alpha1-testrun,mutating=false,failurePolicy=fail,sideEffects=None,groups=etos.eiffel-community.github.io,resources=testruns,verbs=create;update,versions=v1alpha1,name=vtestrun-v1alpha1.kb.io,admissionReviewVersions=v1
@@ -210,6 +254,28 @@ func (d *TestRunCustomValidator) validate(testrun *etosv1alpha1.TestRun) error {
 			field.NewPath("spec").Child("testRunner"),
 			testrun.Spec.TestRunner,
 			"TestRunner version information is missing, maybe because cluster is missing?",
+		))
+	}
+
+	if testrun.Spec.Providers.IUT == "" {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec").Child("providers").Child("iut"),
+			testrun.Spec.Providers.IUT,
+			"IUT provider is missing, either specify it explicitly or ensure a default provider (labeled etos.eiffel-community.github.io/default=true) of type 'iut' exists in the namespace",
+		))
+	}
+	if testrun.Spec.Providers.ExecutionSpace == "" {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec").Child("providers").Child("executionSpace"),
+			testrun.Spec.Providers.ExecutionSpace,
+			"Execution space provider is missing, either specify it explicitly or ensure a default provider (labeled etos.eiffel-community.github.io/default=true) of type 'execution-space' exists in the namespace",
+		))
+	}
+	if testrun.Spec.Providers.LogArea == "" {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec").Child("providers").Child("logArea"),
+			testrun.Spec.Providers.LogArea,
+			"Log area provider is missing, either specify it explicitly or ensure a default provider (labeled etos.eiffel-community.github.io/default=true) of type 'log-area' exists in the namespace",
 		))
 	}
 

@@ -526,6 +526,8 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.type
     served: true
     storage: true
     subresources:
