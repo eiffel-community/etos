@@ -55,7 +55,6 @@ spec:
             description: spec defines the desired state of Cluster
             properties:
               database:
-                default: {}
                 description: |-
                   Database describes the deployment of a database for the cluster. Defaults to a local ETCD if
                   not set.
@@ -231,12 +230,6 @@ spec:
                           ETOSApiURL describes the URL to the ETOS API for use by internal ETOS services.
                           Defaults are used if not set.
                         type: string
-                      etosEventRepositoryURL:
-                        description: |-
-                          ETOSEventRepositoryURL describes the URL to the event repository API for use by ETOS services.
-                          Defaults are used if not set, but in order to use the ETOS client it should be set to an
-                          externally available URL.
-                        type: string
                       eventDataTimeout:
                         default: "60"
                         description: |-
@@ -324,6 +317,11 @@ spec:
                         description: IngressClass describes the ingress class to use
                           for the ingress.
                         type: string
+                      ssl:
+                        default: true
+                        description: SSL describes whether to use SSL for the ingress.
+                          Defaults to true.
+                        type: boolean
                     type: object
                   logArea:
                     description: LogArea describes a configuration for the ETOS log
@@ -467,7 +465,6 @@ spec:
                 - config
                 type: object
               eventRepository:
-                default: {}
                 description: |-
                   EventRepository describes the deployment of an event repository for the cluster. Defaults to a
                   local event repository with a local MongoDB if not set.
@@ -529,6 +526,11 @@ spec:
                         description: IngressClass describes the ingress class to use
                           for the ingress.
                         type: string
+                      ssl:
+                        default: true
+                        description: SSL describes whether to use SSL for the ingress.
+                          Defaults to true.
+                        type: boolean
                     type: object
                   mongo:
                     default: {}
@@ -4438,7 +4440,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:5f4f00bb
+        image: ghcr.io/eiffel-community/etos-controller:5c07eb6d
         livenessProbe:
           httpGet:
             path: /healthz
