@@ -20,13 +20,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/pkg/logging"
 	"github.com/eiffel-community/etos/pkg/provider"
-	"github.com/fernet/fernet-go"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
@@ -36,7 +34,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -75,74 +72,6 @@ func (p *genericExecutionSpaceProvider) Provision(
 	return nil
 }
 
-// createEnvironment creates a map of environment variables for the ETOS test runner based on the EnvironmentRequest.
-func (p *genericExecutionSpaceProvider) createEnvironment(
-	ctx context.Context,
-	cfg provider.ProvisionConfig,
-) (map[string]string, error) {
-	var environment map[string]string
-	logger := logging.FromContextOrDiscard(ctx)
-	cli, err := provider.KubernetesClient()
-	if err != nil {
-		return environment, err
-	}
-	key, err := cfg.EnvironmentRequest.Spec.Config.EncryptionKey.Get(ctx, cli, cfg.EnvironmentRequest.Namespace)
-	if err != nil {
-		return environment, errors.Join(errors.New("failed to get encryption key"), err)
-	}
-	encryptionKey, err := fernet.DecodeKey(string(key))
-	if err != nil {
-		return environment, errors.Join(errors.New("failed to decode encryption key"), err)
-	}
-	hostname, err := os.Hostname()
-	if err != nil {
-		return environment, errors.Join(errors.New("failed to get hostname"), err)
-	}
-	logger.Info("Provisioning a new ExecutionSpace for EnvironmentRequest",
-		"EnvironmentRequest", cfg.EnvironmentRequest.Name,
-		"Namespace", cfg.EnvironmentRequest.Namespace,
-		"Amount", cfg.MinimumAmount,
-	)
-	etosMessagebusPassword, err := getAndEncrypt(ctx,
-		cli, cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Password,
-		cfg.EnvironmentRequest.Namespace, encryptionKey,
-	)
-	if err != nil {
-		return environment, errors.Join(errors.New("failed to get and encrypt ETOS MessageBus password"), err)
-	}
-	eiffelMessagebusPassword, err := getAndEncrypt(ctx,
-		cli, cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Password,
-		cfg.EnvironmentRequest.Namespace, encryptionKey,
-	)
-	if err != nil {
-		return environment, errors.Join(errors.New("failed to get and encrypt Eiffel MessageBus password"), err)
-	}
-
-	environment = map[string]string{
-		"SOURCE_HOST":                 hostname,
-		"ETOS_API":                    cfg.EnvironmentRequest.Spec.Config.EtosApi,
-		"ETR_VERSION":                 cfg.EnvironmentRequest.Spec.Providers.ExecutionSpace.TestRunner,
-		"ETOS_GRAPHQL_SERVER":         cfg.EnvironmentRequest.Spec.Config.GraphQlServer,
-		"ETOS_RABBITMQ_EXCHANGE":      cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Exchange,
-		"ETOS_RABBITMQ_HOST":          cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Host,
-		"ETOS_RABBITMQ_PASSWORD":      string(etosMessagebusPassword),
-		"ETOS_RABBITMQ_PORT":          cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Port,
-		"ETOS_RABBITMQ_USERNAME":      cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Username,
-		"ETOS_RABBITMQ_VHOST":         cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.Vhost,
-		"ETOS_RABBITMQ_SSL":           cfg.EnvironmentRequest.Spec.Config.EtosMessageBus.SSL,
-		"RABBITMQ_EXCHANGE":           cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Exchange,
-		"RABBITMQ_HOST":               cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Host,
-		"RABBITMQ_PASSWORD":           string(eiffelMessagebusPassword),
-		"RABBITMQ_PORT":               cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Port,
-		"RABBITMQ_USERNAME":           cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Username,
-		"RABBITMQ_VHOST":              cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.Vhost,
-		"RABBITMQ_SSL":                cfg.EnvironmentRequest.Spec.Config.EiffelMessageBus.SSL,
-		"OTEL_EXPORTER_OTLP_ENDPOINT": os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		"OTEL_EXPORTER_OTLP_INSECURE": os.Getenv("OTEL_EXPORTER_OTLP_INSECURE"),
-	}
-	return environment, nil
-}
-
 // createExecutionSpaces creates the specified number of ExecutionSpaces for an EnvironmentRequest.
 func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 	ctx context.Context, cfg provider.ProvisionConfig,
@@ -151,13 +80,7 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 	ctx, span := cfg.Tracer.Start(ctx, "CreateExecutionSpaces", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 
-	environment, err := p.createEnvironment(ctx, cfg)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "failed to create environment variables for ExecutionSpace")
-		return err
-	}
-
+	environment := map[string]string{}
 	ds := dataset{}
 	if err := json.Unmarshal(cfg.EnvironmentRequest.Spec.Dataset.Raw, &ds); err != nil {
 		span.RecordError(err)
@@ -339,23 +262,4 @@ func (p *genericExecutionSpaceProvider) Release(
 	logger.Info(fmt.Sprintf("ExecutionSpace '%s' released", cfg.Name))
 	span.SetStatus(codes.Ok, "successfully released ExecutionSpace")
 	return nil
-}
-
-// encrypt encrypts a string using the provided Fernet key.
-func encrypt(s []byte, key *fernet.Key) ([]byte, error) {
-	return fernet.EncryptAndSign(s, key)
-}
-
-// getAndEncrypt gets a value from a Var struct and encrypts it using the provided Fernet key.
-func getAndEncrypt(
-	ctx context.Context, cli client.Client, s *v1alpha1.Var, namespace string, key *fernet.Key,
-) ([]byte, error) {
-	if s == nil {
-		return nil, errors.New("no value provided")
-	}
-	value, err := s.Get(ctx, cli, namespace)
-	if err != nil {
-		return nil, err
-	}
-	return encrypt(value, key)
 }
