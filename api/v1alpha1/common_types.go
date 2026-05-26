@@ -108,6 +108,10 @@ type Ingress struct {
 	// +kubebuilder:default=false
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
+	// SSL describes whether to use SSL for the ingress. Defaults to true.
+	// +kubebuilder:default=true
+	// +optional
+	SSL bool `json:"ssl"`
 	// IngressClass describes the ingress class to use for the ingress.
 	// +optional
 	IngressClass string `json:"ingressClass,omitempty"`

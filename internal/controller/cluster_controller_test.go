@@ -55,9 +55,9 @@ var _ = Describe("Cluster Controller", func() {
 					},
 					Spec: etosv1alpha1.ClusterSpec{
 						ETOS:            etosv1alpha1.ETOS{},
-						Database:        etosv1alpha1.Database{},
+						Database:        &etosv1alpha1.Database{},
 						MessageBus:      etosv1alpha1.MessageBus{},
-						EventRepository: etosv1alpha1.EventRepository{},
+						EventRepository: &etosv1alpha1.EventRepository{},
 					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
@@ -110,9 +110,9 @@ var _ = Describe("Cluster Controller", func() {
 				},
 				Spec: etosv1alpha1.ClusterSpec{
 					ETOS:            etosv1alpha1.ETOS{},
-					Database:        etosv1alpha1.Database{},
+					Database:        &etosv1alpha1.Database{},
 					MessageBus:      etosv1alpha1.MessageBus{},
-					EventRepository: etosv1alpha1.EventRepository{},
+					EventRepository: &etosv1alpha1.EventRepository{},
 				},
 			}
 			err := k8sClient.Get(ctx, typeNamespacedName, &etosv1alpha1.Cluster{})
@@ -205,9 +205,9 @@ var _ = Describe("Cluster Controller", func() {
 				},
 				Spec: etosv1alpha1.ClusterSpec{
 					ETOS:            etosv1alpha1.ETOS{},
-					Database:        etosv1alpha1.Database{},
+					Database:        &etosv1alpha1.Database{},
 					MessageBus:      etosv1alpha1.MessageBus{},
-					EventRepository: etosv1alpha1.EventRepository{},
+					EventRepository: &etosv1alpha1.EventRepository{},
 				},
 			}
 			err := k8sClient.Get(ctx, typeNamespacedName, &etosv1alpha1.Cluster{})

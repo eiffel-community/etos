@@ -316,11 +316,6 @@ type ETOSConfig struct {
 	// +kubebuilder:default=""
 	// +required
 	ETOSApiURL string `json:"etosApiURL,omitempty"`
-	// ETOSEventRepositoryURL describes the URL to the event repository API for use by ETOS services.
-	// Defaults are used if not set, but in order to use the ETOS client it should be set to an
-	// externally available URL.
-	// +optional
-	ETOSEventRepositoryURL string `json:"etosEventRepositoryURL,omitempty"`
 
 	// RoutingKeyTag describes the tag to use for routing keys for ETOS eiffel events.
 	// +kubebuilder:default="etos"
@@ -376,9 +371,8 @@ type ClusterSpec struct {
 	ETOS ETOS `json:"etos,omitempty"`
 	// Database describes the deployment of a database for the cluster. Defaults to a local ETCD if
 	// not set.
-	// +kubebuilder:default={}
 	// +optional
-	Database Database `json:"database,omitempty"`
+	Database *Database `json:"database,omitempty"`
 	// MessageBus describes the deployment of message buses for the cluster. Defaults to local
 	// RabbitMQ instances if not set.
 	// +kubebuilder:default={}
@@ -386,9 +380,8 @@ type ClusterSpec struct {
 	MessageBus MessageBus `json:"messageBus"`
 	// EventRepository describes the deployment of an event repository for the cluster. Defaults to a
 	// local event repository with a local MongoDB if not set.
-	// +kubebuilder:default={}
 	// +optional
-	EventRepository EventRepository `json:"eventRepository,omitempty"`
+	EventRepository *EventRepository `json:"eventRepository,omitempty"`
 	// OpenTelemetry describes the configuration for an OpenTelemetry collector for the cluster.
 	// +kubebuilder:default={}
 	// +optional

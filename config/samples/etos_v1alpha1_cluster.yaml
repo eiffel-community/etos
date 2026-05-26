@@ -11,17 +11,3 @@ spec:
       encryptionKey:
         value: "ZmgcW2Qz43KNJfIuF0vYCoPneViMVyObH4GR8R9JE4g="  # This is used by e2e test, don't change
       routingKeyTag: cluster-sample-etos  # This is used by e2e test, don't change
-      etosApiURL: http://cluster-sample-etos-api.etos-test.svc.cluster.local/api  # This is used by e2e test, don't change
-      environmentTimeout: "60"
-    suiteRunner:
-      logListener:
-        etosQueueName: "*.testlog"
-    suiteStarter:
-      eiffelQueueName: etos-suite-starter
-  database:
-    deploy: true
-  eventRepository:
-    deploy: true
-    eiffelQueueName: etos
-    mongo:
-      deploy: true

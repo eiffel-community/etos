@@ -131,7 +131,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	eventrepository := extras.NewEventRepositoryDeployment(&cluster.Spec.EventRepository, r.Scheme, r.Client, mongodb, eiffelbus.SecretName, r.Config)
+	eventrepository := extras.NewEventRepositoryDeployment(cluster.Spec.EventRepository, r.Scheme, r.Client, mongodb, eiffelbus.SecretName, r.Config)
 	if err := eventrepository.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil
@@ -144,7 +144,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	etcd := etos.NewETCDDeployment(&cluster.Spec.Database, r.Scheme, r.Client)
+	etcd := etos.NewETCDDeployment(cluster.Spec.Database, r.Scheme, r.Client)
 	if err := etcd.Reconcile(ctx, cluster); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, nil

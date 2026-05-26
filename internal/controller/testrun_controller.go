@@ -703,50 +703,6 @@ func (r TestRunReconciler) createEnvironmentRequests(ctx context.Context, suite 
 // environmentRequest is the definition for an environment request.
 func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrunner string, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, tests []etosv1alpha1.Test, dataset *apiextensionsv1.JSON) *etosv1alpha1.EnvironmentRequest {
 	logger := logf.FromContext(ctx)
-	eventRepository := cluster.Spec.EventRepository.Host
-	if cluster.Spec.ETOS.Config.ETOSEventRepositoryURL != "" {
-		logger.Info("Cluster configured with an event repository URL, using that instead")
-		eventRepository = cluster.Spec.ETOS.Config.ETOSEventRepositoryURL
-	}
-	if eventRepository == "" {
-		// TODO: We must fix a global config to store these default values.
-		eventRepository = fmt.Sprintf("http://%s-graphql:%d/graphql", cluster.Name, 5000)
-	}
-	logger.Info("Event repository configured", "url", eventRepository)
-	etosAPI := cluster.Spec.ETOS.Config.ETOSApiURL
-	if etosAPI == "" {
-		etosAPI = fmt.Sprintf("http://%s-etos-api/api", cluster.Name)
-	}
-	logger.Info("ETOS API configured", "url", etosAPI)
-
-	eiffelMessageBus := cluster.Spec.MessageBus.EiffelMessageBus
-	if cluster.Spec.MessageBus.EiffelMessageBus.Deploy {
-		logger.Info("Cluster deployed with an Eiffel messagebus, using that instead")
-		eiffelMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, "rabbitmq")
-	}
-	logger.Info("Eiffel messagebus configured", "url", eiffelMessageBus)
-
-	etosMessageBus := cluster.Spec.MessageBus.ETOSMessageBus
-	if cluster.Spec.MessageBus.ETOSMessageBus.Deploy {
-		logger.Info("Cluster deployed with an ETOS messagebus, using that instead")
-		etosMessageBus.Host = fmt.Sprintf("%s-%s", cluster.Name, "messagebus")
-	}
-	logger.Info("ETOS messagebus configured", "url", etosMessageBus)
-
-	databaseHost := cluster.Spec.Database.Etcd.Host
-	if databaseHost == "" {
-		databaseHost = "etcd-client"
-	}
-	if cluster.Spec.Database.Deploy {
-		logger.Info("Cluster deployed with an ETOS database, using that instead")
-		databaseHost = fmt.Sprintf("%s-etcd-client", cluster.Name)
-	}
-	databasePort := cluster.Spec.Database.Etcd.Port
-	if databasePort == "" {
-		logger.Info("Database port not configured, using default")
-		databasePort = "2379"
-	}
-	logger.Info("ETOS database configured", "host", databaseHost, "port", databasePort)
 
 	annotations := make(map[string]string)
 	traceparent, ok := testrun.Annotations["etos.eiffel-community.github.io/traceparent"]
@@ -812,14 +768,14 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrun
 			ServiceAccountName: fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
 			Deadline:           deadline,
 			Config: etosv1alpha1.EnvironmentProviderJobConfig{
-				EiffelMessageBus:                    *eiffelMessageBus,
-				EtosMessageBus:                      *etosMessageBus,
-				EtosApi:                             etosAPI,
+				EiffelMessageBus:                    *cluster.Spec.MessageBus.EiffelMessageBus,
+				EtosMessageBus:                      *cluster.Spec.MessageBus.ETOSMessageBus,
+				EtosApi:                             cluster.Spec.ETOS.Config.ETOSApiURL,
 				EncryptionKey:                       cluster.Spec.ETOS.Config.EncryptionKey,
 				RoutingKeyTag:                       cluster.Spec.ETOS.Config.RoutingKeyTag,
-				GraphQlServer:                       eventRepository,
-				EtcdHost:                            databaseHost,
-				EtcdPort:                            databasePort,
+				GraphQlServer:                       cluster.Spec.EventRepository.Host,
+				EtcdHost:                            cluster.Spec.Database.Etcd.Host,
+				EtcdPort:                            cluster.Spec.Database.Etcd.Port,
 				WaitForTimeout:                      cluster.Spec.ETOS.Config.EnvironmentTimeout,
 				EnvironmentProviderEventDataTimeout: cluster.Spec.ETOS.Config.EventDataTimeout,
 				EnvironmentProviderServiceAccount:   fmt.Sprintf("%s-provider", cluster.Name),
