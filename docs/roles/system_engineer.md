@@ -55,6 +55,16 @@ There are three types of providers.
 Where the tests are executed, including deployed extra services required for the tests.
 The Execution space provider will prepare the environment for testing and start up the Test runner container which will install the ETOS test runner. This provider will also make sure all the environment variables are correctly set.
 
+##### Custom test runner images
+
+When building a custom test runner Docker image that installs a test framework into its own virtualenv (separate from the ETOS test runner virtualenv), set the `TEST_FRAMEWORK_VENV` environment variable to the path of that virtualenv. The ETOS test runner will activate it before running tests and checkout scripts.
+
+```Dockerfile
+ENV TEST_FRAMEWORK_VENV=/home/etos/.test-framework
+```
+
+If `TEST_FRAMEWORK_VENV` is not set, the test runner falls back to pyenv (if available) for backward compatibility with older base images.
+
 #### LogArea
 
 Where the test artifacts and logs are stored. The ETOS test runner uploads all files that are generated to a file storage server, this is the description of the file storage server and how to upload to it.
