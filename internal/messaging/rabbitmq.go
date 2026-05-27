@@ -67,7 +67,7 @@ func NewRabbitMQStreamPublisher(
 	config v1alpha1.RabbitMQ,
 	cli client.Client,
 	namespace string,
-) (*rabbitMQStreamPublisher, error) {
+) (EventPublisher, error) {
 	password, err := config.Password.Get(ctx, cli, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RabbitMQ password: %w", err)

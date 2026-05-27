@@ -17,7 +17,6 @@ package messaging
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
@@ -25,13 +24,27 @@ import (
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/pkg/messaging/events"
 	"github.com/go-logr/logr"
+	"github.com/gohugoio/hashstructure"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+type EventPublisher interface {
+	Publish(string, events.Event) error
+	AddLogger(logr.Logger)
+	Close() error
+}
 
 type PublisherPool struct {
 	ctx        context.Context
 	publishers map[string]*Publisher
 	lock       sync.Mutex
+}
+
+// namespacedParameters is a struct that combines the RabbitMQ parameters with the
+// namespace to create a unique identifier for the connection.
+type namespacedParameters struct {
+	v1alpha1.RabbitMQ
+	Namespace string
 }
 
 // NewPublisherPool creates a new PublisherPool instance.
@@ -47,10 +60,12 @@ func (p *PublisherPool) GetPublisher(
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	// Hash the connection parameters and namespace to create a unique name for the connection
-	var hashInput []byte
-	hashInput = fmt.Appendf(hashInput, "%v", parameters)
-	hashInput = fmt.Append(hashInput, namespace)
-	name := fmt.Sprintf("%x", sha256.Sum256(hashInput))
+	namespacedParams := namespacedParameters{parameters, namespace}
+	hash, err := hashstructure.Hash(namespacedParams, nil)
+	if err != nil {
+		return nil, err
+	}
+	name := fmt.Sprintf("%x", hash)
 	publisher, exists := p.publishers[name]
 	if !exists {
 		if err := p.addPublisher(name, namespace, cli, parameters); err != nil {
@@ -66,7 +81,7 @@ func (p *PublisherPool) addPublisher(name, namespace string, cli client.Client, 
 	if _, exists := p.publishers[name]; exists {
 		return nil
 	}
-	publisher, err := NewRabbitMQStreamPublisher(p.ctx, "controller", parameters, cli, namespace)
+	publisher, err := publisherImpl(p.ctx, "controller", parameters, cli, namespace)
 	if err != nil {
 		return err
 	}
@@ -88,7 +103,7 @@ func (p *PublisherPool) Close() error {
 }
 
 type Publisher struct {
-	publisher *rabbitMQStreamPublisher
+	publisher EventPublisher
 }
 
 // Publish sends an event to the EventPublisher.
@@ -104,4 +119,17 @@ func (p Publisher) AddLogger(logger logr.Logger) {
 // Close closes the publisher's connection.
 func (p Publisher) Close() error {
 	return p.publisher.Close()
+}
+
+var publisherImpl = NewRabbitMQStreamPublisher
+
+// SetPublisherImpl allows overriding the default implementation of the publisher, which is useful for testing.
+func SetPublisherImpl(impl func(
+	ctx context.Context,
+	identifier string,
+	parameters v1alpha1.RabbitMQ,
+	cli client.Client,
+	namespace string,
+) (EventPublisher, error)) {
+	publisherImpl = impl
 }

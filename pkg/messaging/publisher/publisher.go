@@ -25,10 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// EventPublisher is an interface that defines the methods for publishing events, adding a logger,
+// and closing the publisher connection.
 type EventPublisher interface {
-	Publish(string, events.Event) error
-	AddLogger(logr.Logger)
-	Close() error
+	messaging.EventPublisher
 }
 
 type Publisher struct {

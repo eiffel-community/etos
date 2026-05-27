@@ -5,6 +5,7 @@ go 1.25.3
 require (
 	github.com/fernet/fernet-go v0.0.0-20240119011108-303da6aec611
 	github.com/go-logr/logr v1.4.3
+	github.com/gohugoio/hashstructure v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
