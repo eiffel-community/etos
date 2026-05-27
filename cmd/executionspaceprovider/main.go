@@ -80,6 +80,12 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 	ctx, span := cfg.Tracer.Start(ctx, "CreateExecutionSpaces", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 
+	logger.Info("Provisioning a new ExecutionSpace for EnvironmentRequest",
+		"EnvironmentRequest", cfg.EnvironmentRequest.Name,
+		"Namespace", cfg.EnvironmentRequest.Namespace,
+		"Amount", cfg.MinimumAmount,
+	)
+
 	environment := map[string]string{}
 	ds := dataset{}
 	if err := json.Unmarshal(cfg.EnvironmentRequest.Spec.Dataset.Raw, &ds); err != nil {
