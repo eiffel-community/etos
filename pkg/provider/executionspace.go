@@ -193,6 +193,7 @@ func environmentVariables(
 
 	environment = map[string]string{
 		"SOURCE_HOST":                 hostname,
+		"SUITE_ID":                    environmentrequest.Spec.Identifier,
 		"ETOS_API":                    environmentrequest.Spec.Config.EtosApi,
 		"ETR_VERSION":                 environmentrequest.Spec.Providers.ExecutionSpace.TestRunner,
 		"ETOS_GRAPHQL_SERVER":         environmentrequest.Spec.Config.GraphQlServer,
