@@ -106,7 +106,6 @@ func NewRabbitMQStreamPublisher(
 	}
 	options := stream.NewProducerOptions().
 		SetClientProvidedName(name).
-		SetProducerName(name).
 		SetConfirmationTimeOut(ConfirmationTimeout)
 	publisher := &rabbitMQStreamPublisher{
 		logger:      logr.Discard(),

@@ -37,9 +37,9 @@ type Publisher struct {
 
 // NewPublisher creates a new Publisher instance.
 func NewPublisher(
-	ctx context.Context, config v1alpha1.RabbitMQ, cli client.Client, namespace string,
+	ctx context.Context, config v1alpha1.RabbitMQ, cli client.Client, name, namespace string,
 ) (EventPublisher, error) {
-	connection, err := messaging.NewRabbitMQStreamPublisher(ctx, "provider", config, cli, namespace)
+	connection, err := messaging.NewRabbitMQStreamPublisher(ctx, name, config, cli, namespace)
 	if err != nil {
 		return nil, err
 	}

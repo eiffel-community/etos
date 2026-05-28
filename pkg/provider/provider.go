@@ -179,9 +179,11 @@ func run(provider Provider, params Parameters) error {
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
+	clientRef := fmt.Sprintf("%s-%s", params.providerName, environmentRequest.Spec.ID)
 	eventPublisher, err := publisher.NewPublisher(ctx,
 		environmentRequest.Spec.Config.EtosMessageBus,
 		cli,
+		clientRef,
 		params.namespace,
 	)
 	if err != nil {
