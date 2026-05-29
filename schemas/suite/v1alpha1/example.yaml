@@ -1,0 +1,63 @@
+# Example: ETOS suite definition (v1alpha1)
+# Demonstrates multiple suites, dependencies, extra devices, and sidecar containers.
+suites:
+- priority: 1
+  test_executions:
+  - id: "api-integration-test"
+    testcase:
+      id: tests/integration/test_api.py::TestAPI::test_create_resource
+      version: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+      repository: https://github.com/example-org/test-suite.git
+      uri: https://docs.example.org/tests/integration/test_api
+    execution:
+      checkout:
+      - "git clone https://github.com/example-org/test-suite.git -b a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 test-suite"
+      command: "pytest --output-folder=$TEST_ARTIFACT_PATH/ test-suite/tests/integration/test_api.py::TestAPI::test_create_resource"
+      pre_execution: []
+    environment:
+      test_runner: ghcr.io/eiffel-community/etos-base-test-runner:latest
+      environment_variables:
+        LOG_LEVEL: DEBUG
+        API_ENDPOINT: https://api.example.org
+      extra_devices:
+      - hardware: RPi4
+        hwid: "42"
+        features:
+        - GPIO
+        - WiFi
+        software: 268dd4db-93da-4232-a544-bf4c0fb26dac
+      containers: []
+
+  - id: "api-delete-test"
+    testcase:
+      id: tests/integration/test_api.py::TestAPI::test_delete_resource
+      version: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+      repository: https://github.com/example-org/test-suite.git
+      uri: https://docs.example.org/tests/integration/test_api
+    dependencies:
+    - "api-integration-test"
+    execution:
+      checkout:
+      - "git clone https://github.com/example-org/test-suite.git -b a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 test-suite"
+      command: "pytest --output-folder=$TEST_ARTIFACT_PATH/ test-suite/tests/integration/test_api.py::TestAPI::test_delete_resource"
+      pre_execution:
+      - "pip install requests"
+    environment:
+      test_runner: ghcr.io/eiffel-community/etos-base-test-runner:latest
+      environment_variables:
+        LOG_LEVEL: INFO
+      containers:
+      - image: postgres:16
+        environment_variables:
+          POSTGRES_DB: testdb
+          POSTGRES_PASSWORD: test
+
+- priority: 2
+  test_executions:
+  - id: "smoke-test"
+    testcase:
+      id: tests/smoke/test_health.py::TestHealth::test_ping
+    execution:
+      command: "pytest tests/smoke/test_health.py::TestHealth::test_ping"
+    environment:
+      test_runner: ghcr.io/eiffel-community/etos-base-test-runner:latest

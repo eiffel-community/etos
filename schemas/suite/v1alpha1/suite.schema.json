@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eiffel-community/etos/schemas/suite/v1alpha1/suite.schema.json",
+  "title": "ETOS Suite Definition",
+  "description": "Schema for the ETOS test suite YAML format (v1alpha1). Defines one or more test suites with their test executions, environments, and dependencies.",
+  "type": "object",
+  "required": ["suites"],
+  "additionalProperties": false,
+  "properties": {
+    "suites": {
+      "type": "array",
+      "description": "List of test suites to execute.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/suite"
+      }
+    }
+  },
+  "$defs": {
+    "suite": {
+      "type": "object",
+      "description": "A single test suite containing prioritized test executions.",
+      "required": ["priority", "test_executions"],
+      "additionalProperties": false,
+      "properties": {
+        "priority": {
+          "type": "integer",
+          "description": "Execution priority when multiple suites are defined. Lower values indicate higher priority.",
+          "minimum": 0
+        },
+        "test_executions": {
+          "type": "array",
+          "description": "List of test executions within this suite.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/test_execution"
+          }
+        }
+      }
+    },
+    "test_execution": {
+      "type": "object",
+      "description": "A single test execution combining a test case, its execution instructions, and environment requirements.",
+      "required": ["id", "testcase", "execution", "environment"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this test execution."
+        },
+        "testcase": {
+          "$ref": "#/$defs/testcase"
+        },
+        "dependencies": {
+          "type": "array",
+          "description": "Optional list of test execution IDs that must complete before this test can run.",
+          "items": {
+            "type": "string",
+            "description": "ID of a test execution this test depends on."
+          }
+        },
+        "execution": {
+          "$ref": "#/$defs/execution"
+        },
+        "environment": {
+          "$ref": "#/$defs/environment"
+        }
+      }
+    },
+    "testcase": {
+      "type": "object",
+      "description": "Metadata about the test case. The repository and version can be used to check out the test source code.",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Fully qualified test case identifier, e.g. 'tests/integration/test_api.py::TestAPI::test_create_resource'."
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the test case, typically a Git commit SHA or branch name."
+        },
+        "repository": {
+          "type": "string",
+          "description": "URI of the source repository containing the test case, e.g. a Git repository URL.",
+          "format": "uri"
+        },
+        "uri": {
+          "type": "string",
+          "description": "Documentation or external reference URI for the test case.",
+          "format": "uri"
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "description": "Instructions for how to execute the test case.",
+      "required": ["command"],
+      "additionalProperties": false,
+      "properties": {
+        "checkout": {
+          "type": "array",
+          "description": "Shell commands to check out the test source code. Executed in order before the test command.",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "command": {
+          "type": "string",
+          "description": "The shell command to execute the test, e.g. a pytest invocation."
+        },
+        "pre_execution": {
+          "type": "array",
+          "description": "Shell commands to run after checkout but before the main test command (e.g. setup steps, dependency installation).",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "description": "Environment configuration for the test execution, including the test runner image, environment variables, additional devices, and sidecar containers.",
+      "required": ["test_runner"],
+      "additionalProperties": false,
+      "properties": {
+        "test_runner": {
+          "type": "string",
+          "description": "Container image to use as the test runner, e.g. 'ghcr.io/eiffel-community/etos-base-test-runner:latest'."
+        },
+        "environment_variables": {
+          "type": "object",
+          "description": "Key-value pairs of environment variables to set in the test runner.",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "extra_devices": {
+          "type": "array",
+          "description": "Additional hardware devices required by the test beyond the primary IUT (Item Under Test).",
+          "items": {
+            "$ref": "#/$defs/extra_device"
+          },
+          "default": []
+        },
+        "containers": {
+          "type": "array",
+          "description": "Sidecar containers to run alongside the test runner.",
+          "items": {
+            "$ref": "#/$defs/container"
+          },
+          "default": []
+        }
+      }
+    },
+    "extra_device": {
+      "type": "object",
+      "description": "An additional hardware device needed for the test.",
+      "additionalProperties": false,
+      "properties": {
+        "hardware": {
+          "type": "string",
+          "description": "Hardware model identifier, e.g. 'RPi4'."
+        },
+        "hwid": {
+          "type": "string",
+          "description": "Numeric hardware ID."
+        },
+        "features": {
+          "type": "array",
+          "description": "Required hardware features, e.g. ['GPIO', 'WiFi'].",
+          "items": {
+            "type": "string"
+          }
+        },
+        "software": {
+          "type": "string",
+          "description": "Software artifact UUID to deploy on the device."
+        }
+      }
+    },
+    "container": {
+      "type": "object",
+      "description": "A sidecar container to run alongside the test runner.",
+      "required": ["image"],
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Container image to run as a sidecar."
+        },
+        "environment_variables": {
+          "type": "object",
+          "description": "Environment variables for this sidecar container.",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "command": {
+          "type": "array",
+          "description": "Override the container entrypoint.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "args": {
+          "type": "array",
+          "description": "Arguments to the container entrypoint.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
