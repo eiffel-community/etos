@@ -87,11 +87,11 @@ func TestSchemaRejectsInvalidDocument(t *testing.T) {
 		},
 		{
 			name: "missing test_executions",
-			doc:  `{"suites": [{"priority": 1}]}`,
+			doc:  `{"name":"t","schemaVersion":"v1alpha1","suites": [{"priority": 1}]}`,
 		},
 		{
 			name: "missing required execution fields",
-			doc: `{"suites": [{"priority": 1, "test_executions": [
+			doc: `{"name":"t","schemaVersion":"v1alpha1","suites": [{"priority": 1, "test_executions": [
 {"id": "t1", "testcase": {"id": "tc1"},
  "execution": {},
  "environment": {"test_runner": "img"}}
@@ -99,7 +99,7 @@ func TestSchemaRejectsInvalidDocument(t *testing.T) {
 		},
 		{
 			name: "extra property not allowed",
-			doc: `{"suites": [{"priority": 1, "test_executions": [
+			doc: `{"name":"t","schemaVersion":"v1alpha1","suites": [{"priority": 1, "test_executions": [
 {"id": "t1", "testcase": {"id": "tc1"},
  "execution": {"command": "exit 0"},
  "environment": {"test_runner": "img"},

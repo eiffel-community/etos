@@ -4,9 +4,22 @@
   "title": "ETOS Suite Definition",
   "description": "Schema for the ETOS test suite YAML format (v1alpha1). Defines one or more test suites with their test executions, environments, and dependencies.",
   "type": "object",
-  "required": ["suites"],
+  "required": [
+    "name",
+    "schemaVersion",
+    "suites"
+  ],
   "additionalProperties": false,
   "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the suite definition."
+    },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Version of the suite schema.",
+      "const": "v1alpha1"
+    },
     "suites": {
       "type": "array",
       "description": "List of test suites to execute.",
@@ -20,7 +33,10 @@
     "suite": {
       "type": "object",
       "description": "A single test suite containing prioritized test executions.",
-      "required": ["priority", "test_executions"],
+      "required": [
+        "priority",
+        "test_executions"
+      ],
       "additionalProperties": false,
       "properties": {
         "priority": {
@@ -41,7 +57,12 @@
     "test_execution": {
       "type": "object",
       "description": "A single test execution combining a test case, its execution instructions, and environment requirements.",
-      "required": ["id", "testcase", "execution", "environment"],
+      "required": [
+        "id",
+        "testcase",
+        "execution",
+        "environment"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -70,7 +91,9 @@
     "testcase": {
       "type": "object",
       "description": "Metadata about the test case. The repository and version can be used to check out the test source code.",
-      "required": ["id"],
+      "required": [
+        "id"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -96,7 +119,9 @@
     "execution": {
       "type": "object",
       "description": "Instructions for how to execute the test case.",
-      "required": ["command"],
+      "required": [
+        "command"
+      ],
       "additionalProperties": false,
       "properties": {
         "checkout": {
@@ -124,7 +149,9 @@
     "environment": {
       "type": "object",
       "description": "Environment configuration for the test execution, including the test runner image, environment variables, additional devices, and sidecar containers.",
-      "required": ["test_runner"],
+      "required": [
+        "test_runner"
+      ],
       "additionalProperties": false,
       "properties": {
         "test_runner": {
@@ -186,7 +213,9 @@
     "container": {
       "type": "object",
       "description": "A sidecar container to run alongside the test runner.",
-      "required": ["image"],
+      "required": [
+        "image"
+      ],
       "additionalProperties": false,
       "properties": {
         "image": {

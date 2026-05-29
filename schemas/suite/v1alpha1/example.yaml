@@ -1,5 +1,7 @@
 # Example: ETOS suite definition (v1alpha1)
 # Demonstrates multiple suites, dependencies, extra devices, and sidecar containers.
+name: example-api-tests
+schemaVersion: v1alpha1
 suites:
 - priority: 1
   test_executions:
