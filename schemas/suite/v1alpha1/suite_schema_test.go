@@ -53,7 +53,7 @@ func TestExampleValidatesAgainstSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read example %s: %v", examplePath, err)
 	}
-	var yamlData interface{}
+	var yamlData any
 	if err := yaml.Unmarshal(yamlBytes, &yamlData); err != nil {
 		t.Fatalf("failed to parse example YAML: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestSchemaRejectsInvalidDocument(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var data interface{}
+			var data any
 			if err := json.Unmarshal([]byte(tt.doc), &data); err != nil {
 				t.Fatalf("invalid test JSON: %v", err)
 			}
@@ -122,18 +122,18 @@ func TestSchemaRejectsInvalidDocument(t *testing.T) {
 }
 
 // toJSONCompatible recursively converts yaml.v3 types to JSON-compatible
-// types that the jsonschema library expects (map[string]interface{} and
-// []interface{} instead of map[interface{}]interface{}).
-func toJSONCompatible(v interface{}) interface{} {
+// types that the jsonschema library expects (map[string]any and
+// []any instead of map[any]any).
+func toJSONCompatible(v any) any {
 	switch val := v.(type) {
-	case map[string]interface{}:
-		out := make(map[string]interface{}, len(val))
+	case map[string]any:
+		out := make(map[string]any, len(val))
 		for k, v := range val {
 			out[k] = toJSONCompatible(v)
 		}
 		return out
-	case []interface{}:
-		out := make([]interface{}, len(val))
+	case []any:
+		out := make([]any, len(val))
 		for i, v := range val {
 			out[i] = toJSONCompatible(v)
 		}
