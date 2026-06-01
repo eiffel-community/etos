@@ -38,6 +38,13 @@ func SetupProviderWebhookWithManager(mgr ctrl.Manager) error {
 	if cli == nil {
 		cli = mgr.GetClient()
 	}
+	// Register a field index on .spec.type so that MatchingFields queries work in the webhook validators.
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &etosv1alpha1.Provider{}, ".spec.type", func(rawObj client.Object) []string {
+		provider := rawObj.(*etosv1alpha1.Provider)
+		return []string{provider.Spec.Type}
+	}); err != nil {
+		return err
+	}
 	return ctrl.NewWebhookManagedBy(mgr, &etosv1alpha1.Provider{}).
 		WithValidator(&ProviderCustomValidator{}).
 		Complete()
