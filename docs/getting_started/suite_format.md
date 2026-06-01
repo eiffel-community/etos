@@ -21,9 +21,7 @@ definition describes one or more test suites, the test executions within each
 suite, how each test is checked out and executed, and the environment it
 requires.
 
-!!! note
-
-    The standalone YAML suite definition format is a v1 feature.
+> **Note:** The standalone YAML suite definition format is a v1 feature.
 
 The format is described by a JSON Schema located at
 [`schemas/suite/v1alpha1/suite.schema.json`](https://github.com/eiffel-community/etos/blob/main/schemas/suite/v1alpha1/suite.schema.json).
