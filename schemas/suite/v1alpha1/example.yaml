@@ -1,49 +1,43 @@
 # Example: ETOS suite definition (v1alpha1)
-# Demonstrates multiple suites, dependencies, and provider-defined resources.
-name: example-api-tests
+#
+# Demonstrates the key features of the format: multiple prioritized suites,
+# test execution dependencies, checkout and pre-execution steps, environment
+# variables, multiple test runner images, and provider-defined additional
+# resources.
+name: etos-sample-suite
 schemaVersion: v1alpha1
 suites:
 - priority: 1
   testExecutions:
-  - id: "api-integration-test"
+  - id: "sample-test"
     testcase:
-      id: tests/integration/test_api.py::TestAPI::test_create_resource
-      version: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
-      repository: https://github.com/example-org/test-suite.git
-      uri: https://docs.example.org/tests/integration/test_api
+      id: etos-sample-test
+      version: main
+      repository: https://github.com/eiffel-community/etos
     execution:
       checkout:
-      - "git clone https://github.com/example-org/test-suite.git -b a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 test-suite"
-      command: "pytest --output-folder=$TEST_ARTIFACT_PATH/ test-suite/tests/integration/test_api.py::TestAPI::test_create_resource"
-      preExecution: []
+      - "git clone https://github.com/eiffel-community/etos"
+      command: "exit 0"
     environment:
-      testRunner: ghcr.io/eiffel-community/etos-base-test-runner:latest
+      testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
       environmentVariables:
         LOG_LEVEL: DEBUG
-        API_ENDPOINT: https://api.example.org
-      additionalResources:
-      - type: device
-        model: example-board
-        features:
-        - GPIO
-        - WiFi
 
-  - id: "api-delete-test"
+  - id: "sample-test-with-resources"
     testcase:
-      id: tests/integration/test_api.py::TestAPI::test_delete_resource
-      version: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
-      repository: https://github.com/example-org/test-suite.git
-      uri: https://docs.example.org/tests/integration/test_api
+      id: etos-sample-test
+      version: main
+      repository: https://github.com/eiffel-community/etos
     dependencies:
-    - "api-integration-test"
+    - "sample-test"
     execution:
       checkout:
-      - "git clone https://github.com/example-org/test-suite.git -b a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 test-suite"
-      command: "pytest --output-folder=$TEST_ARTIFACT_PATH/ test-suite/tests/integration/test_api.py::TestAPI::test_delete_resource"
+      - "git clone https://github.com/eiffel-community/etos"
       preExecution:
       - "pip install requests"
+      command: "exit 0"
     environment:
-      testRunner: ghcr.io/eiffel-community/etos-base-test-runner:latest
+      testRunner: ghcr.io/eiffel-community/etos-base-test-runner:debian-bookworm
       environmentVariables:
         LOG_LEVEL: INFO
       additionalResources:
@@ -52,13 +46,19 @@ suites:
         environmentVariables:
           POSTGRES_DB: testdb
           POSTGRES_PASSWORD: test
+      - type: device
+        model: example-board
+        features:
+        - GPIO
+        - WiFi
 
 - priority: 2
   testExecutions:
   - id: "smoke-test"
     testcase:
-      id: tests/smoke/test_health.py::TestHealth::test_ping
+      id: etos-sample-test
+      version: main
     execution:
-      command: "pytest tests/smoke/test_health.py::TestHealth::test_ping"
+      command: "exit 0"
     environment:
-      testRunner: ghcr.io/eiffel-community/etos-base-test-runner:latest
+      testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
