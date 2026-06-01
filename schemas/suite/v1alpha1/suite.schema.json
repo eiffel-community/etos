@@ -35,7 +35,7 @@
       "description": "A single test suite containing prioritized test executions.",
       "required": [
         "priority",
-        "test_executions"
+        "testExecutions"
       ],
       "additionalProperties": false,
       "properties": {
@@ -44,17 +44,17 @@
           "description": "Execution priority when multiple suites are defined. Lower values indicate higher priority.",
           "minimum": 0
         },
-        "test_executions": {
+        "testExecutions": {
           "type": "array",
           "description": "List of test executions within this suite.",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/test_execution"
+            "$ref": "#/$defs/testExecution"
           }
         }
       }
     },
-    "test_execution": {
+    "testExecution": {
       "type": "object",
       "description": "A single test execution combining a test case, its execution instructions, and environment requirements.",
       "required": [
@@ -136,7 +136,7 @@
           "type": "string",
           "description": "The shell command to execute the test, e.g. a pytest invocation."
         },
-        "pre_execution": {
+        "preExecution": {
           "type": "array",
           "description": "Shell commands to run after checkout but before the main test command (e.g. setup steps, dependency installation).",
           "items": {
@@ -148,17 +148,17 @@
     },
     "environment": {
       "type": "object",
-      "description": "Environment configuration for the test execution, including the test runner image, environment variables, additional devices, and sidecar containers.",
+      "description": "Environment configuration for the test execution, including the test runner image, environment variables, and additional provider-defined resources.",
       "required": [
-        "test_runner"
+        "testRunner"
       ],
       "additionalProperties": false,
       "properties": {
-        "test_runner": {
+        "testRunner": {
           "type": "string",
           "description": "Container image to use as the test runner, e.g. 'ghcr.io/eiffel-community/etos-base-test-runner:latest'."
         },
-        "environment_variables": {
+        "environmentVariables": {
           "type": "object",
           "description": "Key-value pairs of environment variables to set in the test runner.",
           "additionalProperties": {
@@ -166,83 +166,26 @@
           },
           "default": {}
         },
-        "extra_devices": {
+        "additionalResources": {
           "type": "array",
-          "description": "Additional hardware devices required by the test beyond the primary IUT (Item Under Test).",
+          "description": "Provider-defined resources required by the test beyond the primary IUT (Item Under Test), e.g. sidecar containers or additional devices. Each item's fields are open-ended and interpreted by the provider responsible for that resource; not every field needs to be defined in this schema.",
           "items": {
-            "$ref": "#/$defs/extra_device"
-          },
-          "default": []
-        },
-        "containers": {
-          "type": "array",
-          "description": "Sidecar containers to run alongside the test runner.",
-          "items": {
-            "$ref": "#/$defs/container"
+            "$ref": "#/$defs/additionalResource"
           },
           "default": []
         }
       }
     },
-    "extra_device": {
+    "additionalResource": {
       "type": "object",
-      "description": "An additional hardware device needed for the test.",
-      "additionalProperties": false,
-      "properties": {
-        "hardware": {
-          "type": "string",
-          "description": "Hardware model identifier, e.g. 'RPi4'."
-        },
-        "hwid": {
-          "type": "string",
-          "description": "Numeric hardware ID."
-        },
-        "features": {
-          "type": "array",
-          "description": "Required hardware features, e.g. ['GPIO', 'WiFi'].",
-          "items": {
-            "type": "string"
-          }
-        },
-        "software": {
-          "type": "string",
-          "description": "Software artifact UUID to deploy on the device."
-        }
-      }
-    },
-    "container": {
-      "type": "object",
-      "description": "A sidecar container to run alongside the test runner.",
+      "description": "A single provider-defined resource required by the test, such as a sidecar container or an additional device. Aside from the 'type' discriminator, fields are open-ended and validated by the provider that handles the resource, not by this schema.",
       "required": [
-        "image"
+        "type"
       ],
-      "additionalProperties": false,
       "properties": {
-        "image": {
+        "type": {
           "type": "string",
-          "description": "Container image to run as a sidecar."
-        },
-        "environment_variables": {
-          "type": "object",
-          "description": "Environment variables for this sidecar container.",
-          "additionalProperties": {
-            "type": "string"
-          },
-          "default": {}
-        },
-        "command": {
-          "type": "array",
-          "description": "Override the container entrypoint.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "args": {
-          "type": "array",
-          "description": "Arguments to the container entrypoint.",
-          "items": {
-            "type": "string"
-          }
+          "description": "Provider-defined resource type used to select the provider that handles this resource, e.g. 'device' or 'container'. The set of valid values is defined by the available providers, not by this schema."
         }
       }
     }
