@@ -21,7 +21,6 @@ import (
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
-	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -76,27 +75,26 @@ func GetLogAreas(
 	return logAreas, err
 }
 
-// CreateLogArea creates a new LogArea resource in Kubernetes.
+type LogArea struct {
+	*v1alpha2.LogArea
+}
+
+// NewLogArea creates a new LogArea.
 //
 // The spec.ID, spec.EnvironmentRequest, and spec.ProviderID fields are automatically populated
 // by this function. They will be overwritten if set.
 // If a name is not provided, a name will be generated based on the EnvironmentRequest name.
 // If a name is provided it is the caller's responsibility to ensure name uniqueness, it will
 // not be guaranteed by this function.
-func CreateLogArea(
+// To create the LogArea resource in Kubernetes, call the Create method on the returned struct.
+func NewLogArea(
 	ctx context.Context,
 	environmentrequest *v1alpha1.EnvironmentRequest,
 	namespace, name string,
 	spec v1alpha2.LogAreaSpec,
-) (*v1alpha2.LogArea, error) {
-	logger := logr.FromContextOrDiscard(ctx)
+) (*LogArea, error) {
 	var logArea v1alpha2.LogArea
 
-	logger.Info("Getting Kubernetes client")
-	cli, err := KubernetesClient()
-	if err != nil {
-		return nil, err
-	}
 	labels := map[string]string{
 		"app.kubernetes.io/name":    "log-area-provider",
 		"app.kubernetes.io/part-of": "etos",
@@ -133,7 +131,16 @@ func CreateLogArea(
 		Spec: spec,
 	}
 
-	return &logArea, cli.Create(ctx, &logArea)
+	return &LogArea{&logArea}, nil
+}
+
+// Create creates the LogArea resource in Kubernetes.
+func (l *LogArea) Create(ctx context.Context) error {
+	cli, err := KubernetesClient()
+	if err != nil {
+		return err
+	}
+	return cli.Create(ctx, l.LogArea)
 }
 
 // DeleteLogArea deletes an LogArea resource from Kubernetes.

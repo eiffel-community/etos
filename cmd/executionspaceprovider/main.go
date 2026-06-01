@@ -114,7 +114,7 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 		)
 		environment["ENVIRONMENT_ID"] = id
 		environment["ENVIRONMENT_URL"] = fmt.Sprintf("%s/v1alpha/testrun/%s", cfg.EnvironmentRequest.Spec.Config.EtosApi, id)
-		executionSpace, err := provider.CreateExecutionSpace(ctx, cfg.EnvironmentRequest, cfg.Namespace, "",
+		executionSpace, err := provider.NewExecutionSpace(ctx, cfg.EnvironmentRequest, cfg.Namespace, "",
 			v1alpha2.ExecutionSpaceSpec{
 				ID:         id,
 				TestRunner: testrunner,
@@ -127,12 +127,17 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 			})
 		if err != nil {
 			span.RecordError(err)
-			span.SetStatus(codes.Error, "failed to create ExecutionSpace")
+			span.SetStatus(codes.Error, "failed to create a ExecutionSpace")
+			return err
+		}
+		if err = executionSpace.Create(ctx); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "call to Kubernetes API to create ExecutionSpace failed")
 			return err
 		}
 		logger.Info(fmt.Sprintf("ExecutionSpace created with name '%s', launching ETOS test runner",
 			executionSpace.Name))
-		if err := p.start(ctx, cfg.EnvironmentRequest, executionSpace); err != nil {
+		if err := p.start(ctx, cfg.EnvironmentRequest, executionSpace.ExecutionSpace); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "failed to start ETOS test runner")
 			return err

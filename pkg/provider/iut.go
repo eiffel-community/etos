@@ -21,7 +21,6 @@ import (
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
-	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -80,27 +79,26 @@ func GetIUTs(ctx context.Context, environmentRequestID, namespace string) (v1alp
 	return iuts, err
 }
 
-// CreateIUT creates a new IUT resource in Kubernetes.
+type Iut struct {
+	*v1alpha2.Iut
+}
+
+// NewIUT creates a new IUT.
 //
 // The spec.ID, spec.Identity, spec.EnvironmentRequest, and spec.ProviderID fields are
 // automatically populated by this function. They will be overwritten if set.
 // If a name is not provided, a name will be generated based on the EnvironmentRequest name.
 // If a name is provided it is the caller's responsibility to ensure name uniqueness, it will
 // not be guaranteed by this function.
-func CreateIUT(
+// To create the IUT resource in Kubernetes, call the Create method on the returned struct.
+func NewIUT(
 	ctx context.Context,
 	environmentrequest *v1alpha1.EnvironmentRequest,
 	namespace, name string,
 	spec v1alpha2.IutSpec,
-) (*v1alpha2.Iut, error) {
-	logger := logr.FromContextOrDiscard(ctx)
+) (*Iut, error) {
 	var iut v1alpha2.Iut
 
-	logger.Info("Getting Kubernetes client")
-	cli, err := KubernetesClient()
-	if err != nil {
-		return nil, err
-	}
 	labels := map[string]string{
 		"app.kubernetes.io/name":    "iut-provider",
 		"app.kubernetes.io/part-of": "etos",
@@ -138,7 +136,16 @@ func CreateIUT(
 		Spec: spec,
 	}
 
-	return &iut, cli.Create(ctx, &iut)
+	return &Iut{&iut}, nil
+}
+
+// Create creates the IUT resource in Kubernetes.
+func (i *Iut) Create(ctx context.Context) error {
+	cli, err := KubernetesClient()
+	if err != nil {
+		return err
+	}
+	return cli.Create(ctx, i.Iut)
 }
 
 // DeleteIUT deletes an IUT resource from Kubernetes.
