@@ -10,7 +10,7 @@ suites:
 - priority: 1
   testExecutions:
   - id: "sample-test"
-    testcase:
+    testCase:
       id: etos-sample-test
       version: main
       repository: https://github.com/eiffel-community/etos
@@ -24,7 +24,7 @@ suites:
         LOG_LEVEL: DEBUG
 
   - id: "sample-test-with-resources"
-    testcase:
+    testCase:
       id: etos-sample-test
       version: main
       repository: https://github.com/eiffel-community/etos
@@ -55,7 +55,7 @@ suites:
 - priority: 2
   testExecutions:
   - id: "smoke-test"
-    testcase:
+    testCase:
       id: etos-sample-test
       version: main
     execution:

@@ -56,12 +56,12 @@ environment requirements.
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `id` | string | yes | Unique identifier for this test execution. |
-| `testcase` | object | yes | Metadata about the test case (see below). |
+| `testCase` | object | yes | Metadata about the test case (see below). |
 | `execution` | object | yes | How to check out and run the test (see below). |
 | `environment` | object | yes | Environment requirements (see below). |
 | `dependencies` | array | no | IDs of test executions that must complete before this one runs. |
 
-### testcase
+### testCase
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |

@@ -59,7 +59,7 @@
       "description": "A single test execution combining a test case, its execution instructions, and environment requirements.",
       "required": [
         "id",
-        "testcase",
+        "testCase",
         "execution",
         "environment"
       ],
@@ -69,8 +69,8 @@
           "type": "string",
           "description": "Unique identifier for this test execution."
         },
-        "testcase": {
-          "$ref": "#/$defs/testcase"
+        "testCase": {
+          "$ref": "#/$defs/testCase"
         },
         "dependencies": {
           "type": "array",
@@ -88,7 +88,7 @@
         }
       }
     },
-    "testcase": {
+    "testCase": {
       "type": "object",
       "description": "Metadata about the test case. The repository and version can be used to check out the test source code.",
       "required": [
