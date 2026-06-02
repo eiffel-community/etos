@@ -4,40 +4,44 @@
 # test execution dependencies, checkout and pre-execution steps, environment
 # variables, multiple test runner images, and provider-defined additional
 # resources.
-name: etos-sample-suite
+name: etos-self-test-sample-suite
 schemaVersion: v1alpha1
 suites:
 - priority: 1
   testExecutions:
-  - id: "sample-test"
+  # Clone etos-library and run its Python test suite with tox.
+  - id: "etos-library-tox"
     testCase:
-      id: etos-sample-test
+      id: etos-library/py3
       version: main
-      repository: https://github.com/eiffel-community/etos
+      repository: https://github.com/eiffel-community/etos-library
     execution:
       checkout:
-      - "git clone https://github.com/eiffel-community/etos"
-      command: "exit 0"
+      - "git clone https://github.com/eiffel-community/etos-library"
+      preExecution:
+      - "pip install tox"
+      command: "tox -e py3 -c etos-library/tox.ini"
     environment:
       testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
       environmentVariables:
         LOG_LEVEL: DEBUG
 
-  - id: "sample-test-with-resources"
+  # Clone etos-api and run its Go test suite. This depends on the etos-library
+  # tests above and requires a provider-defined database container alongside
+  # the test runner.
+  - id: "etos-api-test"
     testCase:
-      id: etos-sample-test
+      id: etos-api/test
       version: main
-      repository: https://github.com/eiffel-community/etos
+      repository: https://github.com/eiffel-community/etos-api
     dependencies:
-    - "sample-test"
+    - "etos-library-tox"
     execution:
       checkout:
-      - "git clone https://github.com/eiffel-community/etos"
-      preExecution:
-      - "pip install requests"
-      command: "exit 0"
+      - "git clone https://github.com/eiffel-community/etos-api"
+      command: "make -C etos-api test"
     environment:
-      testRunner: ghcr.io/eiffel-community/etos-base-test-runner:debian-bookworm
+      testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
       environmentVariables:
         LOG_LEVEL: INFO
       additionalResources:
@@ -46,19 +50,18 @@ suites:
         environmentVariables:
           POSTGRES_DB: testdb
           POSTGRES_PASSWORD: test
-      - type: device
-        model: example-board
-        features:
-        - GPIO
-        - WiFi
 
 - priority: 2
   testExecutions:
-  - id: "smoke-test"
+  # Clone etos-api and run its static analysis checks.
+  - id: "etos-api-staticcheck"
     testCase:
-      id: etos-sample-test
+      id: etos-api/staticcheck
       version: main
+      repository: https://github.com/eiffel-community/etos-api
     execution:
-      command: "exit 0"
+      checkout:
+      - "git clone https://github.com/eiffel-community/etos-api"
+      command: "make -C etos-api staticcheck"
     environment:
-      testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
+      testRunner: ghcr.io/eiffel-community/etos-base-test-runner:debian-bookworm
