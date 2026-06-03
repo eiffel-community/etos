@@ -26,13 +26,18 @@ from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry
 
 CHUNK_SIZE = 500
+# Status codes that indicate a transient (non-permanent) error and should be retried.
+# RETRY_AFTER_STATUS_CODES is {413, 429, 503}. 502 (Bad Gateway) and 504 (Gateway
+# Timeout) are added to cover the case where the SSE server is temporarily
+# unavailable, e.g. while restarting due to an upgrade or a crash.
+RETRY_STATUS_CODES = Retry.RETRY_AFTER_STATUS_CODES | {502, 504}
 RETRIES = Retry(
     total=None,
     read=0,
     connect=10,
     status=10,
     backoff_factor=1,
-    status_forcelist=Retry.RETRY_AFTER_STATUS_CODES,  # 413, 429, 503
+    status_forcelist=RETRY_STATUS_CODES,
 )
 
 
@@ -117,7 +122,8 @@ class SSEClient:
                 status=20,
                 backoff_factor=2,  # Exponential backoff
                 backoff_max=120,  # Cap at 2 minutes
-                status_forcelist={413, 429, 503, 404},  # Include 404 for initial connection
+                # Include 404 for initial connection (test run not ready yet)
+                status_forcelist=RETRY_STATUS_CODES | {404},
             )
             self.logger.info("Connecting to SSE server")
             self.logger.info("Waiting for test run to start...")
