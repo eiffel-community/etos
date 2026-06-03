@@ -31,6 +31,9 @@ CHUNK_SIZE = 500
 # Timeout) are added to cover the case where the SSE server is temporarily
 # unavailable, e.g. while restarting due to an upgrade or a crash.
 RETRY_STATUS_CODES = Retry.RETRY_AFTER_STATUS_CODES | {502, 504}
+# During the initial connection 404 is also retried, since it means the test run
+# has not started yet.
+INITIAL_RETRY_STATUS_CODES = RETRY_STATUS_CODES | {404}
 RETRIES = Retry(
     total=None,
     read=0,
@@ -122,8 +125,7 @@ class SSEClient:
                 status=20,
                 backoff_factor=2,  # Exponential backoff
                 backoff_max=120,  # Cap at 2 minutes
-                # Include 404 for initial connection (test run not ready yet)
-                status_forcelist=RETRY_STATUS_CODES | {404},
+                status_forcelist=INITIAL_RETRY_STATUS_CODES,
             )
             self.logger.info("Connecting to SSE server")
             self.logger.info("Waiting for test run to start...")
