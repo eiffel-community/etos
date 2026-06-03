@@ -127,7 +127,7 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 			})
 		if err != nil {
 			span.RecordError(err)
-			span.SetStatus(codes.Error, "failed to create a ExecutionSpace")
+			span.SetStatus(codes.Error, "failed to create an ExecutionSpace")
 			return err
 		}
 		if err = executionSpace.Create(ctx); err != nil {
