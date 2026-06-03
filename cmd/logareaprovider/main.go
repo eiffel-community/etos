@@ -94,7 +94,7 @@ func (p *genericLogAreaProvider) createLogAreas(
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic LogArea")
 		logger.V(1).Info(fmt.Sprintf("Logs will be uploaded to %s", logAreaProvider.Spec.LogAreaProviderConfig.Upload.URL))
-		logarea, err := provider.CreateLogArea(ctx, cfg.EnvironmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
+		logarea, err := provider.NewLogArea(ctx, cfg.EnvironmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
 			LiveLogs: logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs,
 			Logs:     map[string]string{},
 			Upload:   logAreaProvider.Spec.LogAreaProviderConfig.Upload,
@@ -102,6 +102,11 @@ func (p *genericLogAreaProvider) createLogAreas(
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "failed to create LogArea")
+			return err
+		}
+		if err = logarea.Create(ctx); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "call to Kubernetes API to create LogArea failed")
 			return err
 		}
 		logger.Info(fmt.Sprintf("LogArea created with name %s", logarea.Name))

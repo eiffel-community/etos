@@ -67,10 +67,15 @@ func (p *genericIutProvider) createIUTs(ctx context.Context, cfg provider.Provis
 
 	for range cfg.MinimumAmount {
 		logger.Info("Creating a generic IUT")
-		iut, err := provider.CreateIUT(ctx, cfg.EnvironmentRequest, cfg.Namespace, "", v1alpha2.IutSpec{})
+		iut, err := provider.NewIUT(ctx, cfg.EnvironmentRequest, cfg.Namespace, "", v1alpha2.IutSpec{})
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "failed to create IUT")
+			return err
+		}
+		if err = iut.Create(ctx); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "call to Kubernetes API to create IUT failed")
 			return err
 		}
 		logger.Info(fmt.Sprintf("IUT created with name '%s'", iut.Name))

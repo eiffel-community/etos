@@ -25,7 +25,6 @@ import (
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/fernet/fernet-go"
-	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,27 +73,26 @@ func GetExecutionSpaces(
 	return executionSpaces, err
 }
 
-// CreateExecutionSpace creates a new ExecutionSpace resource in Kubernetes.
+type ExecutionSpace struct {
+	*v1alpha2.ExecutionSpace
+}
+
+// NewExecutionSpace creates a new ExecutionSpace.
 //
 // The spec.ProviderID and spec.EnvironmentRequest fields are automatically populated by this
 // function. It will be overwritten if set.
 // If a name is not provided, a name will be generated based on the EnvironmentRequest name.
 // If a name is provided it is the caller's responsibility to ensure name uniqueness, it will
 // not be guaranteed by this function.
-func CreateExecutionSpace(
+// To create the ExecutionSpace resource in Kubernetes, call the Create method on the returned struct.
+func NewExecutionSpace(
 	ctx context.Context,
 	environmentrequest *v1alpha1.EnvironmentRequest,
 	namespace, name string,
 	spec v1alpha2.ExecutionSpaceSpec,
-) (*v1alpha2.ExecutionSpace, error) {
-	logger := logr.FromContextOrDiscard(ctx)
+) (*ExecutionSpace, error) {
 	var executionSpace v1alpha2.ExecutionSpace
 
-	logger.Info("Getting Kubernetes client")
-	cli, err := KubernetesClient()
-	if err != nil {
-		return nil, err
-	}
 	environmentVariables, err := environmentVariables(ctx, environmentrequest)
 	if err != nil {
 		return nil, err
@@ -141,7 +139,16 @@ func CreateExecutionSpace(
 		Spec: spec,
 	}
 
-	return &executionSpace, cli.Create(ctx, &executionSpace)
+	return &ExecutionSpace{&executionSpace}, nil
+}
+
+// Create creates the ExecutionSpace resource in Kubernetes.
+func (e *ExecutionSpace) Create(ctx context.Context) error {
+	cli, err := KubernetesClient()
+	if err != nil {
+		return err
+	}
+	return cli.Create(ctx, e.ExecutionSpace)
 }
 
 // DeleteExecutionSpace deletes an ExecutionSpace resource from Kubernetes.
