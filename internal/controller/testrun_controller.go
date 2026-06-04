@@ -124,6 +124,12 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if testrun.Status.CompletionTime != nil {
 		// Delete suite runner job and environment requests after the testrun has completed.
 		jobManager := jobs.NewJob(r.Client, TestRunOwnerKey, testrun.GetName(), testrun.GetNamespace())
+		// Status must run before Delete to populate the job manager's list of
+		// owned jobs. Without it, Delete has no jobs to act on and leaks the suite runner job.
+		if _, err := jobManager.Status(ctx); err != nil {
+			logger.Error(err, "Failed to get suite runner job status, will retry")
+			return ctrl.Result{}, err
+		}
 		_ = jobManager.Delete(ctx)
 		_ = r.deleteEnvironmentRequests(ctx, testrun)
 		testrunCondition := meta.FindStatusCondition(testrun.Status.Conditions, status.StatusActive)
