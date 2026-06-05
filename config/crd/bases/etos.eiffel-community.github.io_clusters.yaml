@@ -222,6 +222,12 @@ spec:
                           ETOSApiURL describes the URL to the ETOS API for use by internal ETOS services.
                           Defaults are used if not set.
                         type: string
+                      etosSseURL:
+                        default: ""
+                        description: |-
+                          ETOSSseURL describes the URL to the ETOS SSE server for use by internal ETOS services.
+                          Defaults are used if not set.
+                        type: string
                       eventDataTimeout:
                         default: "60"
                         description: |-
@@ -265,6 +271,7 @@ spec:
                     - encryptionKey
                     - environmentTimeout
                     - etosApiURL
+                    - etosSseURL
                     - eventDataTimeout
                     - routingKeyTag
                     - source

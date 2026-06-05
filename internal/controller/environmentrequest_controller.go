@@ -334,6 +334,10 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 			Value: environmentrequest.Spec.Config.EtosApi,
 		},
 		{
+			Name:  "ETOS_SSE",
+			Value: environmentrequest.Spec.Config.EtosSse,
+		},
+		{
 			Name:  "ETOS_GRAPHQL_SERVER",
 			Value: environmentrequest.Spec.Config.GraphQlServer,
 		},
