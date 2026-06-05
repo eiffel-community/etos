@@ -24,6 +24,9 @@ import (
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
+	"github.com/eiffel-community/etos/pkg/logging"
+	"github.com/eiffel-community/etos/pkg/messaging/events"
+	"github.com/eiffel-community/etos/pkg/messaging/subscriber"
 	"github.com/fernet/fernet-go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -151,6 +154,45 @@ func (e *ExecutionSpace) Create(ctx context.Context) error {
 	return cli.Create(ctx, e.ExecutionSpace)
 }
 
+// WaitForTestRunner waits for the test runner in the ExecutionSpace to be up and running by listening to events from
+// the ETOS SSE endpoint.
+func (e *ExecutionSpace) WaitForTestRunner(
+	ctx context.Context, environmentRequest *v1alpha1.EnvironmentRequest,
+) error {
+	logger := logging.FromContextOrDiscard(ctx)
+	sse := subscriber.NewSSESubscriber(environmentRequest.Spec.Config.EtosSse)
+	etrInstance := e.Spec.Instructions.Environment["ENVIRONMENT_ID"]
+
+	logger.Info("Waiting for test runner to start",
+		"environment_request", environmentRequest.Name,
+		"execution_space", e.Name,
+	)
+	for event := range sse.Events(ctx, environmentRequest.Spec.Identifier,
+		subscriber.Filter{EventType: events.StatusType, Meta: "test-runner"},
+		subscriber.Filter{EventType: events.ShutdownType},
+	) {
+		switch e := event.(type) {
+		case events.Status:
+			if e.Data.Instance != etrInstance {
+				logger.Info("Received status event for a different ETR instance, ignoring",
+					"received_instance", e.Data.Instance,
+					"expected_instance", etrInstance,
+				)
+				continue
+			}
+			logger.Info("Received status event for test runner", "status", e.Data.Status)
+			if e.Data.Status == events.StatusError {
+				return fmt.Errorf("test runner reported an error status: %s", e.Data.Message)
+			}
+			logger.Info("Test runner is up and running")
+			return nil
+		case events.Shutdown:
+			return errors.New("received shutdown event while waiting for test runner to start")
+		}
+	}
+	return errors.New("event stream closed while waiting for test runner to start")
+}
+
 // DeleteExecutionSpace deletes an ExecutionSpace resource from Kubernetes.
 func DeleteExecutionSpace(ctx context.Context, executionSpace *v1alpha2.ExecutionSpace) error {
 	cli, err := KubernetesClient()
@@ -221,6 +263,11 @@ func environmentVariables(
 		"OTEL_EXPORTER_OTLP_ENDPOINT": os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		"OTEL_EXPORTER_OTLP_INSECURE": os.Getenv("OTEL_EXPORTER_OTLP_INSECURE"),
 	}
+	if environmentrequest.Spec.Config.EtosMessageBus.StreamName != "" {
+		environment["ETOS_RABBITMQ_STREAM_NAME"] = environmentrequest.Spec.Config.EtosMessageBus.StreamName
+		environment["ETOS_RABBITMQ_STREAM_PORT"] = environmentrequest.Spec.Config.EtosMessageBus.StreamPort
+	}
+
 	return environment, nil
 }
 
