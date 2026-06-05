@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -170,7 +169,7 @@ func (s *rabbitMQStreamPublisher) Publish(identifier string, e events.Event) err
 	msg := amqp.NewMessage(b)
 	msg.ApplicationProperties = map[string]any{
 		"identifier": identifier,
-		"type":       strings.ToLower(e.EventType()),
+		"type":       e.EventType().ToLower(),
 		"meta":       e.EventMeta(),
 	}
 	s.unConfirmedMessages <- msg

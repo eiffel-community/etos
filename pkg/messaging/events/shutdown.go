@@ -22,23 +22,23 @@ type Result struct {
 }
 
 type Shutdown struct {
-	ID    int    `json:"id,omitempty"`
-	Event string `json:"event"`
-	Meta  string `json:"meta"`
-	Data  Result `json:"data"`
+	ID    int       `json:"id,omitempty"`
+	Event EventType `json:"event"`
+	Meta  string    `json:"meta"`
+	Data  Result    `json:"data"`
 }
 
 // NewShutdown creates a new Shutdown event with the given Result.
 func NewShutdown(result Result) Shutdown {
 	return Shutdown{
-		Event: "shutdown",
+		Event: ShutdownType,
 		Data:  result,
 		Meta:  "*",
 	}
 }
 
 // EventType returns the Event field of the event.
-func (e Shutdown) EventType() string {
+func (e Shutdown) EventType() EventType {
 	return e.Event
 }
 

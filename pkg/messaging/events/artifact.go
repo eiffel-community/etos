@@ -16,23 +16,23 @@
 package events
 
 type Artifact struct {
-	ID    int    `json:"id,omitempty"`
-	Event string `json:"event"`
-	Meta  string `json:"meta"`
-	Data  File   `json:"data"`
+	ID    int       `json:"id,omitempty"`
+	Event EventType `json:"event"`
+	Meta  string    `json:"meta"`
+	Data  File      `json:"data"`
 }
 
 // NewArtifact creates a new Artifact event with the given File.
 func NewArtifact(file File) Artifact {
 	return Artifact{
-		Event: "artifact",
+		Event: ArtifactType,
 		Data:  file,
 		Meta:  "*",
 	}
 }
 
 // EventType returns the Event field of the event.
-func (e Artifact) EventType() string {
+func (e Artifact) EventType() EventType {
 	return e.Event
 }
 
