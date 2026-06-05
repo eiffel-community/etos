@@ -52,6 +52,7 @@ type EnvironmentProviderJobConfig struct {
 	EiffelMessageBus  RabbitMQ `json:"eiffelMessageBus"`
 	EtosMessageBus    RabbitMQ `json:"etosMessageBus"`
 	EtosApi           string   `json:"etosApi"`
+	EtosSse           string   `json:"etosSse"`
 	EncryptionKey     Var      `json:"encryptionKeySecretRef"`
 	EtcdHost          string   `json:"etcdHost"`
 	EtcdPort          string   `json:"etcdPort"`

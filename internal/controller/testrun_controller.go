@@ -777,6 +777,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrun
 				EiffelMessageBus:                    *cluster.Spec.MessageBus.EiffelMessageBus,
 				EtosMessageBus:                      *cluster.Spec.MessageBus.ETOSMessageBus,
 				EtosApi:                             cluster.Spec.ETOS.Config.ETOSApiURL,
+				EtosSse:                             cluster.Spec.ETOS.Config.ETOSSseURL,
 				EncryptionKey:                       cluster.Spec.ETOS.Config.EncryptionKey,
 				RoutingKeyTag:                       cluster.Spec.ETOS.Config.RoutingKeyTag,
 				GraphQlServer:                       cluster.Spec.EventRepository.Host,

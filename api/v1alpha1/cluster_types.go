@@ -317,6 +317,12 @@ type ETOSConfig struct {
 	// +required
 	ETOSApiURL string `json:"etosApiURL,omitempty"`
 
+	// ETOSSseURL describes the URL to the ETOS SSE server for use by internal ETOS services.
+	// Defaults are used if not set.
+	// +kubebuilder:default=""
+	// +required
+	ETOSSseURL string `json:"etosSseURL,omitempty"`
+
 	// RoutingKeyTag describes the tag to use for routing keys for ETOS eiffel events.
 	// +kubebuilder:default="etos"
 	// +required

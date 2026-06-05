@@ -360,6 +360,8 @@ spec:
                           Only set if Deploy is false.
                         type: string
                     type: object
+                  etosSse:
+                    type: string
                   graphQlServer:
                     type: string
                   routingKeyTag:
@@ -378,6 +380,7 @@ spec:
                 - etcdPort
                 - etosApi
                 - etosMessageBus
+                - etosSse
                 - graphQlServer
                 - routingKeyTag
                 - testRunnerVersion

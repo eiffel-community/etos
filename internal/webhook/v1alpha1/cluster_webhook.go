@@ -98,5 +98,13 @@ func (d *ClusterCustomDefaulter) Default(_ context.Context, obj *etosv1alpha1.Cl
 		)
 	}
 
+	if obj.Spec.ETOS.Ingress.Enabled {
+		obj.Spec.ETOS.Config.ETOSSseURL = fmt.Sprintf("%s://%s/sse", scheme, obj.Spec.ETOS.Ingress.Host)
+	} else if obj.Spec.ETOS.Config.ETOSSseURL == "" {
+		obj.Spec.ETOS.Config.ETOSSseURL = fmt.Sprintf(
+			"http://%s-etos-sse.%s.svc.cluster.local/sse", obj.GetName(), obj.GetNamespace(),
+		)
+	}
+
 	return nil
 }
