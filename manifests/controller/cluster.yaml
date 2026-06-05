@@ -251,6 +251,13 @@ spec:
 
                           Defaults are used if not set.'
                         type: string
+                      etosSseURL:
+                        default: ''
+                        description: 'ETOSSseURL describes the URL to the ETOS SSE
+                          server for use by internal ETOS services.
+
+                          Defaults are used if not set.'
+                        type: string
                       eventDataTimeout:
                         default: '60'
                         description: 'EventDataTimeout describes the timeout for getting
@@ -300,6 +307,7 @@ spec:
                     - encryptionKey
                     - environmentTimeout
                     - etosApiURL
+                    - etosSseURL
                     - eventDataTimeout
                     - routingKeyTag
                     - source
@@ -1461,6 +1469,8 @@ spec:
                           Only set if Deploy is false.
                         type: string
                     type: object
+                  etosSse:
+                    type: string
                   graphQlServer:
                     type: string
                   routingKeyTag:
@@ -1479,6 +1489,7 @@ spec:
                 - etcdPort
                 - etosApi
                 - etosMessageBus
+                - etosSse
                 - graphQlServer
                 - routingKeyTag
                 - testRunnerVersion
