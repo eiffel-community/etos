@@ -32,23 +32,23 @@ type Log struct {
 }
 
 type Message struct {
-	ID    int    `json:"id,omitempty"`
-	Event string `json:"event"`
-	Meta  string `json:"meta"`
-	Data  Log    `json:"data"`
+	ID    int       `json:"id,omitempty"`
+	Event EventType `json:"event"`
+	Meta  string    `json:"meta"`
+	Data  Log       `json:"data"`
 }
 
 // NewMessage creates a new Message instance with the given Log.
 func NewMessage(log Log) Message {
 	return Message{
-		Event: "message",
+		Event: MessageType,
 		Data:  log,
 		Meta:  log.Level,
 	}
 }
 
 // EventType returns the Event field of the event.
-func (e Message) EventType() string {
+func (e Message) EventType() EventType {
 	return e.Event
 }
 

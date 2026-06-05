@@ -23,23 +23,23 @@ type File struct {
 }
 
 type Report struct {
-	ID    int    `json:"id,omitempty"`
-	Event string `json:"event"`
-	Meta  string `json:"meta"`
-	Data  File   `json:"data"`
+	ID    int       `json:"id,omitempty"`
+	Event EventType `json:"event"`
+	Meta  string    `json:"meta"`
+	Data  File      `json:"data"`
 }
 
 // NewReport creates a new Report event with the given File.
 func NewReport(file File) Report {
 	return Report{
-		Event: "report",
+		Event: ReportType,
 		Data:  file,
 		Meta:  "*",
 	}
 }
 
 // EventType returns the Event field of the event.
-func (e Report) EventType() string {
+func (e Report) EventType() EventType {
 	return e.Event
 }
 

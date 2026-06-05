@@ -15,48 +15,24 @@
 // limitations under the License.
 package events
 
-type ServiceHealth string
-
-const (
-	StatusOK    ServiceHealth = "ok"
-	StatusError ServiceHealth = "error"
-)
-
-type ServiceStatus struct {
-	Name     string        `json:"name"`
-	Instance string        `json:"instance"`
-	Version  string        `json:"version"`
-	Status   ServiceHealth `json:"status"`
-	Message  string        `json:"message,omitempty"`
-}
-
-type Status struct {
-	ID    int           `json:"id,omitempty"`
-	Event EventType     `json:"event"`
-	Meta  string        `json:"meta"`
-	Data  ServiceStatus `json:"data"`
-}
-
-// NewStatus creates a new Status event with the given service status.
-func NewStatus(status ServiceStatus) Status {
-	return Status{
-		Event: StatusType,
-		Data:  status,
-		Meta:  status.Name,
-	}
+type Ping struct {
+	ID    int       `json:"id,omitempty"`
+	Event EventType `json:"event"`
+	Meta  string    `json:"meta"`
+	Data  any       `json:"data"`
 }
 
 // EventType returns the Event field of the event.
-func (e Status) EventType() EventType {
+func (e Ping) EventType() EventType {
 	return e.Event
 }
 
 // EventData returns the Data field of the event.
-func (e Status) EventData() any {
+func (e Ping) EventData() any {
 	return e.Data
 }
 
 // EventMeta returns the Meta field of the event.
-func (e Status) EventMeta() string {
+func (e Ping) EventMeta() string {
 	return e.Meta
 }

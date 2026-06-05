@@ -15,6 +15,29 @@
 // limitations under the License.
 package events
 
+import "strings"
+
+type EventType string
+
+var (
+	MessageType  EventType = "message"
+	ArtifactType EventType = "artifact"
+	ReportType   EventType = "report"
+	ShutdownType EventType = "shutdown"
+	StatusType   EventType = "status"
+	PingType     EventType = "ping"
+)
+
+// String returns the string representation of the EventType.
+func (e EventType) String() string {
+	return string(e)
+}
+
+// ToLower returns the lowercase string representation of the EventType.
+func (e EventType) ToLower() string {
+	return strings.ToLower(string(e))
+}
+
 type (
 	Conclusion string
 	Verdict    string
