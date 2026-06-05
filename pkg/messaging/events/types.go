@@ -19,7 +19,7 @@ import "strings"
 
 type EventType string
 
-var (
+const (
 	MessageType  EventType = "message"
 	ArtifactType EventType = "artifact"
 	ReportType   EventType = "report"
