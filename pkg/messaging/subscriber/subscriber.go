@@ -23,9 +23,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/eiffel-community/etos/pkg/logging"
 	events "github.com/eiffel-community/etos/pkg/messaging/events"
+	"github.com/sethvargo/go-retry"
 	"go.jetify.com/sse"
 )
 
@@ -97,11 +99,29 @@ func (c *SSESubscriber) stream(ctx context.Context, id string, filter ...Filter)
 		return nil, err
 	}
 	client := &http.Client{}
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	return response.Body, nil
+	var response *http.Response
+	err = retry.Constant(ctx, 5*time.Second, func(ctx context.Context) error {
+		response, err = client.Do(request)
+		if err != nil {
+			return err
+		}
+		switch response.StatusCode {
+		case http.StatusOK:
+			logger.Info("Successfully connected to SSE stream")
+			return nil
+		case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+			if closeErr := response.Body.Close(); closeErr != nil {
+				logger.Error(closeErr, "Error closing response body")
+			}
+			return retry.RetryableError(fmt.Errorf("received status code %d, retrying", response.StatusCode))
+		default:
+			if closeErr := response.Body.Close(); closeErr != nil {
+				logger.Error(closeErr, "Error closing response body")
+			}
+			return fmt.Errorf("unexpected status code: %d", response.StatusCode)
+		}
+	})
+	return response.Body, err
 }
 
 // decode reads the next event from the SSE decoder and attempts to parse it into an Event object.
