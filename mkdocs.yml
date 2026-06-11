@@ -31,6 +31,7 @@ nav:
     - Getting started: ./getting_started/index.md
     - Using the API: ./getting_started/api.md
     - Create TestRun resources in Kubernetes: ./getting_started/testrun.md
+    - Suite definition format: ./getting_started/suite_format.md
     - Roles:
       - System engineer: ./roles/system_engineer.md
       - Test automation engineer: ./roles/test_automation_engineer.md

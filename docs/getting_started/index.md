@@ -34,6 +34,8 @@ If you don't have an event repository (or don't know how to use it), please cont
 
 A recipe collection is a collection of recipes that defines what to run in a testrun. A recipe collection is defined in a JSON file, which contains a list of recipes and their parameters.
 
+> **Note:** ETOS also supports a standalone YAML suite definition format as a v1 feature. See [Suite definition format](./suite_format.md).
+
 ```json
 [
   {

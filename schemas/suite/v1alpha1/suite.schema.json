@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eiffel-community/etos/schemas/suite/v1alpha1/suite.schema.json",
+  "title": "ETOS Suite Definition",
+  "description": "Schema for the ETOS test suite YAML format (v1alpha1). Defines one or more test suites with their test executions, environments, and dependencies.",
+  "type": "object",
+  "required": [
+    "name",
+    "schemaVersion",
+    "suites"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the suite definition."
+    },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Version of the suite schema.",
+      "const": "v1alpha1"
+    },
+    "suites": {
+      "type": "array",
+      "description": "List of test suites to execute.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/suite"
+      }
+    }
+  },
+  "$defs": {
+    "suite": {
+      "type": "object",
+      "description": "A single test suite containing prioritized test executions.",
+      "required": [
+        "priority",
+        "testExecutions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "priority": {
+          "type": "integer",
+          "description": "Execution priority when multiple suites are defined. Lower values indicate higher priority.",
+          "minimum": 0
+        },
+        "testExecutions": {
+          "type": "array",
+          "description": "List of test executions within this suite.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/testExecution"
+          }
+        }
+      }
+    },
+    "testExecution": {
+      "type": "object",
+      "description": "A single test execution combining a test case, its execution instructions, and environment requirements.",
+      "required": [
+        "id",
+        "testCase",
+        "execution",
+        "environment"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this test execution."
+        },
+        "testCase": {
+          "$ref": "#/$defs/testCase"
+        },
+        "dependencies": {
+          "type": "array",
+          "description": "Optional list of test execution IDs that must complete before this test can run.",
+          "items": {
+            "type": "string",
+            "description": "ID of a test execution this test depends on."
+          }
+        },
+        "execution": {
+          "$ref": "#/$defs/execution"
+        },
+        "environment": {
+          "$ref": "#/$defs/environment"
+        }
+      }
+    },
+    "testCase": {
+      "type": "object",
+      "description": "Metadata about the test case. The repository and version can be used to check out the test source code.",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Fully qualified test case identifier, e.g. 'tests/integration/test_api.py::TestAPI::test_create_resource'."
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the test case, typically a Git commit SHA or branch name."
+        },
+        "repository": {
+          "type": "string",
+          "description": "URI of the source repository containing the test case, e.g. a Git repository URL.",
+          "format": "uri"
+        },
+        "uri": {
+          "type": "string",
+          "description": "Documentation or external reference URI for the test case.",
+          "format": "uri"
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "description": "Instructions for how to execute the test case.",
+      "required": [
+        "command"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "checkout": {
+          "type": "array",
+          "description": "Shell commands to check out the test source code. Executed in order before the test command.",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "command": {
+          "type": "string",
+          "description": "The shell command to execute the test, e.g. a pytest invocation."
+        },
+        "preExecution": {
+          "type": "array",
+          "description": "Shell commands to run after checkout but before the main test command (e.g. setup steps, dependency installation).",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "description": "Environment configuration for the test execution, including the test runner image, environment variables, and additional provider-defined resources.",
+      "required": [
+        "testRunner"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "testRunner": {
+          "type": "string",
+          "description": "Container image to use as the test runner, e.g. 'ghcr.io/eiffel-community/etos-base-test-runner:latest'."
+        },
+        "environmentVariables": {
+          "type": "object",
+          "description": "Key-value pairs of environment variables to set in the test runner.",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "additionalResources": {
+          "type": "array",
+          "description": "Provider-defined resources required by the test beyond the primary IUT (Item Under Test), e.g. sidecar containers or additional devices. Each item's fields are open-ended and interpreted by the provider responsible for that resource; not every field needs to be defined in this schema.",
+          "items": {
+            "$ref": "#/$defs/additionalResource"
+          },
+          "default": []
+        }
+      }
+    },
+    "additionalResource": {
+      "type": "object",
+      "description": "A single provider-defined resource required by the test, such as a sidecar container or an additional device. Aside from the 'type' discriminator, fields are open-ended and validated by the provider that handles the resource, not by this schema.",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Provider-defined resource type used to select the provider that handles this resource, e.g. 'device' or 'container'. The set of valid values is defined by the available providers, not by this schema."
+        }
+      }
+    }
+  }
+}
