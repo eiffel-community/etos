@@ -167,10 +167,14 @@ func (e *ExecutionSpace) WaitForTestRunner(
 		"environment_request", environmentRequest.Name,
 		"execution_space", e.Name,
 	)
-	for event := range sse.Events(ctx, environmentRequest.Spec.Identifier,
+	for event, err := range sse.Events(ctx, environmentRequest.Spec.Identifier,
 		subscriber.Filter{EventType: events.StatusType, Meta: "test-runner"},
 		subscriber.Filter{EventType: events.ShutdownType},
 	) {
+		if err != nil {
+			logger.Error(err, "Error while waiting for test runner to start")
+			return err
+		}
 		switch e := event.(type) {
 		case events.Status:
 			if e.Data.Instance != etrInstance {
