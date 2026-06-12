@@ -83,4 +83,14 @@ var _ = Describe("TestRun Webhook", func() {
 		// })
 	})
 
+	Context("When creating TestRun under Conversion Webhook", func() {
+		// TODO (user): Add logic to convert the object to the desired version and verify the conversion
+		// Example:
+		// It("Should convert the object correctly", func() {
+		//     convertedObj := &etosv1alpha1.TestRun{}
+		//     Expect(obj.ConvertTo(convertedObj)).To(Succeed())
+		//     Expect(convertedObj).ToNot(BeNil())
+		// })
+	})
+
 })

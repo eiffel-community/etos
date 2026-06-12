@@ -72,7 +72,7 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alp
 		testrun.Spec.ID = string(uuid.NewUUID())
 	}
 
-	testrunlog.Info("Checking for a cluster, either in spec or in namespace")
+	testrunlog.Info("Checking for a cluster, either in spec or in namespace", "cluster", testrun.Spec.Cluster)
 	clusters := &etosv1alpha1.ClusterList{}
 	var cluster *etosv1alpha1.Cluster
 	if testrun.Spec.Cluster == "" {
