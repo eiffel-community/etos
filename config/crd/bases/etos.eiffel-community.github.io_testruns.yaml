@@ -528,7 +528,7 @@ spec:
                     type: string
                 type: object
               name:
-                description: Name is the name of the suite definition.
+                description: Name defines the name of the suite definition.
                 maxLength: 255
                 minLength: 1
                 type: string
@@ -552,10 +552,24 @@ spec:
                       provisioning.
                     type: string
                 type: object
+              retention:
+                description: |-
+                  Retention defines the failure and success retentions for keeping testrun resources after completion.
+                  If not set, the testrun resource will not be deleted after completion.
+                properties:
+                  failure:
+                    description: Failure defines the duration to retain testrun resources
+                      after a failed execution.
+                    type: string
+                  success:
+                    description: Success defines the duration to retain testrun resources
+                      after a successful execution.
+                    type: string
+                type: object
               schemaVersion:
                 default: v1beta1
                 description: |-
-                  SchemaVersion is the version of the test run schema.
+                  SchemaVersion defines the version of the test run schema.
                   This field is used to determine which version of the test run schema to use when creating a test run.
                 enum:
                 - v1beta1
@@ -582,30 +596,37 @@ spec:
                   It is used to set batchesUri in the TERCC event.
                 type: string
               suites:
-                description: Suites is the list of test suites to run.
+                description: Suites defines the list of test suites to run.
                 items:
                   description: Suite defines a single test suite contining prioritized
                     test executions.
                   properties:
+                    dataset:
+                      description: |-
+                        Dataset defines an optional dataset to be used for the test suite. The content and structure of the dataset is
+                        provider-defined and can be used to pass arbitrary data to the test execution environment. The dataset is
+                        represented as a raw JSON object, allowing for flexible and extensible data structures as needed by different
+                        providers and test cases.
+                      x-kubernetes-preserve-unknown-fields: true
                     priority:
                       default: 1
                       description: |-
-                        Priority is the execution priority when multiple suites are defined.
+                        Priority defines the execution priority when multiple suites are defined.
                         Lower values indicate higher priority. Suites with the same priority may be executed in any order.
                       minimum: 1
                       type: integer
                     testExecutions:
-                      description: TestExecutions is the list of test executions to
-                        run in this suite.
+                      description: TestExecutions defines the list of test executions
+                        to run in this suite.
                       items:
                         description: |-
                           TestExecution defines a single test execution combining a test case, its execution instructions,
                           and environment requirements.
                         properties:
                           dependencies:
-                            description: Dependencies is an optional list of test
-                              execution IDs that must complete before this test can
-                              run.
+                            description: Dependencies defines an optional list of
+                              test execution IDs that must complete before this test
+                              can run.
                             items:
                               pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                               type: string
@@ -678,8 +699,8 @@ spec:
                             - command
                             type: object
                           id:
-                            description: ID is the unique identifier for this test
-                              execution as UUID.
+                            description: ID defines the unique identifier for this
+                              test execution as UUID.
                             minLength: 1
                             pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
                             type: string

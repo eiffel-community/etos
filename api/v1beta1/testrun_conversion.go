@@ -164,7 +164,9 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 func (dst *Suite) convertFrom(src *etosv1alpha1.Suite) {
 	dst.Priority = src.Priority
 	dst.TestExecutions = make([]TestExecution, len(src.Tests))
-	dst.Dataset = &apiextensionsv1.JSON{Raw: src.Dataset.Raw}
+	if src.Dataset != nil {
+		dst.Dataset = &apiextensionsv1.JSON{Raw: src.Dataset.Raw}
+	}
 	for i, test := range src.Tests {
 		testExecution := TestExecution{}
 		testExecution.convertFrom(&test)
@@ -176,7 +178,9 @@ func (dst *Suite) convertFrom(src *etosv1alpha1.Suite) {
 func (src *Suite) convertTo(dst *etosv1alpha1.Suite) {
 	dst.Priority = src.Priority
 	dst.Tests = make([]etosv1alpha1.Test, len(src.TestExecutions))
-	dst.Dataset = &apiextensionsv1.JSON{Raw: dst.Dataset.Raw}
+	if dst.Dataset != nil {
+		dst.Dataset = &apiextensionsv1.JSON{Raw: dst.Dataset.Raw}
+	}
 	for i, testExecution := range src.TestExecutions {
 		test := etosv1alpha1.Test{}
 		testExecution.convertTo(&test)
