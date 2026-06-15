@@ -19,13 +19,13 @@ import apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 
 // TestSuite defines one or more test suites with their test executions, environments, and dependencies.
 type TestSuite struct {
-	// Name is the name of the suite definition.
+	// Name defines the name of the suite definition.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=255
 	Name string `json:"name"`
 
-	// SchemaVersion is the version of the test run schema.
+	// SchemaVersion defines the version of the test run schema.
 	// This field is used to determine which version of the test run schema to use when creating a test run.
 	// +optional
 	// +kubebuilder:default="v1beta1"
@@ -33,7 +33,7 @@ type TestSuite struct {
 	// +kubebuilder:validation:MinLength=1
 	SchemaVersion string `json:"schemaVersion"`
 
-	// Suites is the list of test suites to run.
+	// Suites defines the list of test suites to run.
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	Suites []Suite `json:"suites"`
@@ -41,29 +41,36 @@ type TestSuite struct {
 
 // Suite defines a single test suite contining prioritized test executions.
 type Suite struct {
-	// Priority is the execution priority when multiple suites are defined.
+	// Priority defines the execution priority when multiple suites are defined.
 	// Lower values indicate higher priority. Suites with the same priority may be executed in any order.
 	// +optional
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=1
 	Priority int `json:"priority"`
 
-	// TestExecutions is the list of test executions to run in this suite.
+	// TestExecutions defines the list of test executions to run in this suite.
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	TestExecutions []TestExecution `json:"testExecutions"`
+
+	// Dataset defines an optional dataset to be used for the test suite. The content and structure of the dataset is
+	// provider-defined and can be used to pass arbitrary data to the test execution environment. The dataset is
+	// represented as a raw JSON object, allowing for flexible and extensible data structures as needed by different
+	// providers and test cases.
+	// +optional
+	Dataset *apiextensionsv1.JSON `json:"dataset"`
 }
 
 // TestExecution defines a single test execution combining a test case, its execution instructions,
 // and environment requirements.
 type TestExecution struct {
-	// ID is the unique identifier for this test execution as UUID.
+	// ID defines the unique identifier for this test execution as UUID.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 	ID string `json:"id"`
 
-	// Dependencies is an optional list of test execution IDs that must complete before this test can run.
+	// Dependencies defines an optional list of test execution IDs that must complete before this test can run.
 	// +optional
 	// +listType=set
 	// +kubebuilder:validation:items:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
