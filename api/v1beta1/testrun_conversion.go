@@ -51,9 +51,7 @@ func (src *TestRun) ConvertTo(dstRaw conversion.Hub) error {
 	for i, suite := range src.Spec.Suites {
 
 		testSuite := etosv1alpha1.Suite{}
-		if err := suite.convertTo(&testSuite); err != nil {
-			return fmt.Errorf("failed to convert Suite: %w", err)
-		}
+		suite.convertTo(&testSuite)
 		testSuite.Name = fmt.Sprintf("%s-suite-%d", src.Name, i)
 		testSuite.Dataset = &apiextensionsv1.JSON{Raw: []byte("{}")}
 		dst.Spec.Suites[i] = testSuite
@@ -121,9 +119,7 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 	for i, suite := range src.Spec.Suites {
 
 		testSuite := Suite{}
-		if err := testSuite.convertFrom(&suite); err != nil {
-			return fmt.Errorf("failed to convert Suite: %w", err)
-		}
+		testSuite.convertFrom(&suite)
 		dst.Spec.Suites[i] = testSuite
 	}
 
@@ -157,96 +153,74 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 }
 
 // convertFrom converts the Suite from the v1alpha1 Suite to the v1beta1 Suite.
-func (dst *Suite) convertFrom(src *etosv1alpha1.Suite) error {
+func (dst *Suite) convertFrom(src *etosv1alpha1.Suite) {
 	dst.Priority = src.Priority
 	dst.TestExecutions = make([]TestExecution, len(src.Tests))
 	for i, test := range src.Tests {
 		testExecution := TestExecution{}
-		if err := testExecution.convertFrom(&test); err != nil {
-			return fmt.Errorf("failed to convert TestExecution: %w", err)
-		}
+		testExecution.convertFrom(&test)
 		dst.TestExecutions[i] = testExecution
 	}
-	return nil
 }
 
 // convertTo converts the Suite from the v1beta1 Suite to the v1alpha1 Suite.
-func (src *Suite) convertTo(dst *etosv1alpha1.Suite) error {
+func (src *Suite) convertTo(dst *etosv1alpha1.Suite) {
 	dst.Priority = src.Priority
 	dst.Tests = make([]etosv1alpha1.Test, len(src.TestExecutions))
 	for i, testExecution := range src.TestExecutions {
 		test := etosv1alpha1.Test{}
-		if err := testExecution.convertTo(&test); err != nil {
-			return fmt.Errorf("failed to convert TestExecution: %w", err)
-		}
+		testExecution.convertTo(&test)
 		dst.Tests[i] = test
 	}
-	return nil
 }
 
 // convertFrom converts the TestExecution from the v1alpha1 Test to the v1beta1 TestExecution.
-func (dst *TestExecution) convertFrom(src *etosv1alpha1.Test) error {
+func (dst *TestExecution) convertFrom(src *etosv1alpha1.Test) {
 	dst.ID = src.ID
 	testCase := TestCase{}
-	if err := testCase.convertFrom(&src.TestCase); err != nil {
-		return fmt.Errorf("failed to convert TestCase: %w", err)
-	}
+	testCase.convertFrom(&src.TestCase)
 	dst.TestCase = testCase
 
 	execution := Execution{}
-	if err := execution.convertFrom(&src.Execution); err != nil {
-		return fmt.Errorf("failed to convert Execution: %w", err)
-	}
+	execution.convertFrom(&src.Execution)
 	dst.Execution = execution
 
 	testEnvironment := TestEnvironment{}
-	if err := testEnvironment.convertFrom(&src.Execution); err != nil {
-		return fmt.Errorf("failed to convert TestEnvironment: %w", err)
-	}
+	testEnvironment.convertFrom(&src.Execution)
 	dst.Environment = testEnvironment
-	return nil
 }
 
 // convertTo converts the TestExecution from the v1beta1 TestExecution to the v1alpha1 Test.
-func (src *TestExecution) convertTo(dst *etosv1alpha1.Test) error {
+func (src *TestExecution) convertTo(dst *etosv1alpha1.Test) {
 	dst.ID = src.ID
 	testCase := etosv1alpha1.TestCase{}
-	if err := src.TestCase.convertTo(&testCase); err != nil {
-		return fmt.Errorf("failed to convert TestCase: %w", err)
-	}
+	src.TestCase.convertTo(&testCase)
 	dst.TestCase = testCase
 
 	execution := etosv1alpha1.Execution{}
-	if err := src.Execution.convertTo(&execution); err != nil {
-		return fmt.Errorf("failed to convert Execution: %w", err)
-	}
-	if err := src.Environment.convertTo(&execution); err != nil {
-		return fmt.Errorf("failed to convert TestEnvironment: %w", err)
-	}
+	src.Execution.convertTo(&execution)
+	src.Environment.convertTo(&execution)
 	dst.Execution = execution
-	return nil
 }
 
 // convertFrom converts the TestCase from the v1alpha1 Test to the v1beta1 TestCase.
-func (dst *TestCase) convertFrom(src *etosv1alpha1.TestCase) error {
+func (dst *TestCase) convertFrom(src *etosv1alpha1.TestCase) {
 	dst.ID = src.ID
 	dst.Version = src.Version
 	dst.Repository = src.Tracker
 	dst.URI = src.URI
-	return nil
 }
 
 // convertTo converts the TestCase from the v1beta1 TestCase to the v1alpha1 TestCase.
-func (src *TestCase) convertTo(dst *etosv1alpha1.TestCase) error {
+func (src *TestCase) convertTo(dst *etosv1alpha1.TestCase) {
 	dst.ID = src.ID
 	dst.Version = src.Version
 	dst.Tracker = src.Repository
 	dst.URI = src.URI
-	return nil
 }
 
 // convertFrom converts the Execution from the v1alpha1 Test to the v1beta1 Execution.
-func (dst *Execution) convertFrom(src *etosv1alpha1.Execution) error {
+func (dst *Execution) convertFrom(src *etosv1alpha1.Execution) {
 	var command strings.Builder
 	command.WriteString(src.Command)
 	for key, param := range src.Parameters {
@@ -261,11 +235,10 @@ func (dst *Execution) convertFrom(src *etosv1alpha1.Execution) error {
 	dst.Checkout = src.Checkout
 	dst.Command = command.String()
 	dst.PreExecution = src.Execute
-	return nil
 }
 
 // convertTo converts the Execution from the v1beta1 Execution to the v1alpha1 Execution.
-func (src *Execution) convertTo(dst *etosv1alpha1.Execution) error {
+func (src *Execution) convertTo(dst *etosv1alpha1.Execution) {
 	if src.Checkout == nil {
 		dst.Checkout = []string{}
 	} else {
@@ -278,24 +251,21 @@ func (src *Execution) convertTo(dst *etosv1alpha1.Execution) error {
 	// the command to extract parameters, and instead will just set parameters to an empty map.
 	dst.Parameters = make(map[string]string)
 	dst.Command = src.Command
-	return nil
 }
 
 // convertFrom converts the TestEnvironment from the v1alpha1 Test to the v1beta1 TestEnvironment.
-func (dst *TestEnvironment) convertFrom(src *etosv1alpha1.Execution) error {
+func (dst *TestEnvironment) convertFrom(src *etosv1alpha1.Execution) {
 	dst.EnvironmentVariables = src.Environment
 	dst.TestRunner = src.TestRunner
-	return nil
 }
 
 // convertTo converts the TestEnvironment from the v1beta1 TestEnvironment to the v1alpha1 Environment.
-func (src *TestEnvironment) convertTo(dst *etosv1alpha1.Execution) error {
+func (src *TestEnvironment) convertTo(dst *etosv1alpha1.Execution) {
 	if dst.Environment == nil {
 		dst.Environment = make(map[string]string)
 	}
 	maps.Copy(dst.Environment, src.EnvironmentVariables)
 	dst.TestRunner = src.TestRunner
-	return nil
 }
 
 // convertFrom converts the Image from the v1alpha1 Image to the v1beta1 Image.
