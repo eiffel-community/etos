@@ -59,11 +59,6 @@ type TestRunSpec struct {
 	// +optional
 	SuiteRunner *Image `json:"suiteRunner,omitempty"`
 
-	// LogListener defines the image to use for the log listener.
-	// If not specified, a default image will be used.
-	// +optional
-	LogListener *Image `json:"logListener,omitempty"`
-
 	// EnvironmentProvider defines the image to use for the environment provider.
 	// If not specified, a default image will be used.
 	EnvironmentProvider *Image `json:"environmentProvider,omitempty"`
