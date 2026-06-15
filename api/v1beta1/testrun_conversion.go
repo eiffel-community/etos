@@ -46,6 +46,10 @@ func (src *TestRun) ConvertTo(dstRaw conversion.Hub) error {
 		LogArea:        src.Spec.Providers.LogArea,
 		ExecutionSpace: src.Spec.Providers.ExecutionSpace,
 	}
+	dst.Spec.Retention = etosv1alpha1.Retention{
+		Success: src.Spec.Retention.Success,
+		Failure: src.Spec.Retention.Failure,
+	}
 
 	dst.Spec.Suites = make([]etosv1alpha1.Suite, len(src.Spec.Suites))
 	for i, suite := range src.Spec.Suites {
@@ -113,6 +117,10 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 		IUT:            src.Spec.Providers.IUT,
 		LogArea:        src.Spec.Providers.LogArea,
 		ExecutionSpace: src.Spec.Providers.ExecutionSpace,
+	}
+	dst.Spec.Retention = Retention{
+		Success: src.Spec.Retention.Success,
+		Failure: src.Spec.Retention.Failure,
 	}
 
 	dst.Spec.Suites = make([]Suite, len(src.Spec.Suites))

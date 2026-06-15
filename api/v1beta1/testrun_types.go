@@ -91,6 +91,24 @@ type TestRunSpec struct {
 	// If both Timeout and Deadline are set, Deadline takes precedence.
 	// +optional
 	Deadline int64 `json:"deadline,omitempty"`
+
+	// Retention defines the failure and success retentions for keeping testrun resources after completion.
+	// If not set, the testrun resource will not be deleted after completion.
+	// +optional
+	Retention Retention `json:"retention,omitempty"`
+}
+
+// Retention defines the failure and success retentions for keeping testrun resources after completion.
+// If not set, the testrun resource will not be deleted after completion.
+type Retention struct {
+
+	// Failure defines the duration to retain testrun resources after a failed execution.
+	// +optional
+	Failure *metav1.Duration `json:"failure,omitempty"`
+
+	// Success defines the duration to retain testrun resources after a successful execution.
+	// +optional
+	Success *metav1.Duration `json:"success,omitempty"`
 }
 
 // Providers defines the providers to use for test execution. These names must correspond to existing
