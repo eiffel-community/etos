@@ -512,21 +512,6 @@ spec:
                 minLength: 1
                 pattern: ^pkg:[a-z]+/.+$
                 type: string
-              logListener:
-                description: |-
-                  LogListener defines the image to use for the log listener.
-                  If not specified, a default image will be used.
-                properties:
-                  image:
-                    description: Image defines the docker image to run for a service.
-                      ETOS applies defaults if empty.
-                    type: string
-                  imagePullPolicy:
-                    description: |-
-                      ImagePullPolicy defines the pull policy to use for the image. ETOS applies PullIfNotPresent
-                      if empty.
-                    type: string
-                type: object
               name:
                 description: Name defines the name of the suite definition.
                 maxLength: 255

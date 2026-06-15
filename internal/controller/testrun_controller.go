@@ -847,14 +847,6 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 			Name:  "SUITE_SOURCE",
 			Value: testrun.Spec.SuiteSource,
 		},
-		{
-			Name:  "KUBEXIT_NAME",
-			Value: "esr",
-		},
-		{
-			Name:  "KUBEXIT_GRAVEYARD",
-			Value: "/graveyard",
-		},
 	}
 	if cluster.Spec.OpenTelemetry.Enabled {
 		envList = append(envList, corev1.EnvVar{
@@ -891,85 +883,15 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 					},
 				},
 				Spec: corev1.PodSpec{
-					Volumes: []corev1.Volume{
-						{
-							Name: "kubexit",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "graveyard",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory},
-							},
-						},
-					},
 					TerminationGracePeriodSeconds: &grace,
 					ServiceAccountName:            fmt.Sprintf("%s-provider", testrun.Spec.Cluster),
 					RestartPolicy:                 "Never",
-					InitContainers: []corev1.Container{
-						{
-							Name:            "kubexit",
-							Image:           "karlkfi/kubexit@sha256:db2dac0ab628d90cbdfd2a6827c14565d0230de57889c29108be111de45a6099",
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Command:         []string{"cp", "/bin/kubexit", "/kubexit/kubexit"},
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("64Mi"),
-									corev1.ResourceCPU:    resource.MustParse("50m"),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("32Mi"),
-									corev1.ResourceCPU:    resource.MustParse("25m"),
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "kubexit",
-									MountPath: "/kubexit",
-								},
-							},
-						},
-						{
-							Name:            "create-queue",
-							Image:           testrun.Spec.LogListener.Image.Image,
-							ImagePullPolicy: testrun.Spec.LogListener.ImagePullPolicy,
-							Command:         []string{"python", "-u", "-m", "create_queue"},
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("256Mi"),
-									corev1.ResourceCPU:    resource.MustParse("50m"),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("128Mi"),
-									corev1.ResourceCPU:    resource.MustParse("25m"),
-								},
-							},
-							EnvFrom: []corev1.EnvFromSource{
-								{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: fmt.Sprintf("%s-etos-suite-runner-cfg", testrun.Spec.Cluster),
-										},
-									},
-								},
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "IDENTIFIER",
-									Value: testrun.Spec.ID,
-								},
-							},
-						},
-					},
 					Containers: []corev1.Container{
 						{
 							Name:            testrun.Name,
 							Image:           testrun.Spec.SuiteRunner.Image.Image,
 							ImagePullPolicy: testrun.Spec.SuiteRunner.ImagePullPolicy,
-							Command:         []string{"/kubexit/kubexit"},
-							Args:            []string{"python", "-u", "-m", "etos_suite_runner"},
+							Command:         []string{"python", "-u", "-m", "etos_suite_runner"},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("256Mi"),
@@ -990,74 +912,6 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 								},
 							},
 							Env: envList,
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "graveyard",
-									MountPath: "/graveyard",
-								},
-								{
-									Name:      "kubexit",
-									MountPath: "/kubexit",
-								},
-							},
-						},
-						{
-							Name:            "etos-log-listener",
-							Image:           testrun.Spec.LogListener.Image.Image,
-							ImagePullPolicy: testrun.Spec.LogListener.ImagePullPolicy,
-							Command:         []string{"/kubexit/kubexit"},
-							Args:            []string{"python", "-u", "-m", "log_listener"},
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("256Mi"),
-									corev1.ResourceCPU:    resource.MustParse("50m"),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("128Mi"),
-									corev1.ResourceCPU:    resource.MustParse("25m"),
-								},
-							},
-							EnvFrom: []corev1.EnvFromSource{
-								{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: fmt.Sprintf("%s-etos-suite-runner-cfg", testrun.Spec.Cluster),
-										},
-									},
-								},
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "IDENTIFIER",
-									Value: testrun.Spec.ID,
-								},
-								{
-									Name:  "KUBEXIT_NAME",
-									Value: "log_listener",
-								},
-								{
-									Name:  "KUBEXIT_GRAVE_PERIOD",
-									Value: "400s",
-								},
-								{
-									Name:  "KUBEXIT_GRAVEYARD",
-									Value: "/graveyard",
-								},
-								{
-									Name:  "KUBEXIT_DEATH_DEPS",
-									Value: "esr",
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "graveyard",
-									MountPath: "/graveyard",
-								},
-								{
-									Name:      "kubexit",
-									MountPath: "/kubexit",
-								},
-							},
 						},
 					},
 				},

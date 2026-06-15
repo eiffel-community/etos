@@ -290,11 +290,6 @@ func (in *TestRunSpec) DeepCopyInto(out *TestRunSpec) {
 		*out = new(Image)
 		**out = **in
 	}
-	if in.LogListener != nil {
-		in, out := &in.LogListener, &out.LogListener
-		*out = new(Image)
-		**out = **in
-	}
 	if in.EnvironmentProvider != nil {
 		in, out := &in.EnvironmentProvider, &out.EnvironmentProvider
 		*out = new(Image)

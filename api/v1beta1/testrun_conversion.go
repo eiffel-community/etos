@@ -67,12 +67,6 @@ func (src *TestRun) ConvertTo(dstRaw conversion.Hub) error {
 			return err
 		}
 	}
-	if src.Spec.LogListener != nil {
-		dst.Spec.LogListener = &etosv1alpha1.LogListener{Image: &etosv1alpha1.Image{}}
-		if err := src.Spec.LogListener.convertTo(dst.Spec.LogListener.Image); err != nil {
-			return err
-		}
-	}
 	if src.Spec.EnvironmentProvider != nil {
 		dst.Spec.EnvironmentProvider = &etosv1alpha1.EnvironmentProvider{Image: &etosv1alpha1.Image{}}
 		if err := src.Spec.EnvironmentProvider.convertTo(dst.Spec.EnvironmentProvider.Image); err != nil {
@@ -133,10 +127,6 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 
 	dst.Spec.SuiteRunner = &Image{}
 	if err := dst.Spec.SuiteRunner.convertFrom(src.Spec.SuiteRunner.Image); err != nil {
-		return err
-	}
-	dst.Spec.LogListener = &Image{}
-	if err := dst.Spec.LogListener.convertFrom(src.Spec.LogListener.Image); err != nil {
 		return err
 	}
 	dst.Spec.EnvironmentProvider = &Image{}
