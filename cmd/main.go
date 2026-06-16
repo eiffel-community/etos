@@ -43,6 +43,7 @@ import (
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
+	etosv1beta1 "github.com/eiffel-community/etos/api/v1beta1"
 	"github.com/eiffel-community/etos/internal/config"
 	"github.com/eiffel-community/etos/internal/controller"
 	"github.com/eiffel-community/etos/internal/messaging"
@@ -62,6 +63,7 @@ func init() {
 
 	utilruntime.Must(etosv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(etosv1alpha2.AddToScheme(scheme))
+	utilruntime.Must(etosv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -347,6 +349,13 @@ func main() {
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha1.SetupClusterWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "Cluster")
+			os.Exit(1)
+		}
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookv1alpha1.SetupEnvironmentWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Environment")
 			os.Exit(1)
 		}
 	}
