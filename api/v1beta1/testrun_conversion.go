@@ -56,7 +56,11 @@ func (src *TestRun) ConvertTo(dstRaw conversion.Hub) error {
 
 		testSuite := etosv1alpha1.Suite{}
 		suite.convertTo(&testSuite)
-		testSuite.Name = fmt.Sprintf("%s-suite-%d", src.Name, i)
+		name := src.Name
+		if name == "" {
+			name = src.GenerateName
+		}
+		testSuite.Name = fmt.Sprintf("%s-suite-%d", name, i)
 		testSuite.Dataset = &apiextensionsv1.JSON{Raw: []byte("{}")}
 		dst.Spec.Suites[i] = testSuite
 	}
@@ -100,6 +104,9 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 
 	dst.Spec.ID = src.Spec.ID
 	dst.Spec.Name = src.Name
+	if dst.Spec.Name == "" {
+		dst.Spec.Name = src.GenerateName
+	}
 	dst.Spec.SchemaVersion = "v1beta1"
 	dst.Spec.Artifact = src.Spec.Artifact
 	dst.Spec.Identity = src.Spec.Identity
