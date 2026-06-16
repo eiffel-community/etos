@@ -106,22 +106,6 @@ type Retention struct {
 	Success *metav1.Duration `json:"success,omitempty"`
 }
 
-// Providers defines the providers to use for test execution. These names must correspond to existing
-// Provider kinds in the namespace where a testrun is created.
-type Providers struct {
-	// IUT defines the provider to use for item under test provisioning.
-	// +optional
-	IUT string `json:"iut,omitempty"`
-
-	// LogArea defines the provider to use for log area provisioning.
-	// +optional
-	LogArea string `json:"logArea"`
-
-	// ExecutionSpace defines the provider to use for execution space provisioning.
-	// +optional
-	ExecutionSpace string `json:"executionSpace"`
-}
-
 // TestRunner defines the test runner to use for executing tests. This field is optional and can be used to specify a
 // particular test runner for test execution. If not specified, a default test runner will be used.
 type TestRunner struct {
