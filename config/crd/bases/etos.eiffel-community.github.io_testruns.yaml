@@ -133,6 +133,16 @@ spec:
                   success:
                     type: string
                 type: object
+              schemaVersion:
+                default: v1alpha1
+                description: |-
+                  SchemaVersion defines the version of the test run schema.
+                  This field is used to determine which version of the test run schema to use when creating a test run.
+                enum:
+                - v1alpha1
+                - v1beta1
+                minLength: 1
+                type: string
               suiteRunner:
                 properties:
                   image:
@@ -557,6 +567,7 @@ spec:
                   SchemaVersion defines the version of the test run schema.
                   This field is used to determine which version of the test run schema to use when creating a test run.
                 enum:
+                - v1alpha1
                 - v1beta1
                 minLength: 1
                 type: string

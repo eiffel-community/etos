@@ -33,6 +33,7 @@ func (src *TestRun) ConvertTo(dstRaw conversion.Hub) error {
 
 	dst.Spec.ID = src.Spec.ID
 	dst.Spec.Artifact = src.Spec.Artifact
+	dst.Spec.SchemaVersion = src.Spec.SchemaVersion
 	dst.Spec.Identity = src.Spec.Identity
 	dst.Spec.Cluster = src.Spec.Cluster
 	dst.Spec.SuiteSource = src.Spec.SuiteSource
@@ -103,7 +104,7 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 	if dst.Spec.Name == "" {
 		dst.Spec.Name = src.GenerateName
 	}
-	dst.Spec.SchemaVersion = "v1beta1"
+	dst.Spec.SchemaVersion = src.Spec.SchemaVersion
 	dst.Spec.Artifact = src.Spec.Artifact
 	dst.Spec.Identity = src.Spec.Identity
 	dst.Spec.Cluster = src.Spec.Cluster

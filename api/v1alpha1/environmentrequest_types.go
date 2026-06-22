@@ -79,7 +79,7 @@ type EnvironmentRequestSpec struct {
 	// +kubebuilder:default="v1beta1"
 	// +kubebuilder:validation:Enum=v1alpha1;v1beta1
 	// +kubebuilder:validation:MinLength=1
-	SchemaVersion string `json:"schemaVersion"`
+	SchemaVersion string `json:"schemaVersion,omitempty"`
 
 	*Image        `json:",inline"`
 	Identifier    string `json:"identifier,omitempty"`
