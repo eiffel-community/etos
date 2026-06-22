@@ -22,16 +22,13 @@ import (
 	"strings"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // convertFrom converts the Suite from the v1alpha1 Suite to the v1beta1 Suite.
 func (dst *Suite) convertFrom(src *etosv1alpha1.Suite) {
 	dst.Priority = src.Priority
 	dst.TestExecutions = make([]TestExecution, len(src.Tests))
-	if src.Dataset != nil {
-		dst.Dataset = &apiextensionsv1.JSON{Raw: src.Dataset.Raw}
-	}
+	dst.Dataset = src.Dataset
 	for i, test := range src.Tests {
 		testExecution := TestExecution{}
 		testExecution.convertFrom(&test)
@@ -43,9 +40,7 @@ func (dst *Suite) convertFrom(src *etosv1alpha1.Suite) {
 func (src *Suite) convertTo(dst *etosv1alpha1.Suite) {
 	dst.Priority = src.Priority
 	dst.Tests = make([]etosv1alpha1.Test, len(src.TestExecutions))
-	if dst.Dataset != nil {
-		dst.Dataset = &apiextensionsv1.JSON{Raw: dst.Dataset.Raw}
-	}
+	dst.Dataset = src.Dataset
 	for i, testExecution := range src.TestExecutions {
 		test := etosv1alpha1.Test{}
 		testExecution.convertTo(&test)

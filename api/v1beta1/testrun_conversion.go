@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"log"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
@@ -59,7 +58,6 @@ func (src *TestRun) ConvertTo(dstRaw conversion.Hub) error {
 			name = src.GenerateName
 		}
 		testSuite.Name = fmt.Sprintf("%s-suite-%d", name, i)
-		testSuite.Dataset = &apiextensionsv1.JSON{Raw: []byte("{}")}
 		dst.Spec.Suites[i] = testSuite
 	}
 
