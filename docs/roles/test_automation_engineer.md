@@ -36,6 +36,8 @@ Other than that you should follow best practices for testing, such as making sur
 Recipes are created in JSON and tell ETOS how to execute the tests.
 The recipe instructions need to be shared with the test engineers somehow, either by sharing the JSON file directly or by creating a tool that generates the JSON file from a more user-friendly format. We (the ETOS maintainers) do not provide any tools for this, but we are open to suggestions and contributions in this area.
 
+> **Note:** ETOS also supports a standalone YAML suite definition format as a v1 feature. See [Suite definition format](../getting_started/suite_format.md).
+
 A full recipe collection example can be found [here](../getting_started/index.md#creating-a-recipe-collection), but as a test automation engineer you are only responsible for a part of that recipe collection.
 
 The recipe instructions that you need to create are the ones that tells ETOS how to run the tests, but also some metadata about the test. An example of such instructions can look like this:
