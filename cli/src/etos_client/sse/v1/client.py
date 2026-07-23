@@ -20,15 +20,23 @@ import time
 from json import JSONDecodeError
 from typing import Callable, Iterable, Optional
 
-from urllib3.exceptions import HTTPError, MaxRetryError
+from urllib3.exceptions import HTTPError, MaxRetryError, ReadTimeoutError
 from urllib3.poolmanager import PoolManager
-from urllib3.util import Retry
+from urllib3.util import Retry, Timeout
 
 from etos_client.shared.events import Event
 
 from .protocol import Shutdown, parse
 
 CHUNK_SIZE = 500
+# The SSE server emits a ping every 15 seconds. Without a socket read timeout a
+# half-open TCP connection (e.g. when the server pod is rescheduled, or a Jenkins
+# agent goes offline mid-run) would leave the blocking stream read hanging forever,
+# so the client would never reconnect and resume from Last-Event-ID. A read timeout
+# of four missed pings detects a dead connection while tolerating transient slowness.
+CONNECT_TIMEOUT = 30
+READ_TIMEOUT = 60
+STREAM_TIMEOUT = Timeout(connect=CONNECT_TIMEOUT, read=READ_TIMEOUT)
 # Status codes that indicate a transient (non-permanent) error and should be retried.
 # RETRY_AFTER_STATUS_CODES is {413, 429, 503}. 502 (Bad Gateway) and 504 (Gateway
 # Timeout) are added to cover the case where the SSE server is temporarily
@@ -160,6 +168,7 @@ class SSEClient:
                 headers=headers,
                 preload_content=False,
                 retries=retries,
+                timeout=STREAM_TIMEOUT,
             )
             self.__release = response.release_conn
         except MaxRetryError as exception:
@@ -271,6 +280,13 @@ class SSEClient:
                 if e.event:
                     yield e.event
                 self.close()  # close sets __shutdown to True, exiting the while loop.
+            except ReadTimeoutError:
+                self.logger.warning(
+                    "No data from the SSE server within %ds (connection likely dead). "
+                    "Reconnecting",
+                    READ_TIMEOUT,
+                )
+                self.reset()
             except HTTPError:
                 self.logger.debug("HTTP error from the SSE server, reconnecting", exc_info=True)
                 self.reset()
