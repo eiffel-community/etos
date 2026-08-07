@@ -122,7 +122,7 @@ def test_queue_dedup_by_url(tmp_path):
 
 
 def test_breakdown_groups_by_sub_suite(tmp_path):
-    """The breakdown groups downloaded/expected counts per destination directory."""
+    """The breakdown groups downloaded/expected file counts per sub-suite."""
     suite_0 = tmp_path / "SubSuite_0"
     suite_1 = tmp_path / "SubSuite_1"
     item_a = Downloadable(url="http://example/a.txt", name="a.txt", path=suite_0)
@@ -135,5 +135,5 @@ def test_breakdown_groups_by_sub_suite(tmp_path):
         _download(downloader, item)
 
     breakdown = downloader.reconciler.breakdown()
-    assert breakdown[str(suite_0)] == (2, 2)
-    assert breakdown[str(suite_1)] == (1, 1)
+    assert breakdown["SubSuite_0"] == (2, 2)
+    assert breakdown["SubSuite_1"] == (1, 1)
