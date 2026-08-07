@@ -33,6 +33,8 @@ from requests.exceptions import HTTPError
 
 from etos_lib.lib.http import Http
 
+from etos_client.shared.download_reconciler import DownloadReconciler
+
 MAX_RETRIES = (
     10  # With 1 as backoff_factor, the total wait time between retries will be 1023 seconds
 )
@@ -96,20 +98,30 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         self.__http = Http(retry=HTTP_RETRY_PARAMETERS)
         self.failed: bool = False
         self.downloads: set[str] = set()
+        self.reconciler = DownloadReconciler()
 
     def __download(self, item: Downloadable) -> None:
         """Download files."""
         self.logger.debug("Downloading %r", item)
-        # retry rules are set in the Http client
-        response = self.__http.get(item.url, stream=True)
-        if self.__download_ok(response):
+        try:
+            # retry rules are set in the Http client
+            response = self.__http.get(item.url, stream=True)
+            if not self.__download_ok(response):
+                self.__record_failure(item, "download request did not succeed")
+                return
             self.__save_file(item, response)
-            self.logger.debug("Item downloaded %r", item)
+        except IntegrityError as integrity_error:
+            self.__record_failure(item, str(integrity_error))
             return
+        self.reconciler.record_downloaded(item)
+        self.logger.debug("Item downloaded %r", item)
+
+    def __record_failure(self, item: Downloadable, reason: str) -> None:
+        """Record a failed download so it can be reconciled and reported to the user."""
         with self.__lock:
             self.failed = True
-        self.logger.critical("Failed to download %r", item)
-        return
+        self.reconciler.record_failed(item, reason)
+        self.logger.critical("Failed to download %r: %s", item, reason)
 
     def __save_file(self, item: Downloadable, response: requests.Response) -> None:
         """Save downloaded file data to disk."""
@@ -123,8 +135,6 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
             index += 1
             download_path = download_path.with_name(f"{index}_{original_name}")
         self.logger.debug("Saving file %s", download_path)
-        with self.__lock:
-            self.downloads.add(str(download_path))
         with open(download_path, "wb+") as report:
             for chunk in response:
                 report.write(chunk)
@@ -133,6 +143,10 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         except IntegrityError:
             download_path.unlink()
             raise
+        # Only count a file as downloaded once it has been fully written and its
+        # integrity verified, so the count reflects what actually reached the client.
+        with self.__lock:
+            self.downloads.add(str(download_path))
 
     def __verify(self, item: Downloadable, path: Path):
         """Verify the checksum of the downloaded item.
@@ -254,3 +268,4 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
         if item.url not in self.__queued:
             self.__download_queue.put_nowait(item)
             self.__queued.append(item.url)
+            self.reconciler.record_received(item)

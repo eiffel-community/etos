@@ -177,6 +177,7 @@ class Etos:
         self.logger.info(
             "Downloaded a total of %d logs from test runners", len(log_downloader.downloads)
         )
+        log_downloader.reconciler.log_summary()
         self.logger.info("Archiving reports.")
         shutil.make_archive(
             str(artifact_dir.joinpath("reports").relative_to(Path.cwd())), "zip", report_dir
@@ -184,7 +185,7 @@ class Etos:
         self.logger.info("Reports: %s", report_dir)
         self.logger.info("Artifacts: %s", artifact_dir)
 
-        if log_downloader.failed:
+        if log_downloader.failed or log_downloader.reconciler.missing():
             return Result(
                 verdict=Verdict.INCONCLUSIVE,
                 conclusion=Conclusion.FAILED,
