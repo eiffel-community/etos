@@ -79,18 +79,18 @@ class DownloadReconciler:
         return [item for url, item in received.items() if url not in downloaded]
 
     def breakdown(self) -> dict[str, tuple[int, int]]:
-        """Return per-sub-suite (downloaded, expected) file counts.
+        """Return per-destination (downloaded, expected) file counts.
 
-        Files are grouped by the sub-suite they belong to, taken from the name of
-        their destination directory. Returns a mapping of sub-suite to a
-        (downloaded, expected) tuple.
+        Files are grouped by their destination directory. A sub-suite directory holds
+        that sub-suite's artifacts, while the reports directory holds logs shared across
+        all sub-suites. Returns a mapping of directory to a (downloaded, expected) tuple.
         """
         with self.__lock:
             downloaded = set(self.__downloaded)
             received = dict(self.__received)
         counts: dict[str, tuple[int, int]] = {}
         for url, item in received.items():
-            key = item.path.name
+            key = str(item.path)
             done, expected = counts.get(key, (0, 0))
             counts[key] = (done + (1 if url in downloaded else 0), expected + 1)
         return counts
@@ -119,7 +119,5 @@ class DownloadReconciler:
                 self.expected,
             )
         breakdown = self.breakdown()
-        if breakdown:
-            self.logger.info("Downloaded files per sub-suite:")
-            for sub_suite, (downloaded, expected) in sorted(breakdown.items()):
-                self.logger.info("  %s: %d/%d files downloaded", sub_suite, downloaded, expected)
+        for destination, (downloaded, expected) in sorted(breakdown.items()):
+            self.logger.info("  %s: %d/%d files downloaded", destination, downloaded, expected)

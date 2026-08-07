@@ -135,5 +135,5 @@ def test_breakdown_groups_by_sub_suite(tmp_path):
         _download(downloader, item)
 
     breakdown = downloader.reconciler.breakdown()
-    assert breakdown["SubSuite_0"] == (2, 2)
-    assert breakdown["SubSuite_1"] == (1, 1)
+    assert breakdown[str(suite_0)] == (2, 2)
+    assert breakdown[str(suite_1)] == (1, 1)
