@@ -42,7 +42,7 @@ def _downloader(content: bytes) -> Downloader:
     http = MagicMock()
     http.get.return_value = _FakeResponse(content)
     # Replace the name-mangled private Http client.
-    downloader._Downloader__http = http  # pylint:disable=protected-access
+    setattr(downloader, "_Downloader__http", http)
     return downloader
 
 
