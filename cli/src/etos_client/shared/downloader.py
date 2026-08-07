@@ -229,16 +229,29 @@ class Downloader(Thread):  # pylint:disable=too-many-instance-attributes
     def run(self) -> None:
         """Run the log downloader thread."""
         self.started = True
-        # 10 is the default max number of connections in Python requests library
-        with ThreadPool(10) as pool:
+        # 10 is the default max number of connections in Python requests library.
+        # The pool is intentionally not used as a context manager: exiting a
+        # `with ThreadPool(...)` block calls ThreadPool.terminate(), which kills
+        # worker threads while they are still downloading. That leaves truncated
+        # files on disk and skips integrity verification entirely. Instead we
+        # close() and join() the pool so already-dispatched downloads finish and
+        # are verified before the thread exits.
+        pool = ThreadPool(10)
+        try:
             while True:
                 if self.__exit and not self.__clear_queue:
-                    self.logger.warning("Forced to exit without clearing the queue.")
-                    return
+                    self.logger.warning("Forced to exit, not queueing further downloads.")
+                    break
                 time.sleep(0.1)
                 if not self.__trigger_download(pool) and self.__exit:
-                    self.logger.info("Download queue empty. Exiting.")
-                    return
+                    self.logger.info("Download queue empty. Waiting for ongoing downloads.")
+                    break
+        finally:
+            # Stop accepting new work, then wait for ongoing downloads to finish
+            # so every file is fully written and integrity-verified before exiting.
+            pool.close()
+            pool.join()
+            self.logger.info("All downloads finished. Exiting.")
 
     def stop(self, clear_queue: bool = True) -> None:
         """Stop the downloader thread.
