@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/eiffel-community/etos/internal/messaging"
 	"github.com/eiffel-community/etos/pkg/messaging/events"
@@ -156,7 +157,12 @@ func addDefaults(opts zap.Options) zap.Options {
 	}
 
 	if opts.TimeEncoder == nil {
-		opts.TimeEncoder = zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000Z")
+		// Always emit '@timestamp' in UTC. TimeEncoderOfLayout formats in the
+		// process' local timezone and the layout's 'Z' is a literal, so a non-UTC
+		// process would otherwise log local time labelled as UTC.
+		opts.TimeEncoder = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+			enc.AppendString(t.UTC().Format("2006-01-02T15:04:05.000Z"))
+		}
 	}
 	f := func(ecfg *zapcore.EncoderConfig) {
 		ecfg.EncodeTime = opts.TimeEncoder
