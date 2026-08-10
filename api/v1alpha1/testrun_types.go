@@ -103,6 +103,14 @@ type TestRunSpec struct {
 	// Name of the ETOS cluster to execute the testrun in.
 	Cluster string `json:"cluster,omitempty"`
 
+	// SchemaVersion defines the version of the test run schema.
+	// This field is used to determine which version of the test run schema to use when creating a test run.
+	// +optional
+	// +kubebuilder:default="v1alpha1"
+	// +kubebuilder:validation:Enum=v1alpha1;v1beta1
+	// +kubebuilder:validation:MinLength=1
+	SchemaVersion string `json:"schemaVersion,omitempty"`
+
 	// ID is the test suite ID for this execution. Will be generated if nil. The ID is a UUID, any version, and regex matches that.
 	// +kubebuilder:validation:Pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 	ID string `json:"id,omitempty"`

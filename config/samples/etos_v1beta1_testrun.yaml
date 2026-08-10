@@ -1,0 +1,28 @@
+apiVersion: etos.eiffel-community.github.io/v1beta1
+kind: TestRun
+metadata:
+  labels:
+    app.kubernetes.io/name: etos
+    app.kubernetes.io/managed-by: kustomize
+  name: testrun-sample  # This is used by e2e test, don't change
+spec:
+  name: sleep-test
+  schemaVersion: v1beta1
+  identity: pkg:testrun/etos/eiffel_community  # This is used by e2e test, don't change
+  artifact: 268dd4db-93da-4232-a544-bf4c0fb26dac  # This is used by e2e test, don't change
+  suites:
+  - priority: 1
+    testExecutions:
+    - id: c2c93da1-53c7-42f2-881c-60a579e57630
+      testCase:
+        id: etos-sample-test
+      execution:
+        command: exit 0
+        preExecution:
+        - sleep 30
+      environment:
+        testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
+  providers:
+    iut: cluster-sample-iut-provider # This is used by e2e test, don't change
+    executionSpace: cluster-sample-execution-space-provider  # This is used by e2e test, don't change
+    logArea: cluster-sample-log-area-provider  # This is used by e2e test, don't change
