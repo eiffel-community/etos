@@ -142,6 +142,8 @@ class TestRun:
             message,
             extra={
                 "rname": message.data.name,
-                "rtime": message.data.datestring.strftime("%Y-%m-%d %H:%M:%S"),
+                # Convert to local time so timestamps match the rest of the
+                # client output; core services emit UTC.
+                "rtime": message.data.datestring.astimezone().strftime("%Y-%m-%d %H:%M:%S"),
             },
         )
