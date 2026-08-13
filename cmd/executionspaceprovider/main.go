@@ -142,6 +142,16 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 			span.SetStatus(codes.Error, "failed to start ETOS test runner")
 			return err
 		}
+		if err := executionSpace.WaitForTestRunner(ctx, cfg.EnvironmentRequest); err != nil {
+			if deleteErr := provider.DeleteExecutionSpace(ctx, executionSpace.ExecutionSpace); deleteErr != nil {
+				logger.Error(deleteErr, fmt.Sprintf("Failed to delete ExecutionSpace '%s' after test runner failed to start",
+					executionSpace.Name))
+				err = errors.Join(err, deleteErr)
+			}
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed while waiting for test runner to start")
+			return err
+		}
 		logger.Info("Test runner has launched and is waiting for tests")
 	}
 	return nil
