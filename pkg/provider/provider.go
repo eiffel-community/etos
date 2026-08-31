@@ -189,7 +189,19 @@ func run(provider Provider, params Parameters) error {
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to create message bus publisher")
-		return fmt.Errorf("failed to create message bus publisher: %w", err)
+		wrappedErr := fmt.Errorf("failed to create message bus publisher: %w", err)
+		// The publisher failed to connect even after retrying, so write the error to
+		// the termination-log before exiting so the controller can see the reason.
+		if writeErr := WriteResult(logger,
+			jobs.Result{
+				Conclusion:  jobs.ConclusionFailed,
+				Description: wrappedErr.Error(),
+				Verdict:     jobs.VerdictNone,
+			}); writeErr != nil {
+			logger.Error(writeErr, "failed to write error result to termination-log")
+			span.RecordError(writeErr)
+		}
+		return wrappedErr
 	}
 	defer func() {
 		if closeErr := eventPublisher.Close(); closeErr != nil {

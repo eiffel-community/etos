@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -31,11 +32,26 @@ import (
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/ha"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/message"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/stream"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
 	ConfirmationTimeout = 2 * time.Second
+
+	// connectInitialInterval is the wait before the first reconnect attempt when
+	// establishing the initial RabbitMQ stream connection.
+	connectInitialInterval = 1 * time.Second
+	// connectMaxInterval caps the wait between reconnect attempts.
+	connectMaxInterval = 30 * time.Second
+	// connectBackoffFactor is the factor the wait is multiplied by after each attempt.
+	connectBackoffFactor = 2.0
+	// connectBackoffJitter adds randomness to the wait so multiple clients don't
+	// reconnect at the same time.
+	connectBackoffJitter = 0.1
+	// connectTimeout bounds the total time spent trying to establish the initial
+	// connection before giving up and reporting the failure.
+	connectTimeout = 2 * time.Minute
 )
 
 type PublisherClosedError struct{}
@@ -49,6 +65,7 @@ func (e *PublisherClosedError) Error() string {
 type rabbitMQStreamPublisher struct {
 	logger              logr.Logger
 	streamName          string
+	environmentOptions  *stream.EnvironmentOptions
 	environment         *stream.Environment
 	options             *stream.ProducerOptions
 	producer            *ha.ReliableProducer
@@ -60,6 +77,8 @@ type rabbitMQStreamPublisher struct {
 
 // NewRabbitMQStreamPublisher creates a new RabbitMQ stream publisher. It connects to the
 // RabbitMQ stream and checks if the stream exists. If it does, it starts the publisher.
+// The initial connection is retried with an increasing wait between attempts to recover
+// from temporary RabbitMQ connection problems during startup.
 func NewRabbitMQStreamPublisher(
 	ctx context.Context,
 	name string,
@@ -91,29 +110,77 @@ func NewRabbitMQStreamPublisher(
 	if config.SSL == "true" {
 		environmentOptions = environmentOptions.SetTLSConfig(&tls.Config{ServerName: config.Host})
 	}
-	env, err := stream.NewEnvironment(environmentOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	exists, err := env.StreamExists(config.StreamName)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.New("no stream exists, cannot stream events")
-	}
 	options := stream.NewProducerOptions().
 		SetClientProvidedName(name).
 		SetConfirmationTimeOut(ConfirmationTimeout)
 	publisher := &rabbitMQStreamPublisher{
-		logger:      logr.Discard(),
-		streamName:  config.StreamName,
-		environment: env,
-		options:     options,
-		unConfirmed: &sync.WaitGroup{},
+		logger:             logr.Discard(),
+		streamName:         config.StreamName,
+		environmentOptions: environmentOptions,
+		options:            options,
+		unConfirmed:        &sync.WaitGroup{},
 	}
-	return publisher, publisher.Start()
+	if err := publisher.connect(ctx); err != nil {
+		return nil, err
+	}
+	return publisher, nil
+}
+
+// connect establishes the initial RabbitMQ stream connection, retrying with an increasing
+// wait between attempts to recover from temporary connection problems. It returns the last
+// error encountered if the connection cannot be established before connectTimeout elapses.
+func (s *rabbitMQStreamPublisher) connect(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+	backoff := wait.Backoff{
+		Duration: connectInitialInterval,
+		Factor:   connectBackoffFactor,
+		Jitter:   connectBackoffJitter,
+		Cap:      connectMaxInterval,
+		Steps:    math.MaxInt32,
+	}
+	var lastErr error
+	err := wait.ExponentialBackoffWithContext(ctx, backoff, func(context.Context) (bool, error) {
+		if establishErr := s.establish(); establishErr != nil {
+			lastErr = establishErr
+			s.logger.Error(establishErr, "Failed to connect to RabbitMQ stream, retrying")
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		if lastErr != nil {
+			return fmt.Errorf("failed to establish RabbitMQ stream connection: %w", lastErr)
+		}
+		return fmt.Errorf("failed to establish RabbitMQ stream connection: %w", err)
+	}
+	return nil
+}
+
+// establish creates a RabbitMQ stream environment, verifies that the stream exists and
+// starts the publisher. If any step fails, the environment it created is closed so that a
+// subsequent reconnect attempt starts from a clean state.
+func (s *rabbitMQStreamPublisher) establish() error {
+	env, err := stream.NewEnvironment(s.environmentOptions)
+	if err != nil {
+		return err
+	}
+	exists, err := env.StreamExists(s.streamName)
+	if err != nil {
+		_ = env.Close()
+		return err
+	}
+	if !exists {
+		_ = env.Close()
+		return errors.New("no stream exists, cannot stream events")
+	}
+	s.environment = env
+	if err := s.Start(); err != nil {
+		_ = env.Close()
+		s.environment = nil
+		return err
+	}
+	return nil
 }
 
 // Start will start the RabbitMQ stream publisher, non blocking.
