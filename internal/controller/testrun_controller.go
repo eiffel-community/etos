@@ -467,7 +467,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 		} else {
 			condition = metav1.Condition{
 				Type:    status.StatusSuiteRunner,
-				Status:  metav1.ConditionFalse,
+				Status:  metav1.ConditionTrue,
 				Reason:  status.ReasonCompleted,
 				Message: result.Description,
 			}
@@ -487,7 +487,7 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusSuiteRunner,
-				Status:  metav1.ConditionFalse,
+				Status:  metav1.ConditionTrue,
 				Reason:  status.ReasonActive,
 				Message: "Job is running",
 			}) {
