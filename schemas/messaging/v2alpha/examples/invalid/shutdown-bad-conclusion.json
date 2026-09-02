@@ -1,0 +1,7 @@
+{
+  "event": "shutdown",
+  "data": {
+    "conclusion": "Great",
+    "verdict": "Passed"
+  }
+}

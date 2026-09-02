@@ -1,0 +1,12 @@
+{
+  "id": 4,
+  "event": "artifact",
+  "meta": "*",
+  "data": {
+    "url": "http://example.com/artifacts/core.dump",
+    "name": "core.dump",
+    "checksums": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

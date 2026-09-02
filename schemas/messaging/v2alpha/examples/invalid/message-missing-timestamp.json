@@ -1,0 +1,7 @@
+{
+  "event": "message",
+  "data": {
+    "message": "hello",
+    "name": "etos"
+  }
+}

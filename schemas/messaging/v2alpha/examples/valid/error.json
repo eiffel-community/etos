@@ -1,0 +1,7 @@
+{
+  "event": "error",
+  "data": {
+    "retry": true,
+    "reason": "Streamer closed the connection"
+  }
+}
