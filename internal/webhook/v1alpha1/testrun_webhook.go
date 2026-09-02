@@ -72,7 +72,7 @@ func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alp
 		testrun.Spec.ID = string(uuid.NewUUID())
 	}
 
-	testrunlog.Info("Checking for a cluster, either in spec or in namespace")
+	testrunlog.Info("Checking for a cluster, either in spec or in namespace", "cluster", testrun.Spec.Cluster)
 	clusters := &etosv1alpha1.ClusterList{}
 	var cluster *etosv1alpha1.Cluster
 	if testrun.Spec.Cluster == "" {
@@ -230,14 +230,6 @@ func (d *TestRunCustomValidator) validate(testrun *etosv1alpha1.TestRun) error {
 			field.NewPath("spec").Child("suiteRunner"),
 			testrun.Spec.SuiteRunner,
 			"SuiteRunner image information is missing, maybe because cluster is missing?",
-		))
-	}
-
-	if testrun.Spec.LogListener == nil {
-		allErrs = append(allErrs, field.Invalid(
-			field.NewPath("spec").Child("logListener"),
-			testrun.Spec.LogListener,
-			"LogListener image information is missing, maybe because cluster is missing?",
 		))
 	}
 
