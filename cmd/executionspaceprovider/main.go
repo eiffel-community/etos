@@ -39,6 +39,35 @@ import (
 
 type genericExecutionSpaceProvider struct{}
 
+// subSuiteProvidedEnvironment lists the environment variables that the ETOS test runner reads from
+// the sub suite it downloads. They remain part of the sub suite (in the executor instructions), so
+// there is no need to also pass them to the test runner as container environment variables.
+var subSuiteProvidedEnvironment = map[string]struct{}{
+	"RABBITMQ_HOST":     {},
+	"RABBITMQ_USERNAME": {},
+	"RABBITMQ_PASSWORD": {},
+	"RABBITMQ_EXCHANGE": {},
+	"RABBITMQ_PORT":     {},
+	"RABBITMQ_VHOST":    {},
+	"RABBITMQ_SSL":      {},
+	"SOURCE_HOST":       {},
+	"ETOS_API":          {},
+}
+
+// testRunnerEnvironment builds the container environment variables for the ETOS test runner from the
+// execution space instructions, omitting the variables that the test runner reads from the sub suite
+// it downloads (see subSuiteProvidedEnvironment).
+func testRunnerEnvironment(instructions map[string]string) []corev1.EnvVar {
+	envs := make([]corev1.EnvVar, 0, len(instructions))
+	for key, value := range instructions {
+		if _, providedBySubSuite := subSuiteProvidedEnvironment[key]; providedBySubSuite {
+			continue
+		}
+		envs = append(envs, corev1.EnvVar{Name: key, Value: value})
+	}
+	return envs
+}
+
 // main creates a new ExecutionSpace resource based on data in an EnvironmentRequest.
 func main() {
 	provider.RunExecutionSpaceProvider(&genericExecutionSpaceProvider{})
@@ -155,10 +184,7 @@ func (p *genericExecutionSpaceProvider) start(
 	if err != nil {
 		return err
 	}
-	envs := []corev1.EnvVar{}
-	for key, value := range executionSpace.Spec.Instructions.Environment {
-		envs = append(envs, corev1.EnvVar{Name: key, Value: value})
-	}
+	envs := testRunnerEnvironment(executionSpace.Spec.Instructions.Environment)
 	if environmentrequest.Spec.Config.EncryptionKey.Value != "" {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "ETOS_ENCRYPTION_KEY",
