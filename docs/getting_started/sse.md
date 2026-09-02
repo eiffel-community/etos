@@ -16,25 +16,31 @@
 --->
 # Following a testrun with SSE
 
-ETOS streams the events and logs of a testrun over [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). This is what the ETOS client uses to show progress while a testrun is running. This page describes the `v2` SSE protocol and the events it emits.
+ETOS streams the events and logs of a testrun over [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). This is what the ETOS client uses to show progress while a testrun is running. This page describes the SSE `v2` event protocol (currently served under `v2alpha`) and the events it emits. The events are formally defined by the [messaging events JSON schema](https://github.com/eiffel-community/etos/blob/main/schemas/messaging/v2alpha/events.schema.json).
 
 ## Connecting
 
 Connect to the SSE server to start receiving events for a testrun:
 
 ```
-GET https://etos-api-instance/sse/v2/events/{identifier}
+GET https://etos-api-instance/sse/v2alpha/events/{identifier}
 ```
 
-The `identifier` is the testrun ID returned when the testrun was started.
+The `identifier` is the testrun ID, the `tercc` value returned in the response when the testrun is started via the [API](api.md).
 
 ### Query parameters
 
-- `filter`: Only receive events matching a filter. May be passed multiple times to receive several kinds of events (e.g. `?filter=message.info&filter=message.error`). A filter has the form `type.meta`, where `type` is the lower-cased event type and `meta` is the event specific meta value (the log level for `message`, the service name for `status`, and `*` for everything else).
+- `filter`: Only receive events of a certain kind. A filter has the form `type.meta`, where `type` is the lower-cased event type (`message`, `status`, `report`, ...) and `meta` is an event-specific value: the log level for `message` (e.g. `info`, `error`), the service name for `status` (e.g. `etos-suite-runner`), and `*` for every other event. The parameter may be passed multiple times, e.g. `?filter=message.info&filter=message.error` to receive only info and error logs, or `?filter=status.etos-suite-runner` for status events from the suite runner.
 
-### Headers
+### Resuming a stream
 
-- `Last-Event-ID`: The `id` of the last event the client received. On reconnect the server replays every event after this ID so that no events are missed.
+If the connection drops, reconnect and send the `id` of the last event you received in the `Last-Event-ID` HTTP header. The server then replays every event after that id so that none are missed:
+
+```bash
+curl -N \
+  -H 'Last-Event-ID: 42' \
+  'https://etos-api-instance/sse/v2alpha/events/{identifier}'
+```
 
 ## Event format
 
@@ -42,8 +48,8 @@ Each event is sent as a standard SSE block with an `id`, an `event` type and a J
 
 ```
 id: 1
-event: Message
-data: {"message": "Starting testrun", "name": "etos", "level": "info", "datestring": "2026-08-31T10:00:00Z"}
+event: message
+data: {"message": "Starting testrun", "name": "etos", "level": "info", "@timestamp": "2026-08-31T10:00:00Z"}
 
 ```
 
@@ -57,19 +63,19 @@ The events are split into events meant for the client to act on (server events) 
 
 | Event | Data | Description |
 | --- | --- | --- |
-| `Ping` | none | Sent every 15 seconds to keep the connection alive. |
-| `Error` | none | The server encountered an error. The client should reconnect. |
+| `ping` | none | Sent every 15 seconds to keep the connection alive. |
+| `error` | none | The server encountered an error. The client should reconnect. |
 
 ### User events
 
 | Event | Data type | Description |
 | --- | --- | --- |
-| `Message` | `Log` | A user facing log message from ETOS. |
-| `Report` | `File` | A test case report file. |
-| `Artifact` | `File` | A test case artifact file. |
-| `Status` | `ServiceStatus` | The current status of an ETOS service. |
-| `Shutdown` | `Result` | The testrun has finished. This is always the last event. |
-| `Unknown` | none | An event that does not match any known type. |
+| `message` | `Log` | A user facing log message from ETOS. |
+| `report` | `File` | A test case report file. |
+| `artifact` | `File` | A test case artifact file. |
+| `status` | `ServiceStatus` | The current status of an ETOS service. |
+| `shutdown` | `Result` | The testrun has finished. This is always the last event. |
+| `unknown` | none | An event that does not match any known type. |
 
 ## Data types
 
@@ -80,7 +86,7 @@ The events are split into events meant for the client to act on (server events) 
 | `message` | string | yes | The log message. |
 | `name` | string | yes | The name of the logger that produced the message. |
 | `level` | string | no | Log level, e.g. `info` or `error`. Defaults to `info`. |
-| `datestring` | string | yes | ISO 8601 timestamp of when the message was created. |
+| `@timestamp` | string | yes | ISO 8601 timestamp of when the message was created (also published as `datestring`). |
 
 A `Log` may contain additional context fields depending on the source of the log.
 
@@ -98,6 +104,7 @@ A `Log` may contain additional context fields depending on the source of the log
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `name` | string | yes | The name of the service. |
+| `instance` | string | no | The specific instance of the service. |
 | `version` | string | yes | The version of the service. |
 | `status` | string | yes | The health of the service, either `ok` or `error`. |
 | `message` | string | no | A message describing the status. |
@@ -106,6 +113,6 @@ A `Log` may contain additional context fields depending on the source of the log
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `conclusion` | string | yes | The conclusion of the testrun, e.g. `Successful` or `Failed`. |
-| `verdict` | string | yes | The verdict of the testrun, e.g. `Passed` or `Failed`. |
+| `conclusion` | string | yes | The conclusion of the testrun. One of `Successful`, `Failed`, `Aborted`, `TimedOut`, `Inconclusive`. |
+| `verdict` | string | yes | The verdict of the testrun. One of `Passed`, `Failed`, `Inconclusive`, `None`. |
 | `description` | string | no | A description of the result. |
