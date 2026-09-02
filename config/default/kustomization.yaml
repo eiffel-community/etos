@@ -257,6 +257,15 @@ replacements:
          delimiter: '/'
          index: 0
          create: true
+     - select:
+         kind: CustomResourceDefinition
+         name: environments.etos.eiffel-community.github.io
+       fieldPaths:
+         - .metadata.annotations.[cert-manager.io/inject-ca-from]
+       options:
+         delimiter: '/'
+         index: 0
+         create: true
 # +kubebuilder:scaffold:crdkustomizecainjectionns
  - source:
      kind: Certificate
@@ -295,6 +304,15 @@ replacements:
      - select:
          kind: CustomResourceDefinition
          name: environmentrequests.etos.eiffel-community.github.io
+       fieldPaths:
+         - .metadata.annotations.[cert-manager.io/inject-ca-from]
+       options:
+         delimiter: '/'
+         index: 1
+         create: true
+     - select:
+         kind: CustomResourceDefinition
+         name: environments.etos.eiffel-community.github.io
        fieldPaths:
          - .metadata.annotations.[cert-manager.io/inject-ca-from]
        options:
