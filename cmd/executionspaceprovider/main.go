@@ -25,7 +25,6 @@ import (
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/pkg/logging"
 	"github.com/eiffel-community/etos/pkg/provider"
-	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
@@ -117,10 +116,12 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 
 	environment := map[string]string{}
 	ds := dataset{}
-	if err := json.Unmarshal(cfg.EnvironmentRequest.Spec.Dataset.Raw, &ds); err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "failed to unmarshal dataset")
-		return err
+	if cfg.EnvironmentRequest.Spec.Dataset != nil {
+		if err := json.Unmarshal(cfg.EnvironmentRequest.Spec.Dataset.Raw, &ds); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to unmarshal dataset")
+			return err
+		}
 	}
 	if ds.Dev {
 		environment["DEV"] = "true"
@@ -136,16 +137,12 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 	otel.GetTextMapPropagator().Inject(ctx, propagation.MapCarrier(environment))
 
 	for range cfg.MinimumAmount {
-		id := uuid.NewString()
 		testrunner := cfg.EnvironmentRequest.Spec.Providers.ExecutionSpace.TestRunnerImage
 		logger.Info("Creating a generic ExecutionSpace",
-			"id", id, "image", testrunner, "identifier", cfg.EnvironmentRequest.Spec.Identifier,
+			"image", testrunner, "identifier", cfg.EnvironmentRequest.Spec.Identifier,
 		)
-		environment["ENVIRONMENT_ID"] = id
-		environment["ENVIRONMENT_URL"] = fmt.Sprintf("%s/v1alpha/testrun/%s", cfg.EnvironmentRequest.Spec.Config.EtosApi, id)
 		executionSpace, err := provider.NewExecutionSpace(ctx, cfg.EnvironmentRequest, cfg.Namespace, "",
 			v1alpha2.ExecutionSpaceSpec{
-				ID:         id,
 				TestRunner: testrunner,
 				Instructions: v1alpha2.Instructions{
 					Identifier:  cfg.EnvironmentRequest.Spec.Identifier,
