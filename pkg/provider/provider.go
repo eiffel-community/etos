@@ -132,13 +132,16 @@ func ParseParameters(providerType string, amountFunc AmountFunc) Parameters {
 func run(provider Provider, params Parameters) error {
 	ctx := context.TODO()
 
+	// Console logger up front so startup failures are logged before the full
+	// logging pipeline is ready.
+	ctx = logging.New(params.opts).WithConsole().Start(ctx)
+	logger := logging.FromContextOrDiscard(ctx)
+
 	tracer := opentelemetry.New(params.providerName, params.providerType)
 	if err := tracer.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start OpenTelemetry tracer: %w", err)
+		return reportStartupFailure(logger, fmt.Errorf("failed to start OpenTelemetry tracer: %w", err))
 	}
 
-	// Will get assigned properly later.
-	logger := logr.Discard()
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -153,7 +156,7 @@ func run(provider Provider, params Parameters) error {
 		params.namespace,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get EnvironmentRequest: %w", err)
+		return reportStartupFailure(logger, fmt.Errorf("failed to get EnvironmentRequest: %w", err))
 	}
 
 	// Manage termination signals.
@@ -176,7 +179,7 @@ func run(provider Provider, params Parameters) error {
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to create Kubernetes client")
-		return fmt.Errorf("failed to create Kubernetes client: %w", err)
+		return reportStartupFailure(logger, fmt.Errorf("failed to create Kubernetes client: %w", err))
 	}
 
 	clientRef := fmt.Sprintf("%s-%s", params.providerName, environmentRequest.Spec.ID)
@@ -189,19 +192,8 @@ func run(provider Provider, params Parameters) error {
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to create message bus publisher")
-		wrappedErr := fmt.Errorf("failed to create message bus publisher: %w", err)
-		// The publisher failed to connect even after retrying, so write the error to
-		// the termination-log before exiting so the controller can see the reason.
-		if writeErr := WriteResult(logger,
-			jobs.Result{
-				Conclusion:  jobs.ConclusionFailed,
-				Description: wrappedErr.Error(),
-				Verdict:     jobs.VerdictNone,
-			}); writeErr != nil {
-			logger.Error(writeErr, "failed to write error result to termination-log")
-			span.RecordError(writeErr)
-		}
-		return wrappedErr
+		// Surface the connection failure via the termination-log before exiting.
+		return reportStartupFailure(logger, fmt.Errorf("failed to create message bus publisher: %w", err))
 	}
 	defer func() {
 		if closeErr := eventPublisher.Close(); closeErr != nil {
@@ -383,6 +375,22 @@ func runReleaser(
 	}
 	span.SetStatus(codes.Ok, "resource released successfully")
 	return nil
+}
+
+// reportStartupFailure logs the error and writes it to the termination-log so startup
+// failures (before the normal writeTerminationLog call) reach the controller. It returns
+// the given error for convenience.
+func reportStartupFailure(logger logr.Logger, err error) error {
+	logger.Error(err, "provider failed during startup")
+	if writeErr := WriteResult(logger,
+		jobs.Result{
+			Conclusion:  jobs.ConclusionFailed,
+			Description: err.Error(),
+			Verdict:     jobs.VerdictNone,
+		}); writeErr != nil {
+		logger.Error(writeErr, "failed to write error result to termination-log")
+	}
+	return err
 }
 
 // writeTerminationLog will run a function and will write the result into a termination log.
