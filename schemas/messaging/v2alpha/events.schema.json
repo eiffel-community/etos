@@ -210,7 +210,8 @@
       "description": "A user facing log message, carried by a message event. Additional context fields are allowed.",
       "required": [
         "message",
-        "name"
+        "name",
+        "@timestamp"
       ],
       "properties": {
         "message": {
@@ -234,28 +235,11 @@
           "format": "date-time",
           "description": "ISO 8601 timestamp of when the message was created."
         },
-        "datestring": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Alias of '@timestamp' used by etos-library."
-        },
         "identifier": {
           "type": "string",
           "description": "The test run identifier the log belongs to."
         }
       },
-      "anyOf": [
-        {
-          "required": [
-            "@timestamp"
-          ]
-        },
-        {
-          "required": [
-            "datestring"
-          ]
-        }
-      ],
       "additionalProperties": true
     },
     "file": {
