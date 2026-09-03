@@ -1,0 +1,11 @@
+{
+  "id": 2,
+  "event": "status",
+  "meta": "etos-suite-runner",
+  "data": {
+    "name": "etos-suite-runner",
+    "instance": "etos-suite-runner-0",
+    "version": "5.0.0",
+    "status": "ok"
+  }
+}

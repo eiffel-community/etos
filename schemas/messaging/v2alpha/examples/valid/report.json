@@ -1,0 +1,10 @@
+{
+  "id": 3,
+  "event": "report",
+  "meta": "*",
+  "data": {
+    "url": "http://example.com/reports/report.html",
+    "name": "report.html",
+    "directory": "reports"
+  }
+}

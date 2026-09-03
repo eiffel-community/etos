@@ -1,0 +1,6 @@
+{
+  "event": "shutdown",
+  "data": {
+    "conclusion": "Successful"
+  }
+}

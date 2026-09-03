@@ -1,0 +1,8 @@
+{
+  "event": "status",
+  "data": {
+    "name": "etos-suite-runner",
+    "version": "5.0.0",
+    "status": "degraded"
+  }
+}

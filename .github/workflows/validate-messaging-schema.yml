@@ -1,0 +1,43 @@
+name: Validate messaging events schema
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    name: Validate messaging event examples against schema
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install check-jsonschema
+        run: pip install check-jsonschema
+
+      - name: Validate examples against JSON schema
+        run: |
+          check-jsonschema \
+            --schemafile schemas/messaging/v2alpha/events.schema.json \
+            schemas/messaging/v2alpha/examples/valid/*.json
+
+      - name: Ensure invalid examples are rejected
+        run: |
+          schema=schemas/messaging/v2alpha/events.schema.json
+          failed=0
+          for file in schemas/messaging/v2alpha/examples/invalid/*.json; do
+            if check-jsonschema --schemafile "$schema" "$file" >/dev/null 2>&1; then
+              echo "ERROR: $file was accepted but should have been rejected"
+              failed=1
+            else
+              echo "OK (rejected): $file"
+            fi
+          done
+          exit $failed

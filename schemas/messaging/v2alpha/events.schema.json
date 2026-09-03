@@ -1,0 +1,326 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eiffel-community/etos/schemas/messaging/v2alpha/events.schema.json",
+  "title": "ETOS Messaging Events",
+  "description": "Schema for the ETOS internal messaging events that are published to the RabbitMQ stream and streamed to clients over Server-Sent Events (SSE v2alpha). Each event is a JSON object with an 'event' type discriminator and a type specific 'data' payload. This schema is the source of truth for the event protocol ahead of the v2alpha -> v2 promotion. It should be renamed to v2 when the SSE protocol is promoted.",
+  "type": "object",
+  "required": [
+    "event"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "description": "Monotonically increasing event id, assigned by the SSE server and used for resuming a stream."
+    },
+    "event": {
+      "type": "string",
+      "description": "The event type. Always lower case, matching the routing 'type' property.",
+      "enum": [
+        "ping",
+        "error",
+        "unknown",
+        "shutdown",
+        "message",
+        "report",
+        "artifact",
+        "status"
+      ]
+    },
+    "meta": {
+      "type": "string",
+      "description": "Routing meta value used for stream filtering (identifier.type.meta). Defaults to '*'.",
+      "default": "*"
+    },
+    "data": {
+      "description": "Type specific payload. See the per-event definitions in $defs."
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ping"
+    },
+    {
+      "$ref": "#/$defs/error"
+    },
+    {
+      "$ref": "#/$defs/unknown"
+    },
+    {
+      "$ref": "#/$defs/shutdown"
+    },
+    {
+      "$ref": "#/$defs/message"
+    },
+    {
+      "$ref": "#/$defs/report"
+    },
+    {
+      "$ref": "#/$defs/artifact"
+    },
+    {
+      "$ref": "#/$defs/status"
+    }
+  ],
+  "$defs": {
+    "ping": {
+      "description": "Sent periodically to keep the connection between server and client alive. Server event.",
+      "properties": {
+        "event": {
+          "const": "ping"
+        }
+      },
+      "required": [
+        "event"
+      ]
+    },
+    "error": {
+      "description": "An error from the messaging server. The client should reconnect. Server event.",
+      "properties": {
+        "event": {
+          "const": "error"
+        }
+      },
+      "required": [
+        "event"
+      ]
+    },
+    "unknown": {
+      "description": "An event that does not match any known type.",
+      "properties": {
+        "event": {
+          "const": "unknown"
+        }
+      },
+      "required": [
+        "event"
+      ]
+    },
+    "shutdown": {
+      "description": "The test run has finished. Always the last event. User event.",
+      "properties": {
+        "event": {
+          "const": "shutdown"
+        },
+        "data": {
+          "$ref": "#/$defs/result"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ]
+    },
+    "message": {
+      "description": "A user facing log message from ETOS. User event.",
+      "properties": {
+        "event": {
+          "const": "message"
+        },
+        "data": {
+          "$ref": "#/$defs/log"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ]
+    },
+    "report": {
+      "description": "A test case report file. User event.",
+      "properties": {
+        "event": {
+          "const": "report"
+        },
+        "data": {
+          "$ref": "#/$defs/file"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ]
+    },
+    "artifact": {
+      "description": "A test case artifact file. User event.",
+      "properties": {
+        "event": {
+          "const": "artifact"
+        },
+        "data": {
+          "$ref": "#/$defs/file"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ]
+    },
+    "status": {
+      "description": "The current status of an ETOS service. User event.",
+      "properties": {
+        "event": {
+          "const": "status"
+        },
+        "data": {
+          "$ref": "#/$defs/serviceStatus"
+        }
+      },
+      "required": [
+        "event",
+        "data"
+      ]
+    },
+    "result": {
+      "type": "object",
+      "description": "The result of a test run, carried by a shutdown event.",
+      "required": [
+        "conclusion",
+        "verdict"
+      ],
+      "properties": {
+        "conclusion": {
+          "type": "string",
+          "description": "The overall conclusion of the test run.",
+          "enum": [
+            "Successful",
+            "Failed",
+            "Aborted",
+            "TimedOut",
+            "Inconclusive"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "description": "The verdict of the test run.",
+          "enum": [
+            "Passed",
+            "Failed",
+            "Inconclusive",
+            "None"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "description": "A human readable description of the result."
+        }
+      }
+    },
+    "log": {
+      "type": "object",
+      "description": "A user facing log message, carried by a message event. Additional context fields are allowed.",
+      "required": [
+        "message",
+        "name"
+      ],
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "The log message."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the logger that produced the message."
+        },
+        "level": {
+          "type": "string",
+          "description": "Log level, e.g. 'info' or 'error'. Published as 'level' (etos-library) or 'levelname' (etos); canonical form to be unified for v2."
+        },
+        "levelname": {
+          "type": "string",
+          "description": "Alias of 'level' used by the etos (Go) logger."
+        },
+        "@timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when the message was created."
+        },
+        "datestring": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Alias of '@timestamp' used by etos-library."
+        },
+        "identifier": {
+          "type": "string",
+          "description": "The test run identifier the log belongs to."
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "@timestamp"
+          ]
+        },
+        {
+          "required": [
+            "datestring"
+          ]
+        }
+      ],
+      "additionalProperties": true
+    },
+    "file": {
+      "type": "object",
+      "description": "A file, carried by a report or artifact event.",
+      "required": [
+        "url",
+        "name"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The URL to the file."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the file."
+        },
+        "directory": {
+          "type": "string",
+          "description": "The directory the file belongs to."
+        },
+        "checksums": {
+          "type": "object",
+          "description": "A map of checksum algorithm to checksum value.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "serviceStatus": {
+      "type": "object",
+      "description": "The health of an ETOS service, carried by a status event.",
+      "required": [
+        "name",
+        "version",
+        "status"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the service."
+        },
+        "instance": {
+          "type": "string",
+          "description": "The specific instance of the service."
+        },
+        "version": {
+          "type": "string",
+          "description": "The version of the service."
+        },
+        "status": {
+          "type": "string",
+          "description": "The health of the service.",
+          "enum": [
+            "ok",
+            "error"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "description": "A human readable message describing the status."
+        }
+      }
+    }
+  }
+}
