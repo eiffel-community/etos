@@ -223,11 +223,7 @@
         },
         "level": {
           "type": "string",
-          "description": "Log level, e.g. 'info' or 'error'. Published as 'level' (etos-library) or 'levelname' (etos); canonical form to be unified for v2."
-        },
-        "levelname": {
-          "type": "string",
-          "description": "Alias of 'level' used by the etos (Go) logger."
+          "description": "Log level, e.g. 'info' or 'error'."
         },
         "@timestamp": {
           "type": "string",
