@@ -18,8 +18,10 @@ package events
 import "encoding/json"
 
 type Log struct {
-	Name       string         `json:"name"`
-	Level      string         `json:"levelname"`
+	Name string `json:"name"`
+	// Level is published as 'level' on the message bus. The zap encoder emits it
+	// as 'levelname', which is accepted as an input alias in UnmarshalJSON.
+	Level      string         `json:"level"`
 	Message    string         `json:"message"`
 	Identifier string         `json:"identifier"`
 	Timestamp  string         `json:"@timestamp"`
@@ -113,8 +115,20 @@ func (l *Log) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	// Accept 'levelname' as an input alias for 'level' so that logs produced by
+	// the zap encoder (which emits 'levelname') still populate Level, which is
+	// serialized as 'level' on the message bus.
+	if l.Level == "" {
+		if v, ok := m["levelname"]; ok {
+			if err := json.Unmarshal(v, &l.Level); err != nil {
+				return err
+			}
+		}
+	}
+
 	// Remove known fields from the map to get the extra fields
 	delete(m, "name")
+	delete(m, "level")
 	delete(m, "levelname")
 	delete(m, "message")
 	delete(m, "identifier")
