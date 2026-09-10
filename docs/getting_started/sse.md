@@ -86,7 +86,7 @@ The events are split into events meant for the client to act on (server events) 
 | `message` | string | yes | The log message. |
 | `name` | string | yes | The name of the logger that produced the message. |
 | `level` | string | no | Log level, e.g. `info` or `error`. Defaults to `info`. |
-| `@timestamp` | string | yes | ISO 8601 timestamp of when the message was created (also published as `datestring`). |
+| `@timestamp` | string | yes | ISO 8601 timestamp of when the message was created. |
 
 A `Log` may contain additional context fields depending on the source of the log.
 
