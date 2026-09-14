@@ -22,6 +22,7 @@ from etosctl.command import Command
 from etosctl.models import CommandMeta
 from etos_client.etos.v0.command import ETOSv0
 from etos_client.etos.v1alpha.command import ETOSv1alpha
+from etos_client.etos.v1beta1.command import ETOSv1beta1
 
 LOGGER = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ class TestRun(Command):
     Commands:
         v0            Version 0 of ETOS.
         v1alpha       Version v1alpha of ETOS.
+        v1beta1       Version v1beta1 of ETOS.
 
     Options:
         -h,--help     Show this screen
@@ -50,6 +52,7 @@ class TestRun(Command):
         subcommands={
             "v0": ETOSv0,
             "v1alpha": ETOSv1alpha,
+            "v1beta1": ETOSv1beta1,
         },
     )
 
