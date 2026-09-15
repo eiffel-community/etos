@@ -39,7 +39,7 @@ type TestSuite struct {
 	Suites []Suite `json:"suites"`
 }
 
-// Suite defines a single test suite contining prioritized test executions.
+// Suite defines a single test suite containing prioritized test executions.
 type Suite struct {
 	// Priority defines the execution priority when multiple suites are defined.
 	// Lower values indicate higher priority. Suites with the same priority may be executed in any order.
