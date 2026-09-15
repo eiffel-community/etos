@@ -21,6 +21,8 @@ resources:
   webhooks:
     conversion: true
     defaulting: true
+    spoke:
+    - v1beta1
     validation: true
     webhookVersion: v1
 - api:
@@ -63,7 +65,6 @@ resources:
   path: github.com/eiffel-community/etos/api/v1alpha1
   version: v1alpha1
   webhooks:
-    conversion: true
     defaulting: true
     webhookVersion: v1
 - api:
@@ -102,4 +103,12 @@ resources:
   webhooks:
     defaulting: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: eiffel-community.github.io
+  group: etos
+  kind: TestRun
+  path: github.com/eiffel-community/etos/api/v1beta1
+  version: v1beta1
 version: "3"

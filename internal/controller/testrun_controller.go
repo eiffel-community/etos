@@ -748,6 +748,7 @@ func (r TestRunReconciler) environmentRequest(ctx context.Context, name, testrun
 		Spec: etosv1alpha1.EnvironmentRequestSpec{
 			ID:            string(uuid.NewUUID()),
 			Name:          name,
+			SchemaVersion: testrun.Spec.SchemaVersion,
 			Identifier:    testrun.Spec.ID,
 			Artifact:      testrun.Spec.Artifact,
 			Identity:      testrun.Spec.Identity,

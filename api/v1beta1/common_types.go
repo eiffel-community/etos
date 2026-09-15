@@ -14,9 +14,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha1
+package v1beta1
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// Providers defines the providers to use for test execution. These names must correspond to existing
+// Provider kinds in the namespace where a testrun is created.
+type Providers struct {
+	// IUT defines the provider to use for item under test provisioning.
+	// +optional
+	IUT string `json:"iut,omitempty"`
 
-// Hub marks this type as a conversion hub.
-func (*Provider) Hub() {}
+	// LogArea defines the provider to use for log area provisioning.
+	// +optional
+	LogArea string `json:"logArea"`
+
+	// ExecutionSpace defines the provider to use for execution space provisioning.
+	// +optional
+	ExecutionSpace string `json:"executionSpace"`
+}
