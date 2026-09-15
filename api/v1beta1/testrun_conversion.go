@@ -146,8 +146,10 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 		}
 	}
 	dst.Spec.LogListener = &Image{}
-	if err := dst.Spec.LogListener.convertFrom(src.Spec.LogListener.Image); err != nil {
-		return err
+	if src.Spec.LogListener != nil {
+		if err := dst.Spec.LogListener.convertFrom(src.Spec.LogListener.Image); err != nil {
+			return err
+		}
 	}
 	dst.Spec.EnvironmentProvider = &Image{}
 	if src.Spec.EnvironmentProvider != nil {
