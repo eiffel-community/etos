@@ -142,7 +142,7 @@ type TestEnvironment struct {
 	EnvironmentVariables map[string]string `json:"environmentVariables"`
 
 	// AdditionalResources defines provider-defined resources required by the test beyond the primary IUT (Item Under
-	// Test), e.g. a sidecar containers or additional hardware. Each items fields are open-ended and interpreted by
+	// Test), e.g. a sidecar containers or additional hardware. Each item's fields are open-ended and interpreted by
 	// the provider responsible for that resource; not every field needs to be defined in this schema.
 	// +optional
 	AdditionalResources []AdditionalResource `json:"additionalResources,omitempty"`
