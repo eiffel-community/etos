@@ -38,7 +38,7 @@ type TestRunSpec struct {
 
 	// Identity defines the identity of the artifact as a packageurl.
 	// +required
-	// +kubebuilder:validation:Pattern="^pkg:[a-z]+/.+$"
+	// +kubebuilder:validation:Pattern="^pkg:[a-zA-Z0-9.+-]+/.+$"
 	// +kubebuilder:validation:MinLength=1
 	Identity string `json:"identity"`
 
