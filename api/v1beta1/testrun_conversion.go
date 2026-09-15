@@ -134,16 +134,22 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 	}
 
 	dst.Spec.SuiteRunner = &Image{}
-	if err := dst.Spec.SuiteRunner.convertFrom(src.Spec.SuiteRunner.Image); err != nil {
-		return err
+	if src.Spec.SuiteRunner != nil {
+		if err := dst.Spec.SuiteRunner.convertFrom(src.Spec.SuiteRunner.Image); err != nil {
+			return err
+		}
 	}
 	dst.Spec.EnvironmentProvider = &Image{}
-	if err := dst.Spec.EnvironmentProvider.convertFrom(src.Spec.EnvironmentProvider.Image); err != nil {
-		return err
+	if src.Spec.EnvironmentProvider != nil {
+		if err := dst.Spec.EnvironmentProvider.convertFrom(src.Spec.EnvironmentProvider.Image); err != nil {
+			return err
+		}
 	}
 	dst.Spec.TestRunner = &TestRunner{}
-	if err := dst.Spec.TestRunner.convertFrom(src.Spec.TestRunner); err != nil {
-		return err
+	if src.Spec.TestRunner != nil {
+		if err := dst.Spec.TestRunner.convertFrom(src.Spec.TestRunner); err != nil {
+			return err
+		}
 	}
 
 	// Copy ObjectMeta to preserve name, namespace, labels, etc.
