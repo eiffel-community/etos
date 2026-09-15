@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
@@ -97,7 +98,8 @@ func (src *TestCase) convertTo(dst *etosv1alpha1.TestCase) {
 func (dst *Execution) convertFrom(src *etosv1alpha1.Execution) {
 	var command strings.Builder
 	command.WriteString(src.Command)
-	for key, param := range src.Parameters {
+	for _, key := range slices.Sorted(maps.Keys(src.Parameters)) {
+		param := src.Parameters[key]
 		command.WriteString(" ")
 		if param == "" {
 			command.WriteString(key)
