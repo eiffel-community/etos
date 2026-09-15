@@ -98,12 +98,12 @@ func (dst *Execution) convertFrom(src *etosv1alpha1.Execution) {
 	var command strings.Builder
 	command.WriteString(src.Command)
 	for key, param := range src.Parameters {
+		command.WriteString(" ")
 		if param == "" {
 			command.WriteString(key)
 		} else {
 			fmt.Fprintf(&command, "%s=%s", key, param)
 		}
-		command.WriteString(" ")
 	}
 
 	dst.Checkout = src.Checkout
