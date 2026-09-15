@@ -137,7 +137,7 @@ type TestEnvironment struct {
 	// +required
 	TestRunner string `json:"testRunner"`
 
-	// EnvironmentVariables defines keyt-value pairs of environment variables to set in the test runner.
+	// EnvironmentVariables defines key-value pairs of environment variables to set in the test runner.
 	// +optional
 	EnvironmentVariables map[string]string `json:"environmentVariables"`
 
