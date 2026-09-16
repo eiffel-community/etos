@@ -16,30 +16,23 @@
 """ETOS v1beta1."""
 
 import logging
-import os
 import shutil
 import time
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 from uuid import uuid4
 
-from etos_lib import ETOS as ETOSLibrary
 from etos_lib.lib.http import Http
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
 
-from etos_client.etos.v0.event_repository import graphql
-from etos_client.etos.v0.events.collector import Collector
-from etos_client.etos.v0.test_results import TestResults
-from etos_client.etos.v0.test_run import TestRun as V0TestRun
 from etos_client.etos.v1beta1.schema.request import RequestSchema
 from etos_client.etos.v1beta1.schema.response import ResponseSchema
 from etos_client.etos.v1beta1.test_run import TestRun as V1Beta1TestRun
 from etos_client.shared.baggage import Baggage
 from etos_client.shared.downloader import Downloader
 from etos_client.shared.utilities import directories
-from etos_client.sse.v1.client import SSEClient as SSEV1Client
 from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient
 from etos_client.types.result import Conclusion, Result, Verdict
 
@@ -56,19 +49,14 @@ HTTP_RETRY_PARAMETERS = Retry(
 
 
 class Etos:
-    """Handle communication with ETOS v1beta1.
-
-    TODO: At the moment this version mostly re-uses the v0 ETOS client because
-    SSE v2 is not yet finished and we have no SSE protocol ready to support all
-    cases where we use Eiffel today.
-    """
+    """Handle communication with ETOS v1beta1."""
 
     version = "v1beta1"
     logger = logging.getLogger(__name__)
     start_response = ResponseSchema
     start_request = RequestSchema
 
-    def __init__(self, args: dict, sse_client: Union[SSEV1Client, SSEV2AlphaClient]):
+    def __init__(self, args: dict, sse_client: SSEV2AlphaClient):
         """Set up sse client and cluster variables."""
         self.correlation_id = str(uuid4())
         self.logger.info("Correlation ID for this ETOS testrun: %s", self.correlation_id)
@@ -147,22 +135,13 @@ class Etos:
 
         end = time.time() + 24 * 60 * 60  # 24 hours
 
-        if isinstance(self.sse_client, SSEV2AlphaClient):
-            test_run = V1Beta1TestRun(log_downloader, report_dir, artifact_dir)
-        else:
-            etos_library = ETOSLibrary("ETOS Client", os.getenv("HOSTNAME"), "ETOS Client")
-            os.environ["ETOS_GRAPHQL_SERVER"] = response.event_repository
-            collector = Collector(etos_library, graphql)
-            test_run = V0TestRun(collector, log_downloader, report_dir, artifact_dir)
+        test_run = V1Beta1TestRun(log_downloader, report_dir, artifact_dir)
         test_run.setup_logging(self.args["-v"])
         result = None
         try:
             while time.time() < end:
                 try:
-                    if isinstance(self.sse_client, SSEV2AlphaClient):
-                        result = self.__track(test_run, response, end)
-                    else:
-                        result = self.__track_v0(test_run, response, end)
+                    result = self.__track(test_run, response, end)
                     break
                 except SystemExit as exit:
                     clear_queue = False
@@ -210,41 +189,6 @@ class Etos:
             verdict=Verdict(shutdown.data.verdict.upper()),
             conclusion=Conclusion(shutdown.data.conclusion.upper()),
             reason=shutdown.data.description,
-        )
-
-    def __track_v0(self, test_run: V0TestRun, response: ResponseSchema, end: float) -> Result:
-        """Track a testrun using the v0 testrun handler."""
-        events = test_run.track(
-            self.sse_client,
-            response,
-            end,
-        )
-        success, msg = TestResults().get_results(events)
-
-        # If GraphQL query for TestSuiteFinished failed, use Shutdown event as fallback
-        if (success is None or msg is None) and events.shutdown:
-            self.logger.info(
-                "TestSuiteFinished not available from GraphQL, using Shutdown event as fallback"
-            )
-            return Result(
-                verdict=Verdict(events.shutdown.get("verdict", "INCONCLUSIVE").upper()),
-                conclusion=Conclusion(events.shutdown.get("conclusion", "FAILED").upper()),
-                reason=events.shutdown.get(
-                    "description",
-                    "No test results received. Please contact ETOS support for assistance.",
-                ),
-            )
-
-        if success is None or msg is None:
-            return Result(
-                verdict=Verdict.INCONCLUSIVE,
-                conclusion=Conclusion.FAILED,
-                reason="No test result received from ETOS testrun",
-            )
-        return Result(
-            verdict=Verdict.PASSED if success else Verdict.FAILED,
-            conclusion=Conclusion.SUCCESSFUL,
-            reason=msg,
         )
 
     def __check(self) -> Optional[str]:

@@ -27,7 +27,6 @@ import warnings
 from etos_client.types.result import Conclusion, Verdict
 from etos_client.etos.v1beta1.etos import Etos
 from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient
-from etos_client.sse.v1.client import SSEClient as SSEV1Client
 
 from etosctl.command import SubCommand
 from etosctl.models import CommandMeta
@@ -54,7 +53,6 @@ class Start(SubCommand):
                                                                   Check with your provider which information can be supplied.
         --timeout TIMEOUT                                         Maximum duration in seconds the testrun is allowed to take.
                                                                   Defaults to 86400 (24 hours) if not set.
-        --ssev1                                                   Use the v1 version of sse.
         --version                                                 Show program's version number and exit
     """
 
@@ -104,10 +102,7 @@ class Start(SubCommand):
             "artifact.*",
             "shutdown.*",
         ]
-        if args["--ssev1"]:
-            etos = Etos(args, SSEV1Client(args["<cluster>"]))
-        else:
-            etos = Etos(args, SSEV2AlphaClient(args["<cluster>"], filter))
+        etos = Etos(args, SSEV2AlphaClient(args["<cluster>"], filter))
         result = etos.run()
         if result.conclusion == Conclusion.FAILED:
             sys.exit(result.reason)
