@@ -32,6 +32,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -79,6 +80,29 @@ type dataset struct {
 	ETRBranch string `json:"ETR_BRANCH,omitempty"`
 }
 
+// datasetEnvironment converts optional dataset fields into test-runner environment variables.
+func datasetEnvironment(datasetRaw *apiextensionsv1.JSON) (map[string]string, error) {
+	environment := map[string]string{}
+	if datasetRaw == nil {
+		return environment, nil
+	}
+
+	ds := dataset{}
+	if err := json.Unmarshal(datasetRaw.Raw, &ds); err != nil {
+		return nil, err
+	}
+	if ds.Dev {
+		environment["DEV"] = "true"
+	}
+	if ds.ETRBranch != "" {
+		environment["ETR_BRANCH"] = ds.ETRBranch
+	}
+	if ds.ETRRepo != "" {
+		environment["ETR_REPOSITORY"] = ds.ETRRepo
+	}
+	return environment, nil
+}
+
 // Provision provisions a new ExecutionSpace.
 func (p *genericExecutionSpaceProvider) Provision(
 	ctx context.Context, cfg provider.ProvisionConfig,
@@ -115,21 +139,11 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 		"Amount", cfg.MinimumAmount,
 	)
 
-	environment := map[string]string{}
-	ds := dataset{}
-	if err := json.Unmarshal(cfg.EnvironmentRequest.Spec.Dataset.Raw, &ds); err != nil {
+	environment, err := datasetEnvironment(cfg.EnvironmentRequest.Spec.Dataset)
+	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to unmarshal dataset")
 		return err
-	}
-	if ds.Dev {
-		environment["DEV"] = "true"
-	}
-	if ds.ETRBranch != "" {
-		environment["ETR_BRANCH"] = ds.ETRBranch
-	}
-	if ds.ETRRepo != "" {
-		environment["ETR_REPOSITORY"] = ds.ETRRepo
 	}
 	// Add traceparent, tracestate and baggage to the environment variables so that they can be
 	// propagated to the test runner.
