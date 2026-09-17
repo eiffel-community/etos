@@ -64,7 +64,7 @@ type EnvironmentSpec struct {
 
 	// Providers defines which providers were used to create this environment
 	// +required
-	Providers Providers `json:"providers,omitempty"`
+	Providers Providers `json:"providers"`
 
 	// Iut defines the item under test. The content and structure of the IUT is provider-defined and can be used to
 	// pass arbitrary data to the test execution environment. The IUT is represented as a raw JSON object, allowing
