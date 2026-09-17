@@ -259,9 +259,6 @@ replacements:
          create: true
      - select:
          kind: CustomResourceDefinition
-         name: testruns.etos.eiffel-community.github.io
-     - select:
-         kind: CustomResourceDefinition
          name: environments.etos.eiffel-community.github.io
        fieldPaths:
          - .metadata.annotations.[cert-manager.io/inject-ca-from]
@@ -313,9 +310,6 @@ replacements:
          delimiter: '/'
          index: 1
          create: true
-     - select:
-         kind: CustomResourceDefinition
-         name: testruns.etos.eiffel-community.github.io
      - select:
          kind: CustomResourceDefinition
          name: environments.etos.eiffel-community.github.io
