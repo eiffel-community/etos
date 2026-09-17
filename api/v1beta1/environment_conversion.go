@@ -83,10 +83,13 @@ func (dst *Environment) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Spec.Context = src.Spec.Context
 	dst.Spec.TestRunner = src.Spec.TestRunner
 	dst.Spec.Deadline = src.Spec.Deadline
-	dst.Spec.Providers = Providers{
-		IUT:            src.Spec.Providers.IUT,
-		LogArea:        src.Spec.Providers.LogArea,
-		ExecutionSpace: src.Spec.Providers.ExecutionSpace,
+	dst.Spec.Providers = Providers{}
+	if src.Spec.Providers != nil {
+		dst.Spec.Providers = Providers{
+			IUT:            src.Spec.Providers.IUT,
+			LogArea:        src.Spec.Providers.LogArea,
+			ExecutionSpace: src.Spec.Providers.ExecutionSpace,
+		}
 	}
 	dst.Spec.Priority = src.Spec.Priority
 	dst.Spec.Iut = src.Spec.Iut
