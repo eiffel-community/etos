@@ -73,6 +73,14 @@ type EnvironmentRequestSpec struct {
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
 
+	// SchemaVersion defines the version of the test run schema.
+	// This field is used to determine which version of the test run schema to use when creating a test run.
+	// +optional
+	// +kubebuilder:default="v1beta1"
+	// +kubebuilder:validation:Enum=v1alpha1;v1beta1
+	// +kubebuilder:validation:MinLength=1
+	SchemaVersion string `json:"schemaVersion,omitempty"`
+
 	*Image        `json:",inline"`
 	Identifier    string `json:"identifier,omitempty"`
 	Artifact      string `json:"artifact,omitempty"`
