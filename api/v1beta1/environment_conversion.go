@@ -17,18 +17,22 @@
 package v1beta1
 
 import (
-	"log"
+	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 )
 
+// environmentLog is for logging Environment conversions.
+var environmentLog = logf.Log.WithName("environment-conversion")
+
 // ConvertTo converts this Environment (v1beta1) to the Hub version (v1alpha1).
 func (src *Environment) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*etosv1alpha1.Environment)
-	log.Printf("ConvertTo: Converting Environment from Spoke version v1beta1 to Hub version v1alpha1;"+
-		"source: %s/%s, target: %s/%s", src.Namespace, src.Name, dst.Namespace, dst.Name)
+	environmentLog.Info(fmt.Sprintf("ConvertTo: Converting Environment from Spoke version v1beta1 to Hub version v1alpha1;"+
+		"source: %s/%s, target: %s/%s", src.Namespace, src.Name, dst.Namespace, dst.Name))
 
 	dst.Spec.Name = src.Spec.Name
 	dst.Spec.SuiteID = src.Spec.TestrunID
@@ -68,8 +72,8 @@ func (src *Environment) ConvertTo(dstRaw conversion.Hub) error {
 // ConvertFrom converts the Hub version (v1alpha1) to this Environment (v1beta1).
 func (dst *Environment) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*etosv1alpha1.Environment)
-	log.Printf("ConvertFrom: Converting Environment from Hub version v1alpha1 to Spoke version v1beta1;"+
-		"source: %s/%s, target: %s/%s", src.Namespace, src.Name, dst.Namespace, dst.Name)
+	environmentLog.Info(fmt.Sprintf("ConvertFrom: Converting Environment from Hub version v1alpha1 to Spoke version v1beta1;"+
+		"source: %s/%s, target: %s/%s", src.Namespace, src.Name, dst.Namespace, dst.Name))
 
 	dst.Spec.Name = src.Spec.Name
 	dst.Spec.ID = src.Spec.SubSuiteID
