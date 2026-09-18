@@ -103,7 +103,10 @@ func (c *SSESubscriber) stream(ctx context.Context, id string, filter ...Filter)
 	err = retry.Constant(ctx, 5*time.Second, func(ctx context.Context) error {
 		response, err = client.Do(request)
 		if err != nil {
-			return err
+			// A transport error (e.g. connection refused while the server is
+			// still starting up) is typically transient, so retry it instead
+			// of giving up immediately.
+			return retry.RetryableError(err)
 		}
 		switch response.StatusCode {
 		case http.StatusOK:
@@ -121,7 +124,10 @@ func (c *SSESubscriber) stream(ctx context.Context, id string, filter ...Filter)
 			return fmt.Errorf("unexpected status code: %d", response.StatusCode)
 		}
 	})
-	return response.Body, err
+	if err != nil {
+		return nil, err
+	}
+	return response.Body, nil
 }
 
 // decode reads the next event from the SSE decoder and attempts to parse it into an Event object.
