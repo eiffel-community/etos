@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Union
 
 from etos_lib.messaging.events import Artifact, Message, Report, Shutdown
+from etos_lib.messaging.types import Conclusion, Result, Verdict
 
 from etos_client.shared.downloader import Downloadable, Downloader
 from etos_client.sse.v2alpha.client import SSEClient
@@ -92,12 +93,12 @@ class TestRun:
                 self.__log(event)
             elif isinstance(event, (Report, Artifact)):
                 self.download(event)
-        return Shutdown.model_validate(
-            {
-                "conclusion": "FAILED",
-                "verdict": "INCONCLUSIVE",
-                "description": "Event stream died",
-            }
+        return Shutdown(
+            data=Result(
+                conclusion=Conclusion.FAILED,
+                verdict=Verdict.INCONCLUSIVE,
+                description="Event stream died",
+            )
         )
 
     def download_report(self, report: Report):
