@@ -27,6 +27,8 @@ from etos_lib.lib.http import Http
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
 
+from etos_lib.messaging.types import Conclusion, Result, Verdict
+
 from etos_client.etos.v1beta1.schema.request import RequestSchema
 from etos_client.etos.v1beta1.schema.response import ResponseSchema
 from etos_client.etos.v1beta1.test_run import TestRun as V1Beta1TestRun
@@ -34,7 +36,6 @@ from etos_client.shared.baggage import Baggage
 from etos_client.shared.downloader import Downloader
 from etos_client.shared.utilities import directories
 from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient
-from etos_client.types.result import Conclusion, Result, Verdict
 
 # Max total time for a ping request including delays with backoff factor 0.5 will be:
 # 0.5 + 1.5 + 3.5 + 7.5 + 15.5 = 28.5 (seconds)
@@ -82,10 +83,14 @@ class Etos:
         """Run ETOS v1beta1."""
         error = self.__check()
         if error is not None:
-            return Result(verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, reason=error)
+            return Result(
+                verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, description=error
+            )
         response, error = self.__start()
         if error is not None:
-            return Result(verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, reason=error)
+            return Result(
+                verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, description=error
+            )
         assert response is not None
         return self.__wait(response)
 
@@ -146,7 +151,9 @@ class Etos:
                 except SystemExit as exit:
                     clear_queue = False
                     result = Result(
-                        verdict=Verdict.INCONCLUSIVE, conclusion=Conclusion.FAILED, reason=str(exit)
+                        verdict=Verdict.INCONCLUSIVE,
+                        conclusion=Conclusion.FAILED,
+                        description=str(exit),
                     )
                     break
         finally:
@@ -168,14 +175,14 @@ class Etos:
             return Result(
                 verdict=Verdict.INCONCLUSIVE,
                 conclusion=Conclusion.FAILED,
-                reason="ETOS logs did not download succesfully",
+                description="ETOS logs did not download succesfully",
             )
         if result is not None:
             return result
         return Result(
             verdict=Verdict.INCONCLUSIVE,
             conclusion=Conclusion.INCONCLUSIVE,
-            reason="Got no result from ETOS so could not determine test result.",
+            description="Got no result from ETOS so could not determine test result.",
         )
 
     def __track(self, test_run: V1Beta1TestRun, response: ResponseSchema, end: float) -> Result:
@@ -185,11 +192,8 @@ class Etos:
             response,
             end,
         )
-        return Result(
-            verdict=Verdict(shutdown.data.verdict.upper()),
-            conclusion=Conclusion(shutdown.data.conclusion.upper()),
-            reason=shutdown.data.description,
-        )
+        # shutdown.data is already an etos_lib.messaging.types.Result.
+        return shutdown.data
 
     def __check(self) -> Optional[str]:
         """Check connection to ETOS."""
