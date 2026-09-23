@@ -18,6 +18,7 @@
 import argparse
 import logging
 import os
+import subprocess
 import sys
 from contextlib import contextmanager
 from pathlib import Path
@@ -77,6 +78,28 @@ def parse_args() -> argparse.Namespace:
 def loglevel(level: int) -> int:
     """Convert loglevel count input to a loglevel in logging."""
     return MAX_LOG_LEVEL - (level * 10)
+
+
+def kind_cluster_name() -> str:
+    """Determine the name of the Kind cluster targeted by the current kubectl context.
+
+    Kind sets the kubectl context name to "kind-<cluster name>". Deployment steps that
+    call "kind load docker-image" must pass this name explicitly via --name; otherwise
+    kind defaults to its own implicit cluster name "kind", which may not be the cluster
+    selected by kubectl, silently loading images into the wrong cluster.
+    """
+    context = subprocess.run(
+        ["kubectl", "config", "current-context"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    prefix = "kind-"
+    if context.startswith(prefix):
+        return context[len(prefix) :]
+    # Not a kind-managed context name; fall back to kind's own implicit default
+    # cluster name so behavior matches "kind load docker-image" without --name.
+    return "kind"
 
 
 def get_packs(packs: list[str] | None) -> list[Type[BasePack]]:
@@ -163,6 +186,7 @@ def run(args: argparse.Namespace):
     store["namespace"] = "etos-system"
     store["cluster_namespace"] = "etos-test"
     store["cluster_name"] = "cluster-sample"
+    store["kind_cluster_name"] = kind_cluster_name()
     store["project_image"] = "example.com/etos:v0.0.1"
 
     store["iut_provider_image"] = "example.com/iutprovider"

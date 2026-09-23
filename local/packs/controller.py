@@ -46,18 +46,22 @@ class Controller(BasePack):
             *Provider("iut_provider").deploy(
                 self.local_store["iut_provider_image"],
                 self.local_store["iut_provider_version"],
+                self.local_store["kind_cluster_name"],
             ),
             *Provider("execution_space_provider").deploy(
                 self.local_store["execution_space_provider_image"],
                 self.local_store["execution_space_provider_version"],
+                self.local_store["kind_cluster_name"],
             ),
             *Provider("log_area_provider").deploy(
                 self.local_store["log_area_provider_image"],
                 self.local_store["log_area_provider_version"],
+                self.local_store["kind_cluster_name"],
             ),
             *Provider("environment_provider").deploy(
                 self.local_store["environment_provider_image"],
                 self.local_store["environment_provider_version"],
+                self.local_store["kind_cluster_name"],
             ),
             kubectl.create(Resource(type="namespace", names=self.local_store["namespace"])),
             kubectl.label(
@@ -67,7 +71,16 @@ class Controller(BasePack):
             kubectl.create(Resource(type="namespace", names=self.local_store["cluster_namespace"])),
             make.install(),
             make.docker_build(self.local_store["project_image"]),
-            Shell(["kind", "load", "docker-image", self.local_store["project_image"]]),
+            Shell(
+                [
+                    "kind",
+                    "load",
+                    "docker-image",
+                    self.local_store["project_image"],
+                    "--name",
+                    self.local_store["kind_cluster_name"],
+                ]
+            ),
             make.deploy(self.local_store["project_image"]),
             *self.__wait_for_control_plane(kubectl),
             *self.__wait_for_webhook_certificates(kubectl),
@@ -192,11 +205,22 @@ class Provider:
         """Provider name."""
         self.provider = provider
 
-    def deploy(self, image: str | Value, version: str | Value) -> list[Command]:
+    def deploy(
+        self, image: str | Value, version: str | Value, kind_cluster_name: str | Value
+    ) -> list[Command]:
         """Commands for deploying providers in the ETOS cluster."""
         return [
             Make().provider_build(self.provider.replace("_", ""), f"{image}:{version}"),
-            Shell(["kind", "load", "docker-image", f"{image}:{version}"]),
+            Shell(
+                [
+                    "kind",
+                    "load",
+                    "docker-image",
+                    f"{image}:{version}",
+                    "--name",
+                    kind_cluster_name,
+                ]
+            ),
             *self.set_image(image, version),
         ]
 
