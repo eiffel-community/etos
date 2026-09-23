@@ -44,7 +44,6 @@ type genericExecutionSpaceProvider struct{}
 func waitForTestRunners(waiters []func() error) error {
 	errorsChannel := make(chan error, len(waiters))
 	for _, waiter := range waiters {
-		waiter := waiter
 		go func() {
 			errorsChannel <- waiter()
 		}()

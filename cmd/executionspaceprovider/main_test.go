@@ -79,12 +79,15 @@ func TestDatasetEnvironment(t *testing.T) {
 func TestWaitForTestRunnersStartsWaitersConcurrently(t *testing.T) {
 	started := make(chan struct{}, 2)
 	release := make(chan struct{})
+	results := make(chan error, 2)
+	results <- nil
+	results <- nil
 	done := make(chan error, 1)
 
 	waiter := func() error {
 		started <- struct{}{}
 		<-release
-		return nil
+		return <-results
 	}
 	go func() {
 		done <- waitForTestRunners([]func() error{waiter, waiter})
