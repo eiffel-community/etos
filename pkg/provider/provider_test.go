@@ -16,8 +16,15 @@
 package provider
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/eiffel-community/etos/api/v1alpha1"
+	"github.com/eiffel-community/etos/api/v1alpha2"
+	"go.jetify.com/sse"
 )
 
 // TestToRFC1123 tests the toRFC1123 function with various input cases to ensure it correctly converts
@@ -90,6 +97,62 @@ func TestToRFC1123(t *testing.T) {
 			result := toRFC1123(tt.input, 63)
 			if result != tt.expected {
 				t.Errorf("toRFC1123(%q) = %q; expected %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestWaitForTestRunnerReturnsErrorsForMissingOrFailedStatus verifies that readiness cannot succeed
+// when the SSE stream ends before a status or when the matching Test Runner reports failure.
+func TestWaitForTestRunnerReturnsErrorsForMissingOrFailedStatus(t *testing.T) {
+	tests := []struct {
+		name      string
+		payload   string
+		wantError string
+	}{
+		{
+			name:      "missing status",
+			wantError: "event stream closed",
+		},
+		{
+			name:      "failure status",
+			payload:   `{"instance":"etr-instance","status":"error","message":"startup failed"}`,
+			wantError: "test runner reported an error status: startup failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+				writer.Header().Set("Content-Type", "text/event-stream")
+				if tt.payload == "" {
+					return
+				}
+				if err := sse.NewEncoder(writer).EncodeEvent(&sse.Event{
+					Event: "status",
+					Data:  sse.Raw(tt.payload),
+				}); err != nil {
+					t.Errorf("encoding SSE status event: %v", err)
+				}
+				writer.(http.Flusher).Flush()
+			}))
+			defer server.Close()
+
+			executionSpace := &ExecutionSpace{ExecutionSpace: &v1alpha2.ExecutionSpace{
+				Spec: v1alpha2.ExecutionSpaceSpec{
+					Instructions: v1alpha2.Instructions{Environment: map[string]string{"ENVIRONMENT_ID": "etr-instance"}},
+				},
+			}}
+			environmentRequest := &v1alpha1.EnvironmentRequest{
+				Spec: v1alpha1.EnvironmentRequestSpec{
+					Identifier: "test-identifier",
+					Config:     v1alpha1.EnvironmentProviderJobConfig{EtosSse: server.URL},
+				},
+			}
+
+			err := executionSpace.WaitForTestRunner(context.Background(), environmentRequest)
+			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("WaitForTestRunner() error = %v, want error containing %q", err, tt.wantError)
 			}
 		})
 	}
