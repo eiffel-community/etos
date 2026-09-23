@@ -43,6 +43,11 @@ resources:
   kind: Environment
   path: github.com/eiffel-community/etos/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    conversion: true
+    spoke:
+    - v1beta1
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -109,6 +114,15 @@ resources:
   domain: eiffel-community.github.io
   group: etos
   kind: TestRun
+  path: github.com/eiffel-community/etos/api/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: eiffel-community.github.io
+  group: etos
+  kind: Environment
   path: github.com/eiffel-community/etos/api/v1beta1
   version: v1beta1
 version: "3"

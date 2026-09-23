@@ -233,14 +233,6 @@ func (d *TestRunCustomValidator) validate(testrun *etosv1alpha1.TestRun) error {
 		))
 	}
 
-	if testrun.Spec.LogListener == nil {
-		allErrs = append(allErrs, field.Invalid(
-			field.NewPath("spec").Child("logListener"),
-			testrun.Spec.LogListener,
-			"LogListener image information is missing, maybe because cluster is missing?",
-		))
-	}
-
 	if testrun.Spec.EnvironmentProvider == nil {
 		allErrs = append(allErrs, field.Invalid(
 			field.NewPath("spec").Child("environmentProvider"),

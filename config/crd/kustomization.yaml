@@ -17,6 +17,7 @@ patches:
 - path: patches/webhook_in_providers.yaml
 - path: patches/webhook_in_testruns.yaml
 - path: patches/webhook_in_environmentrequests.yaml
+- path: patches/webhook_in_environments.yaml
 # +kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [WEBHOOK] To enable webhook, uncomment the following section

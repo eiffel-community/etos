@@ -24,7 +24,7 @@ from json import JSONDecodeError
 from typing import Optional
 import warnings
 
-from etos_client.types.result import Conclusion, Verdict
+from etos_lib.messaging.types import Conclusion, Verdict
 from etos_client.etos.v1beta1.etos import Etos
 from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient
 
@@ -105,8 +105,8 @@ class Start(SubCommand):
         etos = Etos(args, SSEV2AlphaClient(args["<cluster>"], filter))
         result = etos.run()
         if result.conclusion == Conclusion.FAILED:
-            sys.exit(result.reason)
+            sys.exit(result.description)
         if result.verdict == Verdict.FAILED:
-            self.logger.error(result.reason)
+            self.logger.error(result.description)
         else:
-            self.logger.info(result.reason)
+            self.logger.info(result.description)

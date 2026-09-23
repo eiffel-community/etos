@@ -26,13 +26,13 @@ import (
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 )
 
-// log is for logging in this package.
-var log = logf.Log.WithName("testrun-conversion")
+// testRunLog is for logging TestRun conversions.
+var testRunLog = logf.Log.WithName("testrun-conversion")
 
 // ConvertTo converts this TestRun (v1beta1) to the Hub version (v1alpha1).
 func (src *TestRun) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*etosv1alpha1.TestRun)
-	log.Info(fmt.Sprintf("ConvertTo: Converting TestRun from Spoke version v1beta1 to Hub version v1alpha1;"+
+	testRunLog.Info(fmt.Sprintf("ConvertTo: Converting TestRun from Spoke version v1beta1 to Hub version v1alpha1;"+
 		"source: %s/%s, target: %s/%s", src.Namespace, src.Name, dst.Namespace, dst.Name))
 
 	dst.Spec.ID = src.Spec.ID
@@ -72,12 +72,6 @@ func (src *TestRun) ConvertTo(dstRaw conversion.Hub) error {
 			return err
 		}
 	}
-	if src.Spec.LogListener != nil {
-		dst.Spec.LogListener = &etosv1alpha1.LogListener{Image: &etosv1alpha1.Image{}}
-		if err := src.Spec.LogListener.convertTo(dst.Spec.LogListener.Image); err != nil {
-			return err
-		}
-	}
 	if src.Spec.EnvironmentProvider != nil {
 		dst.Spec.EnvironmentProvider = &etosv1alpha1.EnvironmentProvider{Image: &etosv1alpha1.Image{}}
 		if err := src.Spec.EnvironmentProvider.convertTo(dst.Spec.EnvironmentProvider.Image); err != nil {
@@ -106,7 +100,7 @@ func (src *TestRun) ConvertTo(dstRaw conversion.Hub) error {
 // ConvertFrom converts the Hub version (v1alpha1) to this TestRun (v1beta1).
 func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*etosv1alpha1.TestRun)
-	log.Info(fmt.Sprintf("ConvertFrom: Converting TestRun from Hub version v1alpha1 to Spoke version v1beta1;"+
+	testRunLog.Info(fmt.Sprintf("ConvertFrom: Converting TestRun from Hub version v1alpha1 to Spoke version v1beta1;"+
 		"source: %s/%s, target: %s/%s", src.Namespace, src.Name, dst.Namespace, dst.Name))
 
 	dst.Spec.ID = src.Spec.ID
@@ -145,12 +139,6 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 			return err
 		}
 	}
-	dst.Spec.LogListener = &Image{}
-	if src.Spec.LogListener != nil {
-		if err := dst.Spec.LogListener.convertFrom(src.Spec.LogListener.Image); err != nil {
-			return err
-		}
-	}
 	dst.Spec.EnvironmentProvider = &Image{}
 	if src.Spec.EnvironmentProvider != nil {
 		if err := dst.Spec.EnvironmentProvider.convertFrom(src.Spec.EnvironmentProvider.Image); err != nil {
@@ -179,7 +167,7 @@ func (dst *TestRun) ConvertFrom(srcRaw conversion.Hub) error {
 // convertFrom converts the Image from the v1alpha1 Image to the v1beta1 Image.
 func (dst *Image) convertFrom(src *etosv1alpha1.Image) error {
 	if src == nil {
-		log.Info("convertFrom: source Image is nil, skipping conversion to v1beta1")
+		testRunLog.Info("convertFrom: source Image is nil, skipping conversion to v1beta1")
 		return nil
 	}
 	dst.Image = src.Image
@@ -190,7 +178,7 @@ func (dst *Image) convertFrom(src *etosv1alpha1.Image) error {
 // convertTo converts the Image from the v1beta1 Image to the v1alpha1 Image.
 func (src *Image) convertTo(dst *etosv1alpha1.Image) error {
 	if src == nil {
-		log.Info("convertTo: source Image is nil, skipping conversion to v1alpha1")
+		testRunLog.Info("convertTo: source Image is nil, skipping conversion to v1alpha1")
 		return nil
 	}
 	dst.Image = src.Image
@@ -201,7 +189,7 @@ func (src *Image) convertTo(dst *etosv1alpha1.Image) error {
 // convertFrom converts the TestRunner from the v1alpha1 TestRunner to the v1beta1 TestRunner.
 func (dst *TestRunner) convertFrom(src *etosv1alpha1.TestRunner) error {
 	if src == nil {
-		log.Info("convertFrom: source TestRunner is nil, skipping conversion to v1beta1")
+		testRunLog.Info("convertFrom: source TestRunner is nil, skipping conversion to v1beta1")
 		return nil
 	}
 	dst.Version = src.Version
@@ -211,7 +199,7 @@ func (dst *TestRunner) convertFrom(src *etosv1alpha1.TestRunner) error {
 // convertTo converts the TestRunner from the v1beta1 TestRunner to the v1alpha1 TestRunner.
 func (src *TestRunner) convertTo(dst *etosv1alpha1.TestRunner) error {
 	if src == nil {
-		log.Info("convertTo: source TestRunner is nil, skipping conversion to v1alpha1")
+		testRunLog.Info("convertTo: source TestRunner is nil, skipping conversion to v1alpha1")
 		return nil
 	}
 	dst.Version = src.Version
