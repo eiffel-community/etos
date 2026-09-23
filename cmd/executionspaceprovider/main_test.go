@@ -76,6 +76,7 @@ func TestDatasetEnvironment(t *testing.T) {
 	}
 }
 
+// TestWaitForTestRunnersStartsWaitersConcurrently verifies that all readiness waits start before any result is collected.
 func TestWaitForTestRunnersStartsWaitersConcurrently(t *testing.T) {
 	started := make(chan struct{}, 2)
 	release := make(chan struct{})
