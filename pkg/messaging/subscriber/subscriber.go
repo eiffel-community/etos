@@ -75,10 +75,11 @@ func (c *SSESubscriber) Events(ctx context.Context, id string, filter ...Filter)
 		for {
 			event, err := c.decode(decoder)
 			if err != nil {
-				logger.Error(err, "Error decoding event")
 				if err == io.EOF {
+					logger.Info("SSE stream closed")
 					return
 				}
+				logger.Error(err, "Error decoding event")
 				yield(nil, err)
 				return
 			}
