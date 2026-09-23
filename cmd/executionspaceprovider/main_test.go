@@ -18,14 +18,19 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/pkg/provider"
+	"go.jetify.com/sse"
 	batchv1 "k8s.io/api/batch/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -169,5 +174,73 @@ func TestStartMakesTestRunnerJobOwnedByExecutionSpace(t *testing.T) {
 	owner := job.OwnerReferences[0]
 	if owner.UID != executionSpace.UID || owner.Kind != "ExecutionSpace" {
 		t.Fatalf("Test Runner Job owner = %#v, want owner reference for ExecutionSpace %q", owner, executionSpace.UID)
+	}
+}
+
+// TestWaitForTestRunnerDeletesExecutionSpaceOnReadinessFailure verifies that failed readiness
+// removes the ExecutionSpace for both a missing status and a matching failure status.
+func TestWaitForTestRunnerDeletesExecutionSpaceOnReadinessFailure(t *testing.T) {
+	tests := []struct {
+		name      string
+		payload   string
+		wantError string
+	}{
+		{
+			name:      "missing status",
+			wantError: "event stream closed",
+		},
+		{
+			name:      "failure status",
+			payload:   `{"instance":"etr-instance","status":"error","message":"startup failed"}`,
+			wantError: "test runner reported an error status: startup failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+				writer.Header().Set("Content-Type", "text/event-stream")
+				if tt.payload == "" {
+					return
+				}
+				if err := sse.NewEncoder(writer).EncodeEvent(&sse.Event{
+					Event: "status",
+					Data:  sse.Raw(tt.payload),
+				}); err != nil {
+					t.Errorf("encoding SSE status event: %v", err)
+				}
+				writer.(http.Flusher).Flush()
+			}))
+			defer server.Close()
+
+			executionSpace := &provider.ExecutionSpace{ExecutionSpace: &v1alpha2.ExecutionSpace{
+				ObjectMeta: metav1.ObjectMeta{Name: "execution-space", Namespace: "test-namespace"},
+				Spec: v1alpha2.ExecutionSpaceSpec{
+					Instructions: v1alpha2.Instructions{Environment: map[string]string{"ENVIRONMENT_ID": "etr-instance"}},
+				},
+			}}
+			client := fake.NewClientBuilder().WithScheme(provider.Scheme).WithObjects(executionSpace.ExecutionSpace).Build()
+			provider.SetKubernetesClient(client)
+			t.Cleanup(func() { provider.SetKubernetesClient(nil) })
+
+			environmentRequest := &v1alpha1.EnvironmentRequest{
+				Spec: v1alpha1.EnvironmentRequestSpec{
+					Identifier: "test-identifier",
+					Config:     v1alpha1.EnvironmentProviderJobConfig{EtosSse: server.URL},
+				},
+			}
+			err := waitForTestRunner(context.Background(), environmentRequest, executionSpace)
+			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("waitForTestRunner() error = %v, want error containing %q", err, tt.wantError)
+			}
+
+			deletedExecutionSpace := &v1alpha2.ExecutionSpace{}
+			err = client.Get(context.Background(), types.NamespacedName{
+				Name: executionSpace.Name, Namespace: executionSpace.Namespace,
+			}, deletedExecutionSpace)
+			if !apierrors.IsNotFound(err) {
+				t.Fatalf("ExecutionSpace lookup error = %v, want not found after readiness failure", err)
+			}
+		})
 	}
 }

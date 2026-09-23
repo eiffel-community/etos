@@ -204,16 +204,7 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 		}
 		executionSpaceCopy := executionSpace
 		waiters = append(waiters, func() error {
-			if err := executionSpaceCopy.WaitForTestRunner(ctx, cfg.EnvironmentRequest); err != nil {
-				if deleteErr := provider.DeleteExecutionSpace(ctx, executionSpaceCopy.ExecutionSpace); deleteErr != nil {
-					logger.Error(deleteErr, fmt.Sprintf("Failed to delete ExecutionSpace '%s' after test runner failed to start",
-						executionSpaceCopy.Name))
-					err = errors.Join(err, deleteErr)
-				}
-				return err
-			}
-			logger.Info("Test runner has launched and is waiting for tests")
-			return nil
+			return waitForTestRunner(ctx, cfg.EnvironmentRequest, executionSpaceCopy)
 		})
 	}
 	if err := waitForTestRunners(waiters); err != nil {
@@ -221,6 +212,22 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 		span.SetStatus(codes.Error, "failed while waiting for test runner to start")
 		return err
 	}
+	return nil
+}
+
+func waitForTestRunner(
+	ctx context.Context, environmentRequest *v1alpha1.EnvironmentRequest, executionSpace *provider.ExecutionSpace,
+) error {
+	logger := logging.FromContextOrDiscard(ctx)
+	if err := executionSpace.WaitForTestRunner(ctx, environmentRequest); err != nil {
+		if deleteErr := provider.DeleteExecutionSpace(ctx, executionSpace.ExecutionSpace); deleteErr != nil {
+			logger.Error(deleteErr, fmt.Sprintf("Failed to delete ExecutionSpace '%s' after test runner failed to start",
+				executionSpace.Name))
+			err = errors.Join(err, deleteErr)
+		}
+		return err
+	}
+	logger.Info("Test runner has launched and is waiting for tests")
 	return nil
 }
 
