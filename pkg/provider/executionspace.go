@@ -80,8 +80,8 @@ type ExecutionSpace struct {
 
 // NewExecutionSpace creates a new ExecutionSpace.
 //
-// The spec.ProviderID and spec.EnvironmentRequest fields are automatically populated by this
-// function. It will be overwritten if set.
+// The spec.ProviderID, spec.EnvironmentRequest, and spec.ID fields are automatically populated by
+// this function. They will be overwritten if set.
 // If a name is not provided, a name will be generated based on the EnvironmentRequest name.
 // If a name is provided it is the caller's responsibility to ensure name uniqueness, it will
 // not be guaranteed by this function.
@@ -104,10 +104,8 @@ func NewExecutionSpace(
 		return nil, err
 	}
 
-	// Copies environment variables from the spec into the environmentVariables.
-	// This means that spec.Instructions.Environment will overwrite any environment
-	// variables with the same name as those generated from the EnvironmentRequest config.
 	maps.Copy(environmentVariables, spec.Instructions.Environment)
+	environmentVariables["ENVIRONMENT_ID"] = spec.ID
 	spec.Instructions.Environment = environmentVariables
 
 	labels := map[string]string{
