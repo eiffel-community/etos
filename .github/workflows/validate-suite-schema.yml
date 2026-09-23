@@ -25,5 +25,5 @@ jobs:
       - name: Validate example against JSON schema
         run: |
           check-jsonschema \
-            --schemafile schemas/suite/v1alpha1/suite.schema.json \
-            schemas/suite/v1alpha1/example.yaml
+            --schemafile schemas/suite/v1beta1/suite.schema.json \
+            schemas/suite/v1beta1/example.yaml

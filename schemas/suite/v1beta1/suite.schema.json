@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/eiffel-community/etos/schemas/suite/v1alpha1/suite.schema.json",
+  "$id": "https://github.com/eiffel-community/etos/schemas/suite/v1beta1/suite.schema.json",
   "title": "ETOS Suite Definition",
-  "description": "Schema for the ETOS test suite YAML format (v1alpha1). Defines one or more test suites with their test executions, environments, and dependencies.",
+  "description": "Schema for the ETOS test suite YAML format (v1beta1). Defines one or more test suites with their test executions, environments, and dependencies.",
   "type": "object",
   "required": [
     "name",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "type": "string",
       "description": "Version of the suite schema.",
-      "const": "v1alpha1"
+      "const": "v1beta1"
     },
     "suites": {
       "type": "array",
