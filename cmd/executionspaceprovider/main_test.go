@@ -18,6 +18,7 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -72,5 +73,38 @@ func TestDatasetEnvironment(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestWaitForTestRunnersStartsWaitersConcurrently(t *testing.T) {
+	started := make(chan struct{}, 2)
+	release := make(chan struct{})
+	done := make(chan error, 1)
+
+	waiter := func() error {
+		started <- struct{}{}
+		<-release
+		return nil
+	}
+	go func() {
+		done <- waitForTestRunners([]func() error{waiter, waiter})
+	}()
+
+	for range 2 {
+		select {
+		case <-started:
+		case <-time.After(time.Second):
+			t.Fatal("did not start all test runner waits concurrently")
+		}
+	}
+	close(release)
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("waitForTestRunners() error = %v, want nil", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("waitForTestRunners() did not return")
 	}
 }

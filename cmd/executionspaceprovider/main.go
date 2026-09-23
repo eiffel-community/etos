@@ -40,6 +40,23 @@ import (
 
 type genericExecutionSpaceProvider struct{}
 
+// waitForTestRunners starts all readiness waits before collecting their results.
+func waitForTestRunners(waiters []func() error) error {
+	errorsChannel := make(chan error, len(waiters))
+	for _, waiter := range waiters {
+		waiter := waiter
+		go func() {
+			errorsChannel <- waiter()
+		}()
+	}
+
+	var err error
+	for range waiters {
+		err = errors.Join(err, <-errorsChannel)
+	}
+	return err
+}
+
 // subSuiteProvidedEnvironment lists the environment variables that the ETOS test runner reads from
 // the sub suite it downloads. They remain part of the sub suite (in the executor instructions), so
 // there is no need to also pass them to the test runner as container environment variables.
@@ -149,6 +166,7 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 	// propagated to the test runner.
 	otel.GetTextMapPropagator().Inject(ctx, propagation.MapCarrier(environment))
 
+	waiters := make([]func() error, 0, cfg.MinimumAmount)
 	for range cfg.MinimumAmount {
 		id := uuid.NewString()
 		testrunner := cfg.EnvironmentRequest.Spec.Providers.ExecutionSpace.TestRunnerImage
@@ -185,17 +203,24 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 			span.SetStatus(codes.Error, "failed to start ETOS test runner")
 			return err
 		}
-		if err := executionSpace.WaitForTestRunner(ctx, cfg.EnvironmentRequest); err != nil {
-			if deleteErr := provider.DeleteExecutionSpace(ctx, executionSpace.ExecutionSpace); deleteErr != nil {
-				logger.Error(deleteErr, fmt.Sprintf("Failed to delete ExecutionSpace '%s' after test runner failed to start",
-					executionSpace.Name))
-				err = errors.Join(err, deleteErr)
+		executionSpaceCopy := executionSpace
+		waiters = append(waiters, func() error {
+			if err := executionSpaceCopy.WaitForTestRunner(ctx, cfg.EnvironmentRequest); err != nil {
+				if deleteErr := provider.DeleteExecutionSpace(ctx, executionSpaceCopy.ExecutionSpace); deleteErr != nil {
+					logger.Error(deleteErr, fmt.Sprintf("Failed to delete ExecutionSpace '%s' after test runner failed to start",
+						executionSpaceCopy.Name))
+					err = errors.Join(err, deleteErr)
+				}
+				return err
 			}
-			span.RecordError(err)
-			span.SetStatus(codes.Error, "failed while waiting for test runner to start")
-			return err
-		}
-		logger.Info("Test runner has launched and is waiting for tests")
+			logger.Info("Test runner has launched and is waiting for tests")
+			return nil
+		})
+	}
+	if err := waitForTestRunners(waiters); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed while waiting for test runner to start")
+		return err
 	}
 	return nil
 }
