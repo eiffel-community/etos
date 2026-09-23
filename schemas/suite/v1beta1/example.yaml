@@ -1,11 +1,11 @@
-# Example: ETOS suite definition (v1alpha1)
+# Example: ETOS suite definition (v1beta1)
 #
 # Demonstrates the key features of the format: multiple prioritized suites,
 # test execution dependencies, checkout and pre-execution steps, environment
 # variables, multiple test runner images, and provider-defined additional
 # resources.
 name: etos-self-test-sample-suite
-schemaVersion: v1alpha1
+schemaVersion: v1beta1
 suites:
 - priority: 1
   testExecutions:

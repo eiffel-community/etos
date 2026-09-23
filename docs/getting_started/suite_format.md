@@ -24,9 +24,9 @@ requires.
 > **Note:** The standalone YAML suite definition format is a v1 feature.
 
 The format is described by a JSON Schema located at
-[`schemas/suite/v1alpha1/suite.schema.json`](https://github.com/eiffel-community/etos/blob/main/schemas/suite/v1alpha1/suite.schema.json).
+[`schemas/suite/v1beta1/suite.schema.json`](https://github.com/eiffel-community/etos/blob/main/schemas/suite/v1beta1/suite.schema.json).
 A complete, validating example is available at
-[`schemas/suite/v1alpha1/example.yaml`](https://github.com/eiffel-community/etos/blob/main/schemas/suite/v1alpha1/example.yaml).
+[`schemas/suite/v1beta1/example.yaml`](https://github.com/eiffel-community/etos/blob/main/schemas/suite/v1beta1/example.yaml).
 The example is validated against the schema in CI.
 
 ## Top-level fields
@@ -34,7 +34,7 @@ The example is validated against the schema in CI.
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `name` | string | yes | Name of the suite definition. |
-| `schemaVersion` | string | yes | Version of the suite schema. Must be `v1alpha1`. |
+| `schemaVersion` | string | yes | Version of the suite schema. Must be `v1beta1`. |
 | `suites` | array | yes | One or more test suites to execute. |
 
 ## Suite
@@ -117,6 +117,6 @@ same validation locally:
 ```bash
 pip install check-jsonschema
 check-jsonschema \
-  --schemafile schemas/suite/v1alpha1/suite.schema.json \
-  schemas/suite/v1alpha1/example.yaml
+  --schemafile schemas/suite/v1beta1/suite.schema.json \
+  schemas/suite/v1beta1/example.yaml
 ```
