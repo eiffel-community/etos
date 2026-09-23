@@ -178,7 +178,7 @@ func (e *ExecutionSpace) WaitForTestRunner(
 		switch e := event.(type) {
 		case events.Status:
 			if e.Data.Instance != etrInstance {
-				logger.Info("Received status event for a different ETR instance, ignoring",
+				logger.V(1).Info("Received status event for a different ETR instance, ignoring",
 					"received_instance", e.Data.Instance,
 					"expected_instance", etrInstance,
 				)
