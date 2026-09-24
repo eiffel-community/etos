@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -130,8 +132,8 @@ func TestWaitForTestRunnersStartsWaitersConcurrently(t *testing.T) {
 // TestStartMakesTestRunnerJobOwnedByExecutionSpace verifies that deleting an ExecutionSpace
 // garbage-collects its Test Runner Job.
 func TestStartMakesTestRunnerJobOwnedByExecutionSpace(t *testing.T) {
-	client := fake.NewClientBuilder().WithScheme(provider.Scheme).Build()
-	provider.SetKubernetesClient(client)
+	fakeClient := fake.NewClientBuilder().WithScheme(provider.Scheme).Build()
+	provider.SetKubernetesClient(fakeClient)
 	t.Cleanup(func() { provider.SetKubernetesClient(nil) })
 
 	executionSpace := &v1alpha2.ExecutionSpace{
@@ -165,7 +167,7 @@ func TestStartMakesTestRunnerJobOwnedByExecutionSpace(t *testing.T) {
 
 	job := &batchv1.Job{}
 	jobName := types.NamespacedName{Name: "etr-etr-instance", Namespace: "test-namespace"}
-	if err := client.Get(context.Background(), jobName, job); err != nil {
+	if err := fakeClient.Get(context.Background(), jobName, job); err != nil {
 		t.Fatalf("getting Test Runner Job: %v", err)
 	}
 	if len(job.OwnerReferences) != 1 {
@@ -174,6 +176,61 @@ func TestStartMakesTestRunnerJobOwnedByExecutionSpace(t *testing.T) {
 	owner := job.OwnerReferences[0]
 	if owner.UID != executionSpace.UID || owner.Kind != "ExecutionSpace" {
 		t.Fatalf("Test Runner Job owner = %#v, want owner reference for ExecutionSpace %q", owner, executionSpace.UID)
+	}
+}
+
+// contextCheckingClient wraps a client.Client and rejects Delete calls made with an already
+// canceled or deadline-expired context, mirroring the real Kubernetes client's behavior of
+// failing immediately instead of issuing the request.
+type contextCheckingClient struct {
+	client.Client
+}
+
+func (c *contextCheckingClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return c.Client.Delete(ctx, obj, opts...)
+}
+
+// TestWaitForTestRunnerDeletesExecutionSpaceWithExpiredContext verifies that the ExecutionSpace is
+// still deleted, and the readiness error is preserved, when the readiness wait context is already
+// canceled or past its deadline by the time cleanup runs.
+func TestWaitForTestRunnerDeletesExecutionSpaceWithExpiredContext(t *testing.T) {
+	executionSpace := &provider.ExecutionSpace{ExecutionSpace: &v1alpha2.ExecutionSpace{
+		ObjectMeta: metav1.ObjectMeta{Name: "execution-space", Namespace: "test-namespace"},
+		Spec: v1alpha2.ExecutionSpaceSpec{
+			Instructions: v1alpha2.Instructions{Environment: map[string]string{"ENVIRONMENT_ID": "etr-instance"}},
+		},
+	}}
+	fakeClient := fake.NewClientBuilder().WithScheme(provider.Scheme).WithObjects(executionSpace.ExecutionSpace).Build()
+	provider.SetKubernetesClient(&contextCheckingClient{Client: fakeClient})
+	t.Cleanup(func() { provider.SetKubernetesClient(nil) })
+
+	environmentRequest := &v1alpha1.EnvironmentRequest{
+		Spec: v1alpha1.EnvironmentRequestSpec{
+			Identifier: "test-identifier",
+			Config:     v1alpha1.EnvironmentProviderJobConfig{EtosSse: "http://127.0.0.1:0"},
+		},
+	}
+
+	// Simulate a readiness wait context that is already deadline-expired by the time
+	// WaitForTestRunner returns, so it must not be reused for cleanup.
+	ctx, cancel := context.WithTimeout(context.Background(), 0)
+	defer cancel()
+	<-ctx.Done()
+
+	err := waitForTestRunner(ctx, environmentRequest, executionSpace)
+	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("waitForTestRunner() error = %v, want an error wrapping %v", err, context.DeadlineExceeded)
+	}
+
+	deletedExecutionSpace := &v1alpha2.ExecutionSpace{}
+	getErr := fakeClient.Get(context.Background(), types.NamespacedName{
+		Name: executionSpace.Name, Namespace: executionSpace.Namespace,
+	}, deletedExecutionSpace)
+	if !apierrors.IsNotFound(getErr) {
+		t.Fatalf("ExecutionSpace lookup error = %v, want not found after cleanup with an expired context", getErr)
 	}
 }
 
@@ -219,8 +276,8 @@ func TestWaitForTestRunnerDeletesExecutionSpaceOnReadinessFailure(t *testing.T) 
 					Instructions: v1alpha2.Instructions{Environment: map[string]string{"ENVIRONMENT_ID": "etr-instance"}},
 				},
 			}}
-			client := fake.NewClientBuilder().WithScheme(provider.Scheme).WithObjects(executionSpace.ExecutionSpace).Build()
-			provider.SetKubernetesClient(client)
+			fakeClient := fake.NewClientBuilder().WithScheme(provider.Scheme).WithObjects(executionSpace.ExecutionSpace).Build()
+			provider.SetKubernetesClient(fakeClient)
 			t.Cleanup(func() { provider.SetKubernetesClient(nil) })
 
 			environmentRequest := &v1alpha1.EnvironmentRequest{
@@ -235,7 +292,7 @@ func TestWaitForTestRunnerDeletesExecutionSpaceOnReadinessFailure(t *testing.T) 
 			}
 
 			deletedExecutionSpace := &v1alpha2.ExecutionSpace{}
-			err = client.Get(context.Background(), types.NamespacedName{
+			err = fakeClient.Get(context.Background(), types.NamespacedName{
 				Name: executionSpace.Name, Namespace: executionSpace.Namespace,
 			}, deletedExecutionSpace)
 			if !apierrors.IsNotFound(err) {

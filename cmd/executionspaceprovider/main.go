@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
@@ -215,12 +216,22 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 	return nil
 }
 
+// executionSpaceCleanupTimeout bounds the independent context used to delete an ExecutionSpace
+// after its readiness wait fails; the original context may already be canceled or past its
+// deadline at that point and must not be reused for cleanup.
+const executionSpaceCleanupTimeout = 10 * time.Second
+
 func waitForTestRunner(
 	ctx context.Context, environmentRequest *v1alpha1.EnvironmentRequest, executionSpace *provider.ExecutionSpace,
 ) error {
 	logger := logging.FromContextOrDiscard(ctx)
 	if err := executionSpace.WaitForTestRunner(ctx, environmentRequest); err != nil {
-		if deleteErr := provider.DeleteExecutionSpace(ctx, executionSpace.ExecutionSpace); deleteErr != nil {
+		// The readiness wait context may be canceled or deadline-expired here, so cleanup
+		// uses a short, independent context (retaining logger/tracer values) instead of the
+		// unusable one, ensuring the ExecutionSpace is still deleted.
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), executionSpaceCleanupTimeout)
+		defer cancel()
+		if deleteErr := provider.DeleteExecutionSpace(cleanupCtx, executionSpace.ExecutionSpace); deleteErr != nil {
 			logger.Error(deleteErr, fmt.Sprintf("Failed to delete ExecutionSpace '%s' after test runner failed to start",
 				executionSpace.Name))
 			err = errors.Join(err, deleteErr)
