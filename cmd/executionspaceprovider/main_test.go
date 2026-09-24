@@ -186,6 +186,7 @@ type contextCheckingClient struct {
 	client.Client
 }
 
+// Delete rejects calls with an expired context before delegating to the wrapped client.
 func (c *contextCheckingClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
 	if err := ctx.Err(); err != nil {
 		return err

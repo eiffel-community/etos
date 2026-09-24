@@ -221,6 +221,7 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 // deadline at that point and must not be reused for cleanup.
 const executionSpaceCleanupTimeout = 10 * time.Second
 
+// waitForTestRunner waits for readiness and deletes the ExecutionSpace if readiness fails.
 func waitForTestRunner(
 	ctx context.Context, environmentRequest *v1alpha1.EnvironmentRequest, executionSpace *provider.ExecutionSpace,
 ) error {
