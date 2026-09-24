@@ -129,8 +129,8 @@ func TestWaitForTestRunnersStartsWaitersConcurrently(t *testing.T) {
 	}
 }
 
-// TestStartMakesTestRunnerJobOwnedByExecutionSpace verifies that deleting an ExecutionSpace
-// garbage-collects its Test Runner Job.
+// TestStartMakesTestRunnerJobOwnedByExecutionSpace verifies that a Test Runner Job references
+// its ExecutionSpace as its owner.
 func TestStartMakesTestRunnerJobOwnedByExecutionSpace(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(provider.Scheme).Build()
 	provider.SetKubernetesClient(fakeClient)
