@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
@@ -38,6 +39,22 @@ import (
 )
 
 type genericExecutionSpaceProvider struct{}
+
+// waitForTestRunners starts all readiness waits before collecting their results.
+func waitForTestRunners(waiters []func() error) error {
+	errorsChannel := make(chan error, len(waiters))
+	for _, waiter := range waiters {
+		go func() {
+			errorsChannel <- waiter()
+		}()
+	}
+
+	var err error
+	for range waiters {
+		err = errors.Join(err, <-errorsChannel)
+	}
+	return err
+}
 
 // subSuiteProvidedEnvironment lists the environment variables that the ETOS test runner reads from
 // the sub suite it downloads. They remain part of the sub suite (in the executor instructions), so
@@ -148,6 +165,7 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 	// propagated to the test runner.
 	otel.GetTextMapPropagator().Inject(ctx, propagation.MapCarrier(environment))
 
+	waiters := make([]func() error, 0, cfg.MinimumAmount)
 	for range cfg.MinimumAmount {
 		testrunner := cfg.EnvironmentRequest.Spec.Providers.ExecutionSpace.TestRunnerImage
 		logger.Info("Creating a generic ExecutionSpace",
@@ -180,8 +198,43 @@ func (p *genericExecutionSpaceProvider) createExecutionSpaces(
 			span.SetStatus(codes.Error, "failed to start ETOS test runner")
 			return err
 		}
-		logger.Info("Test runner has launched and is waiting for tests")
+		executionSpaceCopy := executionSpace
+		waiters = append(waiters, func() error {
+			return waitForTestRunner(ctx, cfg.EnvironmentRequest, executionSpaceCopy)
+		})
 	}
+	if err := waitForTestRunners(waiters); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed while waiting for test runner to start")
+		return err
+	}
+	return nil
+}
+
+// executionSpaceCleanupTimeout bounds the independent context used to delete an ExecutionSpace
+// after its readiness wait fails; the original context may already be canceled or past its
+// deadline at that point and must not be reused for cleanup.
+const executionSpaceCleanupTimeout = 10 * time.Second
+
+// waitForTestRunner waits for readiness and deletes the ExecutionSpace if readiness fails.
+func waitForTestRunner(
+	ctx context.Context, environmentRequest *v1alpha1.EnvironmentRequest, executionSpace *provider.ExecutionSpace,
+) error {
+	logger := logging.FromContextOrDiscard(ctx)
+	if err := executionSpace.WaitForTestRunner(ctx, environmentRequest); err != nil {
+		// The readiness wait context may be canceled or deadline-expired here, so cleanup
+		// uses a short, independent context (retaining logger/tracer values) instead of the
+		// unusable one, ensuring the ExecutionSpace is still deleted.
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), executionSpaceCleanupTimeout)
+		defer cancel()
+		if deleteErr := provider.DeleteExecutionSpace(cleanupCtx, executionSpace.ExecutionSpace); deleteErr != nil {
+			logger.Error(deleteErr, fmt.Sprintf("Failed to delete ExecutionSpace '%s' after test runner failed to start",
+				executionSpace.Name))
+			err = errors.Join(err, deleteErr)
+		}
+		return err
+	}
+	logger.Info("Test runner has launched and is waiting for tests")
 	return nil
 }
 
