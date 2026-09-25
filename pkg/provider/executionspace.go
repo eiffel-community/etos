@@ -25,6 +25,7 @@ import (
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/fernet/fernet-go"
+	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -79,8 +80,8 @@ type ExecutionSpace struct {
 
 // NewExecutionSpace creates a new ExecutionSpace.
 //
-// The spec.ProviderID and spec.EnvironmentRequest fields are automatically populated by this
-// function. It will be overwritten if set.
+// The spec.ProviderID, spec.EnvironmentRequest, and spec.ID fields are automatically populated by
+// this function. They will be overwritten if set.
 // If a name is not provided, a name will be generated based on the EnvironmentRequest name.
 // If a name is provided it is the caller's responsibility to ensure name uniqueness, it will
 // not be guaranteed by this function.
@@ -93,24 +94,24 @@ func NewExecutionSpace(
 ) (*ExecutionSpace, error) {
 	var executionSpace v1alpha2.ExecutionSpace
 
-	environmentVariables, err := environmentVariables(ctx, environmentrequest)
+	id := uuid.NewString()
+	spec.ProviderID = environmentrequest.Spec.Providers.ExecutionSpace.ID
+	spec.EnvironmentRequest = environmentrequest.Name
+	spec.ID = id
+
+	environmentVariables, err := environmentVariables(ctx, environmentrequest, spec)
 	if err != nil {
 		return nil, err
 	}
 
-	// Copies environment variables from the spec into the environmentVariables.
-	// This means that spec.Instructions.Environment will overwrite any environment
-	// variables with the same name as those generated from the EnvironmentRequest config.
 	maps.Copy(environmentVariables, spec.Instructions.Environment)
+	environmentVariables["ENVIRONMENT_ID"] = spec.ID
 	spec.Instructions.Environment = environmentVariables
 
 	labels := map[string]string{
 		"app.kubernetes.io/name":    "execution-space-provider",
 		"app.kubernetes.io/part-of": "etos",
 	}
-
-	spec.ProviderID = environmentrequest.Spec.Providers.ExecutionSpace.ID
-	spec.EnvironmentRequest = environmentrequest.Name
 
 	var generateName string
 	if name == "" {
@@ -165,6 +166,7 @@ func DeleteExecutionSpace(ctx context.Context, executionSpace *v1alpha2.Executio
 func environmentVariables(
 	ctx context.Context,
 	environmentrequest *v1alpha1.EnvironmentRequest,
+	executionspaceSpec v1alpha2.ExecutionSpaceSpec,
 ) (map[string]string, error) {
 	var environment map[string]string
 	cli, err := KubernetesClient()
@@ -198,6 +200,12 @@ func environmentVariables(
 		return environment, errors.Join(errors.New("failed to get and encrypt Eiffel MessageBus password"), err)
 	}
 
+	version := environmentrequest.Spec.SchemaVersion
+	// The ETOS API expects the version to be "v1alpha" instead of "v1alpha1", so we need to convert it here.
+	if version == "v1alpha1" {
+		version = "v1alpha"
+	}
+
 	environment = map[string]string{
 		"SOURCE_HOST":                 hostname,
 		"SUITE_ID":                    environmentrequest.Spec.Identifier,
@@ -220,6 +228,12 @@ func environmentVariables(
 		"RABBITMQ_SSL":                environmentrequest.Spec.Config.EiffelMessageBus.SSL,
 		"OTEL_EXPORTER_OTLP_ENDPOINT": os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		"OTEL_EXPORTER_OTLP_INSECURE": os.Getenv("OTEL_EXPORTER_OTLP_INSECURE"),
+		"ENVIRONMENT_ID":              executionspaceSpec.ID,
+		"ENVIRONMENT_URL": fmt.Sprintf("%s/%s/testrun/%s",
+			environmentrequest.Spec.Config.EtosApi,
+			version,
+			executionspaceSpec.ID,
+		),
 	}
 	return environment, nil
 }
