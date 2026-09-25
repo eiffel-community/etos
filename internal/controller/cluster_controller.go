@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,13 +31,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/internal/config"
 	"github.com/eiffel-community/etos/internal/controller/status"
 	"github.com/eiffel-community/etos/internal/etos"
+	"github.com/eiffel-community/etos/internal/etos/api"
 	"github.com/eiffel-community/etos/internal/extras"
 	"github.com/eiffel-community/etos/internal/readiness"
 )
@@ -208,6 +214,24 @@ func (r *ClusterReconciler) update(ctx context.Context, cluster *etosv1alpha1.Cl
 	return ctrl.Result{}, nil
 }
 
+// findClustersForProviderSecret will return reconciliation requests for each Cluster that uses
+// the secret as a provider secret for the ETOS API. The provider secrets are not owned by the
+// Cluster, so without this the ETOS API would not be restarted when a provider secret changes.
+func (r *ClusterReconciler) findClustersForProviderSecret(ctx context.Context, secret client.Object) []reconcile.Request {
+	clusters := &etosv1alpha1.ClusterList{}
+	if err := r.List(ctx, clusters, client.InNamespace(secret.GetNamespace())); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list clusters for provider secret", "secret", secret.GetName())
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, cluster := range clusters.Items {
+		if slices.Contains(api.ProviderSecrets(cluster.Spec.ETOS.API), secret.GetName()) {
+			requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&cluster)})
+		}
+	}
+	return requests
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
@@ -222,5 +246,10 @@ func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbacv1.RoleBinding{}).
 		Owns(&networkingv1.Ingress{}).
 		Owns(&etosv1alpha1.Provider{}).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.findClustersForProviderSecret),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
 }

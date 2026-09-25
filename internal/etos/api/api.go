@@ -18,8 +18,12 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"maps"
+	"slices"
+	"strconv"
 	"time"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
@@ -45,6 +49,11 @@ var (
 	ApiServicePort int32 = 80
 	apiPort        int32 = 8080
 )
+
+// ProvidersChecksumAnnotation is set on the ETOS API pod template and holds a checksum of the
+// provider secrets. The ETOS API only reads the provider secrets on startup, so a change to
+// this annotation triggers a rollout whenever the contents of a provider secret change.
+const ProvidersChecksumAnnotation = "etos.eiffel-community.github.io/providers-checksum"
 
 type ETOSApiDeployment struct {
 	etosv1alpha1.ETOSAPI
@@ -100,7 +109,12 @@ func (r *ETOSApiDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 		logger.Error(err, "Failed to reconcile the service for the ETOS API")
 		return err
 	}
-	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.Name, cluster)
+	checksum, err := r.providersChecksum(ctx, cluster.Namespace)
+	if err != nil {
+		logger.Error(err, "Failed to calculate the provider checksum for the ETOS API")
+		return err
+	}
+	_, err = r.reconcileDeployment(ctx, namespacedName, cfg.Name, checksum, cluster)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile the deployment for the ETOS API")
 		return err
@@ -139,10 +153,48 @@ func (r *ETOSApiDeployment) reconcileConfig(ctx context.Context, name types.Name
 	return target, r.Patch(ctx, target, client.StrategicMergeFrom(secret))
 }
 
+// ProviderSecrets returns the names of the provider secrets configured for the ETOS API.
+func ProviderSecrets(spec etosv1alpha1.ETOSAPI) []string {
+	secrets := []string{}
+	for _, name := range []string{spec.IUTProviderSecret, spec.LogAreaProviderSecret, spec.ExecutionSpaceProviderSecret} {
+		if name != "" {
+			secrets = append(secrets, name)
+		}
+	}
+	return secrets
+}
+
+// providersChecksum calculates a checksum over the contents of all provider secrets configured
+// for the ETOS API. Secrets that do not exist are included by name only, so that the checksum
+// changes once they are created.
+func (r *ETOSApiDeployment) providersChecksum(ctx context.Context, namespace string) (string, error) {
+	secrets := ProviderSecrets(r.ETOSAPI)
+	if len(secrets) == 0 {
+		return "", nil
+	}
+	hash := sha256.New()
+	for _, name := range secrets {
+		hash.Write([]byte("secret=" + name + "\n"))
+		secret := &corev1.Secret{}
+		if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, secret); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return "", err
+		}
+		for _, key := range slices.Sorted(maps.Keys(secret.Data)) {
+			hash.Write([]byte("key=" + key + "\n"))
+			hash.Write([]byte("len=" + strconv.Itoa(len(secret.Data[key])) + "\n"))
+			hash.Write(secret.Data[key])
+		}
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
 // reconcileDeployment will reconcile the ETOS API deployment to its expected state.
-func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, secretName string, owner metav1.Object) (*appsv1.Deployment, error) {
+func (r *ETOSApiDeployment) reconcileDeployment(ctx context.Context, name types.NamespacedName, secretName, providersChecksum string, owner metav1.Object) (*appsv1.Deployment, error) {
 	logger := log.FromContext(ctx)
-	target := r.deployment(name, secretName, owner.GetName())
+	target := r.deployment(name, secretName, providersChecksum, owner.GetName())
 	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
 		return target, err
 	}
@@ -402,7 +454,11 @@ func (r *ETOSApiDeployment) rolebinding(name types.NamespacedName, clusterName s
 }
 
 // deployment creates a deployment resource definition for the ETOS API.
-func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName, clusterName string) *appsv1.Deployment {
+func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName, providersChecksum, clusterName string) *appsv1.Deployment {
+	templateMeta := r.meta(name, clusterName)
+	if providersChecksum != "" {
+		templateMeta.Annotations[ProvidersChecksumAnnotation] = providersChecksum
+	}
 	return &appsv1.Deployment{
 		ObjectMeta: r.meta(name, clusterName),
 		Spec: appsv1.DeploymentSpec{
@@ -415,7 +471,7 @@ func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName, cl
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name, clusterName),
+				ObjectMeta: templateMeta,
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
 					Containers:         []corev1.Container{r.container(name, secretName)},
