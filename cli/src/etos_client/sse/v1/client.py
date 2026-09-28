@@ -206,11 +206,19 @@ class SSEClient:
         self.__connected = False
 
     def __line_buffered(self, chunks: Iterable[bytes]) -> Iterable[bytes]:
-        """Read chunks from a byte feed and split each chunk on line-break."""
+        """Read chunks from a byte feed and yield complete lines.
+
+        A line may be split across chunks, so any trailing incomplete line is
+        buffered until the rest of it arrives.
+        """
+        buffer = b""
         for chunk in chunks:
             if len(chunk) == 0:
                 continue
-            yield from chunk.splitlines(keepends=True)
+            lines = (buffer + chunk).splitlines(keepends=True)
+            # A trailing '\r' may be the first half of a '\r\n' line-break.
+            buffer = b"" if lines[-1].endswith(b"\n") else lines.pop()
+            yield from lines
 
     def __read(self, chunks: Iterable[bytes]) -> Iterable[str]:
         """Read chunks from a byte feed and split them into SSE event blobs."""
