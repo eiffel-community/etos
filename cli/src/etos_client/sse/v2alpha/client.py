@@ -20,7 +20,7 @@ import time
 from json import JSONDecodeError, loads
 from typing import Callable, Iterable, Optional
 
-from etos_lib.messaging.events import Event, Shutdown, Unknown, parse
+from etos_lib.messaging.events import Error, Event, Shutdown, Unknown, parse
 from urllib3.exceptions import HTTPError, MaxRetryError, ReadTimeoutError
 from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry, Timeout
@@ -88,6 +88,14 @@ class Desynced(Exception):
 
 class ServerShutdown(Exception):
     """Server wants the client to shut down."""
+
+
+class Reconnect(Exception):
+    """Server wants the client to reconnect to the event stream."""
+
+
+class StreamFailed(Exception):
+    """Server has ended the event stream and the client must not reconnect."""
 
 
 class NoResponse(HTTPError):
@@ -224,6 +232,9 @@ class SSEClient:
         """Parse a feed of bytes into a feed of events."""
         for event_str in self.__read(stream):
             event = self.__parse_event(event_str)
+            if isinstance(event, Error):
+                self.__handle_error(event)
+                continue
             if event.id is None:
                 yield event
                 continue
@@ -236,6 +247,24 @@ class SSEClient:
             if isinstance(event, Shutdown):
                 raise ServerShutdown
             time.sleep(0.001)
+
+    def __handle_error(self, event: Error) -> None:
+        """Act on an error event from the SSE server.
+
+        The server sends error events with a JSON object holding a boolean 'retry' and a
+        'reason'. Raise Reconnect if the client shall reconnect and StreamFailed if it shall
+        not. Error events without that data are only passed on to the caller.
+        """
+        if (
+            not isinstance(event.data, dict)
+            or not isinstance(event.data.get("retry"), bool)
+            or not isinstance(event.data.get("reason"), str)
+        ):
+            return
+        reason = event.data["reason"]
+        if event.data["retry"]:
+            raise Reconnect(reason)
+        raise StreamFailed(reason)
 
     def __parse_event(self, feed: str) -> Event:
         """Parse an SSE event string into an ETOS event."""
@@ -290,6 +319,14 @@ class SSEClient:
             except ServerShutdown:
                 self.logger.info("SSE server has requested a shut down")
                 self.close()  # close sets __shutdown to True, exiting the while loop.
+            except Reconnect as exception:
+                self.logger.warning(
+                    "SSE server requested a reconnect (%s). Reconnecting", exception
+                )
+                self.reset()
+            except StreamFailed as exception:
+                self.logger.error("SSE server ended the event stream: %s", exception)
+                self.close()
             except ReadTimeoutError:
                 self.logger.warning(
                     "No data from the SSE server within %ds (connection likely dead). "
@@ -299,5 +336,10 @@ class SSEClient:
                 self.reset()
             except HTTPError:
                 self.logger.debug("HTTP error from the SSE server, reconnecting", exc_info=True)
+                self.reset()
+            else:
+                # The server ended the stream without a shutdown event. Without a reset the
+                # client would keep reading the finished response and never reconnect.
+                self.logger.warning("SSE server ended the event stream. Reconnecting")
                 self.reset()
         self.logger.info("Shutting down SSE client")
