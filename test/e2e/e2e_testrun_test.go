@@ -348,22 +348,7 @@ func VerifyETOSTestruns() {
 			Expect(err).NotTo(HaveOccurred(), "Failed to create a testrun")
 
 			By("checking the status field of the testrun")
-			verifyTestRun := func(g Gomega) error {
-				cmd := exec.Command("kubectl", "get",
-					"testrun", "testrun-sample-v1beta1", "-o", "jsonpath={.status.verdict}",
-					"-n", clusterNamespace)
-				output, err := utils.Run(cmd)
-				g.Expect(err).NotTo(HaveOccurred())
-				switch output {
-				case Failed:
-					return StopTrying("TestRun failed")
-				case Inconclusive:
-					return StopTrying("TestRun became inconclusive")
-				}
-				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
-				return nil
-			}
-			Eventually(verifyTestRun, "5m").Should(Succeed())
+			Eventually(verifyTestRunPassed("testrun-sample-v1beta1"), "5m").Should(Succeed())
 		})
 
 		It("should be able to execute a v1beta1 multi-suite testrun", func() {
@@ -373,22 +358,7 @@ func VerifyETOSTestruns() {
 			Expect(err).NotTo(HaveOccurred(), "Failed to create a multi-suite testrun")
 
 			By("waiting for finished")
-			verifyTestRun := func(g Gomega) error {
-				cmd := exec.Command("kubectl", "get",
-					"testrun", "testrun-sample-v1beta1-multi-suite", "-o", "jsonpath={.status.verdict}",
-					"-n", clusterNamespace)
-				output, err := utils.Run(cmd)
-				g.Expect(err).NotTo(HaveOccurred())
-				switch output {
-				case Failed:
-					return StopTrying("TestRun failed")
-				case Inconclusive:
-					return StopTrying("TestRun became inconclusive")
-				}
-				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
-				return nil
-			}
-			Eventually(verifyTestRun, "5m").Should(Succeed())
+			Eventually(verifyTestRunPassed("testrun-sample-v1beta1-multi-suite"), "5m").Should(Succeed())
 		})
 
 		It("should be able to execute a v1beta1 multi-testrunner testrun", func() {
@@ -398,22 +368,26 @@ func VerifyETOSTestruns() {
 			Expect(err).NotTo(HaveOccurred(), "Failed to create a multi-testrunner testrun")
 
 			By("waiting for finished")
-			verifyTestRun := func(g Gomega) error {
-				cmd := exec.Command("kubectl", "get",
-					"testrun", "testrun-sample-v1beta1-multi-testrunner", "-o", "jsonpath={.status.verdict}",
-					"-n", clusterNamespace)
-				output, err := utils.Run(cmd)
-				g.Expect(err).NotTo(HaveOccurred())
-				switch output {
-				case Failed:
-					return StopTrying("TestRun failed")
-				case Inconclusive:
-					return StopTrying("TestRun became inconclusive")
-				}
-				g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
-				return nil
-			}
-			Eventually(verifyTestRun, "5m").Should(Succeed())
+			Eventually(verifyTestRunPassed("testrun-sample-v1beta1-multi-testrunner"), "5m").Should(Succeed())
 		})
 	})
+}
+
+// verifyTestRunPassed returns a function that checks that the named TestRun has passed.
+func verifyTestRunPassed(name string) func(g Gomega) error {
+	return func(g Gomega) error {
+		cmd := exec.Command("kubectl", "get",
+			"testrun", name, "-o", "jsonpath={.status.verdict}",
+			"-n", clusterNamespace)
+		output, err := utils.Run(cmd)
+		g.Expect(err).NotTo(HaveOccurred())
+		switch output {
+		case Failed:
+			return StopTrying("TestRun failed")
+		case Inconclusive:
+			return StopTrying("TestRun became inconclusive")
+		}
+		g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
+		return nil
+	}
 }
