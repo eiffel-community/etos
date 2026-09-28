@@ -13,4 +13,4 @@ spec:
     upload:
       as_json: false
       method: POST
-      url: http://cluster-sample-etos-logarea/logarea/v1alpha/upload
+      url: http://cluster-sample-etos-logarea/logarea/upload?path={context}/{folder}/{name}

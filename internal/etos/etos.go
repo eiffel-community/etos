@@ -388,7 +388,7 @@ func (r *ETOSDeployment) reconcileLogAreaProvider(ctx context.Context, name type
 		Upload: etosv1alpha2.Upload{
 			AsJSON: false,
 			Method: "POST",
-			URL:    fmt.Sprintf("http://%s-etos-logarea/logarea/v1alpha/upload", clusterName),
+			URL:    fmt.Sprintf("http://%s-etos-logarea/logarea/upload?path={context}/{folder}/{name}", clusterName),
 		},
 	}
 	scheme.Scheme.Default(target)
