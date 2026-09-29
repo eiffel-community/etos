@@ -13,19 +13,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for how the SSE clients split a received byte stream into events.
+"""Tests for how the SSE v2alpha client splits a received byte stream into events.
 
-The SSE format is line-based, but the clients receive the stream from the network
+The SSE format is line-based, but the client receives the stream from the network
 in blocks of bytes. A block can end anywhere, including in the middle of a line,
-and the clients must still produce complete events.
+and the client must still produce complete events.
 """
 
 # pylint: disable=protected-access
 
 import pytest
 
-from etos_client.sse.v1.client import SSEClient as SSEV1Client
-from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient
+from etos_client.sse.v2alpha.client import SSEClient
 
 EVENT_1 = b'id: 1\nevent: message\ndata: {"message": "first"}\n\n'
 EVENT_2 = b'id: 2\nevent: message\ndata: {"message": "second"}\n\n'
@@ -35,13 +34,10 @@ STREAM = EVENT_1 + EVENT_2
 EXPECTED_EVENTS = [EVENT_1[:-1].decode(), EVENT_2[:-1].decode()]
 
 
-@pytest.fixture(name="client", params=[SSEV1Client, SSEV2AlphaClient], ids=["v1", "v2alpha"])
-def fixture_client(request):
-    """Create an SSE client of each version. No connection is made."""
-    if request.param is SSEV1Client:
-        client = SSEV1Client("http://localhost")
-    else:
-        client = SSEV2AlphaClient("http://localhost", [])
+@pytest.fixture(name="client")
+def fixture_client():
+    """Create an SSE v2alpha client. No connection is made."""
+    client = SSEClient("http://localhost", [])
     yield client
     client.close()
 
