@@ -20,7 +20,7 @@ import time
 from json import JSONDecodeError, loads
 from typing import Callable, Iterable, Optional
 
-from etos_lib.messaging.events import Event, Shutdown, Unknown, parse
+from etos_lib.messaging.events import Error, Event, Ping, Shutdown, Unknown, parse
 from urllib3.exceptions import HTTPError, MaxRetryError, ReadTimeoutError
 from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry, Timeout
@@ -82,12 +82,20 @@ class LogRetry(Retry):
         return new_retry
 
 
-class Desynced(Exception):
-    """The event stream has desynced."""
-
-
 class ServerShutdown(Exception):
     """Server wants the client to shut down."""
+
+
+class RetryableServerError(Exception):
+    """The server reported an error and the client should reconnect."""
+
+
+class NonRetryableServerError(Exception):
+    """The server reported an error that the client cannot recover from.
+
+    This happens, for instance, when the events after the last received event have expired
+    from the event stream, in which case reconnecting would silently lose events.
+    """
 
 
 class NoResponse(HTTPError):
@@ -229,16 +237,23 @@ class SSEClient:
                 feed += line
 
     def __stream(self, stream: Iterable[bytes]) -> Iterable[Event]:
-        """Parse a feed of bytes into a feed of events."""
+        """Parse a feed of bytes into a feed of events.
+
+        Event IDs are strictly increasing, but not contiguous, so only events that have
+        already been received are dropped.
+        """
         for event_str in self.__read(stream):
             event = self.__parse_event(event_str)
+            if isinstance(event, Ping):
+                self.__update_progress(event)
+                continue
+            if isinstance(event, Error):
+                self.__raise_server_error(event)
             if event.id is None:
                 yield event
                 continue
             if self.__already_received(event):
                 continue  # Ignore if already received
-            if self.__out_of_sync(event):
-                raise Desynced
             self.last_event_id = event.id
             yield event
             if isinstance(event, Shutdown):
@@ -269,15 +284,28 @@ class SSEClient:
             return False
         return event.id <= self.last_event_id
 
-    def __out_of_sync(self, event: Event) -> bool:
-        """Check if the eventstream is out of sync."""
-        if self.last_event_id is None:
-            return False
-        if event.id is None:
-            return False
-        if event.id - self.last_event_id == 1:
-            return False
-        return True
+    def __update_progress(self, ping: Ping) -> None:
+        """Update the last event ID from a ping.
+
+        The server sets the ID of a ping to its position in the event stream when it has
+        passed events that were not sent to this client, so that a reconnect does not need to
+        scan them again.
+        """
+        if ping.id is None:
+            return
+        if self.last_event_id is None or ping.id > self.last_event_id:
+            self.last_event_id = ping.id
+
+    def __raise_server_error(self, error: Error) -> None:
+        """Raise an exception for an error event, depending on whether it can be retried."""
+        retry = True
+        reason = error.data
+        if isinstance(error.data, dict):
+            retry = error.data.get("retry", True) is not False
+            reason = error.data.get("reason", error.data)
+        if retry:
+            raise RetryableServerError(reason)
+        raise NonRetryableServerError(reason)
 
     def event_stream(self, stream_id: str) -> Iterable[Event]:
         """Follow the ETOS SSE event stream."""
@@ -292,9 +320,17 @@ class SSEClient:
                     continue
             try:
                 yield from self.__stream(stream)
-            except (Desynced, JSONDecodeError):
-                self.logger.warning("Desynced event stream. Reconnecting")
+                self.logger.warning("Event stream closed by the SSE server. Reconnecting")
                 self.reset()
+            except JSONDecodeError:
+                self.logger.warning("Could not decode the event stream. Reconnecting")
+                self.reset()
+            except RetryableServerError as error:
+                self.logger.warning("Error from the SSE server: %s. Reconnecting", error)
+                self.reset()
+            except NonRetryableServerError as error:
+                self.logger.error("Error from the SSE server, cannot continue: %s", error)
+                self.close()  # close sets __shutdown to True, exiting the while loop.
             except ServerShutdown:
                 self.logger.info("SSE server has requested a shut down")
                 self.close()  # close sets __shutdown to True, exiting the while loop.
