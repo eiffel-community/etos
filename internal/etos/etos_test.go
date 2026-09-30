@@ -30,9 +30,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-// TestReconcileLogAreaProviderUploadURL verifies creation and reconciliation
-// advertise the upload and download route served by the Log Area API.
-func TestReconcileLogAreaProviderUploadURL(t *testing.T) {
+// TestReconcileLogAreaProviderURLs verifies creation and reconciliation advertise
+// the live logs and upload routes served by ETOS.
+func TestReconcileLogAreaProviderURLs(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 	if err := etosv1alpha1.AddToScheme(scheme); err != nil {
@@ -47,7 +47,8 @@ func TestReconcileLogAreaProviderUploadURL(t *testing.T) {
 	})
 	name := types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}
 	providerName := types.NamespacedName{Name: cluster.Name + "-log-area-provider", Namespace: cluster.Namespace}
-	wantURL := "http://cluster-sample-etos-logarea/logarea/upload?path={context}/{folder}/{name}"
+	wantLiveLogs := "http://cluster-sample-etos-sse/sse/v2alpha/events/$testrunid"
+	wantUploadURL := "http://cluster-sample-etos-logarea/logarea/upload?path={context}/{folder}/{name}"
 
 	for _, stage := range []string{"create", "update"} {
 		t.Run(stage, func(t *testing.T) {
@@ -65,15 +66,21 @@ func TestReconcileLogAreaProviderUploadURL(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := target.Spec.LogAreaProviderConfig.Upload.URL; got != wantURL {
-				t.Errorf("reconciled upload URL = %q, want %q", got, wantURL)
+			if got := target.Spec.LogAreaProviderConfig.LiveLogs; got != wantLiveLogs {
+				t.Errorf("reconciled live logs URL = %q, want %q", got, wantLiveLogs)
+			}
+			if got := target.Spec.LogAreaProviderConfig.Upload.URL; got != wantUploadURL {
+				t.Errorf("reconciled upload URL = %q, want %q", got, wantUploadURL)
 			}
 			provider := &etosv1alpha1.Provider{}
 			if err := cli.Get(ctx, providerName, provider); err != nil {
 				t.Fatal(err)
 			}
-			if got := provider.Spec.LogAreaProviderConfig.Upload.URL; got != wantURL {
-				t.Errorf("upload URL = %q, want %q", got, wantURL)
+			if got := provider.Spec.LogAreaProviderConfig.LiveLogs; got != wantLiveLogs {
+				t.Errorf("live logs URL = %q, want %q", got, wantLiveLogs)
+			}
+			if got := provider.Spec.LogAreaProviderConfig.Upload.URL; got != wantUploadURL {
+				t.Errorf("upload URL = %q, want %q", got, wantUploadURL)
 			}
 			if got := provider.Spec.LogAreaProviderConfig.Upload.Method; got != "POST" {
 				t.Errorf("upload method = %q, want POST", got)

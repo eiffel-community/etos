@@ -384,7 +384,7 @@ func (r *ETOSDeployment) reconcileLogAreaProvider(ctx context.Context, name type
 		return target, err
 	}
 	target.Spec.LogAreaProviderConfig = &etosv1alpha1.LogAreaProviderConfig{
-		LiveLogs: fmt.Sprintf("http://%s-etos-logarea/logarea/v1alpha/$context", clusterName),
+		LiveLogs: fmt.Sprintf("http://%s-etos-sse/sse/v2alpha/events/$testrunid", clusterName),
 		Upload: etosv1alpha2.Upload{
 			AsJSON: false,
 			Method: "POST",
