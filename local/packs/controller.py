@@ -82,6 +82,7 @@ class Controller(BasePack):
                 ]
             ),
             make.deploy(self.local_store["project_image"]),
+            self.__configure_local_telemetry(),
             *self.__wait_for_control_plane(kubectl),
             *self.__wait_for_webhook_certificates(kubectl),
         ]
@@ -139,6 +140,21 @@ class Controller(BasePack):
                 wait_for="condition=ready",
             ),
         ]
+
+    def __configure_local_telemetry(self) -> Command:
+        """Patch local-only controller telemetry settings after deployment."""
+        return Shell(
+            [
+                "kubectl",
+                "set",
+                "env",
+                "deployment/etos-controller-manager",
+                "-n",
+                self.local_store["namespace"],
+                "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.monitoring.svc.cluster.local:4317",
+                "OTEL_EXPORTER_OTLP_INSECURE=true",
+            ]
+        )
 
     def __wait_for_webhook_certificates(self, kubectl: Kubectl) -> list[Command]:
         """Commands for waiting for the ETOS controller webhooks."""

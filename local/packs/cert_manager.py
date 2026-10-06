@@ -16,6 +16,7 @@
 """CertManager pack."""
 from local.commands.command import MINUTE, Command
 from local.commands.kubectl import Kubectl, Resource
+from local.commands.shell import Shell
 
 from .base import BasePack
 
@@ -37,7 +38,7 @@ class CertManager(BasePack):
         """Commands for deploying cert-manager."""
         kubectl = Kubectl()
         return [
-            kubectl.create(Resource(filename=self.url)),
+            Shell(["kubectl", "apply", "--server-side", "--filename", self.url]),
             kubectl.wait(
                 Resource(
                     type="deployment.apps",
