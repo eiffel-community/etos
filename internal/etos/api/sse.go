@@ -300,6 +300,8 @@ func (r *ETOSSSEDeployment) config(ctx context.Context, name types.NamespacedNam
 	}
 
 	data := make(map[string][]byte)
+	data["ETOS_CLUSTER"] = []byte(clusterName)
+	data["ETOS_NAMESPACE"] = []byte(name.Namespace)
 	data["ETOS_RABBITMQ_URI"] = []byte(rabbitmqURL.String())
 	data["ETOS_RABBITMQ_STREAM_NAME"] = etos.Data["ETOS_RABBITMQ_STREAM_NAME"]
 

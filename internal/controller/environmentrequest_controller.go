@@ -44,6 +44,7 @@ import (
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"github.com/eiffel-community/etos/internal/controller/status"
+	healthmetrics "github.com/eiffel-community/etos/internal/metrics"
 )
 
 const environmentRequestKind = "EnvironmentRequest"
@@ -51,7 +52,8 @@ const environmentRequestKind = "EnvironmentRequest"
 // EnvironmentRequestReconciler reconciles a EnvironmentRequest object
 type EnvironmentRequestReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme      *runtime.Scheme
+	Transitions *healthmetrics.Transitions
 }
 
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests,verbs=get;list;watch;create;update;patch;delete
@@ -192,7 +194,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			}) {
 			environmentRequestCondition := meta.FindStatusCondition(environmentrequest.Status.Conditions, status.StatusReady)
 			environmentrequest.Status.CompletionTime = &environmentRequestCondition.LastTransitionTime
-			return r.Status().Update(ctx, environmentrequest)
+			return r.updateTerminalStatus(ctx, environmentrequest, jobs.StatusFailed)
 		}
 	case jobs.StatusSuccessful:
 		result := jobManager.Result(ctx, "environment-provider", "iut-provider", "execution-space-provider", "log-area-provider")
@@ -216,7 +218,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			environmentRequestCondition := meta.FindStatusCondition(environmentrequest.Status.Conditions, status.StatusReady)
 			environmentrequest.Status.CompletionTime = &environmentRequestCondition.LastTransitionTime
 			// Update status only; job deletion is deferred to the next reconcile.
-			return r.Status().Update(ctx, environmentrequest)
+			return r.updateTerminalStatus(ctx, environmentrequest, jobStatus)
 		}
 	case jobs.StatusActive:
 		if meta.SetStatusCondition(conditions,
@@ -232,6 +234,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 		if !environmentrequest.GetDeletionTimestamp().IsZero() {
 			return nil
 		}
+
 		// Already created a Job; the cache has not caught up yet.
 		if isStatusReason(*conditions, status.StatusReady, status.ReasonStarting) {
 			logger.Info("Environment provider job already created, requeuing")
@@ -266,6 +269,74 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 		}
 	}
 	return nil
+}
+
+// updateTerminalStatus persists a terminal EnvironmentRequest status and records only an observed provider Job result.
+func (r *EnvironmentRequestReconciler) updateTerminalStatus(
+	ctx context.Context,
+	environmentrequest *etosv1alpha1.EnvironmentRequest,
+	jobStatus jobs.Status,
+) error {
+	completedAt := r.environmentProviderJobCompletionTime(ctx, environmentrequest, jobStatus)
+	if err := r.Status().Update(ctx, environmentrequest); err != nil {
+		return err
+	}
+	if r.Transitions == nil {
+		return nil
+	}
+
+	outcome := healthmetrics.OutcomeFailure
+	if isStatusReason(environmentrequest.Status.Conditions, status.StatusReady, status.ReasonCompleted) {
+		outcome = healthmetrics.OutcomeSuccess
+	}
+	// The API status write and metric update are not atomic. A crash in between can lose one observation, so the
+	// metric is emitted only after persistence and a terminal request is not replayed as a duplicate after restart.
+	r.Transitions.RecordEnvironmentRequestFinished(
+		healthmetrics.ResolveCluster(ctx, r.Client, environmentrequest, "EnvironmentRequest"),
+		outcome,
+		environmentrequest.CreationTimestamp.Time,
+		completedAt,
+	)
+	return nil
+}
+
+// environmentProviderJobCompletionTime returns the real terminal time from an owned Job when that time is recorded.
+func (r *EnvironmentRequestReconciler) environmentProviderJobCompletionTime(
+	ctx context.Context,
+	environmentrequest *etosv1alpha1.EnvironmentRequest,
+	jobStatus jobs.Status,
+) time.Time {
+	var jobList batchv1.JobList
+	if err := r.List(
+		ctx,
+		&jobList,
+		client.InNamespace(environmentrequest.Namespace),
+		client.MatchingFields{EnvironmentRequestOwnerKey: environmentrequest.Name},
+	); err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to read terminal environment provider Job time")
+		return time.Time{}
+	}
+
+	var latest time.Time
+	for _, job := range jobList.Items {
+		switch jobStatus {
+		case jobs.StatusSuccessful:
+			// Job.Status.CompletionTime is set by Kubernetes for successfully completed Jobs.
+			if job.Status.CompletionTime != nil && job.Status.CompletionTime.After(latest) {
+				latest = job.Status.CompletionTime.Time
+			}
+		case jobs.StatusFailed:
+			for _, condition := range job.Status.Conditions {
+				// LastTransitionTime is the documented timestamp for a Job condition transition.
+				if condition.Type == batchv1.JobFailed &&
+					condition.Status == corev1.ConditionTrue &&
+					condition.LastTransitionTime.After(latest) {
+					latest = condition.LastTransitionTime.Time
+				}
+			}
+		}
+	}
+	return latest
 }
 
 // cleanupUnused deletes IUTs, LogAreas and ExecutionSpaces without Environments i.e. dangling resources.

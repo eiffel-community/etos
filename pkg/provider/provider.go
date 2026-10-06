@@ -37,11 +37,14 @@ import (
 	"github.com/eiffel-community/etos/pkg/opentelemetry/semconv"
 	"github.com/go-logr/logr"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -55,6 +58,8 @@ var (
 
 	nonAlphanumerics = regexp.MustCompile(`[^a-z0-9]+`)
 )
+
+const unassignedCluster = "unassigned"
 
 type AmountFunc func(context.Context, *v1alpha1.EnvironmentRequest) (int, error)
 
@@ -183,6 +188,17 @@ func run(provider Provider, params Parameters) error {
 	}
 
 	clientRef := fmt.Sprintf("%s-%s", params.providerName, environmentRequest.Spec.ID)
+	cluster := providerCluster(environmentRequest)
+	member, memberErr := baggage.NewMemberRaw("etos_cluster", cluster)
+	if memberErr != nil {
+		return reportStartupFailure(logger, memberErr)
+	}
+	ownership, ownershipErr := baggage.FromContext(ctx).SetMember(member)
+	if ownershipErr != nil {
+		return reportStartupFailure(logger, ownershipErr)
+	}
+	ctx = baggage.ContextWithBaggage(ctx, ownership)
+	span.SetAttributes(attribute.String("etos_cluster", cluster))
 	eventPublisher, err := publisher.NewPublisher(ctx,
 		environmentRequest.Spec.Config.EtosMessageBus,
 		cli,
@@ -303,10 +319,14 @@ func runProvider(
 	provider Provider,
 	params Parameters,
 	environmentRequest *v1alpha1.EnvironmentRequest,
-) error {
+) (err error) {
 	if params.releaseEnvironment {
 		return runReleaser(ctx, provider, params, environmentRequest)
 	}
+	started := time.Now()
+	defer func() {
+		recordProvisioningCompletion(ctx, params.providerType, environmentRequest, started, time.Now(), err)
+	}()
 	ctx, span := params.tracer.Start(
 		ctx, "runProvider", trace.WithSpanKind(trace.SpanKindInternal),
 	)
@@ -340,6 +360,64 @@ func runProvider(
 	}
 	span.SetStatus(codes.Ok, "resource provisioned successfully")
 	return nil
+}
+
+// recordProvisioningCompletion emits one provider-attempt observation for retained log-based metrics.
+func recordProvisioningCompletion(
+	ctx context.Context,
+	providerType string,
+	request *v1alpha1.EnvironmentRequest,
+	started, completed time.Time,
+	err error,
+) {
+	logger := logging.FromContextOrDiscard(ctx).WithValues("disableUserLog", true)
+	outcome := "success"
+	if err != nil {
+		outcome = "failure"
+	}
+	values := []any{
+		"etos_cluster", completionCluster(ctx),
+		"event", "etos.provider.completed",
+		"operation", "provision",
+		"outcome", outcome,
+		"providerType", providerType,
+		"duration_seconds", completed.Sub(started).Seconds(),
+	}
+	if providerType == "Environment" && err == nil {
+		created := request.CreationTimestamp.Time
+		if created.IsZero() || completed.Before(created) {
+			logger.Error(
+				errors.New("invalid EnvironmentRequest creation timestamp"),
+				"Cannot measure request-to-environment-ready duration",
+			)
+		} else {
+			values = append(values, "request_to_ready_seconds", completed.Sub(created).Seconds())
+		}
+	}
+	logger.Info("Provider provisioning completed", values...)
+}
+
+func completionCluster(ctx context.Context) string {
+	identity := baggage.FromContext(ctx).Member("etos_cluster").Value()
+	return qualifiedCluster(identity)
+}
+
+func providerCluster(request *v1alpha1.EnvironmentRequest) string {
+	cluster := request.Labels["etos.eiffel-community.github.io/cluster"]
+	if request.Namespace == "" || cluster == "" {
+		return unassignedCluster
+	}
+	return qualifiedCluster(request.Namespace + "/" + cluster)
+}
+
+func qualifiedCluster(identity string) string {
+	parts := strings.Split(identity, "/")
+	if len(parts) == 2 &&
+		len(validation.IsDNS1123Label(parts[0])) == 0 &&
+		len(validation.IsDNS1123Subdomain(parts[1])) == 0 {
+		return identity
+	}
+	return unassignedCluster
 }
 
 // runReleaser runs the provision.Release function

@@ -22,22 +22,36 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/pkg/messaging/events"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/amqp"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/ha"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/message"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/stream"
+	"go.opentelemetry.io/otel/baggage"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 const (
+	unassignedCluster   = "unassigned"
 	ConfirmationTimeout = 2 * time.Second
+	publishOperation    = "publish"
+
+	publishOutcomeAccepted           = "accepted"
+	publishOutcomeClosed             = "closed"
+	publishOutcomeSerializationError = "serialization_error"
+	publishOutcomeQueued             = "queued"
+	publishOutcomeSendError          = "send_error"
+	publishOutcomeConfirmed          = "confirmed"
+	publishOutcomeUnconfirmed        = "unconfirmed"
 
 	// connectInitialInterval is the wait before the first reconnect attempt when
 	// establishing the initial RabbitMQ stream connection.
@@ -54,8 +68,27 @@ const (
 	connectTimeout = 2 * time.Minute
 )
 
+var (
+	publishAttempts = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "etos_message_publish_attempts_total",
+			Help: "ETOS RabbitMQ message publish lifecycle outcomes.",
+		},
+		[]string{"operation", "outcome", "etos_cluster"},
+	)
+	publishDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "etos_message_publish_duration_seconds",
+			Help: "ETOS RabbitMQ message publish lifecycle duration.",
+		},
+		[]string{"operation", "outcome", "etos_cluster"},
+	)
+	registerPublishMetrics sync.Once
+)
+
 type PublisherClosedError struct{}
 
+// Error describes an attempt to publish through a closed publisher.
 func (e *PublisherClosedError) Error() string {
 	return "Publisher is closed"
 }
@@ -63,6 +96,7 @@ func (e *PublisherClosedError) Error() string {
 // RabbitMQStreamPublisher is a structure implementing the Publisher interface. Used to publish events
 // to a RabbitMQ stream.
 type rabbitMQStreamPublisher struct {
+	clusterIdentity     string
 	logger              logr.Logger
 	streamName          string
 	environmentOptions  *stream.EnvironmentOptions
@@ -114,6 +148,7 @@ func NewRabbitMQStreamPublisher(
 		SetClientProvidedName(name).
 		SetConfirmationTimeOut(ConfirmationTimeout)
 	publisher := &rabbitMQStreamPublisher{
+		clusterIdentity:    publisherCluster(ctx),
 		logger:             logr.Discard(),
 		streamName:         config.StreamName,
 		environmentOptions: environmentOptions,
@@ -185,6 +220,7 @@ func (s *rabbitMQStreamPublisher) establish() error {
 
 // Start will start the RabbitMQ stream publisher, non blocking.
 func (s *rabbitMQStreamPublisher) Start() error {
+	registerRabbitMQPublishMetrics()
 	s.unConfirmedMessages = make(chan message.StreamMessage)
 	s.options.SetFilter(stream.NewProducerFilter(func(message message.StreamMessage) string {
 		p := message.GetApplicationProperties()
@@ -198,8 +234,10 @@ func (s *rabbitMQStreamPublisher) Start() error {
 			go func() {
 				for _, msgStatus := range messageStatus {
 					if msgStatus.IsConfirmed() {
+						s.recordPublishTelemetry(publishOutcomeConfirmed, time.Now())
 						s.unConfirmed.Done()
 					} else {
+						s.recordPublishTelemetry(publishOutcomeUnconfirmed, time.Now())
 						s.logger.Error(msgStatus.GetError(), "Unconfirmed message")
 						s.unConfirmedMessages <- msgStatus.GetMessage()
 					}
@@ -215,6 +253,7 @@ func (s *rabbitMQStreamPublisher) Start() error {
 	return nil
 }
 
+// AddLogger configures the publisher logger without emitting user-facing logs.
 func (s *rabbitMQStreamPublisher) AddLogger(logger logr.Logger) {
 	logger = logger.WithValues("disableUserLog", true)
 	s.logger = logger
@@ -222,13 +261,17 @@ func (s *rabbitMQStreamPublisher) AddLogger(logger logr.Logger) {
 
 // Publish an event to the RabbitMQ stream.
 func (s *rabbitMQStreamPublisher) Publish(identifier string, e events.Event) error {
+	registerRabbitMQPublishMetrics()
+	start := time.Now()
 	if s.shutdown || s.producer == nil {
 		err := &PublisherClosedError{}
 		s.logger.Error(err, "Publisher is closed")
+		s.recordPublishTelemetry(publishOutcomeClosed, start)
 		return err
 	}
 	b, err := json.Marshal(e)
 	if err != nil {
+		s.recordPublishTelemetry(publishOutcomeSerializationError, start)
 		return err
 	}
 	s.unConfirmed.Add(1)
@@ -239,6 +282,7 @@ func (s *rabbitMQStreamPublisher) Publish(identifier string, e events.Event) err
 		"meta":       e.EventMeta(),
 	}
 	s.unConfirmedMessages <- msg
+	s.recordPublishTelemetry(publishOutcomeAccepted, start)
 	return nil
 }
 
@@ -247,7 +291,11 @@ func (s *rabbitMQStreamPublisher) publish(done chan struct{}) {
 	for {
 		select {
 		case msg := <-s.unConfirmedMessages:
+			queuedAt := time.Now()
+			s.recordPublishTelemetry(publishOutcomeQueued, queuedAt)
+			sendStarted := time.Now()
 			if err := s.producer.Send(msg); err != nil {
+				s.recordPublishTelemetry(publishOutcomeSendError, sendStarted)
 				s.logger.Error(err, "Failed to send message")
 				s.unConfirmed.Done()
 				continue
@@ -255,6 +303,57 @@ func (s *rabbitMQStreamPublisher) publish(done chan struct{}) {
 		case <-done:
 			return
 		}
+	}
+}
+
+// registerRabbitMQPublishMetrics registers publisher instruments once per process.
+func registerRabbitMQPublishMetrics() {
+	registerPublishMetrics.Do(func() {
+		ctrlmetrics.Registry.MustRegister(publishAttempts)
+		ctrlmetrics.Registry.MustRegister(publishDuration)
+	})
+}
+
+// recordPublishTelemetry records duration and count for a bounded publish outcome.
+func recordPublishTelemetry(outcome string, started time.Time, cluster ...string) {
+	if !isPublishOutcome(outcome) {
+		return
+	}
+	identity := unassignedCluster
+	if len(cluster) == 1 && cluster[0] != "" {
+		identity = cluster[0]
+	}
+	publishAttempts.WithLabelValues(publishOperation, outcome, identity).Inc()
+	publishDuration.WithLabelValues(publishOperation, outcome, identity).Observe(time.Since(started).Seconds())
+}
+
+// publisherCluster captures explicit propagated ownership, not a RabbitMQ/service name.
+func publisherCluster(ctx context.Context) string {
+	identity := baggage.FromContext(ctx).Member("etos_cluster").Value()
+	parts := strings.Split(identity, "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+		return identity
+	}
+	return unassignedCluster
+}
+
+func (s *rabbitMQStreamPublisher) recordPublishTelemetry(outcome string, started time.Time) {
+	recordPublishTelemetry(outcome, started, s.clusterIdentity)
+}
+
+// isPublishOutcome reports whether an outcome belongs to the bounded metric vocabulary.
+func isPublishOutcome(outcome string) bool {
+	switch outcome {
+	case publishOutcomeAccepted,
+		publishOutcomeClosed,
+		publishOutcomeSerializationError,
+		publishOutcomeQueued,
+		publishOutcomeSendError,
+		publishOutcomeConfirmed,
+		publishOutcomeUnconfirmed:
+		return true
+	default:
+		return false
 	}
 }
 

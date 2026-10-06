@@ -33,8 +33,11 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -47,6 +50,7 @@ import (
 	"github.com/eiffel-community/etos/internal/config"
 	"github.com/eiffel-community/etos/internal/controller"
 	"github.com/eiffel-community/etos/internal/messaging"
+	healthmetrics "github.com/eiffel-community/etos/internal/metrics"
 	webhookv1alpha1 "github.com/eiffel-community/etos/internal/webhook/v1alpha1"
 	webhookv1alpha2 "github.com/eiffel-community/etos/internal/webhook/v1alpha2"
 	"github.com/eiffel-community/etos/pkg/opentelemetry"
@@ -58,6 +62,7 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+// init registers the Kubernetes and ETOS API types used by the manager.
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
@@ -67,6 +72,8 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
+// main configures and starts the ETOS controller manager.
+//
 // nolint:gocyclo
 func main() {
 	var metricsAddr string
@@ -169,8 +176,12 @@ func main() {
 		metricsServerOptions.KeyName = metricsCertKey
 	}
 
+	transitionMetrics := healthmetrics.NewTransitions()
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
+		Scheme: scheme,
+		Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
+			&etosv1alpha1.Cluster{}: {Transform: transitionMetrics.ClusterTransform},
+		}},
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
@@ -229,6 +240,10 @@ func main() {
 		setupLog.Error(err, "Failed to start OpenTelemetry tracer")
 		os.Exit(1)
 	}
+	if err := transitionMetrics.RegisterPrometheus(ctrlmetrics.Registry); err != nil {
+		setupLog.Error(err, "Failed to register transition metrics")
+		os.Exit(1)
+	}
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -244,13 +259,26 @@ func main() {
 	}()
 
 	if err = (&controller.TestRunReconciler{
-		Client:     mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
-		Clock:      &clock.RealClock{},
-		Tracer:     otel.Tracer("testrun-controller"),
-		Publishers: publisherPool,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Clock:       &clock.RealClock{},
+		Tracer:      otel.Tracer("testrun-controller"),
+		Publishers:  publisherPool,
+		Transitions: transitionMetrics,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "TestRun")
+		os.Exit(1)
+	}
+	inventoryCollector := &healthmetrics.Collector{
+		Reader: mgr.GetCache(),
+		Scope:  "cluster",
+	}
+	if err := inventoryCollector.Register(ctrlmetrics.Registry); err != nil {
+		setupLog.Error(err, "Failed to register inventory collector")
+		os.Exit(1)
+	}
+	if err := mgr.Add(inventoryCollector); err != nil {
+		setupLog.Error(err, "Failed to add inventory collector")
 		os.Exit(1)
 	}
 	if err := (&controller.ProviderReconciler{
@@ -276,8 +304,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err := (&controller.EnvironmentRequestReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Transitions: transitionMetrics,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "EnvironmentRequest")
 		os.Exit(1)
