@@ -18,6 +18,7 @@ package controller
 import (
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
+	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -63,6 +64,15 @@ func isStatusReason(conditions []metav1.Condition, conditionType, reason string)
 	if condition := meta.FindStatusCondition(conditions, conditionType); condition == nil {
 		return false
 	} else if condition.Reason == reason {
+		return true
+	}
+	return false
+}
+
+// setInconclusiveVerdictIfUnset gives terminal failures an explicit verdict.
+func setInconclusiveVerdictIfUnset(testrun *etosv1alpha1.TestRun) bool {
+	if testrun.Status.Verdict == "" || testrun.Status.Verdict == string(jobs.VerdictNone) {
+		testrun.Status.Verdict = string(jobs.VerdictInconclusive)
 		return true
 	}
 	return false
