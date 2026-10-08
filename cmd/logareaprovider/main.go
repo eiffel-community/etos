@@ -19,6 +19,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 
 	"github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/pkg/logging"
@@ -29,6 +31,17 @@ import (
 )
 
 type genericLogAreaProvider struct{}
+
+// resolveLiveLogsURL replaces the TestRun identifier placeholder in a live-logs URL.
+func resolveLiveLogsURL(liveLogs, testRunID string) (string, error) {
+	if !strings.Contains(liveLogs, "$testrunid") {
+		return liveLogs, nil
+	}
+	if testRunID == "" {
+		return "", errors.New("cannot resolve $testrunid without an EnvironmentRequest identifier")
+	}
+	return strings.ReplaceAll(liveLogs, "$testrunid", url.PathEscape(testRunID)), nil
+}
 
 // main creates a new LogArea resource based on data in an EnvironmentRequest.
 func main() {
@@ -86,8 +99,18 @@ func (p *genericLogAreaProvider) createLogAreas(
 		return err
 	}
 
+	liveLogsURL, err := resolveLiveLogsURL(
+		logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs,
+		cfg.EnvironmentRequest.Spec.Identifier,
+	)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to resolve live-logs URL")
+		return fmt.Errorf("resolve live-logs URL: %w", err)
+	}
+
 	span.SetAttributes(
-		semconv.ETOSLogAreaProviderLiveLogs(logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs),
+		semconv.ETOSLogAreaProviderLiveLogs(liveLogsURL),
 		semconv.ETOSLogAreaProviderLogAreaUploadURL(logAreaProvider.Spec.LogAreaProviderConfig.Upload.URL),
 	)
 
@@ -95,7 +118,7 @@ func (p *genericLogAreaProvider) createLogAreas(
 		logger.Info("Creating a generic LogArea")
 		logger.V(1).Info(fmt.Sprintf("Logs will be uploaded to %s", logAreaProvider.Spec.LogAreaProviderConfig.Upload.URL))
 		logarea, err := provider.NewLogArea(ctx, cfg.EnvironmentRequest, cfg.Namespace, "", v1alpha2.LogAreaSpec{
-			LiveLogs: logAreaProvider.Spec.LogAreaProviderConfig.LiveLogs,
+			LiveLogs: liveLogsURL,
 			Logs:     map[string]string{},
 			Upload:   logAreaProvider.Spec.LogAreaProviderConfig.Upload,
 		})
