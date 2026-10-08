@@ -26,6 +26,7 @@ from etos_client.sse.v2alpha.client import SSEClient
 
 LOG = {"message": "hello", "name": "etos", "@timestamp": "2026-09-30T10:00:00Z", "level": "info"}
 RESULT = {"conclusion": "Successful", "verdict": "Passed", "description": "done"}
+# pylint: disable=protected-access
 
 
 def message(event_id: int) -> str:
