@@ -368,8 +368,10 @@ func (r *ETOSSSEDeployment) rolebinding(name types.NamespacedName, clusterName s
 
 // deployment creates a deployment resource definition for the ETOS SSE service.
 func (r *ETOSSSEDeployment) deployment(name types.NamespacedName, secretName, clusterName string) *appsv1.Deployment {
+	meta := r.meta(name, clusterName)
+	config.SetVersionLabel(&meta, config.ImageOrDefault(r.cfg.SSE, r.Image))
 	return &appsv1.Deployment{
-		ObjectMeta: r.meta(name, clusterName),
+		ObjectMeta: meta,
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -379,7 +381,7 @@ func (r *ETOSSSEDeployment) deployment(name types.NamespacedName, secretName, cl
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name, clusterName),
+				ObjectMeta: *meta.DeepCopy(),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
 					Containers:         []corev1.Container{r.container(name, secretName)},
