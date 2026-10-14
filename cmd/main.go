@@ -224,7 +224,7 @@ func main() {
 
 	ctx := ctrl.SetupSignalHandler()
 	ctx = logr.NewContext(ctx, setupLog)
-	otelTracer := opentelemetry.New("controller", "etos")
+	otelTracer := opentelemetry.New("etos-controller-manager", "etos")
 	if err := otelTracer.Start(ctx); err != nil {
 		setupLog.Error(err, "Failed to start OpenTelemetry tracer")
 		os.Exit(1)
