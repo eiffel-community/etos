@@ -18,6 +18,7 @@
 import argparse
 import logging
 import os
+import re
 import subprocess
 import sys
 from contextlib import contextmanager
@@ -35,13 +36,23 @@ MAX_LOG_LEVEL = logging.WARNING
 REPO_PATH = Path(__file__).parent.parent
 
 
+def controller_image(value: str) -> str:
+    """Validate an image passed to the make deployment target."""
+    last = value.rsplit("/", 1)[-1]
+    if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/:@-]*", value)
+            or (":" not in last and "@sha256:" not in value)
+            or last.endswith(":latest")):
+        raise argparse.ArgumentTypeError("Controller image requires an explicit non-latest tag or digest")
+    return value
+
+
 def setup_logging(loglevel: int):
     """Setup logging for the client."""
     logformat = "%(asctime)s %(levelname)s: %(message)s"
     logging.basicConfig(stream=sys.stdout, level=loglevel, format=logformat)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv=None) -> argparse.Namespace:
     """Parse input arguments."""
     parser = argparse.ArgumentParser(description="ETOS local bootstrap")
     parser.add_argument(
@@ -72,7 +83,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-v", "--verbose", action="count", default=0, help="Enable more verbose output"
     )
-    return parser.parse_args()
+    parser.add_argument("--controller-image", type=controller_image,
+                        help="Deploy an existing controller image without building or loading it")
+    parser.add_argument("--skip-provider-builds", action="store_true",
+                        help="Use checked-in provider images without building, loading or rewriting them")
+    return parser.parse_args(argv)
 
 
 def loglevel(level: int) -> int:
@@ -187,7 +202,9 @@ def run(args: argparse.Namespace):
     store["cluster_namespace"] = "etos-test"
     store["cluster_name"] = "cluster-sample"
     store["kind_cluster_name"] = kind_cluster_name()
-    store["project_image"] = "example.com/etos:v0.0.1"
+    store["project_image"] = args.controller_image or "example.com/etos:v0.0.1"
+    store["controller_image"] = args.controller_image
+    store["skip_provider_builds"] = args.skip_provider_builds
 
     store["iut_provider_image"] = "example.com/iutprovider"
     store["iut_provider_version"] = "v0.0.1"

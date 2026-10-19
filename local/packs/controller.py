@@ -42,27 +42,24 @@ class Controller(BasePack):
         """Commands for generating a new ETOS controller deployment"""
         kubectl = Kubectl()
         make = Make()
+        providers = []
+        if not self.local_store["skip_provider_builds"].get():
+            for provider in ("iut_provider", "execution_space_provider",
+                             "log_area_provider", "environment_provider"):
+                providers.extend(Provider(provider).deploy(
+                    self.local_store[f"{provider}_image"],
+                    self.local_store[f"{provider}_version"],
+                    self.local_store["kind_cluster_name"],
+                ))
+        controller_image = []
+        if not self.local_store["controller_image"].get():
+            controller_image = [
+                make.docker_build(self.local_store["project_image"]),
+                Shell(["kind", "load", "docker-image", self.local_store["project_image"],
+                       "--name", self.local_store["kind_cluster_name"]]),
+            ]
         return [
-            *Provider("iut_provider").deploy(
-                self.local_store["iut_provider_image"],
-                self.local_store["iut_provider_version"],
-                self.local_store["kind_cluster_name"],
-            ),
-            *Provider("execution_space_provider").deploy(
-                self.local_store["execution_space_provider_image"],
-                self.local_store["execution_space_provider_version"],
-                self.local_store["kind_cluster_name"],
-            ),
-            *Provider("log_area_provider").deploy(
-                self.local_store["log_area_provider_image"],
-                self.local_store["log_area_provider_version"],
-                self.local_store["kind_cluster_name"],
-            ),
-            *Provider("environment_provider").deploy(
-                self.local_store["environment_provider_image"],
-                self.local_store["environment_provider_version"],
-                self.local_store["kind_cluster_name"],
-            ),
+            *providers,
             kubectl.create(Resource(type="namespace", names=self.local_store["namespace"])),
             kubectl.label(
                 Resource(type="namespace", names=self.local_store["namespace"]),
@@ -70,17 +67,7 @@ class Controller(BasePack):
             ),
             kubectl.create(Resource(type="namespace", names=self.local_store["cluster_namespace"])),
             make.install(),
-            make.docker_build(self.local_store["project_image"]),
-            Shell(
-                [
-                    "kind",
-                    "load",
-                    "docker-image",
-                    self.local_store["project_image"],
-                    "--name",
-                    self.local_store["kind_cluster_name"],
-                ]
-            ),
+            *controller_image,
             make.deploy(self.local_store["project_image"]),
             *self.__wait_for_control_plane(kubectl),
             *self.__wait_for_webhook_certificates(kubectl),
