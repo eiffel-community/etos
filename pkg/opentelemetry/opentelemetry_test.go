@@ -19,6 +19,13 @@ package opentelemetry
 import (
 	"context"
 	"testing"
+  "fmt"
+	"net"
+	"sync/atomic"
+	"time"
+
+	metricsv1 "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
+	"google.golang.org/grpc"
 )
 
 // TestNewProviderResourceIdentity verifies provider resource identity attributes.
@@ -80,5 +87,53 @@ func TestNewProviderResourceIdentity(t *testing.T) {
 				t.Errorf("etos.cluster.name unexpectedly set to %q", attributes["etos.cluster.name"])
 			}
 		})
+  }
+}
+
+// metricsCollector records whether resource metrics were exported.
+type metricsCollector struct {
+	metricsv1.UnimplementedMetricsServiceServer
+	exported atomic.Bool
+}
+
+// Export records whether the collector received resource metrics.
+func (c *metricsCollector) Export(
+	_ context.Context,
+	request *metricsv1.ExportMetricsServiceRequest,
+) (*metricsv1.ExportMetricsServiceResponse, error) {
+	if len(request.ResourceMetrics) > 0 {
+		c.exported.Store(true)
+	}
+	return &metricsv1.ExportMetricsServiceResponse{}, nil
+}
+
+// TestRuntimeMetricsAreFlushedOnShutdown verifies shutdown flushes runtime metrics.
+func TestRuntimeMetricsAreFlushedOnShutdown(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	collector := &metricsCollector{}
+	server := grpc.NewServer()
+	metricsv1.RegisterMetricsServiceServer(server, collector)
+	go func() {
+		_ = server.Serve(listener)
+	}()
+	defer server.Stop()
+
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", fmt.Sprintf("http://%s", listener.Addr()))
+	t.Setenv("OTEL_EXPORTER_OTLP_INSECURE", "true")
+	tracer := New("provider-test", "etos")
+	if err := tracer.StartWithRuntimeMetrics(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := tracer.Shutdown(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !collector.exported.Load() {
+		t.Fatal("runtime metrics were not exported during shutdown")
 	}
 }

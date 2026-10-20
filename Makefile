@@ -109,6 +109,18 @@ deploy-local: manifests generate
 	}
 	python -m local.main -r -i -v up
 
+.PHONY: observability-up
+observability-up: ## Deploy the local Prometheus, Grafana, Loki, Tempo, and OpenTelemetry stack.
+	@kubectl apply --server-side -f https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.77.1/bundle.yaml
+	@kubectl wait --for=condition=Established crd/prometheuses.monitoring.coreos.com --timeout=120s
+	@kubectl apply -f local/observability
+	@kubectl rollout restart deployment/otel-collector deployment/grafana -n monitoring
+
+.PHONY: observability-down
+observability-down: ## Remove the local observability stack.
+	@kubectl delete -f local/observability --ignore-not-found
+	@kubectl delete -f https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.77.1/bundle.yaml --ignore-not-found
+
 .PHONY: undeploy-local
 undeploy-local: manifests generate
 	@command -v $(KIND) >/dev/null 2>&1 || { \
@@ -223,6 +235,7 @@ $(strip $(1))-docker:
     $(EXTRA_DOCKER_ARGS) \
     -f Dockerfile.provider \
     --build-arg PROVIDER=$(strip $(1)) \
+    --build-arg BUILD_REVISION=$(shell git rev-parse --short HEAD) \
     -t ${IMG}
 endef
 

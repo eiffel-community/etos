@@ -6,11 +6,15 @@ metadata:
     control-plane: controller-manager
     app.kubernetes.io/name: etos
     app.kubernetes.io/managed-by: kustomize
+    # Selected by the local Prometheus serviceMonitorSelector.
+    etos-observability: "true"
   name: controller-manager-metrics-monitor
   namespace: system
 spec:
   endpoints:
     - path: /metrics
+      # Keep scrape delay plus the 15s inventory interval within its 30s freshness window.
+      interval: 10s
       port: https # Ensure this is the name of the port that exposes HTTPS metrics
       scheme: https
       bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
