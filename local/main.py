@@ -37,7 +37,7 @@ REPO_PATH = Path(__file__).parent.parent
 
 
 def controller_image(value: str) -> str:
-    """Validate an image passed to the make deployment target."""
+    """Validate an image name passed to the make deployment target."""
     last = value.rsplit("/", 1)[-1]
     if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/:@-]*", value)
             or (":" not in last and "@sha256:" not in value)
