@@ -178,12 +178,13 @@ func (t *ETOSTracer) newOtelResource(ctx context.Context) (*resource.Resource, e
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to get hostname for OpenTelemetry resource"))
 	}
-	attributes := []attribute.KeyValue{
+	attributes := make([]attribute.KeyValue, 0, 4+len(t.attributes))
+	attributes = append(attributes,
 		semconv.ServiceNameKey.String(t.Name),
 		semconv.ServiceNamespaceKey.String(t.namespace),
 		semconv.ServiceInstanceIDKey.String(hostname),
 		semconv.ServiceVersionKey.String(vcsRevision()),
-	}
+	)
 	attributes = append(attributes, t.attributes...)
 	return resource.New(ctx,
 		resource.WithAttributes(attributes...),
