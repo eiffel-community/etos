@@ -50,8 +50,6 @@ func TestRuntimeMetricsAreFlushedOnShutdown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer listener.Close()
-
 	collector := &metricsCollector{}
 	server := grpc.NewServer()
 	metricsv1.RegisterMetricsServiceServer(server, collector)
