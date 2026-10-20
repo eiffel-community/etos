@@ -223,6 +223,7 @@ $(strip $(1))-docker:
     $(EXTRA_DOCKER_ARGS) \
     -f Dockerfile.provider \
     --build-arg PROVIDER=$(strip $(1)) \
+    --build-arg BUILD_REVISION=$(shell git rev-parse --short HEAD) \
     -t ${IMG}
 endef
 
