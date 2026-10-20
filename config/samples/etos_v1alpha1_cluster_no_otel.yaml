@@ -1,0 +1,16 @@
+apiVersion: etos.eiffel-community.github.io/v1alpha1
+kind: Cluster
+metadata:
+  labels:
+    app.kubernetes.io/name: etos
+    app.kubernetes.io/managed-by: kustomize
+  name: cluster-sample-no-otel
+  namespace: etos-test
+spec:
+  openTelemetry:
+    enabled: false
+  etos:
+    config:
+      encryptionKey:
+        value: "ZmgcW2Qz43KNJfIuF0vYCoPneViMVyObH4GR8R9JE4g="
+      routingKeyTag: cluster-sample-no-otel-etos

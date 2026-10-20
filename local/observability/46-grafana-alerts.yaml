@@ -1,0 +1,104 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: etos-health-provisional
+  namespace: monitoring
+  labels:
+    etos-observability: "true"
+spec:
+  groups:
+    - name: etos.health.provisional
+      interval: 30s
+      rules:
+        - record: etos_inventory_leader_ready
+          expr: ((min(etos_inventory_snapshot_ready{scope="manager"} and on(job, instance) (up == 1) and on(job, instance, scope) (time() - etos_inventory_snapshot_last_success_timestamp_seconds{scope="manager"} <= 30)) == bool 1) and on() (count(etos_inventory_snapshot_ready{scope="manager"}) == 1)) or on() vector(0)
+        - alert: ETOSInventoryUnknown
+          expr: absent(etos_inventory_leader_ready) or etos_inventory_leader_ready == 0
+          for: 5m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS inventory is unknown
+            description: Manager-wide, not ETOS-cluster scoped. No single scraped manager leader has a fresh complete inventory snapshot. Check leader election, the leader scrape target, cache list failures and the last-success timestamp; occupancy panels must not be interpreted as zero.
+        - alert: ETOSInventoryCollectionFailed
+          expr: increase(etos_inventory_collection_failures_total{scope="manager"}[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS inventory collection failed
+            description: Manager-wide, not ETOS-cluster scoped. At least one manager-cache inventory snapshot failed in the last five minutes.
+        - alert: ETOSAPI5xxObserved
+          expr: sum by (etos_cluster) (rate(etos_api_requests_total{status_class="5xx",etos_cluster!=""}[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS API server errors observed
+            description: The API for ETOS cluster {{ $labels.etos_cluster }} emitted one or more 5xx responses during the evaluation window. Unlabeled legacy telemetry is not attributed to a cluster.
+        - alert: ETOSCollectorSelfMetricsUnknown
+          expr: absent(up{job="otel-collector",endpoint="int-metrics"}) or up{job="otel-collector",endpoint="int-metrics"} == 0
+          for: 5m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS collector integrity metrics are unavailable
+            description: Shared pipeline, not ETOS-cluster scoped. Collector accepted/exported point counters cannot be evaluated; downstream telemetry must be treated as Unknown.
+        - alert: ETOSCollectorSpanExportFailure
+          expr: increase(otelcol_exporter_send_failed_spans_total[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS collector span export failures observed
+            description: Shared pipeline, not ETOS-cluster scoped. One or more spans failed to export from the collector; do not interpret missing downstream traces as zero.
+        - alert: ETOSCollectorQueueBacklog
+          expr: max(otelcol_exporter_queue_size) > 0
+          for: 10m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS collector exporter queue is non-empty
+            description: Shared pipeline, not ETOS-cluster scoped. Telemetry is queued at the collector for an extended interval; downstream freshness may be degraded.
+        - alert: ETOSSSETargetUnknown
+          expr: absent(up{job=~".+-etos-sse"}) or min(up{job=~".+-etos-sse"}) == 0
+          for: 5m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS SSE telemetry target is unavailable
+            description: Shared scrape infrastructure across SSE targets, not selected ETOS-cluster health. SSE connection and delivery health cannot be evaluated; do not interpret absent event series as zero.
+        - alert: ETOSMessagePublishFailure
+          expr: sum by (etos_cluster) (rate(etos_message_publish_attempts_total{outcome!~"accepted|queued|confirmed",etos_cluster!=""}[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS message publish failures observed
+            description: Failed bounded message-publish attempts were observed for ETOS cluster {{ $labels.etos_cluster }}; broker delivery is not inferred from successful API admission. Unlabeled legacy telemetry is not attributed to a cluster.
+        - alert: ETOSSuiteOperationFailure
+          expr: sum by (etos_cluster) (rate(etos_api_suite_operations_total{outcome!="success",etos_cluster!=""}[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS suite operation failures observed
+            description: Suite download or validation failures were observed for ETOS cluster {{ $labels.etos_cluster }}; affected URLs and suite identifiers are intentionally excluded. Unlabeled legacy telemetry is not attributed to a cluster.
+        - alert: ETOSTestRunOverdue
+          expr: max by (etos_cluster) (etos_inventory_testrun_overdue{scope="cluster",etos_cluster!=""}) > 0 and on() (min(etos_inventory_leader_ready) == 1)
+          for: 10m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS TestRuns are past their deadline
+            description: Fresh inventory for ETOS cluster {{ $labels.etos_cluster }} contains unfinished TestRuns past spec.deadline for ten minutes. Readiness is manager-wide. This provisional non-paging warning has no approved baseline or owner; inspect TestRun Detail and retained resource status.
