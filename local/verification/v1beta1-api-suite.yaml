@@ -1,0 +1,13 @@
+name: etos-api-v1beta1-verification
+schemaVersion: v1beta1
+suites:
+  - priority: 1
+    testExecutions:
+      - id: c2c93da1-53c7-42f2-881c-60a579e57630
+        testCase:
+          id: etos-api/verification
+          version: main
+        execution:
+          command: exit 0
+        environment:
+          testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
