@@ -1,6 +1,6 @@
 # Isolated OpenTelemetry Collector used only by the e2e suite. It accepts OTLP gRPC for traces,
-# metrics and logs and prints every received item with the debug exporter at "detailed" verbosity, so
-# the suite verifies exported data (kubectl logs) instead of scraping a manager endpoint.
+# metrics and logs. Metrics use compact debug output so repeated exports do not rotate away
+# the detailed traces and logs before the suite verifies them through kubectl logs.
 # The image is pinned; bump it deliberately.
 apiVersion: v1
 kind: ConfigMap
@@ -17,6 +17,8 @@ data:
     exporters:
       debug:
         verbosity: detailed
+      debug/metrics:
+        verbosity: normal
     service:
       telemetry:
         metrics:
@@ -27,7 +29,7 @@ data:
           exporters: [debug]
         metrics:
           receivers: [otlp]
-          exporters: [debug]
+          exporters: [debug/metrics]
         logs:
           receivers: [otlp]
           exporters: [debug]
@@ -56,7 +58,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: collector
-          image: otel/opentelemetry-collector-contrib:0.125.0
+          image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.160.0
           args: ["--config=/conf/config.yaml"]
           ports:
             - name: otlp-grpc

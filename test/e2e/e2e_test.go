@@ -98,6 +98,12 @@ var _ = Describe("Manager", Ordered, func() {
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the OTLP Collector fixture")
 
+		By("waiting for the OTLP Collector to be available")
+		cmd = exec.Command("kubectl", "rollout", "status",
+			"deployment/"+collectorDeployment, "-n", namespace, "--timeout=180s")
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "OTLP Collector did not become available")
+
 		By("deploying the controller-manager")
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", managerImage))
 		_, err = utils.Run(cmd)
@@ -111,12 +117,6 @@ var _ = Describe("Manager", Ordered, func() {
 		)
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to configure OTLP export on the controller-manager")
-
-		By("waiting for the OTLP Collector to be available")
-		cmd = exec.Command("kubectl", "rollout", "status",
-			"deployment/"+collectorDeployment, "-n", namespace, "--timeout=180s")
-		_, err = utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "OTLP Collector did not become available")
 
 		By("waiting for the OTLP-enabled controller-manager rollout to complete")
 		cmd = exec.Command("kubectl", "rollout", "status",
