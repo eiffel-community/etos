@@ -43,14 +43,14 @@ const v1beta1MultiTestrunnerTestRunSample = "config/samples/etos_v1beta1_testrun
 const artifactID = "268dd4db-93da-4232-a544-bf4c0fb26dac"
 const artifactIdentity = "pkg:testrun/etos/eiffel_community"
 
-// serviceAccountName created for the project
-const serviceAccountName = "etos-controller-manager"
+// collectorFixture is the isolated OTLP Collector used to verify exported telemetry.
+const collectorFixture = "test/e2e/otel-collector.yaml"
 
-// metricsServiceName is the name of the metrics service of the project
-const metricsServiceName = "etos-controller-manager-metrics-service"
+// collectorDeployment is the name of the e2e Collector deployment.
+const collectorDeployment = "e2e-otel-collector"
 
-// metricsRoleBindingName is the name of the RBAC that will be created to allow get the metrics data
-const metricsRoleBindingName = "etos-metrics-binding"
+// collectorEndpoint is the in-cluster OTLP gRPC endpoint of the e2e Collector.
+const collectorEndpoint = "http://e2e-otel-collector.etos-system.svc.cluster.local:4317"
 
 var _ = Describe("Manager", Ordered, func() {
 
@@ -93,18 +93,38 @@ var _ = Describe("Manager", Ordered, func() {
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
 
+		By("deploying the isolated OTLP Collector fixture")
+		cmd = exec.Command("kubectl", "apply", "-f", collectorFixture)
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the OTLP Collector fixture")
+
+		By("waiting for the OTLP Collector to be available")
+		cmd = exec.Command("kubectl", "rollout", "status",
+			"deployment/"+collectorDeployment, "-n", namespace, "--timeout=180s")
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "OTLP Collector did not become available")
+
 		By("deploying the controller-manager")
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", managerImage))
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the controller-manager")
 
-		if reuseCluster {
-			By("waiting for controller-manager rollout to complete")
-			cmd = exec.Command("kubectl", "rollout", "status",
-				"deployment/etos-controller-manager", "-n", namespace, "--timeout=120s")
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Controller-manager rollout did not complete")
+		By("pointing the controller-manager at the OTLP Collector fixture")
+		cmd = exec.Command("kubectl", "set", "env", "deployment/etos-controller-manager", "-n", namespace,
+			"OTEL_EXPORTER_OTLP_ENDPOINT="+collectorEndpoint,
+			"OTEL_EXPORTER_OTLP_INSECURE=true",
+			"OTEL_METRIC_EXPORT_INTERVAL=5000",
+		)
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to configure OTLP export on the controller-manager")
 
+		By("waiting for the OTLP-enabled controller-manager rollout to complete")
+		cmd = exec.Command("kubectl", "rollout", "status",
+			"deployment/etos-controller-manager", "-n", namespace, "--timeout=120s")
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Controller-manager rollout did not complete")
+
+		if reuseCluster {
 			By("annotating the cluster to trigger reconciliation")
 			cmd = exec.Command("kubectl", "annotate", "cluster", clusterName,
 				"-n", clusterNamespace,
@@ -122,13 +142,6 @@ var _ = Describe("Manager", Ordered, func() {
 		if reuseCluster {
 			_, _ = fmt.Fprintf(GinkgoWriter, "E2E_REUSE=true: preserving cluster, controller, CRDs and namespaces\n")
 
-			By("cleaning up the curl-metrics pod to allow re-creation")
-			cmd := exec.Command("kubectl", "delete", "pod", "curl-metrics", "-n", namespace, "--ignore-not-found")
-			_, _ = utils.Run(cmd)
-
-			By("removing metrics clusterrolebinding to allow re-creation")
-			cmd = exec.Command("kubectl", "delete", "clusterrolebinding", metricsRoleBindingName, "--ignore-not-found")
-			_, _ = utils.Run(cmd)
 			return
 		}
 
@@ -150,10 +163,6 @@ var _ = Describe("Manager", Ordered, func() {
 
 		By("removing manager namespace")
 		cmd = exec.Command("kubectl", "delete", "ns", namespace)
-		_, _ = utils.Run(cmd)
-
-		By("removing metrics clusterrolebinding")
-		cmd = exec.Command("kubectl", "delete", "clusterrolebinding", metricsRoleBindingName)
 		_, _ = utils.Run(cmd)
 	})
 
@@ -188,13 +197,13 @@ var _ = Describe("Manager", Ordered, func() {
 				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get Kubernetes events from %s: %s", namespace, err)
 			}
 
-			By("Fetching curl-metrics logs")
-			cmd = exec.Command("kubectl", "logs", "curl-metrics", "-n", namespace)
-			metricsOutput, err := utils.Run(cmd)
+			By("Fetching OTLP Collector fixture logs")
+			cmd = exec.Command("kubectl", "logs", "deployment/"+collectorDeployment, "-n", namespace, "--tail=200")
+			collectorOutput, err := utils.Run(cmd)
 			if err == nil {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Metrics logs:\n %s", metricsOutput)
+				_, _ = fmt.Fprintf(GinkgoWriter, "Collector logs:\n %s", collectorOutput)
 			} else {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get curl-metrics logs: %s", err)
+				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get Collector logs: %s", err)
 			}
 
 			By("Fetching controller manager pod description")
@@ -213,5 +222,16 @@ var _ = Describe("Manager", Ordered, func() {
 	DeployVerifyController()
 	DeployVerifyCluster()
 	VerifyETOSTestruns()
+	It("should receive completed provider spans and structured logs", func() {
+		Eventually(func(g Gomega) {
+			cmd := exec.Command("kubectl", "logs", "deployment/"+collectorDeployment, "-n", namespace)
+			output, err := utils.Run(cmd)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(output).To(ContainSubstring("ResourceSpans #"))
+			g.Expect(output).To(ContainSubstring("RunProvider"))
+			g.Expect(output).To(ContainSubstring("etos.provider.completed"))
+			g.Expect(output).To(ContainSubstring("duration_seconds"))
+		}, 3*time.Minute, 2*time.Second).Should(Succeed())
+	})
 	VerifyClusterDefaults()
 })

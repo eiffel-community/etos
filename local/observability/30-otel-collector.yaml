@@ -14,6 +14,13 @@ data:
             endpoint: 0.0.0.0:4318
     processors:
       batch:
+        timeout: 1s
+      transform/metric_labels:
+        error_mode: propagate
+        metric_statements:
+          - context: datapoint
+            statements:
+              - set(attributes["etos_cluster"], resource.attributes["etos_cluster"]) where attributes["etos_cluster"] == nil and resource.attributes["etos_cluster"] != nil
     extensions:
       health_check:
         endpoint: 0.0.0.0:13133
@@ -24,8 +31,10 @@ data:
           insecure: true
       prometheus:
         endpoint: 0.0.0.0:8889
+        send_timestamps: true
+        metric_expiration: 2m
         resource_to_telemetry_conversion:
-          enabled: true
+          enabled: false
       loki:
         endpoint: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
     service:
@@ -45,7 +54,7 @@ data:
           exporters: [otlp/tempo]
         metrics:
           receivers: [otlp]
-          processors: [batch]
+          processors: [transform/metric_labels, batch]
           exporters: [prometheus]
         logs:
           receivers: [otlp]
@@ -134,5 +143,11 @@ spec:
   endpoints:
     - port: metrics
       path: /metrics
+      interval: 15s
+      # The exporter derives job/instance from service namespace/name and instance ID.
+      # Preserve these writer identities rather than replacing them with the Collector target.
+      honorLabels: true
+      honorTimestamps: true
     - port: int-metrics
       path: /metrics
+      interval: 15s
