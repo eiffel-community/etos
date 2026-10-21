@@ -1,0 +1,98 @@
+# Isolated OpenTelemetry Collector used only by the e2e suite. It accepts OTLP gRPC for traces,
+# metrics and logs and prints every received item with the debug exporter at "detailed" verbosity, so
+# the suite verifies exported data (kubectl logs) instead of scraping a manager endpoint.
+# The image is pinned; bump it deliberately.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: e2e-otel-collector
+  namespace: etos-system
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+    exporters:
+      debug:
+        verbosity: detailed
+    service:
+      telemetry:
+        metrics:
+          level: none
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [debug]
+        metrics:
+          receivers: [otlp]
+          exporters: [debug]
+        logs:
+          receivers: [otlp]
+          exporters: [debug]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: e2e-otel-collector
+  namespace: etos-system
+  labels:
+    app.kubernetes.io/name: e2e-otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: e2e-otel-collector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: e2e-otel-collector
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: collector
+          image: otel/opentelemetry-collector-contrib:0.125.0
+          args: ["--config=/conf/config.yaml"]
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+          readinessProbe:
+            tcpSocket:
+              port: 4317
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          volumeMounts:
+            - name: config
+              mountPath: /conf
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: e2e-otel-collector
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: e2e-otel-collector
+  namespace: etos-system
+spec:
+  selector:
+    app.kubernetes.io/name: e2e-otel-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc

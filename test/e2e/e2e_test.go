@@ -43,6 +43,15 @@ const v1beta1MultiTestrunnerTestRunSample = "config/samples/etos_v1beta1_testrun
 const artifactID = "268dd4db-93da-4232-a544-bf4c0fb26dac"
 const artifactIdentity = "pkg:testrun/etos/eiffel_community"
 
+// collectorFixture is the isolated OTLP Collector used to verify exported telemetry.
+const collectorFixture = "test/e2e/otel-collector.yaml"
+
+// collectorDeployment is the name of the e2e Collector deployment.
+const collectorDeployment = "e2e-otel-collector"
+
+// collectorEndpoint is the in-cluster OTLP gRPC endpoint of the e2e Collector.
+const collectorEndpoint = "http://e2e-otel-collector.etos-system.svc.cluster.local:4317"
+
 var _ = Describe("Manager", Ordered, func() {
 
 	// Before running the tests, set up the environment by creating the namespace,
@@ -84,18 +93,38 @@ var _ = Describe("Manager", Ordered, func() {
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
 
+		By("deploying the isolated OTLP Collector fixture")
+		cmd = exec.Command("kubectl", "apply", "-f", collectorFixture)
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the OTLP Collector fixture")
+
 		By("deploying the controller-manager")
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", managerImage))
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the controller-manager")
 
-		if reuseCluster {
-			By("waiting for controller-manager rollout to complete")
-			cmd = exec.Command("kubectl", "rollout", "status",
-				"deployment/etos-controller-manager", "-n", namespace, "--timeout=120s")
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Controller-manager rollout did not complete")
+		By("pointing the controller-manager at the OTLP Collector fixture")
+		cmd = exec.Command("kubectl", "set", "env", "deployment/etos-controller-manager", "-n", namespace,
+			"OTEL_EXPORTER_OTLP_ENDPOINT="+collectorEndpoint,
+			"OTEL_EXPORTER_OTLP_INSECURE=true",
+			"OTEL_METRIC_EXPORT_INTERVAL=5000",
+		)
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to configure OTLP export on the controller-manager")
 
+		By("waiting for the OTLP Collector to be available")
+		cmd = exec.Command("kubectl", "rollout", "status",
+			"deployment/"+collectorDeployment, "-n", namespace, "--timeout=180s")
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "OTLP Collector did not become available")
+
+		By("waiting for the OTLP-enabled controller-manager rollout to complete")
+		cmd = exec.Command("kubectl", "rollout", "status",
+			"deployment/etos-controller-manager", "-n", namespace, "--timeout=120s")
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Controller-manager rollout did not complete")
+
+		if reuseCluster {
 			By("annotating the cluster to trigger reconciliation")
 			cmd = exec.Command("kubectl", "annotate", "cluster", clusterName,
 				"-n", clusterNamespace,
@@ -168,6 +197,15 @@ var _ = Describe("Manager", Ordered, func() {
 				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get Kubernetes events from %s: %s", namespace, err)
 			}
 
+			By("Fetching OTLP Collector fixture logs")
+			cmd = exec.Command("kubectl", "logs", "deployment/"+collectorDeployment, "-n", namespace, "--tail=200")
+			collectorOutput, err := utils.Run(cmd)
+			if err == nil {
+				_, _ = fmt.Fprintf(GinkgoWriter, "Collector logs:\n %s", collectorOutput)
+			} else {
+				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get Collector logs: %s", err)
+			}
+
 			By("Fetching controller manager pod description")
 			cmd = exec.Command("kubectl", "describe", "pod", controllerPodName, "-n", namespace)
 			podDescription, err := utils.Run(cmd)
@@ -184,5 +222,16 @@ var _ = Describe("Manager", Ordered, func() {
 	DeployVerifyController()
 	DeployVerifyCluster()
 	VerifyETOSTestruns()
+	It("should receive completed provider spans and structured logs", func() {
+		Eventually(func(g Gomega) {
+			cmd := exec.Command("kubectl", "logs", "deployment/"+collectorDeployment, "-n", namespace)
+			output, err := utils.Run(cmd)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(output).To(ContainSubstring("ResourceSpans #"))
+			g.Expect(output).To(ContainSubstring("RunProvider"))
+			g.Expect(output).To(ContainSubstring("etos.provider.completed"))
+			g.Expect(output).To(ContainSubstring("duration_seconds"))
+		}, 3*time.Minute, 2*time.Second).Should(Succeed())
+	})
 	VerifyClusterDefaults()
 })

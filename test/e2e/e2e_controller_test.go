@@ -131,13 +131,44 @@ func DeployVerifyController() {
 			// +kubebuilder:scaffold:e2e-metrics-webhooks-readiness
 		})
 
-		It("should not install a Prometheus metrics service", func() {
+		It("should export telemetry over OTLP to the Collector fixture", func() {
+			// The manager no longer serves a scrape endpoint; data is verified as received by the Collector.
+			collectorLogs := func() (string, error) {
+				cmd := exec.Command("kubectl", "logs", "deployment/"+collectorDeployment, "-n", namespace)
+				return utils.Run(cmd)
+			}
+
 			By("verifying that no metrics service is installed")
 			cmd := exec.Command("kubectl", "get", "service", "etos-controller-manager-metrics-service",
 				"-n", namespace, "--ignore-not-found", "-o", "name")
 			output, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(output).To(BeEmpty(), "The scrape metrics service must not be installed")
+
+			By("verifying that native ETOS metrics were received over OTLP")
+			Eventually(func(g Gomega) {
+				output, err := collectorLogs()
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(output).To(ContainSubstring("ResourceMetrics #"))
+				g.Expect(output).To(ContainSubstring("etos_inventory_snapshot_ready"))
+				g.Expect(output).To(ContainSubstring("etos_testrun_finished_total"))
+			}, 3*time.Minute, 2*time.Second).Should(Succeed())
+
+			By("verifying that bridged framework metrics were received over OTLP")
+			Eventually(func(g Gomega) {
+				output, err := collectorLogs()
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(output).To(ContainSubstring("controller_runtime_"))
+			}, 3*time.Minute, 2*time.Second).Should(Succeed())
+
+			By("verifying that manager logs were received over OTLP")
+			Eventually(func(g Gomega) {
+				output, err := collectorLogs()
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(output).To(ContainSubstring("ResourceLog #"))
+				g.Expect(output).To(ContainSubstring("etos-controller-manager"))
+				g.Expect(output).To(ContainSubstring("Starting manager"))
+			}, 3*time.Minute, 2*time.Second).Should(Succeed())
 		})
 
 		It("should provisioned cert-manager", func() {

@@ -21,6 +21,6 @@ from .etos import Etos
 from .prometheus import Prometheus  # noqa: F401
 from .verify import Verify
 
-# Prometheus is no longer a default pack: the controller is not scraped.
+# Prometheus is no longer a default pack: the controller exports OTLP and is not scraped.
 # The Prometheus pack remains importable for optional, explicit use.
 PACKS = [CertManager, Controller, Etos, Verify]
