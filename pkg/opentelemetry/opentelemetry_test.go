@@ -18,10 +18,10 @@ package opentelemetry
 
 import (
 	"context"
-	"testing"
-  "fmt"
+	"fmt"
 	"net"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	metricsv1 "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
@@ -87,7 +87,7 @@ func TestNewProviderResourceIdentity(t *testing.T) {
 				t.Errorf("etos.cluster.name unexpectedly set to %q", attributes["etos.cluster.name"])
 			}
 		})
-  }
+	}
 }
 
 // metricsCollector records whether resource metrics were exported.
