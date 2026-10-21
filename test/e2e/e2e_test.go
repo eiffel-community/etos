@@ -43,15 +43,6 @@ const v1beta1MultiTestrunnerTestRunSample = "config/samples/etos_v1beta1_testrun
 const artifactID = "268dd4db-93da-4232-a544-bf4c0fb26dac"
 const artifactIdentity = "pkg:testrun/etos/eiffel_community"
 
-// serviceAccountName created for the project
-const serviceAccountName = "etos-controller-manager"
-
-// metricsServiceName is the name of the metrics service of the project
-const metricsServiceName = "etos-controller-manager-metrics-service"
-
-// metricsRoleBindingName is the name of the RBAC that will be created to allow get the metrics data
-const metricsRoleBindingName = "etos-metrics-binding"
-
 var _ = Describe("Manager", Ordered, func() {
 
 	// Before running the tests, set up the environment by creating the namespace,
@@ -122,13 +113,6 @@ var _ = Describe("Manager", Ordered, func() {
 		if reuseCluster {
 			_, _ = fmt.Fprintf(GinkgoWriter, "E2E_REUSE=true: preserving cluster, controller, CRDs and namespaces\n")
 
-			By("cleaning up the curl-metrics pod to allow re-creation")
-			cmd := exec.Command("kubectl", "delete", "pod", "curl-metrics", "-n", namespace, "--ignore-not-found")
-			_, _ = utils.Run(cmd)
-
-			By("removing metrics clusterrolebinding to allow re-creation")
-			cmd = exec.Command("kubectl", "delete", "clusterrolebinding", metricsRoleBindingName, "--ignore-not-found")
-			_, _ = utils.Run(cmd)
 			return
 		}
 
@@ -150,10 +134,6 @@ var _ = Describe("Manager", Ordered, func() {
 
 		By("removing manager namespace")
 		cmd = exec.Command("kubectl", "delete", "ns", namespace)
-		_, _ = utils.Run(cmd)
-
-		By("removing metrics clusterrolebinding")
-		cmd = exec.Command("kubectl", "delete", "clusterrolebinding", metricsRoleBindingName)
 		_, _ = utils.Run(cmd)
 	})
 
@@ -186,15 +166,6 @@ var _ = Describe("Manager", Ordered, func() {
 				_, _ = fmt.Fprintf(GinkgoWriter, "Kubernetes events in %s:\n%s", namespace, eventsOutput)
 			} else {
 				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get Kubernetes events from %s: %s", namespace, err)
-			}
-
-			By("Fetching curl-metrics logs")
-			cmd = exec.Command("kubectl", "logs", "curl-metrics", "-n", namespace)
-			metricsOutput, err := utils.Run(cmd)
-			if err == nil {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Metrics logs:\n %s", metricsOutput)
-			} else {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get curl-metrics logs: %s", err)
 			}
 
 			By("Fetching controller manager pod description")

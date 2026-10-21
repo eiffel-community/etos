@@ -34,6 +34,15 @@ Please see the [documentation](./docs/index.md) for more information, tutorials 
 - Separation of concerns between testers, test automation engineers and system engineers.
 - Eiffel protocol implementation.
 
+## Breaking change: the Prometheus scrape endpoint is removed
+
+The manager no longer serves `/metrics`. The `--metrics-bind-address`, `--metrics-secure` and
+`--metrics-cert-*` flags, the metrics Service, ServiceMonitor, metrics certificate, metrics RBAC
+(`metrics-auth`, `metrics-reader`) and metrics NetworkPolicy are gone. Custom overlays that reference
+`../prometheus`, `metrics_service.yaml` or the metrics patches must drop them. A Prometheus Operator is no
+longer required by ETOS. Webhooks, cert-manager TLS and probes are unchanged. To roll back,
+redeploy the previously released manifests.
+
 ## Support
 
 If you need help, please get in contact with us.
