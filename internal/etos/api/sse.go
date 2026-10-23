@@ -324,6 +324,11 @@ func (r *ETOSSSEDeployment) role(name types.NamespacedName, labelName, clusterNa
 		ObjectMeta: meta,
 		Rules: []rbacv1.PolicyRule{
 			{
+				APIGroups: []string{"etos.eiffel-community.github.io"},
+				Resources: []string{"testruns"},
+				Verbs:     []string{"list"},
+			},
+			{
 				APIGroups: []string{
 					"batch",
 				},
