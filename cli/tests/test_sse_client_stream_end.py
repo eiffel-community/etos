@@ -258,17 +258,23 @@ def test_v2alpha_stops_on_non_retryable_error(sse_server, caplog):
     assert "failed to start consuming stream" in caplog.text
 
 
-def test_v2alpha_ignores_error_without_retry_data(sse_server):
-    """An error event without the expected data does not change how the stream is handled."""
+def test_v2alpha_retries_error_without_retry_data(sse_server, caplog):
+    """An error event without retry data is retried by default."""
     server = sse_server(
         _Response(
             _event("message", V2ALPHA_MESSAGE, 1),
             _event("error", "not json"),
-            _event("error", {"retry": False}),
-            _event("shutdown", V2ALPHA_SHUTDOWN, 2),
+            hold=True,
+        ),
+        _Response(
+            _event("message", V2ALPHA_MESSAGE, 2),
+            _event("shutdown", V2ALPHA_SHUTDOWN, 3),
         ),
     )
-    events = _consume(SSEV2AlphaClient(server.url, []))
+    with caplog.at_level(logging.WARNING):
+        events = _consume(SSEV2AlphaClient(server.url, []))
 
-    assert [event.event for event in events] == ["message", "shutdown"]
-    assert len(server.requests) == 1
+    assert not server.release.is_set()
+    assert [event.event for event in events] == ["message", "message", "shutdown"]
+    assert [request["last_event_id"] for request in server.requests] == [None, "1"]
+    assert "not json" in caplog.text
