@@ -253,7 +253,7 @@ class SSEClient:
 
         The server sends error events with a JSON object holding a boolean 'retry' and a
         'reason'. Raise Reconnect if the client shall reconnect and StreamFailed if it shall
-        not. Error events without that data are only passed on to the caller.
+        not. Error events without that data are ignored.
         """
         if (
             not isinstance(event.data, dict)
