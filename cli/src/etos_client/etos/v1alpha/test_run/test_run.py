@@ -84,7 +84,7 @@ class TestRun:
 
     def stream(self, sse_client: SSEClient, stream_id: str, end_time: float) -> Shutdown:
         """Stream SSE."""
-        for event in sse_client.event_stream(stream_id):
+        for event in sse_client.event_stream(stream_id, end_time):
             if time.time() >= end_time:
                 raise TimeoutError("Timed out!")
             if isinstance(event, Shutdown):

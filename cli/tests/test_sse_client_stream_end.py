@@ -19,9 +19,11 @@ import json
 import logging
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Callable
 
 import pytest
 
+from etos_client.sse.v2alpha import client as sse_client
 from etos_client.sse.v2alpha.client import SSEClient as SSEV2AlphaClient
 
 # Long enough for a client to reconnect, short enough to fail a hanging test quickly.
@@ -190,6 +192,32 @@ def test_v2alpha_reconnects_when_stream_ends_cleanly(sse_server):
     assert [event.id for event in events] == [1, 2, 3]
     assert events[-1].event == "shutdown"
     assert [request["last_event_id"] for request in server.requests] == [None, "1"]
+
+
+def test_v2alpha_times_out_after_empty_stream_before_reconnecting(
+    sse_server: Callable[..., _FakeSSEServer], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The v2alpha client honors the deadline when a stream ends without events."""
+    server = sse_server(_Response())
+    clock: list[float] = [0.0]
+
+    class _Clock:
+        """A controllable clock for the reconnect loop."""
+
+        def time(self) -> float:
+            """Return the current simulated time."""
+            return clock[0]
+
+        def sleep(self, seconds: float) -> None:
+            """Advance the simulated time."""
+            clock[0] += seconds
+
+    monkeypatch.setattr(sse_client, "time", _Clock())
+
+    with pytest.raises(TimeoutError, match="Timed out!"):
+        list(SSEV2AlphaClient(server.url, []).event_stream("run1", end_time=0.5))
+
+    assert len(server.requests) == 1
 
 
 def test_v2alpha_reconnects_on_retryable_error(sse_server, caplog):

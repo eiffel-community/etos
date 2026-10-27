@@ -300,10 +300,12 @@ class SSEClient:
             return False
         return True
 
-    def event_stream(self, stream_id: str) -> Iterable[Event]:
+    def event_stream(self, stream_id: str, end_time: Optional[float] = None) -> Iterable[Event]:
         """Follow the ETOS SSE event stream."""
         stream = []
         while not self.__shutdown:
+            if end_time is not None and time.time() >= end_time:
+                raise TimeoutError("Timed out!")
             while self.__connected is False:
                 stream = self.__connect(stream_id, is_initial_connection=not bool(stream))
                 time.sleep(1)
