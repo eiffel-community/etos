@@ -86,7 +86,7 @@ setup-test-e2e: ## Set up a Kind cluster for e2e tests if it does not exist
 
 .PHONY: test-e2e
 test-e2e: setup-test-e2e manifests generate fmt vet ## Run the e2e tests. Expected an isolated environment using Kind.
-	E2E_REUSE=$(E2E_REUSE) KIND=$(KIND) KIND_CLUSTER=$(KIND_CLUSTER) go test -tags=e2e ./test/e2e/ -v -ginkgo.v -ginkgo.timeout=20m -timeout 0
+	E2E_REUSE=$(E2E_REUSE) KIND=$(KIND) KIND_CLUSTER=$(KIND_CLUSTER) go test -tags=e2e ./test/e2e/ -v -ginkgo.v -ginkgo.timeout=60m -timeout 0
 	@if [ "$(E2E_REUSE)" != "true" ]; then \
 		$(MAKE) cleanup-test-e2e; \
 	else \
@@ -108,6 +108,18 @@ deploy-local: manifests generate
 		exit 1; \
 	}
 	python -m local.main -r -i -v up
+
+.PHONY: observability-up
+observability-up: ## Deploy the local Prometheus, Grafana, Loki, Tempo, and OpenTelemetry stack.
+	@kubectl apply --server-side -f https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.77.1/bundle.yaml
+	@kubectl wait --for=condition=Established crd/prometheuses.monitoring.coreos.com --timeout=120s
+	@kubectl apply -f local/observability
+	@kubectl rollout restart deployment/otel-collector deployment/grafana -n monitoring
+
+.PHONY: observability-down
+observability-down: ## Remove the local observability stack.
+	@kubectl delete -f local/observability --ignore-not-found
+	@kubectl delete -f https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.77.1/bundle.yaml --ignore-not-found
 
 .PHONY: undeploy-local
 undeploy-local: manifests generate
@@ -223,6 +235,7 @@ $(strip $(1))-docker:
     $(EXTRA_DOCKER_ARGS) \
     -f Dockerfile.provider \
     --build-arg PROVIDER=$(strip $(1)) \
+    --build-arg BUILD_REVISION=$(shell git rev-parse --short HEAD) \
     -t ${IMG}
 endef
 

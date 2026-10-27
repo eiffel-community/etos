@@ -34,7 +34,7 @@ The `identifier` is the testrun ID, the `tercc` value returned in the response w
 
 ### Resuming a stream
 
-If the connection drops, reconnect and send the `id` of the last event you received in the `Last-Event-ID` HTTP header. The server then replays every event after that id so that none are missed:
+If the connection drops, or the server closes the stream before the `shutdown` event, reconnect and send the `id` of the last event you received in the `Last-Event-ID` HTTP header. The server then replays every event after that id so that none are missed:
 
 ```bash
 curl -N \
@@ -42,18 +42,22 @@ curl -N \
   'https://etos-api-instance/sse/v2alpha/events/{identifier}'
 ```
 
+A client may receive an event more than once around a reconnect. Drop every event with an `id` that is not greater than the last `id` you received.
+
+If the events after `Last-Event-ID` are no longer stored by ETOS, for instance because they have expired, the server sends a non-retryable `error` event and closes the stream. The client cannot receive all events of the testrun and must not reconnect. The server sends the same error if the event stream is empty. A `Last-Event-ID` that is ahead of the last event in a non-empty stream cannot be detected, and the server then waits for new events after that id; only send ids received from the server.
+
 ## Event format
 
 Each event is sent as a standard SSE block with an `id`, an `event` type and a JSON `data` payload:
 
 ```
-id: 1
+id: 4711
 event: message
 data: {"message": "Starting testrun", "name": "etos", "level": "info", "@timestamp": "2026-08-31T10:00:00Z"}
 
 ```
 
-The `id` is a monotonically increasing integer used for resuming a stream. The `event` field is one of the types below.
+The `id` is the position of the event in the ETOS event stream plus one, and is used for resuming a stream. Ids are strictly increasing but not contiguous: the stream contains events for all testruns and events removed by a filter, so gaps between ids are expected and do not mean that events were lost. Treat the `id` as opaque and do not expect consecutive ids. The `event` field is one of the types below.
 
 ## Events
 
@@ -63,8 +67,8 @@ The events are split into events meant for the client to act on (server events) 
 
 | Event | Data | Description |
 | --- | --- | --- |
-| `ping` | none | Sent every 15 seconds to keep the connection alive. |
-| `error` | none | The server encountered an error. The client should reconnect. |
+| `ping` | none | Sent every 15 seconds to keep the connection alive. If the server has passed events that were not sent to the client, the ping has an `id` that the client should store as its last event id, so that a reconnect does not have to scan those events again. |
+| `error` | `{"retry": bool, "reason": string}` | The server encountered an error. If `retry` is `true`, the client should reconnect with `Last-Event-ID`. If `retry` is `false`, the client must not reconnect; this happens, for instance, when the events after `Last-Event-ID` have expired. |
 
 ### User events
 

@@ -197,6 +197,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				Reason:  status.ReasonTimedOut,
 				Message: fmt.Sprintf("Testrun deadline of %s exceeded", convertedDeadline),
 			}) {
+				setInconclusiveVerdictIfUnset(testrun)
 				now := metav1.Now()
 				testrun.Status.CompletionTime = &now
 				if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
@@ -206,6 +207,9 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				})); err != nil {
 					logger.Error(err, "Failed to publish shutdown event after testrun deadline exceeded")
 				}
+				return ctrl.Result{}, r.Status().Update(ctx, testrun)
+			}
+			if setInconclusiveVerdictIfUnset(testrun) {
 				return ctrl.Result{}, r.Status().Update(ctx, testrun)
 			}
 			return ctrl.Result{}, nil
@@ -283,12 +287,14 @@ func (r *TestRunReconciler) reconcile(
 ) error {
 	// Check providers availability
 	if err := checkProviders(ctx, r, testrun.Namespace, testrun.Spec.Providers); err != nil {
-		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{
+		conditionChanged := meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{
 			Type:    status.StatusActive,
 			Status:  metav1.ConditionFalse,
 			Reason:  status.ReasonFailed,
 			Message: err.Error(),
-		}) {
+		})
+		verdictChanged := setInconclusiveVerdictIfUnset(testrun)
+		if conditionChanged || verdictChanged {
 			return errors.Join(err, r.Status().Update(ctx, testrun))
 		}
 		return err
@@ -332,7 +338,9 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 			Reason:  status.ReasonPending,
 			Message: "Reconciliation started",
 		})
-		testrun.Status.Verdict = string(jobs.StatusNone)
+		if testrun.Status.Verdict == "" {
+			testrun.Status.Verdict = string(jobs.VerdictNone)
+		}
 		logger.Info("Setting initial status on testrun")
 		return true, r.Status().Update(ctx, testrun)
 	}
@@ -374,19 +382,25 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 
 	if condition != metav1.ConditionUnknown {
 		logger.Info("Setting Active status on testrun", "message", message, "reason", reason, "condition", condition)
-		if meta.SetStatusCondition(&testrun.Status.Conditions,
+		conditionChanged := meta.SetStatusCondition(&testrun.Status.Conditions,
 			metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  condition,
 				Reason:  reason,
 				Message: message,
-			}) {
+			})
+		if conditionChanged {
 			if condition == metav1.ConditionFalse {
 				now := metav1.Now()
 				testrun.Status.CompletionTime = &now
 				// Update status only; job and environment request deletion is deferred to the next reconcile.
 				return true, r.Status().Update(ctx, testrun)
 			}
+			return true, r.Status().Update(ctx, testrun)
+		}
+		if !conditionChanged && condition == metav1.ConditionFalse &&
+			(reason == status.ReasonFailed || reason == status.ReasonTimedOut) &&
+			setInconclusiveVerdictIfUnset(testrun) {
 			return true, r.Status().Update(ctx, testrun)
 		}
 	}
@@ -416,6 +430,9 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 		})); err != nil {
 			logger.Error(err, "Failed to publish shutdown event after suite runner failure")
 		}
+		if setInconclusiveVerdictIfUnset(testrun) {
+			return true, errors.Join(jobManager.Delete(ctx), r.deleteEnvironmentRequests(ctx, testrun), r.Status().Update(ctx, testrun))
+		}
 		return false, errors.Join(jobManager.Delete(ctx), r.deleteEnvironmentRequests(ctx, testrun))
 	}
 	if !isStatusReason(testrun.Status.Conditions, status.StatusEnvironment, status.ReasonCompleted) {
@@ -427,8 +444,8 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 	switch jobStatus {
 	case jobs.StatusFailed:
 		result := jobManager.Result(ctx, testrun.Name)
-		if result.Verdict == "" {
-			result.Verdict = jobs.VerdictNone
+		if result.Verdict == "" || result.Verdict == jobs.VerdictNone {
+			result.Verdict = jobs.VerdictInconclusive
 		}
 		testrun.Status.Verdict = string(result.Verdict)
 		logger.Info("SuiteRunner job failed", "verdict", result.Verdict, "description", result.Description)
@@ -483,7 +500,11 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			return true, r.Status().Update(ctx, testrun)
 		}
 	case jobs.StatusActive:
-		testrun.Status.Verdict = string(jobs.VerdictNone)
+		verdictChanged := false
+		if testrun.Status.Verdict == "" {
+			testrun.Status.Verdict = string(jobs.VerdictNone)
+			verdictChanged = true
+		}
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusSuiteRunner,
@@ -491,6 +512,9 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 				Reason:  status.ReasonActive,
 				Message: "Job is running",
 			}) {
+			return true, r.Status().Update(ctx, testrun)
+		}
+		if verdictChanged {
 			return true, r.Status().Update(ctx, testrun)
 		}
 	default:
@@ -507,13 +531,14 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
 			// causing a nasty reconciliation loop (when the testrun gets updated a new reconciliation starts).
 			// We mitigate this by checking that StatusReason is not already Failed.
-			if !isStatusReason(*conditions, status.StatusSuiteRunner, status.ReasonFailed) && meta.SetStatusCondition(conditions,
+			conditionChanged := !isStatusReason(*conditions, status.StatusSuiteRunner, status.ReasonFailed) && meta.SetStatusCondition(conditions,
 				metav1.Condition{
 					Type:    status.StatusSuiteRunner,
 					Status:  metav1.ConditionFalse,
 					Reason:  status.ReasonFailed,
 					Message: err.Error(),
-				}) {
+				})
+			if conditionChanged {
 				if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
 					Conclusion:  events.ConclusionFailed,
 					Verdict:     events.VerdictInconclusive,
@@ -521,6 +546,10 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 				})); err != nil {
 					logger.Error(err, "Failed to publish shutdown event after suite runner job creation failure")
 				}
+				setInconclusiveVerdictIfUnset(testrun)
+				return true, r.Status().Update(ctx, testrun)
+			}
+			if !conditionChanged && setInconclusiveVerdictIfUnset(testrun) {
 				return true, r.Status().Update(ctx, testrun)
 			}
 			return false, err
@@ -561,6 +590,9 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 		})); err != nil {
 			logger.Error(err, "Failed to publish shutdown event after environment provisioning failure")
 		}
+		if setInconclusiveVerdictIfUnset(testrun) {
+			return true, errors.Join(r.deleteEnvironmentRequests(ctx, testrun), r.Status().Update(ctx, testrun))
+		}
 		return false, r.deleteEnvironmentRequests(ctx, testrun)
 	}
 
@@ -597,6 +629,7 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 					Reason:  status.ReasonFailed,
 					Message: condition.Message,
 				}) {
+				setInconclusiveVerdictIfUnset(testrun)
 				return true, r.Status().Update(ctx, testrun)
 			}
 			if environmentRequest.DeletionTimestamp.IsZero() {

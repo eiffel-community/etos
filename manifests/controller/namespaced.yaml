@@ -132,7 +132,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:e2170dd7
+        image: ghcr.io/eiffel-community/etos-controller:dab35dec
         livenessProbe:
           httpGet:
             path: /healthz
@@ -244,11 +244,13 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: etos
     control-plane: controller-manager
+    etos-observability: 'true'
   name: etos-controller-manager-metrics-monitor
   namespace: etos-system
 spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 10s
     path: /metrics
     port: https
     scheme: https

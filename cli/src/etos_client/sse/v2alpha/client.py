@@ -20,7 +20,7 @@ import time
 from json import JSONDecodeError, loads
 from typing import Callable, Iterable, Optional
 
-from etos_lib.messaging.events import Error, Event, Shutdown, Unknown, parse
+from etos_lib.messaging.events import Error, Event, Ping, Shutdown, Unknown, parse
 from urllib3.exceptions import HTTPError, MaxRetryError, ReadTimeoutError
 from urllib3.poolmanager import PoolManager
 from urllib3.util import Retry, Timeout
@@ -82,20 +82,20 @@ class LogRetry(Retry):
         return new_retry
 
 
-class Desynced(Exception):
-    """The event stream has desynced."""
-
-
 class ServerShutdown(Exception):
     """Server wants the client to shut down."""
 
 
-class Reconnect(Exception):
-    """Server wants the client to reconnect to the event stream."""
+class RetryableServerError(Exception):
+    """The server reported an error and the client should reconnect."""
 
 
-class StreamFailed(Exception):
-    """Server has ended the event stream and the client must not reconnect."""
+class NonRetryableServerError(Exception):
+    """The server reported an error that the client cannot recover from.
+
+    This happens, for instance, when the events after the last received event have expired
+    from the event stream, in which case reconnecting would silently lose events.
+    """
 
 
 class NoResponse(HTTPError):
@@ -212,11 +212,19 @@ class SSEClient:
         self.__connected = False
 
     def __line_buffered(self, chunks: Iterable[bytes]) -> Iterable[bytes]:
-        """Read chunks from a byte feed and split each chunk on line-break."""
+        """Read chunks from a byte feed and yield complete lines.
+
+        A line may be split across chunks, so any trailing incomplete line is
+        buffered until the rest of it arrives.
+        """
+        buffer = b""
         for chunk in chunks:
             if len(chunk) == 0:
                 continue
-            yield from chunk.splitlines(keepends=True)
+            lines = (buffer + chunk).splitlines(keepends=True)
+            # A trailing '\r' may be the first half of a '\r\n' line-break.
+            buffer = b"" if lines[-1].endswith(b"\n") else lines.pop()
+            yield from lines
 
     def __read(self, chunks: Iterable[bytes]) -> Iterable[str]:
         """Read chunks from a byte feed and split them into SSE event blobs."""
@@ -229,42 +237,28 @@ class SSEClient:
                 feed += line
 
     def __stream(self, stream: Iterable[bytes]) -> Iterable[Event]:
-        """Parse a feed of bytes into a feed of events."""
+        """Parse a feed of bytes into a feed of events.
+
+        Event IDs are strictly increasing, but not contiguous, so only events that have
+        already been received are dropped.
+        """
         for event_str in self.__read(stream):
             event = self.__parse_event(event_str)
-            if isinstance(event, Error):
-                self.__handle_error(event)
+            if isinstance(event, Ping):
+                self.__update_progress(event)
                 continue
+            if isinstance(event, Error):
+                self.__raise_server_error(event)
             if event.id is None:
                 yield event
                 continue
             if self.__already_received(event):
                 continue  # Ignore if already received
-            if self.__out_of_sync(event):
-                raise Desynced
             self.last_event_id = event.id
             yield event
             if isinstance(event, Shutdown):
                 raise ServerShutdown
             time.sleep(0.001)
-
-    def __handle_error(self, event: Error) -> None:
-        """Act on an error event from the SSE server.
-
-        The server sends error events with a JSON object holding a boolean 'retry' and a
-        'reason'. Raise Reconnect if the client shall reconnect and StreamFailed if it shall
-        not. Error events without that data are ignored.
-        """
-        if (
-            not isinstance(event.data, dict)
-            or not isinstance(event.data.get("retry"), bool)
-            or not isinstance(event.data.get("reason"), str)
-        ):
-            return
-        reason = event.data["reason"]
-        if event.data["retry"]:
-            raise Reconnect(reason)
-        raise StreamFailed(reason)
 
     def __parse_event(self, feed: str) -> Event:
         """Parse an SSE event string into an ETOS event."""
@@ -290,15 +284,28 @@ class SSEClient:
             return False
         return event.id <= self.last_event_id
 
-    def __out_of_sync(self, event: Event) -> bool:
-        """Check if the eventstream is out of sync."""
-        if self.last_event_id is None:
-            return False
-        if event.id is None:
-            return False
-        if event.id - self.last_event_id == 1:
-            return False
-        return True
+    def __update_progress(self, ping: Ping) -> None:
+        """Update the last event ID from a ping.
+
+        The server sets the ID of a ping to its position in the event stream when it has
+        passed events that were not sent to this client, so that a reconnect does not need to
+        scan them again.
+        """
+        if ping.id is None:
+            return
+        if self.last_event_id is None or ping.id > self.last_event_id:
+            self.last_event_id = ping.id
+
+    def __raise_server_error(self, error: Error) -> None:
+        """Raise an exception for an error event, depending on whether it can be retried."""
+        retry = True
+        reason = error.data
+        if isinstance(error.data, dict):
+            retry = error.data.get("retry", True) is not False
+            reason = error.data.get("reason", error.data)
+        if retry:
+            raise RetryableServerError(reason)
+        raise NonRetryableServerError(reason)
 
     def event_stream(self, stream_id: str, end_time: Optional[float] = None) -> Iterable[Event]:
         """Follow the ETOS SSE event stream."""
@@ -315,20 +322,20 @@ class SSEClient:
                     continue
             try:
                 yield from self.__stream(stream)
-            except (Desynced, JSONDecodeError):
-                self.logger.warning("Desynced event stream. Reconnecting")
+                self.logger.warning("Event stream closed by the SSE server. Reconnecting")
                 self.reset()
+            except JSONDecodeError:
+                self.logger.warning("Could not decode the event stream. Reconnecting")
+                self.reset()
+            except RetryableServerError as error:
+                self.logger.warning("Error from the SSE server: %s. Reconnecting", error)
+                self.reset()
+            except NonRetryableServerError as error:
+                self.logger.error("Error from the SSE server, cannot continue: %s", error)
+                self.close()  # close sets __shutdown to True, exiting the while loop.
             except ServerShutdown:
                 self.logger.info("SSE server has requested a shut down")
                 self.close()  # close sets __shutdown to True, exiting the while loop.
-            except Reconnect as exception:
-                self.logger.warning(
-                    "SSE server requested a reconnect (%s). Reconnecting", exception
-                )
-                self.reset()
-            except StreamFailed as exception:
-                self.logger.error("SSE server ended the event stream: %s", exception)
-                self.close()
             except ReadTimeoutError:
                 self.logger.warning(
                     "No data from the SSE server within %ds (connection likely dead). "

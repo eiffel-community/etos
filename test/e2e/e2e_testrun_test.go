@@ -122,6 +122,15 @@ func VerifyETOSTestruns() {
 			cmd = exec.Command("kubectl", "delete", "testrun", "testrun-sample-multi-suite",
 				"-n", clusterNamespace, "--ignore-not-found")
 			_, _ = utils.Run(cmd)
+			cmd = exec.Command("kubectl", "delete", "testrun", "testrun-sample-v1beta1",
+				"-n", clusterNamespace, "--ignore-not-found")
+			_, _ = utils.Run(cmd)
+			cmd = exec.Command("kubectl", "delete", "testrun", "testrun-sample-v1beta1-multi-suite",
+				"-n", clusterNamespace, "--ignore-not-found")
+			_, _ = utils.Run(cmd)
+			cmd = exec.Command("kubectl", "delete", "testrun", "testrun-sample-v1beta1-multi-testrunner",
+				"-n", clusterNamespace, "--ignore-not-found")
+			_, _ = utils.Run(cmd)
 
 			By("removing finalizers from EnvironmentRequests and Environments")
 			cmd = exec.Command("kubectl", "get", "environmentrequests", "-o", "custom-columns=:metadata.name")
@@ -331,5 +340,54 @@ func VerifyETOSTestruns() {
 			}
 			Eventually(verifyTestRun, "5m").Should(Succeed())
 		})
+
+		It("should be able to execute a v1beta1 testrun", func() {
+			By("creating a testrun")
+			cmd := exec.Command("kubectl", "create", "-n", clusterNamespace, "-f", v1beta1TestRunSample)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create a testrun")
+
+			By("checking the status field of the testrun")
+			Eventually(verifyTestRunPassed("testrun-sample-v1beta1"), "5m").Should(Succeed())
+		})
+
+		It("should be able to execute a v1beta1 multi-suite testrun", func() {
+			By("creating a testrun")
+			cmd := exec.Command("kubectl", "create", "-n", clusterNamespace, "-f", v1beta1MultiSuiteTestRunSample)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create a multi-suite testrun")
+
+			By("waiting for finished")
+			Eventually(verifyTestRunPassed("testrun-sample-v1beta1-multi-suite"), "5m").Should(Succeed())
+		})
+
+		It("should be able to execute a v1beta1 multi-testrunner testrun", func() {
+			By("creating a testrun")
+			cmd := exec.Command("kubectl", "create", "-n", clusterNamespace, "-f", v1beta1MultiTestrunnerTestRunSample)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create a multi-testrunner testrun")
+
+			By("waiting for finished")
+			Eventually(verifyTestRunPassed("testrun-sample-v1beta1-multi-testrunner"), "5m").Should(Succeed())
+		})
 	})
+}
+
+// verifyTestRunPassed returns a function that checks that the named TestRun has passed.
+func verifyTestRunPassed(name string) func(g Gomega) error {
+	return func(g Gomega) error {
+		cmd := exec.Command("kubectl", "get",
+			"testrun", name, "-o", "jsonpath={.status.verdict}",
+			"-n", clusterNamespace)
+		output, err := utils.Run(cmd)
+		g.Expect(err).NotTo(HaveOccurred())
+		switch output {
+		case Failed:
+			return StopTrying("TestRun failed")
+		case Inconclusive:
+			return StopTrying("TestRun became inconclusive")
+		}
+		g.Expect(output).To(Equal("Passed"), "TestRun did not become inactive")
+		return nil
+	}
 }

@@ -23,25 +23,35 @@ import (
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/go-logr/logr"
+	goruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 )
 
+// ETOSTracer configures OpenTelemetry tracing, logging, and optional runtime metrics for an ETOS provider.
 type ETOSTracer struct {
 	enabled        bool
 	collectorHost  string
 	Name           string
 	namespace      string
+	attributes     []attribute.KeyValue
 	tracerProvider *trace.TracerProvider
+	metricProvider *metric.MeterProvider
 	LoggerProvider *log.LoggerProvider
 }
+
+// buildRevision is injected by the linker when building container images.
+var buildRevision string
 
 // New creates a new ETOSTracer with the given name and namespace.
 func New(serviceName, serviceNamespace string) *ETOSTracer {
@@ -54,8 +64,33 @@ func New(serviceName, serviceNamespace string) *ETOSTracer {
 	}
 }
 
+// NewProvider creates a provider tracer with ETOS resource identity attributes.
+func NewProvider(serviceName, providerName, clusterName string) *ETOSTracer {
+	if configuredName := os.Getenv("OTEL_SERVICE_NAME"); configuredName != "" {
+		serviceName = configuredName
+	}
+	tracer := New(serviceName, "etos")
+	tracer.attributes = []attribute.KeyValue{
+		attribute.String("etos.provider.name", providerName),
+	}
+	if clusterName != "" {
+		tracer.attributes = append(tracer.attributes, attribute.String("etos.cluster.name", clusterName))
+	}
+	return tracer
+}
+
 // Start initializes the OpenTelemetry tracer provider and sets it as the global tracer provider.
 func (t *ETOSTracer) Start(ctx context.Context) error {
+	return t.start(ctx, false)
+}
+
+// StartWithRuntimeMetrics initializes OpenTelemetry and reports Go runtime metrics.
+func (t *ETOSTracer) StartWithRuntimeMetrics(ctx context.Context) error {
+	return t.start(ctx, true)
+}
+
+// start initializes OpenTelemetry providers and optionally enables Go runtime metrics.
+func (t *ETOSTracer) start(ctx context.Context, withRuntimeMetrics bool) error {
 	logger := logr.FromContextOrDiscard(ctx)
 	if !t.enabled {
 		logger.Info("OpenTelemetry is not enabled, skipping tracer initialization")
@@ -90,7 +125,38 @@ func (t *ETOSTracer) Start(ctx context.Context) error {
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
-	return t.logger(ctx, res)
+	if err := t.logger(ctx, res); err != nil {
+		return err
+	}
+	if withRuntimeMetrics {
+		if err := t.startRuntimeMetrics(ctx, res); err != nil {
+			return errors.Join(err, t.Shutdown(ctx))
+		}
+	}
+	return nil
+}
+
+// startRuntimeMetrics configures periodic export of Go runtime metrics.
+func (t *ETOSTracer) startRuntimeMetrics(ctx context.Context, res *resource.Resource) error {
+	options := []otlpmetricgrpc.Option{
+		otlpmetricgrpc.WithEndpointURL(t.collectorHost),
+	}
+	if insecure, isSet := os.LookupEnv("OTEL_EXPORTER_OTLP_INSECURE"); isSet && insecure == "true" {
+		options = append(options, otlpmetricgrpc.WithInsecure())
+	}
+	exporter, err := otlpmetricgrpc.New(ctx, options...)
+	if err != nil {
+		return errors.Join(err, errors.New("failed to create OpenTelemetry metric exporter"))
+	}
+	provider := metric.NewMeterProvider(
+		metric.WithResource(res),
+		metric.WithReader(metric.NewPeriodicReader(exporter)),
+	)
+	if err := goruntime.Start(goruntime.WithMeterProvider(provider)); err != nil {
+		return errors.Join(err, provider.Shutdown(ctx))
+	}
+	t.metricProvider = provider
+	return nil
 }
 
 // logger initializes the OpenTelemetry logger provider and sets it as the global logger provider.
@@ -137,10 +203,11 @@ func (t *ETOSTracer) Shutdown(ctx context.Context) error {
 	if !t.enabled {
 		return nil
 	}
-	return errors.Join(
-		t.tracerProvider.Shutdown(ctx),
-		t.LoggerProvider.Shutdown(ctx),
-	)
+	var metricErr error
+	if t.metricProvider != nil {
+		metricErr = t.metricProvider.Shutdown(ctx)
+	}
+	return errors.Join(metricErr, t.tracerProvider.Shutdown(ctx), t.LoggerProvider.Shutdown(ctx))
 }
 
 // opts returns the options for the OpenTelemetry gRPC exporter based on the environment variables.
@@ -161,13 +228,16 @@ func (t *ETOSTracer) newOtelResource(ctx context.Context) (*resource.Resource, e
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to get hostname for OpenTelemetry resource"))
 	}
+	attributes := make([]attribute.KeyValue, 0, 4+len(t.attributes))
+	attributes = append(attributes,
+		semconv.ServiceNameKey.String(t.Name),
+		semconv.ServiceNamespaceKey.String(t.namespace),
+		semconv.ServiceInstanceIDKey.String(hostname),
+		semconv.ServiceVersionKey.String(vcsRevision()),
+	)
+	attributes = append(attributes, t.attributes...)
 	return resource.New(ctx,
-		resource.WithAttributes(
-			semconv.ServiceNameKey.String(t.Name),
-			semconv.ServiceNamespaceKey.String(t.namespace),
-			semconv.ServiceInstanceIDKey.String(hostname),
-			semconv.ServiceVersionKey.String(vcsRevision()),
-		),
+		resource.WithAttributes(attributes...),
 		resource.WithTelemetrySDK(),
 		resource.WithProcess(),
 		resource.WithOS(),
@@ -176,6 +246,9 @@ func (t *ETOSTracer) newOtelResource(ctx context.Context) (*resource.Resource, e
 
 // vcsRevision returns the vcs revision from the build.
 func vcsRevision() string {
+	if buildRevision != "" {
+		return buildRevision
+	}
 	buildInfo, ok := debug.ReadBuildInfo()
 	if !ok {
 		return "(unknown)"

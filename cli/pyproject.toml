@@ -52,7 +52,7 @@ formats = "bdist_wheel"
 exclude = [".tox", "build", "dist", ".eggs", "docs/conf.py"]
 
 [tool.pytest.ini_options]
-addopts = "--cov etos_cleint --cov-report term-missing --verbose"
+addopts = "--cov etos_client --cov-report term-missing --verbose"
 norecursedirs = ["dist", "build", ".tox"]
 testpaths = ["tests"]
 
