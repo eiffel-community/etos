@@ -102,14 +102,14 @@ func (r *ETOSSSEDeployment) Reconcile(ctx context.Context, cluster *etosv1alpha1
 }
 
 // reconcileConfig will reconcile the secret to use as configuration for ETOS SSE.
-func (r *ETOSSSEDeployment) reconcileConfig(ctx context.Context, name types.NamespacedName, owner metav1.Object) (*corev1.Secret, error) {
+func (r *ETOSSSEDeployment) reconcileConfig(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
 	logger := log.FromContext(ctx)
 	name = types.NamespacedName{Name: fmt.Sprintf("%s-cfg", name.Name), Namespace: name.Namespace}
-	target, err := r.config(ctx, name, owner.GetName())
+	target, err := r.config(ctx, name, cluster)
 	if err != nil {
 		return nil, err
 	}
-	if err := ctrl.SetControllerReference(owner, target, r.Scheme); err != nil {
+	if err := ctrl.SetControllerReference(cluster, target, r.Scheme); err != nil {
 		return target, err
 	}
 
@@ -125,7 +125,7 @@ func (r *ETOSSSEDeployment) reconcileConfig(ctx context.Context, name types.Name
 		}
 		return target, nil
 	}
-	if equality.Semantic.DeepDerivative(target.Data, secret.Data) {
+	if equality.Semantic.DeepEqual(target.Data, secret.Data) {
 		return secret, nil
 	}
 	r.restartRequired = true
@@ -258,7 +258,7 @@ func (r *ETOSSSEDeployment) reconcileService(ctx context.Context, name types.Nam
 }
 
 // config creates a new Secret to be used as configuration for the ETOS SSE service.
-func (r *ETOSSSEDeployment) config(ctx context.Context, name types.NamespacedName, clusterName string) (*corev1.Secret, error) {
+func (r *ETOSSSEDeployment) config(ctx context.Context, name types.NamespacedName, cluster *etosv1alpha1.Cluster) (*corev1.Secret, error) {
 	etos := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: r.messagebusSecret, Namespace: name.Namespace}, etos); err != nil {
 		return nil, err
@@ -300,11 +300,17 @@ func (r *ETOSSSEDeployment) config(ctx context.Context, name types.NamespacedNam
 	}
 
 	data := make(map[string][]byte)
+	data["ETOS_CLUSTER"] = []byte(cluster.Name)
+	data["ETOS_NAMESPACE"] = []byte(name.Namespace)
 	data["ETOS_RABBITMQ_URI"] = []byte(rabbitmqURL.String())
 	data["ETOS_RABBITMQ_STREAM_NAME"] = etos.Data["ETOS_RABBITMQ_STREAM_NAME"]
+	if cluster.Spec.OpenTelemetry.Enabled {
+		data["OTEL_EXPORTER_OTLP_ENDPOINT"] = []byte(cluster.Spec.OpenTelemetry.Endpoint)
+		data["OTEL_EXPORTER_OTLP_INSECURE"] = []byte(cluster.Spec.OpenTelemetry.Insecure)
+	}
 
 	return &corev1.Secret{
-		ObjectMeta: r.meta(name, clusterName),
+		ObjectMeta: r.meta(name, cluster.Name),
 		Data:       data,
 	}, nil
 }

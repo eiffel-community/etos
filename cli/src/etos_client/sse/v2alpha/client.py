@@ -307,10 +307,12 @@ class SSEClient:
             raise RetryableServerError(reason)
         raise NonRetryableServerError(reason)
 
-    def event_stream(self, stream_id: str) -> Iterable[Event]:
+    def event_stream(self, stream_id: str, end_time: Optional[float] = None) -> Iterable[Event]:
         """Follow the ETOS SSE event stream."""
         stream = []
         while not self.__shutdown:
+            if end_time is not None and time.time() >= end_time:
+                raise TimeoutError("Timed out!")
             while self.__connected is False:
                 stream = self.__connect(stream_id, is_initial_connection=not bool(stream))
                 time.sleep(1)
@@ -343,5 +345,10 @@ class SSEClient:
                 self.reset()
             except HTTPError:
                 self.logger.debug("HTTP error from the SSE server, reconnecting", exc_info=True)
+                self.reset()
+            else:
+                # The server ended the stream without a shutdown event. Without a reset the
+                # client would keep reading the finished response and never reconnect.
+                self.logger.warning("SSE server ended the event stream. Reconnecting")
                 self.reset()
         self.logger.info("Shutting down SSE client")

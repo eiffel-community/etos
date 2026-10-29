@@ -147,7 +147,7 @@ func run(provider Provider, params Parameters) error {
 		consoleLogger.Error(err, "OpenTelemetry export failed")
 	}))
 
-	tracer := opentelemetry.New(params.providerName, params.providerType)
+	tracer := opentelemetry.NewProvider(params.providerName, params.providerName, os.Getenv("ETOS_CLUSTER_NAME"))
 	if err := tracer.StartWithRuntimeMetrics(ctx); err != nil {
 		return reportStartupFailure(logger, fmt.Errorf("failed to start OpenTelemetry tracer: %w", err))
 	}

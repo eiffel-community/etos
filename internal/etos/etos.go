@@ -448,6 +448,10 @@ func (r *ETOSDeployment) provider(name types.NamespacedName, providerType, image
 		Spec: etosv1alpha1.ProviderSpec{
 			Type:  providerType,
 			Image: image,
+			Env: []corev1.EnvVar{
+				{Name: "OTEL_SERVICE_NAME", Value: fmt.Sprintf("etos-%s-provider", providerType)},
+				{Name: "ETOS_CLUSTER_NAME", Value: clusterName},
+			},
 		},
 	}
 }

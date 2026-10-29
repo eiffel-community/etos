@@ -32,6 +32,7 @@ import (
 	"github.com/go-logr/logr"
 	goruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -50,6 +51,7 @@ type ETOSTracer struct {
 	enabled        bool
 	Name           string
 	namespace      string
+	attributes     []attribute.KeyValue
 	tracerProvider *trace.TracerProvider
 	LoggerProvider *log.LoggerProvider
 	MeterProvider  *sdkmetric.MeterProvider
@@ -82,6 +84,21 @@ func New(serviceName, serviceNamespace string) *ETOSTracer {
 			},
 		},
 	}
+}
+
+// NewProvider creates a provider tracer with ETOS resource identity attributes.
+func NewProvider(serviceName, providerName, clusterName string) *ETOSTracer {
+	if configuredName := os.Getenv("OTEL_SERVICE_NAME"); configuredName != "" {
+		serviceName = configuredName
+	}
+	tracer := New(serviceName, "etos")
+	tracer.attributes = []attribute.KeyValue{
+		attribute.String("etos.provider.name", providerName),
+	}
+	if clusterName != "" {
+		tracer.attributes = append(tracer.attributes, attribute.String("etos.cluster.name", clusterName))
+	}
+	return tracer
 }
 
 // Start initializes all telemetry providers, including optional external metric producers.
@@ -318,13 +335,16 @@ func (t *ETOSTracer) newOtelResource(ctx context.Context) (*resource.Resource, e
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to get hostname for OpenTelemetry resource"))
 	}
+	attributes := make([]attribute.KeyValue, 0, 4+len(t.attributes))
+	attributes = append(attributes,
+		semconv.ServiceNameKey.String(t.Name),
+		semconv.ServiceNamespaceKey.String(t.namespace),
+		semconv.ServiceInstanceIDKey.String(hostname),
+		semconv.ServiceVersionKey.String(vcsRevision()),
+	)
+	attributes = append(attributes, t.attributes...)
 	return resource.New(ctx,
-		resource.WithAttributes(
-			semconv.ServiceNameKey.String(t.Name),
-			semconv.ServiceNamespaceKey.String(t.namespace),
-			semconv.ServiceInstanceIDKey.String(hostname),
-			semconv.ServiceVersionKey.String(vcsRevision()),
-		),
+		resource.WithAttributes(attributes...),
 		resource.WithTelemetrySDK(),
 		resource.WithProcess(),
 		resource.WithOS(),
