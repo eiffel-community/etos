@@ -22,7 +22,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/eiffel-community/etos/api/v1alpha1"
@@ -32,12 +34,26 @@ import (
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/ha"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/message"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/stream"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/baggage"
+	"go.opentelemetry.io/otel/metric"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
+	unassignedCluster   = "unassigned"
 	ConfirmationTimeout = 2 * time.Second
+	publishOperation    = "publish"
+
+	publishOutcomeAccepted           = "accepted"
+	publishOutcomeClosed             = "closed"
+	publishOutcomeSerializationError = "serialization_error"
+	publishOutcomeQueued             = "queued"
+	publishOutcomeSendError          = "send_error"
+	publishOutcomeConfirmed          = "confirmed"
+	publishOutcomeUnconfirmed        = "unconfirmed"
 
 	// connectInitialInterval is the wait before the first reconnect attempt when
 	// establishing the initial RabbitMQ stream connection.
@@ -54,8 +70,43 @@ const (
 	connectTimeout = 2 * time.Minute
 )
 
+type publishRecorder struct {
+	attempts metric.Int64Counter
+	duration metric.Float64Histogram
+}
+
+type streamProducer interface {
+	Send(message.StreamMessage) error
+	Close() error
+}
+
+// pendingMessage makes confirmation/send-error races idempotent for drain accounting.
+// It embeds the unchanged AMQP payload; the stream client returns this same message
+// in confirmations, so no transport-visible field or metric dimension is added.
+type pendingMessage struct {
+	message.StreamMessage
+	finished atomic.Bool
+}
+
+// newPublishRecorder creates RabbitMQ publish lifecycle counter and duration instruments using the supplied meter.
+// It returns an error if either instrument cannot be created.
+func newPublishRecorder(meter metric.Meter) (*publishRecorder, error) {
+	attempts, err := meter.Int64Counter("etos_message_publish_attempts_total", metric.WithUnit("1"),
+		metric.WithDescription("ETOS RabbitMQ message publish lifecycle outcomes."))
+	if err != nil {
+		return nil, err
+	}
+	duration, err := meter.Float64Histogram("etos_message_publish_duration_seconds", metric.WithUnit("s"),
+		metric.WithDescription("ETOS RabbitMQ message publish lifecycle duration."))
+	if err != nil {
+		return nil, err
+	}
+	return &publishRecorder{attempts, duration}, nil
+}
+
 type PublisherClosedError struct{}
 
+// Error describes an attempt to publish through a closed publisher.
 func (e *PublisherClosedError) Error() string {
 	return "Publisher is closed"
 }
@@ -63,16 +114,27 @@ func (e *PublisherClosedError) Error() string {
 // RabbitMQStreamPublisher is a structure implementing the Publisher interface. Used to publish events
 // to a RabbitMQ stream.
 type rabbitMQStreamPublisher struct {
+	clusterIdentity     string
 	logger              logr.Logger
 	streamName          string
 	environmentOptions  *stream.EnvironmentOptions
 	environment         *stream.Environment
 	options             *stream.ProducerOptions
-	producer            *ha.ReliableProducer
+	producer            streamProducer
 	unConfirmedMessages chan message.StreamMessage
-	unConfirmed         *sync.WaitGroup
+	mu                  sync.Mutex
+	pending             int
+	drained             chan struct{}
+	workerDone          chan struct{}
+	callbacks           sync.WaitGroup
+	publishes           sync.WaitGroup
+	closeOnce           sync.Once
+	closeErr            error
+	recorder            *publishRecorder
+	ctx                 context.Context
 	done                chan struct{}
 	shutdown            bool
+	stopped             bool
 }
 
 // NewRabbitMQStreamPublisher creates a new RabbitMQ stream publisher. It connects to the
@@ -86,6 +148,10 @@ func NewRabbitMQStreamPublisher(
 	cli client.Client,
 	namespace string,
 ) (EventPublisher, error) {
+	recorder, err := newPublishRecorder(otel.Meter("etos/messaging"))
+	if err != nil {
+		return nil, fmt.Errorf("create publisher instruments: %w", err)
+	}
 	password, err := config.Password.Get(ctx, cli, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RabbitMQ password: %w", err)
@@ -114,11 +180,13 @@ func NewRabbitMQStreamPublisher(
 		SetClientProvidedName(name).
 		SetConfirmationTimeOut(ConfirmationTimeout)
 	publisher := &rabbitMQStreamPublisher{
+		clusterIdentity:    publisherCluster(ctx),
 		logger:             logr.Discard(),
 		streamName:         config.StreamName,
 		environmentOptions: environmentOptions,
 		options:            options,
-		unConfirmed:        &sync.WaitGroup{},
+		recorder:           recorder,
+		ctx:                ctx,
 	}
 	if err := publisher.connect(ctx); err != nil {
 		return nil, err
@@ -143,7 +211,7 @@ func (s *rabbitMQStreamPublisher) connect(ctx context.Context) error {
 	err := wait.ExponentialBackoffWithContext(ctx, backoff, func(context.Context) (bool, error) {
 		if establishErr := s.establish(); establishErr != nil {
 			lastErr = establishErr
-			s.logger.Error(establishErr, "Failed to connect to RabbitMQ stream, retrying")
+			s.log().Error(establishErr, "Failed to connect to RabbitMQ stream, retrying")
 			return false, nil
 		}
 		return true, nil
@@ -186,6 +254,9 @@ func (s *rabbitMQStreamPublisher) establish() error {
 // Start will start the RabbitMQ stream publisher, non blocking.
 func (s *rabbitMQStreamPublisher) Start() error {
 	s.unConfirmedMessages = make(chan message.StreamMessage)
+	s.done = make(chan struct{})
+	s.workerDone = make(chan struct{})
+	s.drained = make(chan struct{}, 1)
 	s.options.SetFilter(stream.NewProducerFilter(func(message message.StreamMessage) string {
 		p := message.GetApplicationProperties()
 		return fmt.Sprintf("%s.%s.%s", p["identifier"], p["type"], p["meta"])
@@ -195,61 +266,119 @@ func (s *rabbitMQStreamPublisher) Start() error {
 		s.streamName,
 		s.options,
 		func(messageStatus []*stream.ConfirmationStatus) {
-			go func() {
-				for _, msgStatus := range messageStatus {
-					if msgStatus.IsConfirmed() {
-						s.unConfirmed.Done()
-					} else {
-						s.logger.Error(msgStatus.GetError(), "Unconfirmed message")
-						s.unConfirmedMessages <- msgStatus.GetMessage()
-					}
-				}
-			}()
+			for _, status := range messageStatus {
+				s.confirmation(status.GetMessage(), status.IsConfirmed(), status.GetError())
+			}
 		})
 	if err != nil {
 		return err
 	}
 	s.producer = producer
-	s.done = make(chan struct{})
 	go s.publish(s.done)
 	return nil
 }
 
+// confirmation asynchronously records a confirmation outcome and completes or requeues the message.
+// It ignores callbacks after the publisher has stopped.
+func (s *rabbitMQStreamPublisher) confirmation(msg message.StreamMessage, confirmed bool, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.stopped {
+		return
+	}
+	s.callbacks.Go(func() {
+		if confirmed {
+			s.recordPublishTelemetry(publishOutcomeConfirmed, time.Now())
+			s.complete(msg)
+			return
+		}
+		s.recordPublishTelemetry(publishOutcomeUnconfirmed, time.Now())
+		s.log().Error(err, "Unconfirmed message")
+		select {
+		case s.unConfirmedMessages <- msg:
+		case <-s.done:
+		}
+	})
+}
+
+// AddLogger configures the publisher logger without emitting user-facing logs.
 func (s *rabbitMQStreamPublisher) AddLogger(logger logr.Logger) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	logger = logger.WithValues("disableUserLog", true)
 	s.logger = logger
 }
 
+// log returns the publisher logger under the mutex to synchronize with AddLogger.
+func (s *rabbitMQStreamPublisher) log() logr.Logger {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.logger
+}
+
 // Publish an event to the RabbitMQ stream.
 func (s *rabbitMQStreamPublisher) Publish(identifier string, e events.Event) error {
+	start := time.Now()
+	tracked := &pendingMessage{}
+	s.mu.Lock()
 	if s.shutdown || s.producer == nil {
+		logger := s.logger
+		s.mu.Unlock()
 		err := &PublisherClosedError{}
-		s.logger.Error(err, "Publisher is closed")
+		logger.Error(err, "Publisher is closed")
+		s.recordPublishTelemetry(publishOutcomeClosed, start)
 		return err
 	}
+	s.pending++
+	s.publishes.Add(1)
+	defer s.publishes.Done()
+	if s.pending == 1 {
+		select {
+		case <-s.drained:
+		default:
+		}
+	}
+	s.mu.Unlock()
 	b, err := json.Marshal(e)
 	if err != nil {
+		s.complete(tracked)
+		s.recordPublishTelemetry(publishOutcomeSerializationError, start)
 		return err
 	}
-	s.unConfirmed.Add(1)
 	msg := amqp.NewMessage(b)
 	msg.ApplicationProperties = map[string]any{
 		"identifier": identifier,
 		"type":       e.EventType().ToLower(),
 		"meta":       e.EventMeta(),
 	}
-	s.unConfirmedMessages <- msg
+	tracked.StreamMessage = msg
+	select {
+	case s.unConfirmedMessages <- tracked:
+	case <-s.done:
+		s.complete(tracked)
+		s.recordPublishTelemetry(publishOutcomeClosed, start)
+		return &PublisherClosedError{}
+	}
+	s.recordPublishTelemetry(publishOutcomeAccepted, start)
 	return nil
 }
 
 // publish a message from unconfirmed messages to RabbitMQ.
 func (s *rabbitMQStreamPublisher) publish(done chan struct{}) {
+	defer close(s.workerDone)
 	for {
 		select {
 		case msg := <-s.unConfirmedMessages:
+			if tracked, ok := msg.(*pendingMessage); ok && tracked.finished.Load() {
+				continue
+			}
+			queuedAt := time.Now()
+			s.recordPublishTelemetry(publishOutcomeQueued, queuedAt)
+			sendStarted := time.Now()
 			if err := s.producer.Send(msg); err != nil {
-				s.logger.Error(err, "Failed to send message")
-				s.unConfirmed.Done()
+				s.recordPublishTelemetry(publishOutcomeSendError, sendStarted)
+				s.log().Error(err, "Failed to send message")
+				s.complete(msg)
 				continue
 			}
 		case <-done:
@@ -258,19 +387,113 @@ func (s *rabbitMQStreamPublisher) publish(done chan struct{}) {
 	}
 }
 
+// record records the original callback-local timing, not queue or acknowledgement latency.
+func (r *publishRecorder) record(ctx context.Context, outcome string, started time.Time, cluster string) {
+	if !isPublishOutcome(outcome) {
+		return
+	}
+	identity := unassignedCluster
+	if cluster != "" {
+		identity = cluster
+	}
+	attrs := metric.WithAttributes(attribute.String("operation", publishOperation),
+		attribute.String("outcome", outcome), attribute.String("etos_cluster", identity))
+	r.attempts.Add(ctx, 1, attrs)
+	r.duration.Record(ctx, time.Since(started).Seconds(), attrs)
+}
+
+// publisherCluster captures explicit propagated ownership, not a RabbitMQ/service name.
+func publisherCluster(ctx context.Context) string {
+	identity := baggage.FromContext(ctx).Member("etos_cluster").Value()
+	parts := strings.Split(identity, "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+		return identity
+	}
+	return unassignedCluster
+}
+
+// recordPublishTelemetry records an outcome and elapsed duration with the publisher's cluster identity
+// when a recorder is configured.
+func (s *rabbitMQStreamPublisher) recordPublishTelemetry(outcome string, started time.Time) {
+	if s.recorder != nil {
+		s.recorder.record(s.ctx, outcome, started, s.clusterIdentity)
+	}
+}
+
+// isPublishOutcome reports whether an outcome belongs to the bounded metric vocabulary.
+func isPublishOutcome(outcome string) bool {
+	switch outcome {
+	case publishOutcomeAccepted,
+		publishOutcomeClosed,
+		publishOutcomeSerializationError,
+		publishOutcomeQueued,
+		publishOutcomeSendError,
+		publishOutcomeConfirmed,
+		publishOutcomeUnconfirmed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Close the RabbitMQ stream publisher.
 func (s *rabbitMQStreamPublisher) Close() error {
-	if s.producer != nil {
-		s.logger.Info("Stopping publisher")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return s.CloseContext(ctx)
+}
+
+// CloseContext bounds confirmation draining without changing the public publisher interface.
+// The pinned HA client's Send/Close calls are not cancellable; transport stalls
+// still require an upstream fix before a hard process shutdown bound is possible.
+func (s *rabbitMQStreamPublisher) CloseContext(ctx context.Context) error {
+	s.closeOnce.Do(func() {
+		s.mu.Lock()
 		s.shutdown = true
-		s.logger.Info("Wait for unconfirmed messages")
-		s.unConfirmed.Wait()
-		s.done <- struct{}{}
-		s.logger.Info("Done, closing down")
-		if err := s.producer.Close(); err != nil {
-			s.logger.Error(err, "Failed to close rabbitmq publisher")
+		pending := s.pending
+		s.mu.Unlock()
+		if s.producer == nil {
+			return
 		}
-		close(s.unConfirmedMessages)
+		s.log().Info("Stopping publisher")
+		s.log().Info("Wait for unconfirmed messages")
+		if pending > 0 {
+			select {
+			case <-s.drained:
+			case <-ctx.Done():
+				s.closeErr = ctx.Err()
+			}
+		}
+		s.mu.Lock()
+		s.stopped = true
+		close(s.done)
+		s.mu.Unlock()
+		s.closeErr = errors.Join(s.closeErr, s.producer.Close())
+		<-s.workerDone
+		s.callbacks.Wait()
+		s.publishes.Wait()
+		s.log().Info("Done, closing down")
+		if s.environment != nil {
+			s.closeErr = errors.Join(s.closeErr, s.environment.Close())
+		}
+	})
+	return s.closeErr
+}
+
+// complete decrements the pending count once per tracked message and signals when all messages are drained.
+// It ignores untracked messages and repeated completion attempts.
+func (s *rabbitMQStreamPublisher) complete(msg message.StreamMessage) {
+	tracked, ok := msg.(*pendingMessage)
+	if !ok || !tracked.finished.CompareAndSwap(false, true) {
+		return
 	}
-	return nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pending--
+	if s.pending == 0 {
+		select {
+		case s.drained <- struct{}{}:
+		default:
+		}
+	}
 }

@@ -53,6 +53,7 @@ import (
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"github.com/eiffel-community/etos/internal/controller/status"
 	"github.com/eiffel-community/etos/internal/messaging"
+	healthmetrics "github.com/eiffel-community/etos/internal/metrics"
 	"github.com/eiffel-community/etos/pkg/messaging/events"
 	"github.com/eiffel-community/etos/pkg/messaging/publisher"
 )
@@ -64,8 +65,9 @@ type TestRunReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Clock
-	Tracer     trace.Tracer
-	Publishers *messaging.PublisherPool
+	Tracer      trace.Tracer
+	Publishers  *messaging.PublisherPool
+	Transitions *healthmetrics.Transitions
 }
 
 /*
@@ -74,6 +76,7 @@ the "real" clock just calls `time.Now`.
 */
 type realClock struct{}
 
+// Now returns the current wall-clock time.
 func (realClock) Now() time.Time { return time.Now() }
 
 // Clock knows how to get the current time.
@@ -171,6 +174,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		cluster.Namespace,
 		r.Client,
 		*cluster.Spec.MessageBus.ETOSMessageBus,
+		cluster.Name,
 	)
 	if err != nil {
 		logger.Error(err, "Failed to get event publisher for cluster", "cluster", cluster.Name)
@@ -207,7 +211,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				})); err != nil {
 					logger.Error(err, "Failed to publish shutdown event after testrun deadline exceeded")
 				}
-				return ctrl.Result{}, r.Status().Update(ctx, testrun)
+				return ctrl.Result{}, r.updateTerminalStatus(ctx, testrun)
 			}
 			if setInconclusiveVerdictIfUnset(testrun) {
 				return ctrl.Result{}, r.Status().Update(ctx, testrun)
@@ -245,9 +249,10 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 			span.End()
 		}
 	}()
+	metricCluster := healthmetrics.ResolveCluster(ctx, r.Client, testrun, "TestRun")
 	span.SetAttributes(
 		attribute.String("etos.id", testrun.Spec.ID),
-		attribute.String("etos.cluster", testrun.Spec.Cluster),
+		attribute.String("etos.cluster", metricCluster),
 		attribute.String("etos.artifact.id", testrun.Spec.Artifact),
 		attribute.String("etos.artifact.identity", testrun.Spec.Identity),
 	)
@@ -264,7 +269,7 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 	if err != nil {
 		logger.Error(err, "Failed to set baggage member for Artifact ID", "id", testrun.Spec.Artifact)
 	}
-	b, err = b.SetMember(clusterMemberOrDie(testrun.Spec.Cluster))
+	b, err = b.SetMember(clusterMemberOrDie(metricCluster))
 	if err != nil {
 		logger.Error(err, "Failed to set baggage member for Cluster", "name", testrun.Spec.Cluster)
 	}
@@ -282,6 +287,8 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 	)
 	return ctx, err
 }
+
+// reconcile reconciles the TestRun's environment, suite runner, and active status.
 func (r *TestRunReconciler) reconcile(
 	ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, eventPublisher publisher.EventPublisher,
 ) error {
@@ -394,7 +401,7 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 				now := metav1.Now()
 				testrun.Status.CompletionTime = &now
 				// Update status only; job and environment request deletion is deferred to the next reconcile.
-				return true, r.Status().Update(ctx, testrun)
+				return true, r.updateTerminalStatus(ctx, testrun)
 			}
 			return true, r.Status().Update(ctx, testrun)
 		}
@@ -405,6 +412,80 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 		}
 	}
 	return false, nil
+}
+
+// updateTerminalStatus persists a terminal TestRun status and emits its metric only after the write succeeds.
+func (r *TestRunReconciler) updateTerminalStatus(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
+	if err := r.Status().Update(ctx, testrun); err != nil {
+		return err
+	}
+	if r.Transitions == nil {
+		return nil
+	}
+
+	outcome := classifyTestRunOperationalOutcome(testrun.Status.Conditions)
+	startedAt := testrun.CreationTimestamp.Time
+	if testrun.Status.StartTime != nil && !testrun.Status.StartTime.IsZero() {
+		startedAt = testrun.Status.StartTime.Time
+	}
+	var completedAt time.Time
+	if testrun.Status.CompletionTime != nil {
+		completedAt = testrun.Status.CompletionTime.Time
+	}
+
+	// The API status write and in-memory metric update are not atomic. A process crash between them can lose one
+	// observation; terminal objects are not replayed on resync or restart, so emitting before the write is avoided.
+	cluster := healthmetrics.ResolveCluster(ctx, r.Client, testrun, "TestRun")
+	r.Transitions.RecordTestRunFinished(ctx, cluster, outcome, startedAt, completedAt)
+	return nil
+}
+
+// classifyTestRunOperationalOutcome mirrors persisted lifecycle conclusions without consulting the TestRun verdict.
+func classifyTestRunOperationalOutcome(conditions []metav1.Condition) string {
+	orderedTypes := []string{status.StatusActive, status.StatusSuiteRunner}
+	for _, conditionType := range orderedTypes {
+		condition := meta.FindStatusCondition(conditions, conditionType)
+		if condition == nil {
+			continue
+		}
+		outcome := classifyConditionOperationalOutcome(*condition)
+		if outcome == healthmetrics.OutcomeTimedOut ||
+			outcome == healthmetrics.OutcomeAborted ||
+			outcome == healthmetrics.OutcomeFailure {
+			return outcome
+		}
+	}
+	// Prefer the persisted SuiteRunner reason over a generic Active completion.
+	for _, conditionType := range []string{status.StatusSuiteRunner, status.StatusActive} {
+		condition := meta.FindStatusCondition(conditions, conditionType)
+		if condition == nil {
+			continue
+		}
+		outcome := classifyConditionOperationalOutcome(*condition)
+		if outcome == healthmetrics.OutcomeSuccess || outcome == healthmetrics.OutcomeInconclusive {
+			return outcome
+		}
+	}
+	return healthmetrics.OutcomeUnknown
+}
+
+// classifyConditionOperationalOutcome maps authoritative persisted reasons without interpreting free-text messages.
+// The lifecycle currently collapses some job conclusions into Failed or Completed; those distinctions cannot
+// safely be recovered from descriptions or test verdicts and retain their persisted reason's classification.
+func classifyConditionOperationalOutcome(condition metav1.Condition) string {
+	if condition.Status == "" || condition.Status == metav1.ConditionUnknown {
+		return healthmetrics.OutcomeUnknown
+	}
+	switch condition.Reason {
+	case status.ReasonTimedOut:
+		return healthmetrics.OutcomeTimedOut
+	case status.ReasonFailed:
+		return healthmetrics.OutcomeFailure
+	case status.ReasonCompleted:
+		return healthmetrics.OutcomeSuccess
+	default:
+		return healthmetrics.OutcomeUnknown
+	}
 }
 
 // reconcileSuiteRunner will check the status of suite runners, create new ones if necessary.
@@ -880,6 +961,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 		{
 			Name:  "SUITE_SOURCE",
 			Value: testrun.Spec.SuiteSource,
+		},
+		{
+			Name:  "ETOS_API_VERSION",
+			Value: "v1beta1",
 		},
 	}
 	if cluster.Spec.OpenTelemetry.Enabled {

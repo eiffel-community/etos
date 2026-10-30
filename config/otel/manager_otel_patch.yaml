@@ -1,0 +1,28 @@
+# Opt-in OTLP export for the ETOS controller manager (metrics, traces and logs over gRPC).
+#
+# Copy this overlay and change OTEL_EXPORTER_OTLP_ENDPOINT to your Collector.
+# The value below is a placeholder, not a Collector that this repository deploys.
+# Leaving OTEL_EXPORTER_OTLP_ENDPOINT unset (the default installation) disables all exports.
+# Signal-specific OTEL_EXPORTER_OTLP_{METRICS,TRACES,LOGS}_ENDPOINT variables take precedence.
+# OTEL_EXPORTER_OTLP_INSECURE=true is for local plaintext Collectors only; use TLS in production.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      # 30s application drain + 15s total telemetry shutdown, with margin.
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: manager
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.observability.svc.cluster.local:4317
+            - name: OTEL_EXPORTER_OTLP_INSECURE
+              value: "true"
+            - name: OTEL_METRIC_EXPORT_INTERVAL
+              value: "15000"
+            - name: OTEL_METRIC_EXPORT_TIMEOUT
+              value: "5000"
