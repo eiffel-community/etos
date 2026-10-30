@@ -18,6 +18,9 @@ package controller
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,9 +37,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
+	etosv1beta1 "github.com/eiffel-community/etos/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -69,10 +76,14 @@ var _ = BeforeSuite(func() {
 	err = etosv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = etosv1beta1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:scheme
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
+		Scheme:                scheme.Scheme,
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -94,8 +105,22 @@ var _ = BeforeSuite(func() {
 	// Enable automatic reconciliation loop for controllers.
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Host:    testEnv.WebhookInstallOptions.LocalServingHost,
+			Port:    testEnv.WebhookInstallOptions.LocalServingPort,
+			CertDir: testEnv.WebhookInstallOptions.LocalServingCertDir,
+		}),
+		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	Expect(err).ToNot(HaveOccurred())
+
+	k8sManager.GetWebhookServer().Register(
+		"/convert",
+		conversion.NewWebhookHandler(
+			k8sManager.GetScheme(),
+			k8sManager.GetConverterRegistry(),
+		),
+	)
 
 	err = (&EnvironmentReconciler{
 		Client: k8sManager.GetClient(),
@@ -114,6 +139,26 @@ var _ = BeforeSuite(func() {
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
+
+	dialer := &net.Dialer{Timeout: time.Second}
+	addrPort := fmt.Sprintf(
+		"%s:%d",
+		testEnv.WebhookInstallOptions.LocalServingHost,
+		testEnv.WebhookInstallOptions.LocalServingPort,
+	)
+	Eventually(func() error {
+		conn, dialErr := tls.DialWithDialer(
+			dialer,
+			"tcp",
+			addrPort,
+			&tls.Config{InsecureSkipVerify: true},
+		)
+		if dialErr != nil {
+			return dialErr
+		}
+
+		return conn.Close()
+	}).Should(Succeed())
 })
 
 var _ = AfterSuite(func() {

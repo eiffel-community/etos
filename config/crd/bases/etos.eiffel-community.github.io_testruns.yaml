@@ -429,7 +429,7 @@ spec:
     - jsonPath: .spec.cluster
     - jsonPath: .spec.artifact
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -897,6 +897,6 @@ spec:
     - jsonPath: .spec.artifact
     - jsonPath: .spec.id
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
