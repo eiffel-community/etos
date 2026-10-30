@@ -163,7 +163,6 @@ type TestRunStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 
 // TestRun is the Schema for the testruns API
