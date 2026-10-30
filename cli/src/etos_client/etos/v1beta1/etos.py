@@ -17,14 +17,16 @@
 
 import logging
 import shutil
+import signal
 import time
 from json import JSONDecodeError
 from pathlib import Path
+from types import FrameType
 from typing import Optional
 from uuid import uuid4
 
 from etos_lib.lib.http import Http
-from requests.exceptions import HTTPError, ReadTimeout
+from requests.exceptions import HTTPError, ReadTimeout, RequestException
 from urllib3.util import Retry
 
 from etos_lib.messaging.types import Conclusion, Result, Verdict
@@ -52,6 +54,15 @@ HTTP_RETRY_PARAMETERS = Retry(
 # the test suite, looks up the artifact and creates the testrun before it responds, which
 # depends on external services and can take well over 10 seconds.
 START_REQUEST_TIMEOUT = (10, 120)
+
+
+class _EtosSignalInterrupt(KeyboardInterrupt):
+    """Represent a SIGINT or SIGTERM received while waiting for an ETOS run."""
+
+    def __init__(self, signum: int) -> None:
+        """Store the signal that interrupted the run."""
+        self.signum = signum
+        super().__init__(signal.Signals(signum).name)
 
 
 class Etos:
@@ -143,20 +154,36 @@ class Etos:
             return None, detail
         return self.start_response.from_response(response_json), None
 
+    def __abort(self, response: ResponseSchema) -> None:
+        """Request that ETOS abort the active testrun."""
+        url = f"{self.cluster}/api/{self.version}/testrun/{response.tercc}"
+        self.logger.info("Requesting ETOS testrun abort using %r", url)
+        http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=START_REQUEST_TIMEOUT)
+        abort_response = http.delete(url, headers=self.headers)
+        abort_response.raise_for_status()
+
     def __wait(self, response: ResponseSchema) -> Result:
         """Wait for ETOS to finish."""
         report_dir, artifact_dir = directories(self.args)
 
         log_downloader = Downloader()
         clear_queue = True
-        log_downloader.start()
+        interrupt_signals = (signal.SIGINT, signal.SIGTERM)
+        original_handlers = {signum: signal.getsignal(signum) for signum in interrupt_signals}
+        interrupted_signal: Optional[int] = None
 
+        def handle_interrupt(signum: int, _frame: Optional[FrameType]) -> None:
+            raise _EtosSignalInterrupt(signum)
+
+        log_downloader.start()
         end = time.time() + 24 * 60 * 60  # 24 hours
 
         test_run = V1Beta1TestRun(log_downloader, report_dir, artifact_dir)
         test_run.setup_logging(self.args["-v"])
         result = None
         try:
+            for signum in interrupt_signals:
+                signal.signal(signum, handle_interrupt)
             while time.time() < end:
                 try:
                     result = self.__track(test_run, response, end)
@@ -169,7 +196,22 @@ class Etos:
                         description=str(exit),
                     )
                     break
+        except _EtosSignalInterrupt as interrupt:
+            interrupted_signal = interrupt.signum
+            clear_queue = False
+            self.logger.info(
+                "Received %s; requesting ETOS to abort the active testrun.",
+                signal.Signals(interrupt.signum).name,
+            )
+            for signum in interrupt_signals:
+                signal.signal(signum, signal.SIG_IGN)
+            try:
+                self.__abort(response)
+            except RequestException as error:
+                self.logger.error("Failed to abort ETOS testrun: %s", error)
         finally:
+            for signum, handler in original_handlers.items():
+                signal.signal(signum, handler)
             log_downloader.stop(clear_queue)
             log_downloader.join()
 
@@ -184,6 +226,9 @@ class Etos:
         self.logger.info("Reports: %s", report_dir)
         self.logger.info("Artifacts: %s", artifact_dir)
 
+        if interrupted_signal is not None:
+            self.logger.info("ETOS was interrupted")
+            raise SystemExit(128 + interrupted_signal)
         if log_downloader.failed or log_downloader.reconciler.missing():
             return Result(
                 verdict=Verdict.INCONCLUSIVE,
