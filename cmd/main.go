@@ -288,6 +288,10 @@ func main() {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "TestRun")
 			os.Exit(1)
 		}
+		if err := webhookv1alpha1.SetupTestRunV1beta1WebhookWithManager(mgr, cfg); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "TestRun v1beta1")
+			os.Exit(1)
+		}
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
