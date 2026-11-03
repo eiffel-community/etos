@@ -8,10 +8,36 @@ metadata:
 spec:
   groups:
     - name: etos.health.provisional
-      interval: 30s
+      interval: 15s
       rules:
+        - record: etos_collector_ready
+          expr: ((min(up{job="otel-collector",endpoint="metrics"} and (time() - timestamp(up{job="otel-collector",endpoint="metrics"}) <= 30)) == bool 1) * (min(up{job="otel-collector",endpoint="int-metrics"} and (time() - timestamp(up{job="otel-collector",endpoint="int-metrics"}) <= 30)) == bool 1)) or on() vector(0)
+        - record: etos_metric_overflow
+          expr: count by (job, instance) ({__name__=~"etos_.*",otel_metric_overflow="true"} and (time() - timestamp({__name__=~"etos_.*",otel_metric_overflow="true"}) <= 120))
+        - record: etos_inventory_fresh_leader
+          expr: (etos_inventory_snapshot_ready_ratio{job="etos/etos-controller-manager",instance!="",scope="manager"} == 1) and on(job, instance) (time() - etos_inventory_snapshot_last_success_timestamp_seconds{job="etos/etos-controller-manager",instance!="",scope="manager"} <= 30) and (time() - timestamp(etos_inventory_snapshot_ready_ratio{job="etos/etos-controller-manager",instance!="",scope="manager"}) <= 30) and on() (etos_collector_ready == 1)
         - record: etos_inventory_leader_ready
-          expr: ((min(etos_inventory_snapshot_ready{scope="manager"} and on(job, instance) (up == 1) and on(job, instance, scope) (time() - etos_inventory_snapshot_last_success_timestamp_seconds{scope="manager"} <= 30)) == bool 1) and on() (count(etos_inventory_snapshot_ready{scope="manager"}) == 1)) or on() vector(0)
+          expr: ((count(etos_inventory_fresh_leader) == bool 1) unless on() etos_metric_overflow{job="etos/etos-controller-manager"}) or on() vector(0)
+        - record: etos_inventory_current_resources
+          expr: etos_inventory_resources_ratio{job="etos/etos-controller-manager",scope="cluster"} and (time() - timestamp(etos_inventory_resources_ratio{job="etos/etos-controller-manager",scope="cluster"}) <= 30) and on(job, instance) etos_inventory_fresh_leader and on() (etos_inventory_leader_ready == 1)
+        - record: etos_inventory_current_testrun_phase
+          expr: etos_inventory_testrun_phase_ratio{job="etos/etos-controller-manager",scope="cluster"} and (time() - timestamp(etos_inventory_testrun_phase_ratio{job="etos/etos-controller-manager",scope="cluster"}) <= 30) and on(job, instance) etos_inventory_fresh_leader and on() (etos_inventory_leader_ready == 1)
+        - record: etos_inventory_current_testrun_verdict
+          expr: etos_inventory_testrun_verdict_ratio{job="etos/etos-controller-manager",scope="cluster"} and (time() - timestamp(etos_inventory_testrun_verdict_ratio{job="etos/etos-controller-manager",scope="cluster"}) <= 30) and on(job, instance) etos_inventory_fresh_leader and on() (etos_inventory_leader_ready == 1)
+        - record: etos_inventory_current_testrun_operational_conclusion
+          expr: etos_inventory_testrun_operational_conclusion_ratio{job="etos/etos-controller-manager",scope="cluster"} and (time() - timestamp(etos_inventory_testrun_operational_conclusion_ratio{job="etos/etos-controller-manager",scope="cluster"}) <= 30) and on(job, instance) etos_inventory_fresh_leader and on() (etos_inventory_leader_ready == 1)
+        - record: etos_inventory_current_testrun_created
+          expr: etos_inventory_testrun_created_ratio{job="etos/etos-controller-manager",scope="cluster"} and (time() - timestamp(etos_inventory_testrun_created_ratio{job="etos/etos-controller-manager",scope="cluster"}) <= 30) and on(job, instance) etos_inventory_fresh_leader and on() (etos_inventory_leader_ready == 1)
+        - record: etos_inventory_current_testrun_oldest_active_age_seconds
+          expr: etos_inventory_testrun_oldest_active_age_seconds{job="etos/etos-controller-manager",scope="cluster"} and (time() - timestamp(etos_inventory_testrun_oldest_active_age_seconds{job="etos/etos-controller-manager",scope="cluster"}) <= 30) and on(job, instance) etos_inventory_fresh_leader and on() (etos_inventory_leader_ready == 1)
+        - record: etos_inventory_current_testrun_overdue
+          expr: etos_inventory_testrun_overdue_ratio{job="etos/etos-controller-manager",scope="cluster"} and (time() - timestamp(etos_inventory_testrun_overdue_ratio{job="etos/etos-controller-manager",scope="cluster"}) <= 30) and on(job, instance) etos_inventory_fresh_leader and on() (etos_inventory_leader_ready == 1)
+        - record: etos_inventory_current_testrun_window_complete
+          expr: etos_inventory_testrun_window_complete_ratio{job="etos/etos-controller-manager",scope="cluster"} and (time() - timestamp(etos_inventory_testrun_window_complete_ratio{job="etos/etos-controller-manager",scope="cluster"}) <= 30) and on(job, instance) etos_inventory_fresh_leader and on() (etos_inventory_leader_ready == 1)
+        - record: etos_api_telemetry_fresh
+          expr: max by (etos_cluster) (time() - timestamp(etos_api_requests_total{etos_cluster!=""}) <= bool 120) and on() (etos_collector_ready == 1)
+        - record: etos_sse_telemetry_fresh
+          expr: max by (etos_cluster) (time() - timestamp(etos_sse_service_requests_total{etos_cluster!=""}) <= bool 120) and on() (etos_collector_ready == 1)
         - alert: ETOSInventoryUnknown
           expr: absent(etos_inventory_leader_ready) or etos_inventory_leader_ready == 0
           for: 5m
@@ -20,9 +46,9 @@ spec:
             paging: "false"
           annotations:
             summary: ETOS inventory is unknown
-            description: Manager-wide, not ETOS-cluster scoped. No single scraped manager leader has a fresh complete inventory snapshot. Check leader election, the leader scrape target, cache list failures and the last-success timestamp; occupancy panels must not be interpreted as zero.
+            description: Manager-wide, not ETOS-cluster scoped. No unique OTLP writer has a fresh complete inventory snapshot, or metric overflow was observed. Check leader election, OTLP delivery, source timestamps and inventory collection failures. Collector readiness alone does not establish manager liveness; missing occupancy is not zero.
         - alert: ETOSInventoryCollectionFailed
-          expr: increase(etos_inventory_collection_failures_total{scope="manager"}[5m]) > 0
+          expr: increase(etos_inventory_collection_failures_total{job="etos/etos-controller-manager",instance!="",scope="manager"}[5m]) > 0
           for: 5m
           labels:
             severity: warning
@@ -66,15 +92,42 @@ spec:
           annotations:
             summary: ETOS collector exporter queue is non-empty
             description: Shared pipeline, not ETOS-cluster scoped. Telemetry is queued at the collector for an extended interval; downstream freshness may be degraded.
-        - alert: ETOSSSETargetUnknown
-          expr: absent(up{job=~".+-etos-sse"}) or min(up{job=~".+-etos-sse"}) == 0
+        - alert: ETOSMetricCardinalityOverflow
+          expr: etos_metric_overflow > 0
+          for: 1m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS metric cardinality overflow observed
+            description: A metric writer exceeded its attribute-set budget. Overflow loses cluster/outcome attribution; scoped totals and inventory are incomplete even if the Collector is healthy.
+        - alert: ETOSCollectorMetricsUnknown
+          expr: absent(up{job="otel-collector",endpoint="metrics"}) or up{job="otel-collector",endpoint="metrics"} == 0
           for: 5m
           labels:
             severity: warning
             paging: "false"
           annotations:
-            summary: ETOS SSE telemetry target is unavailable
-            description: Shared scrape infrastructure across SSE targets, not selected ETOS-cluster health. SSE connection and delivery health cannot be evaluated; do not interpret absent event series as zero.
+            summary: ETOS OTLP metrics exporter is unavailable
+            description: Shared Collector metrics endpoint is not being scraped successfully. This is pipeline evidence, not API/SSE service health.
+        - alert: ETOSAPITelemetryUnknown
+          expr: (group by (etos_cluster) (etos_inventory_current_resources{etos_cluster=~".+/.+"}) unless on(etos_cluster) (etos_api_telemetry_fresh == 1))
+          for: 5m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS API telemetry is unavailable or stale
+            description: Cluster {{ $labels.etos_cluster }} has fresh inventory but no recent attributed API request samples. Missing OTLP evidence is unknown, not proof of API failure.
+        - alert: ETOSSSETelemetryUnknown
+          expr: (group by (etos_cluster) (etos_inventory_current_resources{etos_cluster=~".+/.+"}) unless on(etos_cluster) (etos_sse_telemetry_fresh == 1))
+          for: 5m
+          labels:
+            severity: warning
+            paging: "false"
+          annotations:
+            summary: ETOS SSE telemetry is unavailable or stale
+            description: Cluster {{ $labels.etos_cluster }} has fresh inventory but no recent attributed SSE request samples. An idle or older service may emit no samples; client delivery is not inferred.
         - alert: ETOSMessagePublishFailure
           expr: sum by (etos_cluster) (rate(etos_message_publish_attempts_total{outcome!~"accepted|queued|confirmed",etos_cluster!=""}[5m])) > 0
           for: 5m
@@ -94,7 +147,7 @@ spec:
             summary: ETOS suite operation failures observed
             description: Suite download or validation failures were observed for ETOS cluster {{ $labels.etos_cluster }}; affected URLs and suite identifiers are intentionally excluded. Unlabeled legacy telemetry is not attributed to a cluster.
         - alert: ETOSTestRunOverdue
-          expr: max by (etos_cluster) (etos_inventory_testrun_overdue{scope="cluster",etos_cluster!=""}) > 0 and on() (min(etos_inventory_leader_ready) == 1)
+          expr: max by (etos_cluster) (etos_inventory_current_testrun_overdue{scope="cluster",etos_cluster!=""}) > 0
           for: 10m
           labels:
             severity: warning

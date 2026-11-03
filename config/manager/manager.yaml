@@ -95,4 +95,5 @@ spec:
         volumeMounts: []
       volumes: []
       serviceAccountName: controller-manager
-      terminationGracePeriodSeconds: 10
+      # Shutdown budget: 30s application drain + 15s telemetry flush, with margin.
+      terminationGracePeriodSeconds: 60

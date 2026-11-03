@@ -20,12 +20,17 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"go.opentelemetry.io/contrib/bridges/otelzap"
+	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	"go.opentelemetry.io/otel"
+	rawzap "go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/utils/clock"
 
@@ -33,9 +38,11 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -47,8 +54,10 @@ import (
 	"github.com/eiffel-community/etos/internal/config"
 	"github.com/eiffel-community/etos/internal/controller"
 	"github.com/eiffel-community/etos/internal/messaging"
+	healthmetrics "github.com/eiffel-community/etos/internal/metrics"
 	webhookv1alpha1 "github.com/eiffel-community/etos/internal/webhook/v1alpha1"
 	webhookv1alpha2 "github.com/eiffel-community/etos/internal/webhook/v1alpha2"
+	"github.com/eiffel-community/etos/pkg/logging"
 	"github.com/eiffel-community/etos/pkg/opentelemetry"
 	// +kubebuilder:scaffold:imports
 )
@@ -58,6 +67,7 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+// init registers the Kubernetes and ETOS API types used by the manager.
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
@@ -67,40 +77,68 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-// nolint:gocyclo
+// main configures and starts the ETOS controller manager.
 func main() {
-	var metricsAddr string
-	var metricsCertPath, metricsCertName, metricsCertKey string
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Manager stopped:", err)
+		os.Exit(1)
+	}
+}
+
+// run owns all post-initialization cleanup paths.
+//
+//nolint:gocyclo // Explicit controller/webhook registrations preserve scaffold insertion points.
+func run() error {
 	var webhookCertPath, webhookCertName, webhookCertKey string
 	var enableLeaderElection bool
 	var probeAddr string
-	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
-	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
-		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8181", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&secureMetrics, "metrics-secure", true,
-		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
-	flag.StringVar(&metricsCertPath, "metrics-cert-path", "",
-		"The directory that contains the metrics server certificate.")
-	flag.StringVar(&metricsCertName, "metrics-cert-name", "tls.crt", "The name of the metrics server certificate file.")
-	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
-		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+		"If set, HTTP/2 will be enabled for the webhook server")
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
+	consoleLog := zap.New(zap.UseFlagOptions(&opts)).WithName("telemetry")
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+		consoleLog.Error(err, "OpenTelemetry export failed")
+	}))
+	ctx := logr.NewContext(ctrl.SetupSignalHandler(), consoleLog)
+	otelTracer := opentelemetry.New("etos-controller-manager", "etos")
+	producer := prombridge.NewMetricProducer(prombridge.WithGatherer(ctrlmetrics.Registry))
+	if err := otelTracer.Start(ctx, producer); err != nil {
+		return fmt.Errorf("initialize telemetry: %w", err)
+	}
+	var inventoryCollector *healthmetrics.Collector
+	defer func() {
+		if err := otelTracer.Shutdown(context.Background()); err != nil {
+			consoleLog.Error(err, "Failed to shutdown OpenTelemetry")
+		}
+		if inventoryCollector != nil {
+			if err := inventoryCollector.Unregister(); err != nil {
+				consoleLog.Error(err, "Failed to unregister inventory callback")
+			}
+		}
+	}()
+	if otelTracer.LoggerProvider != nil {
+		opts.ZapOpts = append(opts.ZapOpts, rawzap.WrapCore(func(core zapcore.Core) zapcore.Core {
+			otelCore := otelzap.NewCore(otelTracer.Name, otelzap.WithLoggerProvider(otelTracer.LoggerProvider))
+			return zapcore.NewTee(logging.ConsoleCore(core), otelCore)
+		}))
+	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctx = logr.NewContext(ctx, setupLog)
+	meter := otel.Meter("etos/controller")
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -134,48 +172,26 @@ func main() {
 
 	webhookServer := webhook.NewServer(webhookServerOptions)
 
-	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
-	// More info:
-	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/metrics/server
-	// - https://book.kubebuilder.io/reference/metrics.html
-	metricsServerOptions := metricsserver.Options{
-		BindAddress:   metricsAddr,
-		SecureServing: secureMetrics,
-		TLSOpts:       tlsOpts,
+	transitionMetrics, err := healthmetrics.NewTransitions(meter)
+	if err != nil {
+		return fmt.Errorf("initialize transition metrics: %w", err)
 	}
-
-	if secureMetrics {
-		// FilterProvider is used to protect the metrics endpoint with authn/authz.
-		// These configurations ensure that only authorized users and service accounts
-		// can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
-		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/metrics/filters#WithAuthenticationAndAuthorization
-		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
+	kubeConfig, err := ctrl.GetConfig()
+	if err != nil {
+		return err
 	}
-
-	// If the certificate is not specified, controller-runtime will automatically
-	// generate self-signed certificates for the metrics server. While convenient for development and testing,
-	// this setup is not recommended for production.
-	//
-	// TODO(user): If you enable certManager, uncomment the following lines:
-	// - [METRICS-WITH-CERTS] at config/default/kustomization.yaml to generate and use certificates
-	// managed by cert-manager for the metrics server.
-	// - [PROMETHEUS-WITH-CERTS] at config/prometheus/kustomization.yaml for TLS certification.
-	if len(metricsCertPath) > 0 {
-		setupLog.Info("Initializing metrics certificate watcher using provided certificates",
-			"metrics-cert-path", metricsCertPath, "metrics-cert-name", metricsCertName, "metrics-cert-key", metricsCertKey)
-
-		metricsServerOptions.CertDir = metricsCertPath
-		metricsServerOptions.CertName = metricsCertName
-		metricsServerOptions.KeyName = metricsCertKey
-	}
-
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsServerOptions,
-		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "8ff393c5.eiffel-community.github.io",
+	drainTimeout := 15 * time.Second
+	mgr, err := ctrl.NewManager(kubeConfig, ctrl.Options{
+		Scheme: scheme,
+		Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
+			&etosv1alpha1.Cluster{}: {Transform: transitionMetrics.ClusterTransform},
+		}},
+		Metrics:                 metricsserver.Options{BindAddress: "0"},
+		GracefulShutdownTimeout: &drainTimeout,
+		WebhookServer:           webhookServer,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "8ff393c5.eiffel-community.github.io",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -190,7 +206,7 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "Failed to start manager")
-		os.Exit(1)
+		return err
 	}
 
 	cfg := config.New()
@@ -222,20 +238,6 @@ func main() {
 		"EventRepositoryStorage Version", cfg.EventRepositoryStorage.Version,
 	)
 
-	ctx := ctrl.SetupSignalHandler()
-	ctx = logr.NewContext(ctx, setupLog)
-	otelTracer := opentelemetry.New("etos-controller-manager", "etos")
-	if err := otelTracer.Start(ctx); err != nil {
-		setupLog.Error(err, "Failed to start OpenTelemetry tracer")
-		os.Exit(1)
-	}
-	defer func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		if err := otelTracer.Shutdown(shutdownCtx); err != nil {
-			setupLog.Error(err, "Failed to shutdown OpenTelemetry tracer")
-		}
-	}()
 	publisherPool := messaging.NewPublisherPool(ctx)
 	defer func() {
 		if err := publisherPool.Close(); err != nil {
@@ -244,28 +246,41 @@ func main() {
 	}()
 
 	if err = (&controller.TestRunReconciler{
-		Client:     mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
-		Clock:      &clock.RealClock{},
-		Tracer:     otel.Tracer("testrun-controller"),
-		Publishers: publisherPool,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Clock:       &clock.RealClock{},
+		Tracer:      otel.Tracer("testrun-controller"),
+		Publishers:  publisherPool,
+		Transitions: transitionMetrics,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "TestRun")
-		os.Exit(1)
+		return err
+	}
+	inventoryCollector = &healthmetrics.Collector{
+		Reader: mgr.GetCache(),
+		Scope:  "cluster",
+	}
+	if err := inventoryCollector.Register(meter); err != nil {
+		setupLog.Error(err, "Failed to register inventory collector")
+		return err
+	}
+	if err := mgr.Add(inventoryCollector); err != nil {
+		setupLog.Error(err, "Failed to add inventory collector")
+		return err
 	}
 	if err := (&controller.ProviderReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "Provider")
-		os.Exit(1)
+		return err
 	}
 	if err := (&controller.EnvironmentReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "Environment")
-		os.Exit(1)
+		return err
 	}
 	if err := (&controller.ClusterReconciler{
 		Client: mgr.GetClient(),
@@ -273,34 +288,35 @@ func main() {
 		Config: cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "Cluster")
-		os.Exit(1)
+		return err
 	}
 	if err := (&controller.EnvironmentRequestReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Transitions: transitionMetrics,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "EnvironmentRequest")
-		os.Exit(1)
+		return err
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha1.SetupTestRunWebhookWithManager(mgr, cfg); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "TestRun")
-			os.Exit(1)
+			return err
 		}
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha1.SetupEnvironmentRequestWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "EnvironmentRequest")
-			os.Exit(1)
+			return err
 		}
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha1.SetupProviderWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "Provider")
-			os.Exit(1)
+			return err
 		}
 	}
 	if err := (&controller.IutReconciler{
@@ -308,13 +324,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Iut")
-		os.Exit(1)
+		return err
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha2.SetupIutWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "Iut")
-			os.Exit(1)
+			return err
 		}
 	}
 	if err := (&controller.ExecutionSpaceReconciler{
@@ -322,13 +338,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ExecutionSpace")
-		os.Exit(1)
+		return err
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha2.SetupExecutionSpaceWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "ExecutionSpace")
-			os.Exit(1)
+			return err
 		}
 	}
 	if err := (&controller.LogAreaReconciler{
@@ -336,43 +352,44 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LogArea")
-		os.Exit(1)
+		return err
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha2.SetupLogAreaWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "LogArea")
-			os.Exit(1)
+			return err
 		}
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha1.SetupClusterWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "Cluster")
-			os.Exit(1)
+			return err
 		}
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookv1alpha1.SetupEnvironmentWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "Environment")
-			os.Exit(1)
+			return err
 		}
 	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "Failed to set up health check")
-		os.Exit(1)
+		return err
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "Failed to set up ready check")
-		os.Exit(1)
+		return err
 	}
 
 	setupLog.Info("Starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "Failed to run manager")
-		os.Exit(1)
+		return err
 	}
+	return nil
 }

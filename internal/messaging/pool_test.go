@@ -23,6 +23,7 @@ import (
 	"github.com/eiffel-community/etos/internal/messaging"
 	"github.com/eiffel-community/etos/pkg/messaging/events"
 	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel/baggage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -192,6 +193,36 @@ func TestPoolUseDifferentNamespace(t *testing.T) {
 }
 
 type mockPublisher struct{}
+
+// TestPoolSeparatesClusters verifies one shared message bus does not merge cluster metrics.
+func TestPoolSeparatesClusters(t *testing.T) {
+	var identities []string
+	messaging.SetPublisherImpl(func(ctx context.Context, _ string, _ v1alpha1.RabbitMQ, _ client.Client, _ string) (messaging.EventPublisher, error) {
+		identities = append(identities, baggage.FromContext(ctx).Member("etos_cluster").Value())
+		return &mockPublisher{}, nil
+	})
+	pool := messaging.NewPublisherPool(context.Background())
+	cli := fake.NewClientBuilder().Build()
+	parameters := v1alpha1.RabbitMQ{Host: "shared"}
+	first, err := pool.GetPublisher("namespace", cli, parameters, "first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := pool.GetPublisher("namespace", cli, parameters, "second")
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := pool.GetPublisher("namespace", cli, parameters, "first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second || first != again {
+		t.Fatal("pool must reuse only publishers belonging to the same cluster")
+	}
+	if len(identities) != 2 || identities[0] != "namespace/first" || identities[1] != "namespace/second" {
+		t.Fatalf("unexpected publisher identities: %v", identities)
+	}
+}
 
 func (m *mockPublisher) Publish(string, events.Event) error {
 	return nil
