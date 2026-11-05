@@ -483,6 +483,12 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
 			Value: cluster.Spec.OpenTelemetry.Insecure,
 		})
+		if cluster.Spec.OpenTelemetry.MetricsTemporalityPreference != "" {
+			envList = append(envList, corev1.EnvVar{
+				Name:  "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE",
+				Value: cluster.Spec.OpenTelemetry.MetricsTemporalityPreference,
+			})
+		}
 	}
 	return envList, nil
 }
