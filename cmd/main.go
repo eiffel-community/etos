@@ -242,13 +242,20 @@ func main() {
 			setupLog.Error(err, "Failed to close messaging publisher pool")
 		}
 	}()
+	eiffelPublisherPool := messaging.NewEiffelPublisherPool(ctx)
+	defer func() {
+		if err := eiffelPublisherPool.Close(); err != nil {
+			setupLog.Error(err, "Failed to close Eiffel publisher pool")
+		}
+	}()
 
 	if err = (&controller.TestRunReconciler{
-		Client:     mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
-		Clock:      &clock.RealClock{},
-		Tracer:     otel.Tracer("testrun-controller"),
-		Publishers: publisherPool,
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Clock:            &clock.RealClock{},
+		Tracer:           otel.Tracer("testrun-controller"),
+		Publishers:       publisherPool,
+		EiffelPublishers: eiffelPublisherPool,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "TestRun")
 		os.Exit(1)
