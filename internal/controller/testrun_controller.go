@@ -66,6 +66,8 @@ type TestRunReconciler struct {
 	Clock
 	Tracer     trace.Tracer
 	Publishers *messaging.PublisherPool
+	// EiffelPublishers provides publishers for each Cluster's Eiffel RabbitMQ.
+	EiffelPublishers *messaging.EiffelPublisherPool
 }
 
 /*
