@@ -1,6 +1,10 @@
 # Image URL to use all building/pushing image targets
 IMG ?= ghcr.io/eiffel-community/etos-controller:latest
 
+# Embed the controller's short Git revision in its telemetry resource.
+BUILD_REVISION ?= $(shell git rev-parse --short HEAD)
+MANAGER_LDFLAGS = -X github.com/eiffel-community/etos/pkg/opentelemetry.buildRevision=$(BUILD_REVISION)
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -149,11 +153,11 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	go build -ldflags "$(MANAGER_LDFLAGS)" -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+	go run -ldflags "$(MANAGER_LDFLAGS)" ./cmd/main.go
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
@@ -162,7 +166,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 EXTRA_DOCKER_ARGS=
 export EXTRA_DOCKER_ARGS
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build $(EXTRA_DOCKER_ARGS) -t ${IMG} .
+	$(CONTAINER_TOOL) build $(EXTRA_DOCKER_ARGS) --build-arg BUILD_REVISION=$(BUILD_REVISION) -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -181,7 +185,7 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name etos-builder
 	$(CONTAINER_TOOL) buildx use etos-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --build-arg BUILD_REVISION=$(BUILD_REVISION) --tag ${IMG} -f Dockerfile.cross .
 	- $(CONTAINER_TOOL) buildx rm etos-builder
 	rm Dockerfile.cross
 
