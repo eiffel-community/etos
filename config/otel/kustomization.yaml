@@ -1,0 +1,11 @@
+# Example overlay: default installation plus OTLP export from the manager.
+#   kustomize build config/otel
+# Copy and edit manager_otel_patch.yaml to point at your Collector.
+resources:
+- ../default
+
+patches:
+- path: manager_otel_patch.yaml
+  target:
+    kind: Deployment
+    name: controller-manager

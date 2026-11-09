@@ -457,7 +457,8 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 	executionSpaceProvider.Spec.Env = append(executionSpaceProvider.Spec.Env, envList...)
 
 	ttl := int32(300)
-	grace := int64(30)
+	// Releasers use the same publisher/telemetry lifecycle as providers.
+	grace := int64(60)
 	backoff := int32(0)
 
 	executionSpaceRelease, err := release.ExecutionSpaceReleaserContainer(
