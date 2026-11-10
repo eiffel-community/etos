@@ -22,6 +22,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.opentelemetry.io/otel"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +76,16 @@ var _ = Describe("Cluster Controller", func() {
 			By("Cleanup the specific resource instance Cluster")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
-		It("should successfully reconcile the resource", func() {
+		It("should initialize publish counters before processing an idle cluster", func() {
+			previous := otel.GetMeterProvider()
+			reader := sdkmetric.NewManualReader()
+			provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+			otel.SetMeterProvider(provider)
+			DeferCleanup(func() {
+				otel.SetMeterProvider(previous)
+				Expect(provider.Shutdown(ctx)).To(Succeed())
+			})
+
 			By("Reconciling the created resource")
 			controllerReconciler := &ClusterReconciler{
 				Client: k8sClient,
@@ -88,6 +100,22 @@ var _ = Describe("Cluster Controller", func() {
 			// TODO: set up proper secrets/configmaps so this test can verify
 			// a full successful reconciliation.
 			Expect(err).To(HaveOccurred())
+
+			var data metricdata.ResourceMetrics
+			Expect(reader.Collect(ctx, &data)).To(Succeed())
+			Expect(data.ScopeMetrics).To(HaveLen(1))
+			Expect(data.ScopeMetrics[0].Metrics).To(HaveLen(1))
+			instrument := data.ScopeMetrics[0].Metrics[0]
+			Expect(instrument.Name).To(Equal("etos_message_publish_attempts_total"))
+			sum, ok := instrument.Data.(metricdata.Sum[int64])
+			Expect(ok).To(BeTrue())
+			Expect(sum.DataPoints).To(HaveLen(7))
+			for _, point := range sum.DataPoints {
+				Expect(point.Value).To(BeZero())
+				cluster, found := point.Attributes.Value("etos_cluster")
+				Expect(found).To(BeTrue())
+				Expect(cluster.AsString()).To(Equal("default/" + resourceName))
+			}
 		})
 	})
 

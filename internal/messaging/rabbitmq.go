@@ -104,6 +104,33 @@ func newPublishRecorder(meter metric.Meter) (*publishRecorder, error) {
 	return &publishRecorder{attempts, duration}, nil
 }
 
+// InitializePublishMetrics exposes zero counters for a known Cluster before its first TestRun.
+func InitializePublishMetrics(ctx context.Context, cluster string) error {
+	recorder, err := newPublishRecorder(otel.Meter("etos/messaging"))
+	if err != nil {
+		return fmt.Errorf("create publisher instruments: %w", err)
+	}
+	recorder.initialize(ctx, cluster)
+	return nil
+}
+
+// initialize creates bounded idle counter series without inventing publish attempts or durations.
+func (r *publishRecorder) initialize(ctx context.Context, cluster string) {
+	if cluster == "" {
+		cluster = unassignedCluster
+	}
+	for _, outcome := range []string{
+		publishOutcomeAccepted, publishOutcomeClosed, publishOutcomeSerializationError,
+		publishOutcomeQueued, publishOutcomeSendError, publishOutcomeConfirmed, publishOutcomeUnconfirmed,
+	} {
+		r.attempts.Add(ctx, 0, metric.WithAttributes(
+			attribute.String("operation", publishOperation),
+			attribute.String("outcome", outcome),
+			attribute.String("etos_cluster", cluster),
+		))
+	}
+}
+
 type PublisherClosedError struct{}
 
 // Error describes an attempt to publish through a closed publisher.
@@ -152,6 +179,7 @@ func NewRabbitMQStreamPublisher(
 	if err != nil {
 		return nil, fmt.Errorf("create publisher instruments: %w", err)
 	}
+	recorder.initialize(ctx, publisherCluster(ctx))
 	password, err := config.Password.Get(ctx, cli, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RabbitMQ password: %w", err)
