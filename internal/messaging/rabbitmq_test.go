@@ -29,6 +29,7 @@ import (
 	"github.com/eiffel-community/etos/pkg/opentelemetry"
 	"github.com/go-logr/logr"
 	"github.com/rabbitmq/rabbitmq-stream-go-client/pkg/message"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/baggage"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -221,6 +222,62 @@ func TestSerializationFailureCompletesDrain(t *testing.T) {
 	}
 	if publisher.pending != 0 || publisherOutcomes(t, reader)["serialization_error"] != 1 {
 		t.Fatal("serialization failure did not finish its lifecycle")
+	}
+}
+
+// TestIdlePublishCounters verifies known idle clusters export zeros without fabricating publish durations.
+func TestIdlePublishCounters(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	previous := otel.GetMeterProvider()
+	otel.SetMeterProvider(provider)
+	t.Cleanup(func() {
+		otel.SetMeterProvider(previous)
+		if err := provider.Shutdown(context.Background()); err != nil {
+			t.Error(err)
+		}
+	})
+	for _, cluster := range []string{"first/shared", "second/shared"} {
+		if err := InitializePublishMetrics(t.Context(), cluster); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var data metricdata.ResourceMetrics
+	if err := reader.Collect(t.Context(), &data); err != nil {
+		t.Fatal(err)
+	}
+	if len(data.ScopeMetrics) != 1 || len(data.ScopeMetrics[0].Metrics) != 1 {
+		t.Fatalf("idle initialization emitted unexpected instruments: %+v", data)
+	}
+	instrument := data.ScopeMetrics[0].Metrics[0]
+	points, ok := instrument.Data.(metricdata.Sum[int64])
+	if instrument.Name != "etos_message_publish_attempts_total" || !ok || len(points.DataPoints) != 14 {
+		t.Fatalf("missing idle counter series: %+v", instrument)
+	}
+	seen := map[string]int{}
+	for _, point := range points.DataPoints {
+		cluster, _ := point.Attributes.Value("etos_cluster")
+		outcome, _ := point.Attributes.Value("outcome")
+		operation, _ := point.Attributes.Value("operation")
+		if point.Value != 0 || !isPublishOutcome(outcome.AsString()) ||
+			operation.AsString() != publishOperation || point.Attributes.Len() != 3 {
+			t.Fatalf("invalid idle baseline: %+v", point)
+		}
+		seen[cluster.AsString()]++
+	}
+	if seen["first/shared"] != 7 || seen["second/shared"] != 7 {
+		t.Fatalf("cluster baselines were mixed: %+v", seen)
+	}
+	recorder, err := newPublishRecorder(provider.Meter("etos/messaging"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder.record(t.Context(), publishOutcomeSendError, time.Now(), "first/shared")
+	if err := InitializePublishMetrics(t.Context(), "first/shared"); err != nil {
+		t.Fatal(err)
+	}
+	if got := publisherOutcomes(t, reader)["send_error"]; got != 1 {
+		t.Fatalf("initialization reset or inflated the first failure: %d", got)
 	}
 }
 
