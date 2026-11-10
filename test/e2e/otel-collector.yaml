@@ -1,7 +1,6 @@
 # Isolated OpenTelemetry Collector used only by the e2e suite. It accepts OTLP gRPC for traces,
-# metrics and logs. Metrics use compact debug output so repeated exports do not rotate away
-# the detailed traces and logs before the suite verifies them through kubectl logs.
-# The image is pinned; bump it deliberately.
+# metrics and logs. Traces and logs are retained in files for the lifetime of the test pod,
+# independently of container log rotation. Images are pinned; bump them deliberately.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19,6 +18,10 @@ data:
         verbosity: detailed
       debug/metrics:
         verbosity: normal
+      file/traces:
+        path: /telemetry/traces.json
+      file/logs:
+        path: /telemetry/logs.json
     service:
       telemetry:
         metrics:
@@ -26,13 +29,13 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          exporters: [debug]
+          exporters: [debug, file/traces]
         metrics:
           receivers: [otlp]
           exporters: [debug/metrics]
         logs:
           receivers: [otlp]
-          exporters: [debug]
+          exporters: [debug, file/logs]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -54,6 +57,7 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
+        fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -81,10 +85,32 @@ spec:
             - name: config
               mountPath: /conf
               readOnly: true
+            - name: telemetry
+              mountPath: /telemetry
+        - name: telemetry-reader
+          image: busybox:1.37.0
+          command: ["sleep", "infinity"]
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              memory: 32Mi
+            requests:
+              cpu: 10m
+              memory: 8Mi
+          volumeMounts:
+            - name: telemetry
+              mountPath: /telemetry
+              readOnly: true
       volumes:
         - name: config
           configMap:
             name: e2e-otel-collector
+        - name: telemetry
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

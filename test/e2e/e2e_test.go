@@ -198,7 +198,8 @@ var _ = Describe("Manager", Ordered, func() {
 			}
 
 			By("Fetching OTLP Collector fixture logs")
-			cmd = exec.Command("kubectl", "logs", "deployment/"+collectorDeployment, "-n", namespace, "--tail=200")
+			cmd = exec.Command("kubectl", "logs", "deployment/"+collectorDeployment,
+				"-n", namespace, "-c", "collector", "--tail=200")
 			collectorOutput, err := utils.Run(cmd)
 			if err == nil {
 				_, _ = fmt.Fprintf(GinkgoWriter, "Collector logs:\n %s", collectorOutput)
@@ -224,13 +225,19 @@ var _ = Describe("Manager", Ordered, func() {
 	VerifyETOSTestruns()
 	It("should receive completed provider spans and structured logs", func() {
 		Eventually(func(g Gomega) {
-			cmd := exec.Command("kubectl", "logs", "deployment/"+collectorDeployment, "-n", namespace)
-			output, err := utils.Run(cmd)
+			cmd := exec.Command("kubectl", "exec", "deployment/"+collectorDeployment,
+				"-n", namespace, "-c", "telemetry-reader", "--", "cat", "/telemetry/traces.json")
+			traces, err := utils.Run(cmd)
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(output).To(ContainSubstring("ResourceSpans #"))
-			g.Expect(output).To(ContainSubstring("RunProvider"))
-			g.Expect(output).To(ContainSubstring("etos.provider.completed"))
-			g.Expect(output).To(ContainSubstring("duration_seconds"))
+			g.Expect(traces).To(ContainSubstring("resourceSpans"))
+			g.Expect(traces).To(ContainSubstring("RunProvider"))
+
+			cmd = exec.Command("kubectl", "exec", "deployment/"+collectorDeployment,
+				"-n", namespace, "-c", "telemetry-reader", "--", "cat", "/telemetry/logs.json")
+			logs, err := utils.Run(cmd)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(logs).To(ContainSubstring("etos.provider.completed"))
+			g.Expect(logs).To(ContainSubstring("duration_seconds"))
 		}, 3*time.Minute, 2*time.Second).Should(Succeed())
 	})
 	VerifyClusterDefaults()
