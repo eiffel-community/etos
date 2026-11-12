@@ -281,6 +281,9 @@ func environmentVariables(
 			executionspaceSpec.ID,
 		),
 	}
+	if preference := os.Getenv("OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE"); preference != "" {
+		environment["OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE"] = preference
+	}
 	if environmentrequest.Spec.Config.EtosMessageBus.StreamName != "" {
 		environment["ETOS_RABBITMQ_STREAM_NAME"] = environmentrequest.Spec.Config.EtosMessageBus.StreamName
 		environment["ETOS_RABBITMQ_STREAM_PORT"] = environmentrequest.Spec.Config.EtosMessageBus.StreamPort

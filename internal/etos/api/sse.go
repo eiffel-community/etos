@@ -307,6 +307,9 @@ func (r *ETOSSSEDeployment) config(ctx context.Context, name types.NamespacedNam
 	if cluster.Spec.OpenTelemetry.Enabled {
 		data["OTEL_EXPORTER_OTLP_ENDPOINT"] = []byte(cluster.Spec.OpenTelemetry.Endpoint)
 		data["OTEL_EXPORTER_OTLP_INSECURE"] = []byte(cluster.Spec.OpenTelemetry.Insecure)
+		if cluster.Spec.OpenTelemetry.MetricsTemporalityPreference != "" {
+			data["OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE"] = []byte(cluster.Spec.OpenTelemetry.MetricsTemporalityPreference)
+		}
 	}
 
 	return &corev1.Secret{

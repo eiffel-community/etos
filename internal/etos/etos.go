@@ -548,6 +548,9 @@ func (r *ETOSDeployment) config(name types.NamespacedName, cluster *etosv1alpha1
 	if cluster.Spec.OpenTelemetry.Enabled {
 		data["OTEL_EXPORTER_OTLP_ENDPOINT"] = []byte(cluster.Spec.OpenTelemetry.Endpoint)
 		data["OTEL_EXPORTER_OTLP_INSECURE"] = []byte(cluster.Spec.OpenTelemetry.Insecure)
+		if cluster.Spec.OpenTelemetry.MetricsTemporalityPreference != "" {
+			data["OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE"] = []byte(cluster.Spec.OpenTelemetry.MetricsTemporalityPreference)
+		}
 	}
 	if r.Config.Timezone != "" {
 		data["TZ"] = []byte(r.Config.Timezone)
