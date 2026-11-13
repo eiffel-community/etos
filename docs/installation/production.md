@@ -26,3 +26,11 @@ The services that are required for ETOS to run are:
     - A database to support the event repository.
 
 The ETCD database that ETOS deploys can be used in production, but it may struggle with higher workloads. For a production environment, it is recommended to deploy it separately and configure it to handle the expected workload.
+
+## Controller memory budget
+
+The controller deployment sets `GOMEMLIMIT=750MiB` with a `1024Mi` container memory limit.
+This is a soft Go runtime memory budget, not an RSS ceiling or a guarantee against OOM termination.
+The remaining headroom accommodates memory outside the Go runtime and transient allocations.
+Review both values when changing the container limit or workload; a tighter budget can increase garbage collection and CPU usage.
+Override the environment variable through your deployment's Kustomize overlay when necessary.
