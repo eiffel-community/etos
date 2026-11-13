@@ -64,6 +64,9 @@ spec:
           - --health-probe-bind-address=:8081
         image: controller:latest
         name: manager
+        env:
+        - name: GOMEMLIMIT
+          value: "750MiB"
         ports: []
         securityContext:
           readOnlyRootFilesystem: true
