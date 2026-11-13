@@ -156,9 +156,9 @@ type resourceSpec struct {
 }
 
 var resources = []resourceSpec{
-	{name: "testrun", resourceType: "testrun", group: "etos.eiffel-community.github.io", version: "v1beta1", kind: "TestRun"},
+	{name: "testrun", resourceType: "testrun", group: "etos.eiffel-community.github.io", version: "v1alpha1", kind: "TestRun"},
 	{name: "environmentrequest", resourceType: "environmentrequest", group: "etos.eiffel-community.github.io", version: "v1alpha1", kind: "EnvironmentRequest"},
-	{name: "environment", resourceType: "environment", group: "etos.eiffel-community.github.io", version: "v1beta1", kind: "Environment"},
+	{name: "environment", resourceType: "environment", group: "etos.eiffel-community.github.io", version: "v1alpha1", kind: "Environment"},
 	{name: "executionspace", resourceType: "executionspace", group: "etos.eiffel-community.github.io", version: "v1alpha2", kind: "ExecutionSpace"},
 	{name: "iut", resourceType: "iut", group: "etos.eiffel-community.github.io", version: "v1alpha2", kind: "Iut"},
 	{name: "logarea", resourceType: "logarea", group: "etos.eiffel-community.github.io", version: "v1alpha2", kind: "LogArea"},
@@ -365,12 +365,13 @@ func (c *Collector) collect(ctx context.Context) {
 		return
 	}
 	partitions := map[string]*clusterInventory{UnassignedCluster: newClusterInventory()}
-	for _, cluster := range clusters.Items {
-		objects[clusterObjectKey("Cluster", &cluster)] = cluster.DeepCopy()
+	for i := range clusters.Items {
+		cluster := &clusters.Items[i]
+		objects[clusterObjectKey("Cluster", cluster)] = cluster
 		identity := cluster.GetNamespace() + "/" + cluster.GetName()
 		partitions[identity] = newClusterInventory()
 		for _, window := range inventoryWindows {
-			partitions[identity].complete[window.label] = !hasRetentionShorterThan(cluster, window.d, "spec", "etos", "config", "testrunRetention")
+			partitions[identity].complete[window.label] = !hasRetentionShorterThan(*cluster, window.d, "spec", "etos", "config", "testrunRetention")
 		}
 	}
 	// Unknown ownership cannot establish retention guarantees from an arbitrary Cluster.
@@ -388,9 +389,10 @@ func (c *Collector) collect(ctx context.Context) {
 			return
 		}
 
-		for _, item := range list.Items {
+		for i := range list.Items {
+			item := &list.Items[i]
 			item.SetKind(spec.kind)
-			objects[clusterObjectKey(spec.kind, &item)] = item.DeepCopy()
+			objects[clusterObjectKey(spec.kind, item)] = item
 		}
 	}
 	lookup := func(kind, namespace, name string) (*unstructured.Unstructured, bool) {
