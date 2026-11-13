@@ -694,7 +694,6 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 	}
 
 	for _, suite := range testrun.Spec.Suites {
-		logger.Info("Creating environmentrequest for suite", "suite", suite)
 		if err := r.createEnvironmentRequests(ctx, suite, environmentRequestList, testrun, cluster); err != nil {
 			return false, err
 		}

@@ -256,8 +256,15 @@ func run() error {
 		setupLog.Error(err, "Failed to create controller", "controller", "TestRun")
 		return err
 	}
+	inventoryCache, err := healthmetrics.NewInventoryCache(ctx, mgr)
+	if err != nil {
+		return err
+	}
+	if err := mgr.Add(inventoryCache); err != nil {
+		return fmt.Errorf("add inventory cache: %w", err)
+	}
 	inventoryCollector = &healthmetrics.Collector{
-		Reader: mgr.GetCache(),
+		Reader: inventoryCache,
 		Scope:  "cluster",
 	}
 	if err := inventoryCollector.Register(meter); err != nil {
