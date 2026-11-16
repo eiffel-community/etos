@@ -449,6 +449,12 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
 			Value: cluster.Spec.OpenTelemetry.Insecure,
 		})
+		if cluster.Spec.OpenTelemetry.MetricsTemporalityPreference != "" {
+			envList = append(envList, corev1.EnvVar{
+				Name:  "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE",
+				Value: cluster.Spec.OpenTelemetry.MetricsTemporalityPreference,
+			})
+		}
 	}
 
 	// Add OTEL variables to all releaser containers
