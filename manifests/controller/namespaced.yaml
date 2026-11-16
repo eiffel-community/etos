@@ -111,7 +111,10 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: ghcr.io/eiffel-community/etos-controller:a557b112
+        env:
+        - name: GOMEMLIMIT
+          value: 750MiB
+        image: ghcr.io/eiffel-community/etos-controller:91735325
         livenessProbe:
           httpGet:
             path: /healthz
