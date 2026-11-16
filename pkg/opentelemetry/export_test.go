@@ -177,6 +177,9 @@ func TestShortLivedProcessExportsAllSignalsAndCorrelation(t *testing.T) {
 			for _, resource := range []*resourcepb.Resource{r.metrics[0].Resource, r.logs[0].Resource, r.traces[0].Resource} {
 				if attr(resource.Attributes, "service.name").GetStringValue() != name ||
 					attr(resource.Attributes, "service.instance.id").GetStringValue() == "" ||
+					attr(resource.Attributes, "service.version").GetStringValue() == "" ||
+					attr(resource.Attributes, "service.version").GetStringValue() !=
+						attr(r.traces[0].Resource.Attributes, "service.version").GetStringValue() ||
 					attr(resource.Attributes, "service.namespace").GetStringValue() != "etos" {
 					t.Fatalf("resource identity missing: %+v", resource)
 				}

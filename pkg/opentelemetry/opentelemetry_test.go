@@ -38,6 +38,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// TestControllerResourceBuildRevision verifies the controller uses the injected short SHA as its service version.
+func TestControllerResourceBuildRevision(t *testing.T) {
+	previous := buildRevision
+	t.Cleanup(func() { buildRevision = previous })
+	buildRevision = "abc1234"
+
+	tracer := New("etos-controller-manager", "etos")
+	res, err := tracer.newOtelResource(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, ok := res.Set().Value("service.version")
+	if !ok || version.AsString() != "abc1234" {
+		t.Fatalf("service.version = %q, want abc1234", version.AsString())
+	}
+}
+
 // TestNewProviderResourceIdentity verifies provider resource identity attributes.
 func TestNewProviderResourceIdentity(t *testing.T) {
 	tests := []struct {
