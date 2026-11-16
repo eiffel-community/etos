@@ -114,7 +114,7 @@ spec:
         env:
         - name: GOMEMLIMIT
           value: 750MiB
-        image: ghcr.io/eiffel-community/etos-controller:91735325
+        image: ghcr.io/eiffel-community/etos-controller:3897f687
         livenessProbe:
           httpGet:
             path: /healthz
