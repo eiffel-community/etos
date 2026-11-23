@@ -16,11 +16,15 @@
 package controller
 
 import (
+	"fmt"
+
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller/jobs"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -47,6 +51,38 @@ const (
 	releaseFinalizer  = "etos.eiffel-community.github.io/release"
 	providerFinalizer = "etos.eiffel-community.github.io/managed-by-provider"
 )
+
+// TrimSuitePayload strips execution data in place before an informer caches a resource.
+// Keep fields needed for watches, indexes, and related-object lookups.
+func TrimSuitePayload(obj any) (any, error) {
+	var resource client.Object
+	switch item := obj.(type) {
+	case *etosv1alpha1.TestRun:
+		item.Spec.Suites = nil
+		resource = item
+	case *etosv1alpha1.EnvironmentRequest:
+		item.Spec.Splitter.Tests = nil
+		item.Spec.Dataset = nil
+		resource = item
+	case *etosv1alpha1.Environment:
+		item.Spec.Tests = nil
+		resource = item
+	default:
+		return nil, fmt.Errorf("suite payload transform received unexpected type %T", obj)
+	}
+	// Client-side kubectl apply can store a second copy of the suite here.
+	delete(resource.GetAnnotations(), corev1.LastAppliedConfigAnnotation)
+	return resource, nil
+}
+
+// fullObjectReader selects the reader that bypasses the trimmed cache, or the
+// uncached client supplied by a standalone reconciler.
+func fullObjectReader(apiReader, standaloneReader client.Reader) client.Reader {
+	if apiReader != nil {
+		return apiReader
+	}
+	return standaloneReader
+}
 
 // ownedByEnvironment checks if an Environment resource exists in ownerReferences.
 func ownedByEnvironment(ownerReferences []metav1.OwnerReference) bool {

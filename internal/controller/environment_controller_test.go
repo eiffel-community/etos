@@ -86,8 +86,17 @@ var _ = Describe("Environment Controller", func() {
 						Artifact:    "268dd4db-93da-4232-a544-bf4c0fb26dac",
 						Context:     "012a79a7-3f43-41e4-82c2-d71b4899d82e",
 						Priority:    1,
-						Tests:       []etosv1alpha1.Test{},
-						TestRunner:  "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
+						Tests: []etosv1alpha1.Test{{
+							ID:       "1444827c-c0fd-4e90-ba3b-2d229fd3ee6e",
+							TestCase: etosv1alpha1.TestCase{ID: "test-case"},
+							Execution: etosv1alpha1.Execution{
+								Checkout:    []string{},
+								Parameters:  map[string]string{},
+								Environment: map[string]string{},
+								TestRunner:  "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
+							},
+						}},
+						TestRunner: "ghcr.io/eiffel-community/etos-base-test-runner:bullseye",
 						Providers: &etosv1alpha1.Providers{
 							ExecutionSpace: executor.Name,
 							LogArea:        logArea.Name,
@@ -183,6 +192,7 @@ var _ = Describe("Environment Controller", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, typeNamespacedName, environment)).To(Succeed())
 				g.Expect(controllerutil.ContainsFinalizer(environment, releaseFinalizer)).To(BeTrue())
+				g.Expect(environment.Spec.Tests).To(HaveLen(1), "adding the finalizer must preserve the test payload")
 			}).Should(Succeed())
 
 			By("Setting the deadline to trigger the timeout logic in the controller")

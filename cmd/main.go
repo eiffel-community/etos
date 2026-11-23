@@ -184,7 +184,10 @@ func run() error {
 	mgr, err := ctrl.NewManager(kubeConfig, ctrl.Options{
 		Scheme: scheme,
 		Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
-			&etosv1alpha1.Cluster{}: {Transform: transitionMetrics.ClusterTransform},
+			&etosv1alpha1.Cluster{}:            {Transform: transitionMetrics.ClusterTransform},
+			&etosv1alpha1.TestRun{}:            {Transform: controller.TrimSuitePayload},
+			&etosv1alpha1.EnvironmentRequest{}: {Transform: controller.TrimSuitePayload},
+			&etosv1alpha1.Environment{}:        {Transform: controller.TrimSuitePayload},
 		}},
 		Metrics:                 metricsserver.Options{BindAddress: "0"},
 		GracefulShutdownTimeout: &drainTimeout,

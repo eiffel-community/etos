@@ -60,10 +60,11 @@ import (
 
 const testRunKind = "TestRun"
 
-// TestRunReconciler reconciles a TestRun object
+// TestRunReconciler reconciles TestRun objects.
 type TestRunReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	apiReader client.Reader
+	Scheme    *runtime.Scheme
 	Clock
 	Tracer      trace.Tracer
 	Publishers  *messaging.PublisherPool
@@ -108,13 +109,12 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
 
 	testrun := &etosv1alpha1.TestRun{}
-	if err := r.Get(ctx, req.NamespacedName, testrun); err != nil {
+	if err := fullObjectReader(r.apiReader, r.Client).Get(ctx, req.NamespacedName, testrun); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("Testrun not found, exiting")
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Error getting testrun")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("get TestRun %s: %w", req.NamespacedName, err)
 	}
 	// When creating a TestRun via the TestRun resource without ETOS API, the 'start-etos' span is not created,
 	// this call ensures that the 'start-etos' span gets created so that we get fully functional traces.
@@ -1039,8 +1039,9 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 	return job, ctrl.SetControllerReference(testrun, job, r.Scheme)
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager registers the controller and configures uncached reads for its primary objects.
 func (r *TestRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.apiReader = mgr.GetAPIReader()
 	// Set up real clock, since we are not in a test
 	if r.Clock == nil {
 		r.Clock = realClock{}

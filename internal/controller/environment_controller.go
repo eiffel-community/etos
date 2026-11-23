@@ -44,10 +44,11 @@ import (
 
 const environmentKind = "Environment"
 
-// EnvironmentReconciler reconciles a Environment object
+// EnvironmentReconciler reconciles Environment objects.
 type EnvironmentReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	apiReader client.Reader
+	Scheme    *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments,verbs=get;list;watch;create;update;patch;delete
@@ -78,9 +79,11 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	logger := logf.FromContext(ctx)
 	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
 	environment := &etosv1alpha1.Environment{}
-	err := r.Get(ctx, req.NamespacedName, environment)
-	if err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+	if err := fullObjectReader(r.apiReader, r.Client).Get(ctx, req.NamespacedName, environment); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, fmt.Errorf("get Environment %s: %w", req.NamespacedName, err)
 	}
 
 	// If the environment is considered 'Completed', it has been released. Check that the object is
@@ -607,8 +610,9 @@ func (r *EnvironmentReconciler) registerOwnerIndexForExecutionSpace(mgr ctrl.Man
 	return nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager registers the controller and configures uncached reads for its primary objects.
 func (r *EnvironmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.apiReader = mgr.GetAPIReader()
 	// Register indexes for faster lookups
 	if err := r.registerOwnerIndexForJob(mgr); err != nil {
 		return err
