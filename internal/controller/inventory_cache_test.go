@@ -27,11 +27,13 @@ import (
 	healthmetrics "github.com/eiffel-community/etos/internal/metrics"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -40,14 +42,20 @@ import (
 )
 
 var _ = Describe("Inventory cache", func() {
-	It("trims initial and updated objects without changing the reconciliation cache", func() {
+	It("trims initial and updated suites in both caches without changing API reads", func() {
+		const datasetSize = 256 << 10
+		padding := strings.Repeat("x", datasetSize)
 		run := &etosv1alpha1.TestRun{
-			ObjectMeta: metav1.ObjectMeta{Name: "inventory-cache-test", Namespace: "default"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "inventory-cache-test",
+				Namespace:   "default",
+				Annotations: map[string]string{corev1.LastAppliedConfigAnnotation: "applied suite payload"},
+			},
 			Spec: etosv1alpha1.TestRunSpec{
 				Artifact: "268dd4db-93da-4232-a544-bf4c0fb26dac", Identity: "pkg:testrun/etos/cache",
 				Cluster: "cache-cluster", Suites: []etosv1alpha1.Suite{{
 					Name: "payload", Tests: []etosv1alpha1.Test{},
-					Dataset: &apiextensionsv1.JSON{Raw: []byte(`{"marker":"initial-payload"}`)},
+					Dataset: &apiextensionsv1.JSON{Raw: []byte(`{"marker":"initial-payload-` + padding + `"}`)},
 				}},
 			},
 		}
@@ -60,6 +68,9 @@ var _ = Describe("Inventory cache", func() {
 		mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 			Scheme: k8sClient.Scheme(), Metrics: metricsserver.Options{BindAddress: "0"},
 			HealthProbeBindAddress: "0", LeaderElection: false,
+			Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
+				&etosv1alpha1.TestRun{}: {Transform: TrimSuitePayload},
+			}},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		inventory, err := healthmetrics.NewInventoryCache(ctx, mgr)
@@ -96,12 +107,19 @@ var _ = Describe("Inventory cache", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cluster).To(Equal(run.Spec.Cluster))
 
+		cached := &etosv1alpha1.TestRun{}
+		Expect(mgr.GetClient().Get(readCtx, key, cached)).To(Succeed())
+		Expect(cached.Spec.Suites).To(BeEmpty(), "the reconciliation informer retained the suite payload")
+		Expect(cached.Spec.Cluster).To(Equal(run.Spec.Cluster))
+		Expect(cached.Annotations).NotTo(HaveKey(corev1.LastAppliedConfigAnnotation))
+
 		full := &etosv1alpha1.TestRun{}
-		Expect(mgr.GetClient().Get(readCtx, key, full)).To(Succeed())
+		Expect(mgr.GetAPIReader().Get(readCtx, key, full)).To(Succeed())
 		Expect(full.Spec.Suites).To(HaveLen(1))
 		Expect(string(full.Spec.Suites[0].Dataset.Raw)).To(ContainSubstring("initial-payload"))
+		Expect(full.Annotations).To(Equal(run.Annotations))
 		Expect(k8sClient.Get(ctx, key, run)).To(Succeed())
-		run.Spec.Suites[0].Dataset.Raw = []byte(`{"marker":"updated-payload"}`)
+		run.Spec.Suites[0].Dataset.Raw = []byte(`{"marker":"updated-payload-` + padding + `"}`)
 		run.Spec.Deadline = time.Now().Add(time.Hour).Unix()
 		Expect(k8sClient.Update(ctx, run)).To(Succeed())
 		Eventually(func() int64 {
@@ -112,10 +130,14 @@ var _ = Describe("Inventory cache", func() {
 		_, hasSuites, err = unstructured.NestedFieldNoCopy(readInventory().Object, "spec", "suites")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(hasSuites).To(BeFalse())
-		Eventually(func() string {
-			Expect(mgr.GetClient().Get(readCtx, key, full)).To(Succeed())
-			return string(full.Spec.Suites[0].Dataset.Raw)
-		}, 10*time.Second).Should(ContainSubstring("updated-payload"))
+		Eventually(func(g Gomega) {
+			g.Expect(mgr.GetClient().Get(readCtx, key, cached)).To(Succeed())
+			g.Expect(cached.Spec.Deadline).To(Equal(run.Spec.Deadline))
+			g.Expect(cached.Spec.Suites).To(BeEmpty())
+		}, 10*time.Second).Should(Succeed())
+		Expect(mgr.GetAPIReader().Get(readCtx, key, full)).To(Succeed())
+		Expect(full.Spec.Suites).To(HaveLen(1))
+		Expect(string(full.Spec.Suites[0].Dataset.Raw)).To(ContainSubstring("updated-payload"))
 
 		run.Status.Verdict = "Passed"
 		run.Status.CompletionTime = &metav1.Time{Time: time.Now()}

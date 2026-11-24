@@ -49,9 +49,10 @@ import (
 
 const environmentRequestKind = "EnvironmentRequest"
 
-// EnvironmentRequestReconciler reconciles a EnvironmentRequest object
+// EnvironmentRequestReconciler reconciles EnvironmentRequest objects.
 type EnvironmentRequestReconciler struct {
 	client.Client
+	apiReader   client.Reader
 	Scheme      *runtime.Scheme
 	Transitions *healthmetrics.Transitions
 }
@@ -79,16 +80,13 @@ type EnvironmentRequestReconciler struct {
 func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 
-	// Get environment if exists.
 	environmentrequest := &etosv1alpha1.EnvironmentRequest{}
-	err := r.Get(ctx, req.NamespacedName, environmentrequest)
-	if err != nil {
+	if err := fullObjectReader(r.apiReader, r.Client).Get(ctx, req.NamespacedName, environmentrequest); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("environmentrequest not found. ignoring object")
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "failed to get environmentrequest")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("get EnvironmentRequest %s: %w", req.NamespacedName, err)
 	}
 	if environmentrequest.DeletionTimestamp.IsZero() {
 		// Add a finalizer if there is none, the finalizer will stop the Kubernetes garbage collector
@@ -115,7 +113,7 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err := jobManager.Delete(ctx); err != nil {
 			logger.Error(err, "Failed to delete environment provider job for completed environment request")
 		}
-		if err = r.cleanupUnused(ctx, environmentrequest); err != nil {
+		if err := r.cleanupUnused(ctx, environmentrequest); err != nil {
 			logger.Error(err, "Failed to clean up unused environments for environment request")
 		}
 		return ctrl.Result{}, nil
@@ -131,6 +129,7 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
+// reconcile advances provisioning for an EnvironmentRequest that is not being deleted.
 func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
 	logger := logf.FromContext(ctx)
 	// Set initial statuses if not set.
@@ -934,8 +933,9 @@ func (r *EnvironmentRequestReconciler) findEnvironmentRequestsForObject(ctx cont
 	return requests
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager registers the controller and configures uncached reads for its primary objects.
 func (r *EnvironmentRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.apiReader = mgr.GetAPIReader()
 	// Register indexes for faster lookups
 	if err := r.registerOwnerIndexForJob(mgr); err != nil {
 		return err
