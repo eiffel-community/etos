@@ -100,15 +100,26 @@ class Etos:
         return self.__wait(response)
 
     def __start(self) -> tuple[Optional[ResponseSchema], Optional[str]]:
-        """Trigger ETOS, retrying on non-client errors until successful or timeout."""
+        """Trigger ETOS, retrying HTTP 502 with the same idempotency key."""
         request = self.start_request.from_args(self.args)
         self.baggage.add("parent_activity", request.parent_activity)
         url = f"{self.cluster}/api/{self.version}/testrun"
         self.logger.info("Triggering ETOS using %r", url)
 
         response_json = {}
-        http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=START_REQUEST_TIMEOUT)
         headers = self.headers
+        headers["Idempotency-Key"] = str(uuid4())
+        retry = HTTP_RETRY_PARAMETERS.new(
+            total=2,
+            connect=0,
+            read=False,
+            other=0,
+            allowed_methods={"POST"},
+            status_forcelist=[502],
+            raise_on_status=False,
+            respect_retry_after_header=False,
+        )
+        http = Http(retry=retry, timeout=START_REQUEST_TIMEOUT)
         try:
             response = http.post(url, json=request.model_dump(), headers=headers)
         except ReadTimeout:
@@ -123,6 +134,11 @@ class Etos:
             response_json = response.json()
         except HTTPError:
             self.logger.error("Failed to start ETOS.")
+            if response.status_code == 502:
+                return None, (
+                    "ETOS start returned HTTP 502 Bad Gateway. The testrun may already exist; "
+                    f"contact ETOS support with correlation ID {self.correlation_id}"
+                )
             try:
                 response_json = response.json()
             except JSONDecodeError:
