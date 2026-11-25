@@ -890,6 +890,15 @@ spec:
                     description: Sets the OTEL_EXPORTER_OTLP_INSECURE environment
                       variable
                     type: string
+                  metricsTemporalityPreference:
+                    description: |-
+                      MetricsTemporalityPreference sets OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE.
+                      When omitted, exporters use their SDK defaults.
+                    enum:
+                    - DELTA
+                    - CUMULATIVE
+                    - LOWMEMORY
+                    type: string
                 type: object
             required:
             - etos
@@ -5242,7 +5251,7 @@ spec:
         env:
         - name: GOMEMLIMIT
           value: 750MiB
-        image: ghcr.io/eiffel-community/etos-controller:835e2562
+        image: ghcr.io/eiffel-community/etos-controller:16d9e479
         livenessProbe:
           httpGet:
             path: /healthz
