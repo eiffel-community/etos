@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,17 +30,13 @@ import (
 	"github.com/eiffel-community/etos/test/utils"
 )
 
+const environmentProviderImage = "example.com/environmentprovider"
+
 var (
-	// managerImage is the manager image to be built and loaded for testing.
-	managerImage               = "example.com/etos:v0.0.1"
-	iutImage                   = "example.com/iutprovider"
-	iutVersion                 = "v0.0.1"
-	executionSpaceImage        = "example.com/executionspaceprovider"
-	executionSpaceVersion      = "v0.0.1"
-	logAreaImage               = "example.com/logareaprovider"
-	logAreaVersion             = "v0.0.1"
-	environmentProviderImage   = "example.com/environmentprovider"
-	environmentProviderVersion = "v0.0.1"
+	runTag          string
+	managerImage    string
+	managerManifest string
+	crdManifest     string
 	// shouldCleanupCertManager tracks whether CertManager was installed by this suite.
 	shouldCleanupCertManager = false
 	// reuseCluster indicates if the cluster and controller should be reused across runs.
@@ -57,21 +55,32 @@ func TestE2E(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	By("patching the environment provider image in the default configuration")
-	err := utils.UpdateServiceDefaultVersion("environment_provider", environmentProviderImage, environmentProviderVersion)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to update the provider image in the default configuration")
-	By("patching the iut provider image in the default configuration")
-	err = utils.UpdateServiceDefaultVersion("iut_provider", iutImage, iutVersion)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to update the provider image in the default configuration")
-	By("patching the log area provider image in the default configuration")
-	err = utils.UpdateServiceDefaultVersion("log_area_provider", logAreaImage, logAreaVersion)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to update the provider image in the default configuration")
-	By("patching the execution space provider image in the default configuration")
-	err = utils.UpdateServiceDefaultVersion("execution_space_provider", executionSpaceImage, executionSpaceVersion)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to update the provider image in the default configuration")
+	providers := []struct{ target, defaults, image string }{
+		{"iutprovider-docker", "iut_provider.yaml", "example.com/iutprovider"},
+		{"logareaprovider-docker", "log_area_provider.yaml", "example.com/logareaprovider"},
+		{"executionspaceprovider-docker", "execution_space_provider.yaml", "example.com/executionspaceprovider"},
+		{"environmentprovider-docker", "environment_provider.yaml", environmentProviderImage},
+	}
+
+	By("staging the E2E configuration")
+	root, err := utils.GetProjectDir()
+	Expect(err).NotTo(HaveOccurred())
+	stage, err := os.MkdirTemp(root, ".e2e-")
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(os.RemoveAll, stage)
+	runTag = strings.TrimPrefix(filepath.Base(stage), ".")
+	managerImage = "example.com/etos:" + runTag
+	defaultsDir := filepath.Join(stage, "defaults")
+	Expect(os.CopyFS(defaultsDir, os.DirFS(filepath.Join(root, "defaults")))).To(Succeed())
+	for _, provider := range providers {
+		Expect(utils.UpdateServiceDefaultVersion(filepath.Join(defaultsDir, provider.defaults), provider.image, runTag)).
+			To(Succeed())
+	}
+	prepareManifests(root, stage)
 
 	By("building the manager image")
-	cmd := exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", managerImage))
+	cmd := exec.Command("make", "docker-build", "IMG="+managerImage,
+		"EXTRA_DOCKER_ARGS=--build-arg=DEFAULTS_PATH="+filepath.Join(filepath.Base(stage), "defaults"))
 	_, err = utils.Run(cmd)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the manager image")
 
@@ -79,52 +88,43 @@ var _ = BeforeSuite(func() {
 	err = utils.LoadImageToKindClusterWithName(managerImage)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager image into Kind")
 
-	By("building the iut provider")
-	cmd = exec.Command("make", "iutprovider-docker", fmt.Sprintf("IMG=%s:%s", iutImage, iutVersion))
-	_, err = utils.Run(cmd)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the IUT provider")
-
-	By("loading the IUT provider image on kind")
-	err = utils.LoadImageToKindClusterWithName(fmt.Sprintf("%s:%s", iutImage, iutVersion))
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(),
-		"Failed to load the IUT provider image",
-	)
-
-	By("building the log area provider")
-	cmd = exec.Command("make", "logareaprovider-docker", fmt.Sprintf("IMG=%s:%s", logAreaImage, logAreaVersion))
-	_, err = utils.Run(cmd)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the log area provider")
-
-	By("loading the log area provider image on kind")
-	err = utils.LoadImageToKindClusterWithName(fmt.Sprintf("%s:%s", logAreaImage, logAreaVersion))
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the log area provider image")
-
-	By("building the execution space provider")
-	cmd = exec.Command(
-		"make", "executionspaceprovider-docker", fmt.Sprintf("IMG=%s:%s", executionSpaceImage, executionSpaceVersion),
-	)
-	_, err = utils.Run(cmd)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the execution space provider")
-
-	By("loading the execution space provider image on kind")
-	err = utils.LoadImageToKindClusterWithName(fmt.Sprintf("%s:%s", executionSpaceImage, executionSpaceVersion))
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the execution space provider image")
-
-	By("building the environment provider")
-	cmd = exec.Command("make", "environmentprovider-docker", fmt.Sprintf(
-		"IMG=%s:%s", environmentProviderImage, environmentProviderVersion,
-	))
-	_, err = utils.Run(cmd)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the environment provider")
-
-	By("loading the environment provider image on kind")
-	err = utils.LoadImageToKindClusterWithName(
-		fmt.Sprintf("%s:%s", environmentProviderImage, environmentProviderVersion),
-	)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the environment provider image")
+	for _, provider := range providers {
+		image := provider.image + ":" + runTag
+		By("building " + image)
+		_, err := utils.Run(exec.Command("make", provider.target, "IMG="+image))
+		Expect(err).NotTo(HaveOccurred())
+		By("loading " + image + " into Kind")
+		Expect(utils.LoadImageToKindClusterWithName(image)).To(Succeed())
+	}
 
 	setupCertManager()
 })
+
+func prepareManifests(root, stage string) {
+	kustomize := os.Getenv("KUSTOMIZE")
+	if kustomize == "" {
+		kustomize = filepath.Join(root, "bin", "kustomize")
+	} else if !filepath.IsAbs(kustomize) && strings.ContainsRune(kustomize, filepath.Separator) {
+		kustomize = filepath.Join(root, kustomize)
+	}
+
+	configDir := filepath.Join(stage, "config")
+	Expect(os.CopyFS(configDir, os.DirFS(filepath.Join(root, "config")))).To(Succeed())
+	cmd := exec.Command(kustomize, "edit", "set", "image", "controller="+managerImage)
+	cmd.Dir = filepath.Join(configDir, "manager")
+	_, err := utils.Run(cmd)
+	Expect(err).NotTo(HaveOccurred())
+
+	crdManifest = filepath.Join(stage, "crds.yaml")
+	managerManifest = filepath.Join(stage, "manager.yaml")
+	for _, render := range []struct{ config, output string }{
+		{"crd", crdManifest},
+		{"default", managerManifest},
+	} {
+		_, err := utils.Run(exec.Command(kustomize, "build", filepath.Join(configDir, render.config), "-o", render.output))
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
 
 var _ = AfterSuite(func() {
 	if reuseCluster {

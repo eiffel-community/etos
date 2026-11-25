@@ -89,7 +89,7 @@ var _ = Describe("Manager", Ordered, func() {
 		}
 
 		By("installing CRDs")
-		cmd = exec.Command("make", "install")
+		cmd = exec.Command("kubectl", "apply", "-f", crdManifest)
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
 
@@ -105,7 +105,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred(), "OTLP Collector did not become available")
 
 		By("deploying the controller-manager")
-		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", managerImage))
+		cmd = exec.Command("kubectl", "apply", "-f", managerManifest)
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the controller-manager")
 
@@ -149,13 +149,9 @@ var _ = Describe("Manager", Ordered, func() {
 		cmd := exec.Command("kubectl", "delete", "-n", clusterNamespace, "-f", clusterSample)
 		_, _ = utils.Run(cmd)
 
-		By("undeploying the controller-manager")
-		cmd = exec.Command("make", "undeploy")
-		_, _ = utils.Run(cmd)
-
-		By("uninstalling CRDs")
-		cmd = exec.Command("make", "uninstall")
-		_, _ = utils.Run(cmd)
+		By("undeploying the controller-manager and uninstalling CRDs")
+		cmd = exec.Command("kubectl", "delete", "--ignore-not-found", "-f", managerManifest)
+		_, undeployErr := utils.Run(cmd)
 
 		By("removing cluster namespace")
 		cmd = exec.Command("kubectl", "delete", "ns", clusterNamespace)
@@ -164,6 +160,7 @@ var _ = Describe("Manager", Ordered, func() {
 		By("removing manager namespace")
 		cmd = exec.Command("kubectl", "delete", "ns", namespace)
 		_, _ = utils.Run(cmd)
+		Expect(undeployErr).NotTo(HaveOccurred(), "Failed to delete the E2E manifests")
 	})
 
 	// After each test, check for failures and collect logs, events,

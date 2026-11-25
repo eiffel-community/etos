@@ -85,8 +85,8 @@ setup-test-e2e: ## Set up a Kind cluster for e2e tests if it does not exist
 	esac
 
 .PHONY: test-e2e
-test-e2e: setup-test-e2e manifests generate fmt vet ## Run the e2e tests. Expected an isolated environment using Kind.
-	E2E_REUSE=$(E2E_REUSE) KIND=$(KIND) KIND_CLUSTER=$(KIND_CLUSTER) go test -tags=e2e ./test/e2e/ -v -ginkgo.v -ginkgo.timeout=60m -timeout 0
+test-e2e: setup-test-e2e kustomize vet ## Run the e2e tests using checked-in manifests in an isolated Kind environment.
+	E2E_REUSE=$(E2E_REUSE) KIND=$(KIND) KIND_CLUSTER=$(KIND_CLUSTER) KUSTOMIZE="$(KUSTOMIZE)" go test -tags=e2e ./test/e2e/ -v -ginkgo.v -ginkgo.timeout=60m -timeout 0
 	@if [ "$(E2E_REUSE)" != "true" ]; then \
 		$(MAKE) cleanup-test-e2e; \
 	else \

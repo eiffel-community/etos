@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2" // nolint:revive,staticcheck
@@ -41,11 +42,12 @@ func warnError(err error) {
 
 // Run executes the provided command within this context
 func Run(cmd *exec.Cmd) (string, error) {
-	dir, _ := GetProjectDir()
-	cmd.Dir = dir
-
-	if err := os.Chdir(cmd.Dir); err != nil {
-		_, _ = fmt.Fprintf(GinkgoWriter, "chdir dir: %q\n", err)
+	if cmd.Dir == "" {
+		dir, err := GetProjectDir()
+		if err != nil {
+			return "", err
+		}
+		cmd.Dir = dir
 	}
 
 	cmd.Env = append(os.Environ(), "GO111MODULE=on")
@@ -133,27 +135,16 @@ func IsCertManagerCRDsInstalled() bool {
 	return false
 }
 
-// UpdateServiceDefaultVersion updates the default version of the service in the defaults yaml file.
-func UpdateServiceDefaultVersion(serviceName, image, newVersion string) error {
+// UpdateServiceDefaultVersion updates the image and version in a staged defaults file.
+func UpdateServiceDefaultVersion(path, image, newVersion string) error {
 	cmd := exec.Command(
 		"sed", "-i",
-		fmt.Sprintf("s|image: .*|image: %s|g", image),
-		fmt.Sprintf("defaults/%s.yaml", serviceName),
+		"-e", fmt.Sprintf("s|^image: .*|image: %s|", image),
+		"-e", fmt.Sprintf("s|^version: .*|version: %s|", newVersion),
+		path,
 	)
 	_, err := Run(cmd)
-	if err != nil {
-		return err
-	}
-	cmd = exec.Command(
-		"sed", "-i",
-		fmt.Sprintf("s|version: .*|version: %s|g", newVersion),
-		fmt.Sprintf("defaults/%s.yaml", serviceName),
-	)
-	_, err = Run(cmd)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // LoadImageToKindClusterWithName loads a local docker image to the kind cluster
@@ -192,7 +183,9 @@ func GetProjectDir() (string, error) {
 	if err != nil {
 		return wd, fmt.Errorf("failed to get current working directory: %w", err)
 	}
-	wd = strings.ReplaceAll(wd, "/test/e2e", "")
+	if filepath.Base(wd) == "e2e" && filepath.Base(filepath.Dir(wd)) == "test" {
+		wd = filepath.Dir(filepath.Dir(wd))
+	}
 	return wd, nil
 }
 
