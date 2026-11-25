@@ -36,7 +36,7 @@ const testImage = "test-image"
 // and that custom values are applied when set.
 func VerifyClusterDefaults() {
 	defaults := config.New()
-	Context("Cluster defaults", func() {
+	Context("Cluster defaults", Label("cluster-defaults"), func() {
 		AfterAll(func() {
 			By("setting back the controller image to the original")
 			cmd := exec.Command("kubectl", "set", "image", "deploy/etos-controller-manager",
