@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,7 +115,7 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			logger.Error(err, "Failed to delete environment provider job for completed environment request")
 		}
 		if err := r.cleanupUnused(ctx, environmentrequest); err != nil {
-			logger.Error(err, "Failed to clean up unused environments for environment request")
+			return ctrl.Result{}, fmt.Errorf("clean up unused providers for EnvironmentRequest %s: %w", req.NamespacedName, err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -339,42 +340,57 @@ func (r *EnvironmentRequestReconciler) environmentProviderJobCompletionTime(
 	return latest
 }
 
-// cleanupUnused deletes IUTs, LogAreas and ExecutionSpaces without Environments i.e. dangling resources.
+// cleanupUnused deletes provider resources that are neither assigned to nor owned by an Environment.
 func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
-	logger := logf.FromContext(ctx)
+	namespace := client.InNamespace(environmentrequest.Namespace)
+	labels := client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}
+	var environments etosv1alpha1.EnvironmentList
+	// Provisioning can finish before the cache sees the Environments or their controller sets owner references.
+	if err := fullObjectReader(r.apiReader, r.Client).List(ctx, &environments, namespace, labels); err != nil {
+		return fmt.Errorf("list environments: %w", err)
+	}
+
+	assignedIUTs := sets.New[string]()
+	assignedExecutionSpaces := sets.New[string]()
+	assignedLogAreas := sets.New[string]()
+	for _, environment := range environments.Items {
+		if providers := environment.Spec.Providers; providers != nil {
+			assignedIUTs.Insert(providers.IUT)
+			assignedExecutionSpaces.Insert(providers.ExecutionSpace)
+			assignedLogAreas.Insert(providers.LogArea)
+		}
+	}
+
 	var iuts etosv1alpha2.IutList
-	if err := r.List(ctx, &iuts, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}); err != nil {
-		logger.Error(err, fmt.Sprintf("could not list IUTs for environmentrequest %s", environmentrequest.Name), "id", environmentrequest.Spec.ID)
-		return err
+	if err := r.List(ctx, &iuts, namespace, labels); err != nil {
+		return fmt.Errorf("list iuts: %w", err)
 	}
 	for _, iut := range iuts.Items {
-		if !ownedByEnvironment(iut.OwnerReferences) {
-			if err := r.Delete(ctx, &iut); err != nil {
-				return err
+		if !assignedIUTs.Has(iut.Name) && !ownedByEnvironment(iut.OwnerReferences) {
+			if err := client.IgnoreNotFound(r.Delete(ctx, &iut)); err != nil {
+				return fmt.Errorf("delete unused iut %s: %w", iut.Name, err)
 			}
 		}
 	}
 	var executionSpaces etosv1alpha2.ExecutionSpaceList
-	if err := r.List(ctx, &executionSpaces, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}); err != nil {
-		logger.Error(err, fmt.Sprintf("could not list execution spaces for environmentrequest %s", environmentrequest.Name), "id", environmentrequest.Spec.ID)
-		return err
+	if err := r.List(ctx, &executionSpaces, namespace, labels); err != nil {
+		return fmt.Errorf("list execution spaces: %w", err)
 	}
 	for _, executionSpace := range executionSpaces.Items {
-		if !ownedByEnvironment(executionSpace.OwnerReferences) {
-			if err := r.Delete(ctx, &executionSpace); err != nil {
-				return err
+		if !assignedExecutionSpaces.Has(executionSpace.Name) && !ownedByEnvironment(executionSpace.OwnerReferences) {
+			if err := client.IgnoreNotFound(r.Delete(ctx, &executionSpace)); err != nil {
+				return fmt.Errorf("delete unused execution space %s: %w", executionSpace.Name, err)
 			}
 		}
 	}
 	var logAreas etosv1alpha2.LogAreaList
-	if err := r.List(ctx, &logAreas, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}); err != nil {
-		logger.Error(err, fmt.Sprintf("could not list log areas for environmentrequest %s", environmentrequest.Name), "id", environmentrequest.Spec.ID)
-		return err
+	if err := r.List(ctx, &logAreas, namespace, labels); err != nil {
+		return fmt.Errorf("list log areas: %w", err)
 	}
 	for _, logArea := range logAreas.Items {
-		if !ownedByEnvironment(logArea.OwnerReferences) {
-			if err := r.Delete(ctx, &logArea); err != nil {
-				return err
+		if !assignedLogAreas.Has(logArea.Name) && !ownedByEnvironment(logArea.OwnerReferences) {
+			if err := client.IgnoreNotFound(r.Delete(ctx, &logArea)); err != nil {
+				return fmt.Errorf("delete unused log area %s: %w", logArea.Name, err)
 			}
 		}
 	}
