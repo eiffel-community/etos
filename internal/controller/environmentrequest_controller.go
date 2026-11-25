@@ -342,6 +342,7 @@ func (r *EnvironmentRequestReconciler) environmentProviderJobCompletionTime(
 
 // cleanupUnused deletes provider resources that are neither assigned to nor owned by an Environment.
 func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
+	logger := logf.FromContext(ctx).WithValues("identifier", environmentrequest.Spec.Identifier)
 	namespace := client.InNamespace(environmentrequest.Namespace)
 	labels := client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}
 	var environments etosv1alpha1.EnvironmentList
@@ -367,7 +368,9 @@ func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, enviro
 	}
 	for _, iut := range iuts.Items {
 		if !assignedIUTs.Has(iut.Name) && !ownedByEnvironment(iut.OwnerReferences) {
-			if err := client.IgnoreNotFound(r.Delete(ctx, &iut)); err != nil {
+			if err := r.Delete(ctx, &iut); err == nil {
+				logger.Info("Requested deletion of unused provider resource", "kind", "Iut", "resourceName", iut.Name, "id", iut.Spec.ID)
+			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("delete unused iut %s: %w", iut.Name, err)
 			}
 		}
@@ -378,7 +381,9 @@ func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, enviro
 	}
 	for _, executionSpace := range executionSpaces.Items {
 		if !assignedExecutionSpaces.Has(executionSpace.Name) && !ownedByEnvironment(executionSpace.OwnerReferences) {
-			if err := client.IgnoreNotFound(r.Delete(ctx, &executionSpace)); err != nil {
+			if err := r.Delete(ctx, &executionSpace); err == nil {
+				logger.Info("Requested deletion of unused provider resource", "kind", "ExecutionSpace", "resourceName", executionSpace.Name, "id", executionSpace.Spec.ID)
+			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("delete unused execution space %s: %w", executionSpace.Name, err)
 			}
 		}
@@ -389,7 +394,9 @@ func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, enviro
 	}
 	for _, logArea := range logAreas.Items {
 		if !assignedLogAreas.Has(logArea.Name) && !ownedByEnvironment(logArea.OwnerReferences) {
-			if err := client.IgnoreNotFound(r.Delete(ctx, &logArea)); err != nil {
+			if err := r.Delete(ctx, &logArea); err == nil {
+				logger.Info("Requested deletion of unused provider resource", "kind", "LogArea", "resourceName", logArea.Name, "id", logArea.Spec.ID)
+			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("delete unused log area %s: %w", logArea.Name, err)
 			}
 		}
