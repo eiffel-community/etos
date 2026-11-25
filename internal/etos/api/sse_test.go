@@ -89,21 +89,26 @@ func TestSSEOpenTelemetryReconciliation(t *testing.T) {
 	cli := fake.NewClientBuilder().WithScheme(scheme).WithObjects(bus).Build()
 	name := types.NamespacedName{Name: "blue-etos-sse", Namespace: cluster.Namespace}
 	for _, step := range []struct {
-		name      string
-		enabled   bool
-		endpoint  string
-		insecure  string
-		unchanged bool
+		name       string
+		enabled    bool
+		endpoint   string
+		insecure   string
+		preference string
+		unchanged  bool
 	}{
 		{name: "initially disabled", endpoint: "http://collector:4317", insecure: "true"},
 		{name: "enabled", enabled: true, endpoint: "http://collector:4317", insecure: "true"},
 		{name: "updated", enabled: true, endpoint: "https://other-collector:4317", insecure: "false"},
-		{name: "disabled", endpoint: "https://other-collector:4317", insecure: "false"},
+		{name: "delta", enabled: true, endpoint: "https://other-collector:4317", insecure: "false", preference: "DELTA"},
+		{name: "cumulative", enabled: true, endpoint: "https://other-collector:4317", insecure: "false", preference: "CUMULATIVE"},
+		{name: "preference removed", enabled: true, endpoint: "https://other-collector:4317", insecure: "false"},
+		{name: "disabled", endpoint: "https://other-collector:4317", insecure: "false", preference: "DELTA"},
 		{name: "still disabled", unchanged: true},
 	} {
 		t.Run(step.name, func(t *testing.T) {
 			cluster.Spec.OpenTelemetry = etosv1alpha1.OpenTelemetry{
 				Enabled: step.enabled, Endpoint: step.endpoint, Insecure: step.insecure,
+				MetricsTemporalityPreference: step.preference,
 			}
 			reconciler := NewETOSSSEDeployment(cluster.Spec.ETOS.SSE, scheme, cli, bus.Name, config.New())
 			if err := reconciler.Reconcile(t.Context(), cluster); err != nil && !readiness.IsNotReadyError(err) {
@@ -126,6 +131,11 @@ func TestSSEOpenTelemetryReconciliation(t *testing.T) {
 				if exists != step.enabled || (step.enabled && string(got) != want) {
 					t.Fatalf("%s = %q (present %v), want %q (present %v)", key, got, exists, want, step.enabled)
 				}
+			}
+			preference, exists := secret.Data["OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE"]
+			wantPreference := step.enabled && step.preference != ""
+			if exists != wantPreference || (wantPreference && string(preference) != step.preference) {
+				t.Fatalf("temporality preference = %q (present %v), want %q (present %v)", preference, exists, step.preference, wantPreference)
 			}
 			if string(secret.Data["ETOS_RABBITMQ_URI"]) != "rabbitmq-stream://rabbitmq:5552/" ||
 				string(secret.Data["ETOS_CLUSTER"]) != cluster.Name ||
