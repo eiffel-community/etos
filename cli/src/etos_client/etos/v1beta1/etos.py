@@ -107,7 +107,9 @@ class Etos:
         self.logger.info("Triggering ETOS using %r", url)
 
         response_json = {}
-        http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=START_REQUEST_TIMEOUT)
+        http = Http(
+            retry=HTTP_RETRY_PARAMETERS.new(allowed_methods={"POST"}), timeout=START_REQUEST_TIMEOUT
+        )
         headers = self.headers
         headers["Idempotency-Key"] = str(uuid4())
         try:
