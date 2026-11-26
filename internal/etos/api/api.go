@@ -445,7 +445,7 @@ func (r *ETOSApiDeployment) service(name types.NamespacedName, clusterName strin
 
 // container creates the container resource for the ETOS API deployment.
 func (r *ETOSApiDeployment) container(name types.NamespacedName, secretName string) corev1.Container {
-	probe := &corev1.Probe{
+	readinessProbe := &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path:   "/api/ping",
@@ -458,6 +458,9 @@ func (r *ETOSApiDeployment) container(name types.NamespacedName, secretName stri
 		SuccessThreshold: 1,
 		FailureThreshold: 3,
 	}
+	livenessProbe := readinessProbe.DeepCopy()
+	livenessProbe.TimeoutSeconds = 5
+	livenessProbe.FailureThreshold = 5
 	return corev1.Container{
 		Name:            name.Name,
 		Image:           config.ImageOrDefault(r.cfg.API, r.Image),
@@ -465,7 +468,7 @@ func (r *ETOSApiDeployment) container(name types.NamespacedName, secretName stri
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("256Mi"),
-				corev1.ResourceCPU:    resource.MustParse("200m"),
+				corev1.ResourceCPU:    resource.MustParse("500m"),
 			},
 			Requests: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("128Mi"),
@@ -480,8 +483,8 @@ func (r *ETOSApiDeployment) container(name types.NamespacedName, secretName stri
 			},
 		},
 		VolumeMounts:   r.volumeMounts(),
-		LivenessProbe:  probe,
-		ReadinessProbe: probe,
+		LivenessProbe:  livenessProbe,
+		ReadinessProbe: readinessProbe,
 		EnvFrom: []corev1.EnvFromSource{
 			{
 				SecretRef: &corev1.SecretEnvSource{
