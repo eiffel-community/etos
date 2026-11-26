@@ -99,8 +99,10 @@ func TestReconcileLogAreaProviderURLs(t *testing.T) {
 			}
 			if got := uploadURL.Query().Get("path"); got != "run-1/suite-1/subsuite-1/report.json" {
 				t.Errorf("file path = %q, want run-1/suite-1/subsuite-1/report.json", got)
-	"k8s.io/apimachinery/pkg/types"
-)
+			}
+		})
+	}
+}
 
 // TestConfigMetricsTemporality verifies shared service configuration preserves optional metric preferences.
 func TestConfigMetricsTemporality(t *testing.T) {
