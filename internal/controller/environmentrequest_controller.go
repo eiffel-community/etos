@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,14 +45,17 @@ import (
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"github.com/eiffel-community/etos/internal/controller/status"
+	healthmetrics "github.com/eiffel-community/etos/internal/metrics"
 )
 
 const environmentRequestKind = "EnvironmentRequest"
 
-// EnvironmentRequestReconciler reconciles a EnvironmentRequest object
+// EnvironmentRequestReconciler reconciles EnvironmentRequest objects.
 type EnvironmentRequestReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	apiReader   client.Reader
+	Scheme      *runtime.Scheme
+	Transitions *healthmetrics.Transitions
 }
 
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environmentrequests,verbs=get;list;watch;create;update;patch;delete
@@ -77,16 +81,13 @@ type EnvironmentRequestReconciler struct {
 func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 
-	// Get environment if exists.
 	environmentrequest := &etosv1alpha1.EnvironmentRequest{}
-	err := r.Get(ctx, req.NamespacedName, environmentrequest)
-	if err != nil {
+	if err := fullObjectReader(r.apiReader, r.Client).Get(ctx, req.NamespacedName, environmentrequest); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("environmentrequest not found. ignoring object")
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "failed to get environmentrequest")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("get EnvironmentRequest %s: %w", req.NamespacedName, err)
 	}
 	if environmentrequest.DeletionTimestamp.IsZero() {
 		// Add a finalizer if there is none, the finalizer will stop the Kubernetes garbage collector
@@ -113,8 +114,8 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err := jobManager.Delete(ctx); err != nil {
 			logger.Error(err, "Failed to delete environment provider job for completed environment request")
 		}
-		if err = r.cleanupUnused(ctx, environmentrequest); err != nil {
-			logger.Error(err, "Failed to clean up unused environments for environment request")
+		if err := r.cleanupUnused(ctx, environmentrequest); err != nil {
+			return ctrl.Result{}, fmt.Errorf("clean up unused providers for EnvironmentRequest %s: %w", req.NamespacedName, err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -129,6 +130,7 @@ func (r *EnvironmentRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
+// reconcile advances provisioning for an EnvironmentRequest that is not being deleted.
 func (r *EnvironmentRequestReconciler) reconcile(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
 	logger := logf.FromContext(ctx)
 	// Set initial statuses if not set.
@@ -192,7 +194,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			}) {
 			environmentRequestCondition := meta.FindStatusCondition(environmentrequest.Status.Conditions, status.StatusReady)
 			environmentrequest.Status.CompletionTime = &environmentRequestCondition.LastTransitionTime
-			return r.Status().Update(ctx, environmentrequest)
+			return r.updateTerminalStatus(ctx, environmentrequest, jobs.StatusFailed)
 		}
 	case jobs.StatusSuccessful:
 		result := jobManager.Result(ctx, "environment-provider", "iut-provider", "execution-space-provider", "log-area-provider")
@@ -216,7 +218,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 			environmentRequestCondition := meta.FindStatusCondition(environmentrequest.Status.Conditions, status.StatusReady)
 			environmentrequest.Status.CompletionTime = &environmentRequestCondition.LastTransitionTime
 			// Update status only; job deletion is deferred to the next reconcile.
-			return r.Status().Update(ctx, environmentrequest)
+			return r.updateTerminalStatus(ctx, environmentrequest, jobStatus)
 		}
 	case jobs.StatusActive:
 		if meta.SetStatusCondition(conditions,
@@ -232,6 +234,7 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 		if !environmentrequest.GetDeletionTimestamp().IsZero() {
 			return nil
 		}
+
 		// Already created a Job; the cache has not caught up yet.
 		if isStatusReason(*conditions, status.StatusReady, status.ReasonStarting) {
 			logger.Info("Environment provider job already created, requeuing")
@@ -268,42 +271,133 @@ func (r *EnvironmentRequestReconciler) reconcileEnvironmentProvider(ctx context.
 	return nil
 }
 
-// cleanupUnused deletes IUTs, LogAreas and ExecutionSpaces without Environments i.e. dangling resources.
-func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
-	logger := logf.FromContext(ctx)
-	var iuts etosv1alpha2.IutList
-	if err := r.List(ctx, &iuts, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}); err != nil {
-		logger.Error(err, fmt.Sprintf("could not list IUTs for environmentrequest %s", environmentrequest.Name), "id", environmentrequest.Spec.ID)
+// updateTerminalStatus persists a terminal EnvironmentRequest status and records only an observed provider Job result.
+func (r *EnvironmentRequestReconciler) updateTerminalStatus(
+	ctx context.Context,
+	environmentrequest *etosv1alpha1.EnvironmentRequest,
+	jobStatus jobs.Status,
+) error {
+	completedAt := r.environmentProviderJobCompletionTime(ctx, environmentrequest, jobStatus)
+	if err := r.Status().Update(ctx, environmentrequest); err != nil {
 		return err
 	}
+	if r.Transitions == nil {
+		return nil
+	}
+
+	outcome := healthmetrics.OutcomeFailure
+	if isStatusReason(environmentrequest.Status.Conditions, status.StatusReady, status.ReasonCompleted) {
+		outcome = healthmetrics.OutcomeSuccess
+	}
+	// The API status write and metric update are not atomic. A crash in between can lose one observation, so the
+	// metric is emitted only after persistence and a terminal request is not replayed as a duplicate after restart.
+	r.Transitions.RecordEnvironmentRequestFinished(
+		ctx,
+		healthmetrics.ResolveCluster(ctx, r.Client, environmentrequest, "EnvironmentRequest"),
+		outcome,
+		environmentrequest.CreationTimestamp.Time,
+		completedAt,
+	)
+	return nil
+}
+
+// environmentProviderJobCompletionTime returns the real terminal time from an owned Job when that time is recorded.
+func (r *EnvironmentRequestReconciler) environmentProviderJobCompletionTime(
+	ctx context.Context,
+	environmentrequest *etosv1alpha1.EnvironmentRequest,
+	jobStatus jobs.Status,
+) time.Time {
+	var jobList batchv1.JobList
+	if err := r.List(
+		ctx,
+		&jobList,
+		client.InNamespace(environmentrequest.Namespace),
+		client.MatchingFields{EnvironmentRequestOwnerKey: environmentrequest.Name},
+	); err != nil {
+		logf.FromContext(ctx).Error(err, "Failed to read terminal environment provider Job time")
+		return time.Time{}
+	}
+
+	var latest time.Time
+	for _, job := range jobList.Items {
+		switch jobStatus {
+		case jobs.StatusSuccessful:
+			// Job.Status.CompletionTime is set by Kubernetes for successfully completed Jobs.
+			if job.Status.CompletionTime != nil && job.Status.CompletionTime.After(latest) {
+				latest = job.Status.CompletionTime.Time
+			}
+		case jobs.StatusFailed:
+			for _, condition := range job.Status.Conditions {
+				// LastTransitionTime is the documented timestamp for a Job condition transition.
+				if condition.Type == batchv1.JobFailed &&
+					condition.Status == corev1.ConditionTrue &&
+					condition.LastTransitionTime.After(latest) {
+					latest = condition.LastTransitionTime.Time
+				}
+			}
+		}
+	}
+	return latest
+}
+
+// cleanupUnused deletes provider resources that are neither assigned to nor owned by an Environment.
+func (r *EnvironmentRequestReconciler) cleanupUnused(ctx context.Context, environmentrequest *etosv1alpha1.EnvironmentRequest) error {
+	logger := logf.FromContext(ctx).WithValues("identifier", environmentrequest.Spec.Identifier)
+	namespace := client.InNamespace(environmentrequest.Namespace)
+	labels := client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}
+	var environments etosv1alpha1.EnvironmentList
+	// Provisioning can finish before the cache sees the Environments or their controller sets owner references.
+	if err := fullObjectReader(r.apiReader, r.Client).List(ctx, &environments, namespace, labels); err != nil {
+		return fmt.Errorf("list environments: %w", err)
+	}
+
+	assignedIUTs := sets.New[string]()
+	assignedExecutionSpaces := sets.New[string]()
+	assignedLogAreas := sets.New[string]()
+	for _, environment := range environments.Items {
+		if providers := environment.Spec.Providers; providers != nil {
+			assignedIUTs.Insert(providers.IUT)
+			assignedExecutionSpaces.Insert(providers.ExecutionSpace)
+			assignedLogAreas.Insert(providers.LogArea)
+		}
+	}
+
+	var iuts etosv1alpha2.IutList
+	if err := r.List(ctx, &iuts, namespace, labels); err != nil {
+		return fmt.Errorf("list iuts: %w", err)
+	}
 	for _, iut := range iuts.Items {
-		if !ownedByEnvironment(iut.OwnerReferences) {
-			if err := r.Delete(ctx, &iut); err != nil {
-				return err
+		if !assignedIUTs.Has(iut.Name) && !ownedByEnvironment(iut.OwnerReferences) {
+			if err := r.Delete(ctx, &iut); err == nil {
+				logger.Info("Requested deletion of unused provider resource", "kind", "Iut", "resourceName", iut.Name, "id", iut.Spec.ID)
+			} else if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("delete unused iut %s: %w", iut.Name, err)
 			}
 		}
 	}
 	var executionSpaces etosv1alpha2.ExecutionSpaceList
-	if err := r.List(ctx, &executionSpaces, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}); err != nil {
-		logger.Error(err, fmt.Sprintf("could not list execution spaces for environmentrequest %s", environmentrequest.Name), "id", environmentrequest.Spec.ID)
-		return err
+	if err := r.List(ctx, &executionSpaces, namespace, labels); err != nil {
+		return fmt.Errorf("list execution spaces: %w", err)
 	}
 	for _, executionSpace := range executionSpaces.Items {
-		if !ownedByEnvironment(executionSpace.OwnerReferences) {
-			if err := r.Delete(ctx, &executionSpace); err != nil {
-				return err
+		if !assignedExecutionSpaces.Has(executionSpace.Name) && !ownedByEnvironment(executionSpace.OwnerReferences) {
+			if err := r.Delete(ctx, &executionSpace); err == nil {
+				logger.Info("Requested deletion of unused provider resource", "kind", "ExecutionSpace", "resourceName", executionSpace.Name, "id", executionSpace.Spec.ID)
+			} else if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("delete unused execution space %s: %w", executionSpace.Name, err)
 			}
 		}
 	}
 	var logAreas etosv1alpha2.LogAreaList
-	if err := r.List(ctx, &logAreas, client.InNamespace(environmentrequest.Namespace), client.MatchingLabels{"etos.eiffel-community.github.io/environment-request-id": environmentrequest.Spec.ID}); err != nil {
-		logger.Error(err, fmt.Sprintf("could not list log areas for environmentrequest %s", environmentrequest.Name), "id", environmentrequest.Spec.ID)
-		return err
+	if err := r.List(ctx, &logAreas, namespace, labels); err != nil {
+		return fmt.Errorf("list log areas: %w", err)
 	}
 	for _, logArea := range logAreas.Items {
-		if !ownedByEnvironment(logArea.OwnerReferences) {
-			if err := r.Delete(ctx, &logArea); err != nil {
-				return err
+		if !assignedLogAreas.Has(logArea.Name) && !ownedByEnvironment(logArea.OwnerReferences) {
+			if err := r.Delete(ctx, &logArea); err == nil {
+				logger.Info("Requested deletion of unused provider resource", "kind", "LogArea", "resourceName", logArea.Name, "id", logArea.Spec.ID)
+			} else if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("delete unused log area %s: %w", logArea.Name, err)
 			}
 		}
 	}
@@ -483,6 +577,12 @@ func (r EnvironmentRequestReconciler) envVarListFrom(ctx context.Context, enviro
 			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
 			Value: cluster.Spec.OpenTelemetry.Insecure,
 		})
+		if cluster.Spec.OpenTelemetry.MetricsTemporalityPreference != "" {
+			envList = append(envList, corev1.EnvVar{
+				Name:  "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE",
+				Value: cluster.Spec.OpenTelemetry.MetricsTemporalityPreference,
+			})
+		}
 	}
 	return envList, nil
 }
@@ -640,7 +740,8 @@ func (r EnvironmentRequestReconciler) deleteExecutionSpaces(ctx context.Context,
 // environmentProviderJob is the job definition for an etos environment provider.
 func (r EnvironmentRequestReconciler) environmentProviderJob(ctx context.Context, obj client.Object) (*batchv1.Job, error) {
 	logger := logf.FromContext(ctx)
-	grace := int64(30)
+	// Allow provider publisher draining (30s) and final telemetry export (15s).
+	grace := int64(60)
 	backoff := int32(0)
 
 	environmentrequest, ok := obj.(*etosv1alpha1.EnvironmentRequest)
@@ -861,8 +962,9 @@ func (r *EnvironmentRequestReconciler) findEnvironmentRequestsForObject(ctx cont
 	return requests
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager registers the controller and configures uncached reads for its primary objects.
 func (r *EnvironmentRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.apiReader = mgr.GetAPIReader()
 	// Register indexes for faster lookups
 	if err := r.registerOwnerIndexForJob(mgr); err != nil {
 		return err

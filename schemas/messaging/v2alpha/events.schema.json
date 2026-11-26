@@ -10,7 +10,7 @@
   "properties": {
     "id": {
       "type": "integer",
-      "description": "Monotonically increasing event id, assigned by the SSE server and used for resuming a stream."
+      "description": "Event id, assigned by the SSE server and used for resuming a stream. It is the position of the event in the event stream plus one, so ids are strictly increasing but not contiguous. Clients must treat it as opaque and must not expect consecutive ids."
     },
     "event": {
       "type": "string",
@@ -63,7 +63,7 @@
   ],
   "$defs": {
     "ping": {
-      "description": "Sent periodically to keep the connection between server and client alive. Server event.",
+      "description": "Sent periodically to keep the connection between server and client alive. When the server has passed events that were not sent to the client, for instance because of a filter, the ping has an id that the client should use as its last event id. Server event.",
       "properties": {
         "event": {
           "const": "ping"
@@ -74,7 +74,7 @@
       ]
     },
     "error": {
-      "description": "An error from the messaging server. The client should reconnect. Server event.",
+      "description": "An error from the messaging server. The data is an object with a boolean 'retry' and a string 'reason'. The client should reconnect with its last event id if 'retry' is true, and must not reconnect if it is false. Server event.",
       "properties": {
         "event": {
           "const": "error"

@@ -41,8 +41,6 @@ var (
 	environmentProviderVersion = "v0.0.1"
 	// shouldCleanupCertManager tracks whether CertManager was installed by this suite.
 	shouldCleanupCertManager = false
-	// shouldCleanupPrometheus tracks whether Prometheus was installed by this suite.
-	shouldCleanupPrometheus = false
 	// reuseCluster indicates if the cluster and controller should be reused across runs.
 	// Set E2E_REUSE=true to enable this behavior.
 	reuseCluster = os.Getenv("E2E_REUSE") == "true"
@@ -126,7 +124,6 @@ var _ = BeforeSuite(func() {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the environment provider image")
 
 	setupCertManager()
-	setupPrometheusOperator()
 })
 
 var _ = AfterSuite(func() {
@@ -135,7 +132,6 @@ var _ = AfterSuite(func() {
 		return
 	}
 	teardownCertManager()
-	teardownPrometheusOperator()
 })
 
 // setupCertManager installs CertManager if needed for webhook tests.
@@ -159,22 +155,6 @@ func setupCertManager() {
 	Expect(utils.InstallCertManager()).To(Succeed(), "Failed to install CertManager")
 }
 
-// setupPrometheusOperator installs PrometheusOperator if needed for monitoring tests.
-// Skips installation if already present.
-func setupPrometheusOperator() {
-	By("checking if PrometheusOperator is already installed")
-	if utils.IsPrometheusCRDsInstalled() {
-		_, _ = fmt.Fprintf(GinkgoWriter, "PrometheusOperator is already installed. Skipping installation.\n")
-		return
-	}
-
-	// Mark for cleanup before installation to handle interruptions and partial installs.
-	shouldCleanupPrometheus = true
-
-	By("installing PrometheusOperator")
-	Expect(utils.InstallPrometheusOperator()).To(Succeed(), "Failed to install PrometheusOperator")
-}
-
 // teardownCertManager uninstalls CertManager if it was installed by setupCertManager.
 // This ensures we only remove what we installed.
 func teardownCertManager() {
@@ -185,14 +165,4 @@ func teardownCertManager() {
 
 	By("uninstalling CertManager")
 	utils.UninstallCertManager()
-}
-
-// teardownPrometheusOperator uninstalls PrometheusOperator if it was installed by setupPrometheusOperator.
-func teardownPrometheusOperator() {
-	if !shouldCleanupPrometheus {
-		_, _ = fmt.Fprintf(GinkgoWriter, "Skipping PrometheusOperator cleanup (not installed by this suite)\n")
-		return
-	}
-	By("uninstalling PrometheusOperator")
-	utils.UninstallPrometheusOperator()
 }

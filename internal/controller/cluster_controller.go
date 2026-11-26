@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,6 +39,7 @@ import (
 	"github.com/eiffel-community/etos/internal/controller/status"
 	"github.com/eiffel-community/etos/internal/etos"
 	"github.com/eiffel-community/etos/internal/extras"
+	"github.com/eiffel-community/etos/internal/messaging"
 	"github.com/eiffel-community/etos/internal/readiness"
 )
 
@@ -82,6 +84,10 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		logger.Error(err, "failed to get cluster")
 		return ctrl.Result{}, err
+	}
+
+	if err := messaging.InitializePublishMetrics(ctx, cluster.Namespace+"/"+cluster.Name); err != nil {
+		return ctrl.Result{}, fmt.Errorf("initialize cluster publish metrics: %w", err)
 	}
 
 	var notReadyErr error

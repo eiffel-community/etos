@@ -41,7 +41,9 @@ import (
 func FromContextOrDiscard(ctx context.Context) logr.Logger {
 	logger := logr.FromContextOrDiscard(ctx)
 	carrier := carrierFromContext(ctx)
-	logger = logger.WithValues("trace_id", carrier["trace_id"], "span_id", carrier["span_id"])
+	// Keep only span identity, not the request's cancellation tree, baggage or values.
+	correlation := trace.ContextWithSpanContext(context.Background(), trace.SpanContextFromContext(ctx))
+	logger = logger.WithValues("trace_id", carrier["trace_id"], "span_id", carrier["span_id"], "otel.context", correlation)
 	return logger
 }
 
@@ -70,11 +72,11 @@ func (l *ETOSLogger) WithOtel(tracer *opentelemetry.ETOSTracer) *ETOSLogger {
 
 // WithConsole adds a console core to the logger that writes to the destination writer specified in the options.
 func (l *ETOSLogger) WithConsole() *ETOSLogger {
-	l.logcores = append(l.logcores, zapcore.NewCore(
+	l.logcores = append(l.logcores, withoutContext{zapcore.NewCore(
 		l.opts.Encoder,
 		zapcore.AddSync(l.opts.DestWriter),
 		l.opts.Level,
-	))
+	)})
 	return l
 }
 
@@ -84,11 +86,11 @@ func (l *ETOSLogger) WithUserLog(eventPublisher publisher.EventPublisher) *ETOSL
 	if eventPublisher == nil {
 		return l
 	}
-	l.logcores = append(l.logcores, zapcore.NewCore(
+	l.logcores = append(l.logcores, withoutContext{zapcore.NewCore(
 		l.opts.Encoder,
 		zapcore.AddSync(newUserLogWriter(eventPublisher)),
 		_zap.DebugLevel,
-	))
+	)})
 	return l
 }
 
@@ -102,6 +104,41 @@ func (l *ETOSLogger) Start(ctx context.Context) context.Context {
 	l.logger = zap.New(zap.UseFlagOptions(&l.opts))
 	return logr.NewContext(ctx, l.logger)
 }
+
+// withoutContext routes correlation context only to otelzap, never to JSON sinks.
+type withoutContext struct{ zapcore.Core }
+
+// stripContext removes context objects from log fields while retaining serializable correlation attributes.
+func stripContext(fields []zapcore.Field) []zapcore.Field {
+	result := make([]zapcore.Field, 0, len(fields))
+	for _, field := range fields {
+		if _, ok := field.Interface.(context.Context); !ok {
+			result = append(result, field)
+		}
+	}
+	return result
+}
+
+// With attaches context-free fields to the underlying core and preserves filtering for subsequent writes.
+func (c withoutContext) With(fields []zapcore.Field) zapcore.Core {
+	return withoutContext{c.Core.With(stripContext(fields))}
+}
+
+// Check registers this filtering core for enabled entries so writes cannot bypass context removal.
+func (c withoutContext) Check(entry zapcore.Entry, checked *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	if c.Enabled(entry.Level) {
+		return checked.AddCore(entry, c)
+	}
+	return checked
+}
+
+// Write forwards an entry to the underlying core after removing context objects from its fields.
+func (c withoutContext) Write(entry zapcore.Entry, fields []zapcore.Field) error {
+	return c.Core.Write(entry, stripContext(fields))
+}
+
+// ConsoleCore excludes context objects while retaining the configured manager encoder.
+func ConsoleCore(core zapcore.Core) zapcore.Core { return withoutContext{core} }
 
 // carrierFromContext extracts the trace context from the provided context and returns it as a
 // map[string]string.

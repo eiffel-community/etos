@@ -53,19 +53,22 @@ import (
 	"github.com/eiffel-community/etos/internal/controller/jobs"
 	"github.com/eiffel-community/etos/internal/controller/status"
 	"github.com/eiffel-community/etos/internal/messaging"
+	healthmetrics "github.com/eiffel-community/etos/internal/metrics"
 	"github.com/eiffel-community/etos/pkg/messaging/events"
 	"github.com/eiffel-community/etos/pkg/messaging/publisher"
 )
 
 const testRunKind = "TestRun"
 
-// TestRunReconciler reconciles a TestRun object
+// TestRunReconciler reconciles TestRun objects.
 type TestRunReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	apiReader client.Reader
+	Scheme    *runtime.Scheme
 	Clock
-	Tracer     trace.Tracer
-	Publishers *messaging.PublisherPool
+	Tracer      trace.Tracer
+	Publishers  *messaging.PublisherPool
+	Transitions *healthmetrics.Transitions
 }
 
 /*
@@ -74,6 +77,7 @@ the "real" clock just calls `time.Now`.
 */
 type realClock struct{}
 
+// Now returns the current wall-clock time.
 func (realClock) Now() time.Time { return time.Now() }
 
 // Clock knows how to get the current time.
@@ -105,13 +109,12 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
 
 	testrun := &etosv1alpha1.TestRun{}
-	if err := r.Get(ctx, req.NamespacedName, testrun); err != nil {
+	if err := fullObjectReader(r.apiReader, r.Client).Get(ctx, req.NamespacedName, testrun); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("Testrun not found, exiting")
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Error getting testrun")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("get TestRun %s: %w", req.NamespacedName, err)
 	}
 	// When creating a TestRun via the TestRun resource without ETOS API, the 'start-etos' span is not created,
 	// this call ensures that the 'start-etos' span gets created so that we get fully functional traces.
@@ -171,6 +174,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		cluster.Namespace,
 		r.Client,
 		*cluster.Spec.MessageBus.ETOSMessageBus,
+		cluster.Name,
 	)
 	if err != nil {
 		logger.Error(err, "Failed to get event publisher for cluster", "cluster", cluster.Name)
@@ -197,6 +201,7 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				Reason:  status.ReasonTimedOut,
 				Message: fmt.Sprintf("Testrun deadline of %s exceeded", convertedDeadline),
 			}) {
+				setInconclusiveVerdictIfUnset(testrun)
 				now := metav1.Now()
 				testrun.Status.CompletionTime = &now
 				if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
@@ -206,6 +211,9 @@ func (r *TestRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				})); err != nil {
 					logger.Error(err, "Failed to publish shutdown event after testrun deadline exceeded")
 				}
+				return ctrl.Result{}, r.updateTerminalStatus(ctx, testrun)
+			}
+			if setInconclusiveVerdictIfUnset(testrun) {
 				return ctrl.Result{}, r.Status().Update(ctx, testrun)
 			}
 			return ctrl.Result{}, nil
@@ -241,9 +249,10 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 			span.End()
 		}
 	}()
+	metricCluster := healthmetrics.ResolveCluster(ctx, r.Client, testrun, "TestRun")
 	span.SetAttributes(
 		attribute.String("etos.id", testrun.Spec.ID),
-		attribute.String("etos.cluster", testrun.Spec.Cluster),
+		attribute.String("etos.cluster", metricCluster),
 		attribute.String("etos.artifact.id", testrun.Spec.Artifact),
 		attribute.String("etos.artifact.identity", testrun.Spec.Identity),
 	)
@@ -260,7 +269,7 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 	if err != nil {
 		logger.Error(err, "Failed to set baggage member for Artifact ID", "id", testrun.Spec.Artifact)
 	}
-	b, err = b.SetMember(clusterMemberOrDie(testrun.Spec.Cluster))
+	b, err = b.SetMember(clusterMemberOrDie(metricCluster))
 	if err != nil {
 		logger.Error(err, "Failed to set baggage member for Cluster", "name", testrun.Spec.Cluster)
 	}
@@ -278,17 +287,21 @@ func (r *TestRunReconciler) maybeAddTraceparentLabel(
 	)
 	return ctx, err
 }
+
+// reconcile reconciles the TestRun's environment, suite runner, and active status.
 func (r *TestRunReconciler) reconcile(
 	ctx context.Context, cluster *etosv1alpha1.Cluster, testrun *etosv1alpha1.TestRun, eventPublisher publisher.EventPublisher,
 ) error {
 	// Check providers availability
 	if err := checkProviders(ctx, r, testrun.Namespace, testrun.Spec.Providers); err != nil {
-		if meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{
+		conditionChanged := meta.SetStatusCondition(&testrun.Status.Conditions, metav1.Condition{
 			Type:    status.StatusActive,
 			Status:  metav1.ConditionFalse,
 			Reason:  status.ReasonFailed,
 			Message: err.Error(),
-		}) {
+		})
+		verdictChanged := setInconclusiveVerdictIfUnset(testrun)
+		if conditionChanged || verdictChanged {
 			return errors.Join(err, r.Status().Update(ctx, testrun))
 		}
 		return err
@@ -332,7 +345,9 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 			Reason:  status.ReasonPending,
 			Message: "Reconciliation started",
 		})
-		testrun.Status.Verdict = string(jobs.StatusNone)
+		if testrun.Status.Verdict == "" {
+			testrun.Status.Verdict = string(jobs.VerdictNone)
+		}
 		logger.Info("Setting initial status on testrun")
 		return true, r.Status().Update(ctx, testrun)
 	}
@@ -374,23 +389,103 @@ func (r *TestRunReconciler) reconcileActiveStatus(ctx context.Context, testrun *
 
 	if condition != metav1.ConditionUnknown {
 		logger.Info("Setting Active status on testrun", "message", message, "reason", reason, "condition", condition)
-		if meta.SetStatusCondition(&testrun.Status.Conditions,
+		conditionChanged := meta.SetStatusCondition(&testrun.Status.Conditions,
 			metav1.Condition{
 				Type:    status.StatusActive,
 				Status:  condition,
 				Reason:  reason,
 				Message: message,
-			}) {
+			})
+		if conditionChanged {
 			if condition == metav1.ConditionFalse {
 				now := metav1.Now()
 				testrun.Status.CompletionTime = &now
 				// Update status only; job and environment request deletion is deferred to the next reconcile.
-				return true, r.Status().Update(ctx, testrun)
+				return true, r.updateTerminalStatus(ctx, testrun)
 			}
+			return true, r.Status().Update(ctx, testrun)
+		}
+		if !conditionChanged && condition == metav1.ConditionFalse &&
+			(reason == status.ReasonFailed || reason == status.ReasonTimedOut) &&
+			setInconclusiveVerdictIfUnset(testrun) {
 			return true, r.Status().Update(ctx, testrun)
 		}
 	}
 	return false, nil
+}
+
+// updateTerminalStatus persists a terminal TestRun status and emits its metric only after the write succeeds.
+func (r *TestRunReconciler) updateTerminalStatus(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
+	if err := r.Status().Update(ctx, testrun); err != nil {
+		return err
+	}
+	if r.Transitions == nil {
+		return nil
+	}
+
+	outcome := classifyTestRunOperationalOutcome(testrun.Status.Conditions)
+	startedAt := testrun.CreationTimestamp.Time
+	if testrun.Status.StartTime != nil && !testrun.Status.StartTime.IsZero() {
+		startedAt = testrun.Status.StartTime.Time
+	}
+	var completedAt time.Time
+	if testrun.Status.CompletionTime != nil {
+		completedAt = testrun.Status.CompletionTime.Time
+	}
+
+	// The API status write and in-memory metric update are not atomic. A process crash between them can lose one
+	// observation; terminal objects are not replayed on resync or restart, so emitting before the write is avoided.
+	cluster := healthmetrics.ResolveCluster(ctx, r.Client, testrun, "TestRun")
+	r.Transitions.RecordTestRunFinished(ctx, cluster, outcome, startedAt, completedAt)
+	return nil
+}
+
+// classifyTestRunOperationalOutcome mirrors persisted lifecycle conclusions without consulting the TestRun verdict.
+func classifyTestRunOperationalOutcome(conditions []metav1.Condition) string {
+	orderedTypes := []string{status.StatusActive, status.StatusSuiteRunner}
+	for _, conditionType := range orderedTypes {
+		condition := meta.FindStatusCondition(conditions, conditionType)
+		if condition == nil {
+			continue
+		}
+		outcome := classifyConditionOperationalOutcome(*condition)
+		if outcome == healthmetrics.OutcomeTimedOut ||
+			outcome == healthmetrics.OutcomeAborted ||
+			outcome == healthmetrics.OutcomeFailure {
+			return outcome
+		}
+	}
+	// Prefer the persisted SuiteRunner reason over a generic Active completion.
+	for _, conditionType := range []string{status.StatusSuiteRunner, status.StatusActive} {
+		condition := meta.FindStatusCondition(conditions, conditionType)
+		if condition == nil {
+			continue
+		}
+		outcome := classifyConditionOperationalOutcome(*condition)
+		if outcome == healthmetrics.OutcomeSuccess || outcome == healthmetrics.OutcomeInconclusive {
+			return outcome
+		}
+	}
+	return healthmetrics.OutcomeUnknown
+}
+
+// classifyConditionOperationalOutcome maps authoritative persisted reasons without interpreting free-text messages.
+// The lifecycle currently collapses some job conclusions into Failed or Completed; those distinctions cannot
+// safely be recovered from descriptions or test verdicts and retain their persisted reason's classification.
+func classifyConditionOperationalOutcome(condition metav1.Condition) string {
+	if condition.Status == "" || condition.Status == metav1.ConditionUnknown {
+		return healthmetrics.OutcomeUnknown
+	}
+	switch condition.Reason {
+	case status.ReasonTimedOut:
+		return healthmetrics.OutcomeTimedOut
+	case status.ReasonFailed:
+		return healthmetrics.OutcomeFailure
+	case status.ReasonCompleted:
+		return healthmetrics.OutcomeSuccess
+	default:
+		return healthmetrics.OutcomeUnknown
+	}
 }
 
 // reconcileSuiteRunner will check the status of suite runners, create new ones if necessary.
@@ -416,6 +511,9 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 		})); err != nil {
 			logger.Error(err, "Failed to publish shutdown event after suite runner failure")
 		}
+		if setInconclusiveVerdictIfUnset(testrun) {
+			return true, errors.Join(jobManager.Delete(ctx), r.deleteEnvironmentRequests(ctx, testrun), r.Status().Update(ctx, testrun))
+		}
 		return false, errors.Join(jobManager.Delete(ctx), r.deleteEnvironmentRequests(ctx, testrun))
 	}
 	if !isStatusReason(testrun.Status.Conditions, status.StatusEnvironment, status.ReasonCompleted) {
@@ -427,8 +525,8 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 	switch jobStatus {
 	case jobs.StatusFailed:
 		result := jobManager.Result(ctx, testrun.Name)
-		if result.Verdict == "" {
-			result.Verdict = jobs.VerdictNone
+		if result.Verdict == "" || result.Verdict == jobs.VerdictNone {
+			result.Verdict = jobs.VerdictInconclusive
 		}
 		testrun.Status.Verdict = string(result.Verdict)
 		logger.Info("SuiteRunner job failed", "verdict", result.Verdict, "description", result.Description)
@@ -483,7 +581,11 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			return true, r.Status().Update(ctx, testrun)
 		}
 	case jobs.StatusActive:
-		testrun.Status.Verdict = string(jobs.VerdictNone)
+		verdictChanged := false
+		if testrun.Status.Verdict == "" {
+			testrun.Status.Verdict = string(jobs.VerdictNone)
+			verdictChanged = true
+		}
 		if meta.SetStatusCondition(conditions,
 			metav1.Condition{
 				Type:    status.StatusSuiteRunner,
@@ -491,6 +593,9 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 				Reason:  status.ReasonActive,
 				Message: "Job is running",
 			}) {
+			return true, r.Status().Update(ctx, testrun)
+		}
+		if verdictChanged {
 			return true, r.Status().Update(ctx, testrun)
 		}
 	default:
@@ -507,13 +612,14 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 			// message in Condition.Message is also unique meaning we will update the StatusCondition every time,
 			// causing a nasty reconciliation loop (when the testrun gets updated a new reconciliation starts).
 			// We mitigate this by checking that StatusReason is not already Failed.
-			if !isStatusReason(*conditions, status.StatusSuiteRunner, status.ReasonFailed) && meta.SetStatusCondition(conditions,
+			conditionChanged := !isStatusReason(*conditions, status.StatusSuiteRunner, status.ReasonFailed) && meta.SetStatusCondition(conditions,
 				metav1.Condition{
 					Type:    status.StatusSuiteRunner,
 					Status:  metav1.ConditionFalse,
 					Reason:  status.ReasonFailed,
 					Message: err.Error(),
-				}) {
+				})
+			if conditionChanged {
 				if err := eventPublisher.Publish(testrun.Spec.ID, events.NewShutdown(events.Result{
 					Conclusion:  events.ConclusionFailed,
 					Verdict:     events.VerdictInconclusive,
@@ -521,6 +627,10 @@ func (r *TestRunReconciler) reconcileSuiteRunner(ctx context.Context, testrun *e
 				})); err != nil {
 					logger.Error(err, "Failed to publish shutdown event after suite runner job creation failure")
 				}
+				setInconclusiveVerdictIfUnset(testrun)
+				return true, r.Status().Update(ctx, testrun)
+			}
+			if !conditionChanged && setInconclusiveVerdictIfUnset(testrun) {
 				return true, r.Status().Update(ctx, testrun)
 			}
 			return false, err
@@ -561,6 +671,9 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 		})); err != nil {
 			logger.Error(err, "Failed to publish shutdown event after environment provisioning failure")
 		}
+		if setInconclusiveVerdictIfUnset(testrun) {
+			return true, errors.Join(r.deleteEnvironmentRequests(ctx, testrun), r.Status().Update(ctx, testrun))
+		}
 		return false, r.deleteEnvironmentRequests(ctx, testrun)
 	}
 
@@ -581,7 +694,6 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 	}
 
 	for _, suite := range testrun.Spec.Suites {
-		logger.Info("Creating environmentrequest for suite", "suite", suite)
 		if err := r.createEnvironmentRequests(ctx, suite, environmentRequestList, testrun, cluster); err != nil {
 			return false, err
 		}
@@ -597,6 +709,7 @@ func (r *TestRunReconciler) reconcileEnvironmentRequest(ctx context.Context, clu
 					Reason:  status.ReasonFailed,
 					Message: condition.Message,
 				}) {
+				setInconclusiveVerdictIfUnset(testrun)
 				return true, r.Status().Update(ctx, testrun)
 			}
 			if environmentRequest.DeletionTimestamp.IsZero() {
@@ -848,6 +961,10 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 			Name:  "SUITE_SOURCE",
 			Value: testrun.Spec.SuiteSource,
 		},
+		{
+			Name:  "ETOS_API_VERSION",
+			Value: "v1beta1",
+		},
 	}
 	if cluster.Spec.OpenTelemetry.Enabled {
 		envList = append(envList, corev1.EnvVar{
@@ -858,6 +975,12 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
 			Value: cluster.Spec.OpenTelemetry.Insecure,
 		})
+		if cluster.Spec.OpenTelemetry.MetricsTemporalityPreference != "" {
+			envList = append(envList, corev1.EnvVar{
+				Name:  "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE",
+				Value: cluster.Spec.OpenTelemetry.MetricsTemporalityPreference,
+			})
+		}
 	}
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -922,8 +1045,9 @@ func (r TestRunReconciler) suiteRunnerJob(ctx context.Context, obj client.Object
 	return job, ctrl.SetControllerReference(testrun, job, r.Scheme)
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager registers the controller and configures uncached reads for its primary objects.
 func (r *TestRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.apiReader = mgr.GetAPIReader()
 	// Set up real clock, since we are not in a test
 	if r.Clock == nil {
 		r.Clock = realClock{}

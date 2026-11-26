@@ -16,6 +16,7 @@
 """Prometheus pack."""
 from local.commands.command import Command
 from local.commands.kubectl import Kubectl, Resource
+from local.commands.shell import Shell
 
 from .base import BasePack
 
@@ -33,7 +34,7 @@ class Prometheus(BasePack):
 
     def create(self) -> list[Command]:
         """Commands for deploying prometheus."""
-        return [Kubectl().create(Resource(filename=self.url))]
+        return [Shell(["kubectl", "apply", "--server-side", "--filename", self.url])]
 
     def delete(self) -> list[Command]:
         """Commands for deleting prometheus."""

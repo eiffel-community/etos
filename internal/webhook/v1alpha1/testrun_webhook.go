@@ -65,7 +65,6 @@ type TestRunCustomDefaulter struct {
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind TestRun.
 func (d *TestRunCustomDefaulter) Default(ctx context.Context, testrun *etosv1alpha1.TestRun) error {
 	testrunlog.Info("Defaulting for TestRun", "name", testrun.GetName())
-	testrunlog.Info("TestRun spec", "spec", testrun.Spec)
 
 	if testrun.Spec.ID == "" {
 		testrunlog.Info("TestRun ID does not exist, generating a new one")

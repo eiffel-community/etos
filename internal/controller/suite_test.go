@@ -30,10 +30,12 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	etosv1alpha2 "github.com/eiffel-community/etos/api/v1alpha2"
@@ -51,6 +53,7 @@ var (
 	k8sClient client.Client
 )
 
+// TestControllers runs the controller specs against the local envtest API server.
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -93,7 +96,11 @@ var _ = BeforeSuite(func() {
 
 	// Enable automatic reconciliation loop for controllers.
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
+		Scheme:  scheme.Scheme,
+		Metrics: metricsserver.Options{BindAddress: "0"},
+		Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
+			&etosv1alpha1.Environment{}: {Transform: TrimSuitePayload},
+		}},
 	})
 	Expect(err).ToNot(HaveOccurred())
 

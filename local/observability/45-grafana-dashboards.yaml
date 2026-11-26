@@ -1,0 +1,1826 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: monitoring
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: etos-health
+        orgId: 1
+        folder: ETOS
+        type: file
+        disableDeletion: true
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etos-health-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  executive-overview.json: |
+    {
+      "schemaVersion": 39,
+      "title": "ETOS Executive Overview",
+      "uid": "etos-executive-overview",
+      "tags": [
+        "etos",
+        "health",
+        "p0"
+      ],
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "templating": {
+        "list": [
+          {
+            "name": "cluster",
+            "label": "ETOS cluster",
+            "description": "Namespace/Cluster CR name observed in fresh inventory during the selected time range. Historical choices can remain after telemetry becomes stale; current panels then show Unknown.",
+            "type": "query",
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "query": "label_values(etos_inventory_current_resources{scope=\"cluster\",etos_cluster=~\".+/.+\"},etos_cluster)",
+            "refresh": 1,
+            "sort": 1,
+            "multi": false,
+            "includeAll": false,
+            "options": [],
+            "current": {"text": "", "value": ""}
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 15,
+          "type": "stat",
+          "title": "Overall ETOS health",
+          "description": "0 = HEALTHY, 1 = DEGRADED, 2 = UNKNOWN. Demonstrated errors, overdue runs or firing failure alerts outrank missing evidence. Fresh inventory, attributed API/SSE OTLP samples, API error-rate evidence and both Collector scrapes are required. Absent API 5xx series count as zero only with fresh, usable API request-rate evidence; insufficient error samples remain Unknown. Shared infrastructure checks are not per-cluster certification.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "(vector(1) and on() ((sum(rate(etos_api_requests_total{status_class=\"5xx\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m])) > 0) or (max(etos_inventory_current_testrun_overdue{scope=\"cluster\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}) > 0) or (ALERTS{alertstate=\"firing\",alertname=~\"ETOS.*\",alertname!~\".*Unknown\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} or ALERTS{alertstate=\"firing\",alertname=~\"ETOS.*\",alertname!~\".*Unknown\",etos_cluster=\"\"}))) or on() (vector(2) and on() ((etos_inventory_leader_ready != 1) or absent(etos_inventory_leader_ready) or (etos_collector_ready != 1) or absent(etos_collector_ready) or absent(max(etos_inventory_current_testrun_overdue{scope=\"cluster\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"})) or absent(sum(rate(etos_api_requests_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m]))) or absent((((sum(rate(etos_api_requests_total{status_class=\"5xx\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m])) or on() (0 * sum(rate(etos_api_requests_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m])) unless on() etos_api_requests_total{status_class=\"5xx\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"})) >= 0) < +Inf) and on() (etos_api_telemetry_fresh{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} == 1)) or absent((etos_api_telemetry_fresh{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} == 1)) or absent((etos_sse_telemetry_fresh{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} == 1)))) or on() vector(0)",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#1F77B4"
+              },
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "✓ HEALTHY",
+                      "color": "#2E7D32",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "! DEGRADED",
+                      "color": "#C62828",
+                      "index": 1
+                    },
+                    "2": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270",
+                      "index": 2
+                    }
+                  }
+                },
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                }
+              ],
+              "displayName": "Overall ETOS health"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "horizontal",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "text": {
+              "titleSize": 28,
+              "valueSize": 72
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 24,
+            "h": 7
+          }
+        },
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Active test runs",
+          "description": "Fresh current TestRuns excluding completed, failed, timed_out, aborted, cleanup_failed; includes completing and cleaning_up. Suppressed unless the unique fresh OTLP leader has fresh inventory. A fresh empty snapshot is zero; stale/absent is UNKNOWN. No agreed count objective: neutral color, no count thresholds.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(max by (phase, scope) (etos_inventory_current_testrun_phase{scope=\"cluster\",phase!~\"completed|failed|timed_out|aborted|cleanup_failed\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"})) and on() (min(etos_inventory_leader_ready) == 1)",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#1F77B4"
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                }
+              ],
+              "displayName": "Active test runs"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "horizontal",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "text": {
+              "titleSize": 28,
+              "valueSize": 56
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 0,
+            "y": 7,
+            "w": 8,
+            "h": 6
+          }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Server errors/sec",
+          "description": "Selected-cluster 5xx rate for instrumented API operations. With fresh OTLP telemetry and a usable request-rate baseline, no 5xx series means zero observed server errors. Missing/stale telemetry, non-finite rates or a 5xx series without a rate baseline remain Unknown. This is not complete HTTP endpoint coverage.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "(((sum(rate(etos_api_requests_total{status_class=\"5xx\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m])) or on() (0 * sum(rate(etos_api_requests_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m])) unless on() etos_api_requests_total{status_class=\"5xx\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"})) >= 0) < +Inf) and on() (etos_api_telemetry_fresh{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} == 1)",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "decimals": 3,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "✓ 0",
+                      "color": "#2E7D32",
+                      "index": 0
+                    }
+                  }
+                },
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#C62828",
+                    "value": null
+                  }
+                ]
+              },
+              "displayName": "Server errors/sec"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "horizontal",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "text": {
+              "titleSize": 28,
+              "valueSize": 56
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 8,
+            "y": 7,
+            "w": 8,
+            "h": 6
+          }
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Telemetry",
+          "description": "Shared Collector exported-metrics and self-metrics scrape readiness. This does not prove API, SSE or controller liveness.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "etos_collector_ready",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#1F77B4"
+              },
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "1": {
+                      "text": "✓ Scrape OK",
+                      "color": "#2E7D32",
+                      "index": 0
+                    },
+                    "0": {
+                      "text": "! DOWN",
+                      "color": "#C62828",
+                      "index": 1
+                    }
+                  }
+                },
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                }
+              ],
+              "displayName": "Telemetry"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "horizontal",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "text": {
+              "titleSize": 28,
+              "valueSize": 48
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 16,
+            "y": 7,
+            "w": 8,
+            "h": 6
+          }
+        },
+        {
+          "id": 17,
+          "type": "stat",
+          "title": "TestRun completions observed · 24h",
+          "description": "Rolling 24h controller-observed completions, not a durable ledger. Requires fresh controller inventory. Increases are calculated per OTLP writer before aggregation; restarts reset counters and events before the first sample may be missed. Insufficient samples remain Unknown. Retained-resource creation counts are shown separately in TestRun Detail.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(increase(etos_testrun_finished_total{job=\"etos/etos-controller-manager\",instance!=\"\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h])) and on() (min(etos_inventory_leader_ready) == 1)",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#1F77B4"
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                }
+              ],
+              "displayName": "Completions observed · 24h"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "horizontal",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "text": {
+              "titleSize": 28,
+              "valueSize": 48
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 0,
+            "y": 13,
+            "w": 5,
+            "h": 6
+          }
+        },
+        {
+          "id": 18,
+          "type": "stat",
+          "title": "ETOS failure rate · 24h",
+          "description": "Operational failure rate: controller-observed failure + timed_out divided by finished outcomes except aborted over 24h, never the test verdict. Zero observed eligible finishes displays No eligible finishes. Missing samples or stale controller inventory remain Unknown. Increases are computed per OTLP writer before aggregation; restarts and first-export gaps can lose observations. Not an SLO or paging condition.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "((sum(increase(etos_testrun_finished_total{job=\"etos/etos-controller-manager\",instance!=\"\",outcome=~\"failure|timed_out\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h])) / (sum(increase(etos_testrun_finished_total{job=\"etos/etos-controller-manager\",instance!=\"\",outcome!=\"aborted\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h])) > 0)) or on() (-1 + 0 * (sum(increase(etos_testrun_finished_total{job=\"etos/etos-controller-manager\",instance!=\"\",outcome!=\"aborted\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h])) == 0))) and on() (min(etos_inventory_leader_ready) == 1)",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "decimals": 1,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                },
+                {
+                  "type": "value",
+                  "options": {
+                    "-1": {
+                      "text": "No eligible finishes",
+                      "color": "#5A6270"
+                    }
+                  }
+                }
+              ],
+              "displayName": "ETOS failure rate · 24h",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#1F77B4",
+                    "value": null
+                  },
+                  {
+                    "color": "#8A5700",
+                    "value": 0.05000000000000001
+                  },
+                  {
+                    "color": "#C62828",
+                    "value": 0.20000000000000004
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "horizontal",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "text": {
+              "titleSize": 28,
+              "valueSize": 48
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 5,
+            "y": 13,
+            "w": 5,
+            "h": 6
+          }
+        },
+        {
+          "id": 19,
+          "type": "stat",
+          "title": "Environment provisioning p95 · 24h",
+          "description": "Approximate p95 over the rolling 24h of controller-recorded EnvironmentRequest creation → successful Job completion durations. Prometheus buckets are summed across manager streams before quantile calculation. Prometheus retains 1d locally. This is an investigation signal, not proof of failure or an approved SLO. Requires fresh controller inventory. Rates/increases are computed per OTLP writer before aggregation; restarts reset counters. A first histogram export has no earlier baseline, so insufficient observations remain Unknown.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "(histogram_quantile(0.95, sum by (le) (increase(etos_environment_request_duration_seconds_bucket{job=\"etos/etos-controller-manager\",instance!=\"\",outcome=\"success\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h]))) and on() (sum(increase(etos_environment_request_duration_seconds_count{job=\"etos/etos-controller-manager\",instance!=\"\",outcome=\"success\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h])) > 0)) and on() (min(etos_inventory_leader_ready) == 1)",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": "successful EnvironmentRequests · p95"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 1,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#1F77B4"
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                },
+                {
+                  "type": "value",
+                  "options": {
+                    "-2": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                }
+              ],
+              "displayName": "Environment provisioning p95 · 24h"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "horizontal",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "text": {
+              "titleSize": 28,
+              "valueSize": 48
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 10,
+            "y": 13,
+            "w": 5,
+            "h": 6
+          }
+        },
+        {
+          "id": 20,
+          "type": "stat",
+          "title": "Oldest active run",
+          "description": "Age since creation of the oldest unfinished, non-deleting TestRun. Fresh zero = None active. Stale/absent = UNKNOWN. No arbitrary duration threshold.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "max(etos_inventory_current_testrun_oldest_active_age_seconds{scope=\"cluster\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}) and on() (min(etos_inventory_leader_ready) == 1)",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 1,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#1F77B4"
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                },
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "None active",
+                      "color": "#1F77B4"
+                    }
+                  }
+                }
+              ],
+              "displayName": "Oldest active run"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "horizontal",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "text": {
+              "titleSize": 28,
+              "valueSize": 48
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 15,
+            "y": 13,
+            "w": 5,
+            "h": 6
+          }
+        },
+        {
+          "id": 21,
+          "type": "stat",
+          "title": "Overdue runs",
+          "description": "Selected cluster's unfinished TestRuns past spec.deadline. ✓ 0 only with a fresh explicit labeled zero; positive values show ! N. Any overdue run degrades the verdict immediately; provisional warning alert waits 10m. Absent attribution means UNKNOWN here and in the overall verdict. Freshness is manager-wide.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "max(etos_inventory_current_testrun_overdue{scope=\"cluster\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}) and on() (min(etos_inventory_leader_ready) == 1)",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "prefix:! ",
+              "decimals": 0,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                },
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "✓ 0",
+                      "color": "#2E7D32"
+                    }
+                  }
+                }
+              ],
+              "displayName": "Overdue runs",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#2E7D32",
+                    "value": null
+                  },
+                  {
+                    "color": "#8A5700",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "horizontal",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "text": {
+              "titleSize": 28,
+              "valueSize": 48
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 20,
+            "y": 13,
+            "w": 4,
+            "h": 6
+          }
+        },
+        {
+          "id": 16,
+          "type": "timeseries",
+          "title": "API requests and server errors · last hour",
+          "description": "Selected-cluster instrumented API request and 5xx rates. An absent 5xx series is zero only with fresh OTLP telemetry and a usable request-rate baseline; missing/stale telemetry or insufficient error samples remain Unknown.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(etos_api_requests_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m])) and on() (etos_api_telemetry_fresh{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} == 1)",
+              "refId": "A",
+              "instant": false,
+              "range": true,
+              "legendFormat": "API requests"
+            },
+            {
+              "expr": "(((sum(rate(etos_api_requests_total{status_class=\"5xx\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m])) or on() (0 * sum(rate(etos_api_requests_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m])) unless on() etos_api_requests_total{status_class=\"5xx\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"})) >= 0) < +Inf) and on() (etos_api_telemetry_fresh{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} == 1)",
+              "refId": "B",
+              "instant": false,
+              "range": true,
+              "legendFormat": "Server errors (5xx)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0,
+              "noValue": "? UNKNOWN",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 3,
+                "fillOpacity": 0,
+                "spanNulls": false,
+                "axisLabel": "requests/sec",
+                "axisPlacement": "left",
+                "showPoints": "never"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "API requests"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#1F77B4"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Server errors (5xx)"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#C62828"
+                    }
+                  },
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        8,
+                        5
+                      ],
+                      "fill": "dash"
+                    }
+                  },
+                  {
+                    "id": "custom.showPoints",
+                    "value": "always"
+                  },
+                  {
+                    "id": "custom.pointSize",
+                    "value": 4
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "none"
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 0,
+            "y": 19,
+            "w": 16,
+            "h": 12
+          }
+        },
+        {
+          "id": 13,
+          "type": "table",
+          "title": "Active issues (up to 4)",
+          "description": "Firing ETOS alerts for the selected cluster plus unlabeled manager/shared-pipeline alerts, grouped by alert name. Shared alerts can affect every cluster and are not cluster-specific evidence. Up to four names fit; all matching alerts affect the verdict. No active alerts is shown only with labeled selected-cluster inventory and manager readiness; otherwise UNKNOWN. This is not proof of signal completeness.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "topk(4, sum by (alertname) (ALERTS{alertstate=\"firing\",alertname=~\"ETOS.*\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} or ALERTS{alertstate=\"firing\",alertname=~\"ETOS.*\",etos_cluster=\"\"})) or on() label_replace((0 * max(etos_inventory_current_testrun_overdue{scope=\"cluster\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}) and on() (min(etos_inventory_leader_ready) == 1)), \"alertname\", \"No active ETOS alerts\", \"\", \"\")",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": "",
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "alertname"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "renameByName": {
+                  "alertname": "ETOS alert"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "? UNKNOWN",
+              "custom": {
+                "align": "left",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": false,
+            "cellHeight": "lg",
+            "footer": {
+              "show": false
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 16,
+            "y": 19,
+            "w": 8,
+            "h": 12
+          }
+        }
+      ],
+      "refresh": "30s",
+      "timezone": "browser",
+      "links": [
+        {
+          "type": "link",
+          "title": "TestRun detail",
+          "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+          "targetBlank": false,
+          "includeVars": false,
+          "keepTime": true
+        },
+        {
+          "type": "link",
+          "title": "Provider and delivery detail",
+          "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+          "targetBlank": false,
+          "includeVars": false,
+          "keepTime": true
+        }
+      ],
+      "description": "Selected-cluster domain metrics with explicit Unknown states for missing evidence. Inventory selects one fresh OTLP writer; cached old leaders are excluded before aggregation. Demonstrated failures outrank missing evidence. Controller counters are observations, not durable ledgers, and failure outcomes are distinct from test verdicts."
+    }
+  testrun-detail.json: |
+    {
+      "schemaVersion": 39,
+      "title": "ETOS TestRun Detail",
+      "uid": "etos-testrun-detail",
+      "description": "Selected-cluster inventory and execution observations from OTLP. Inventory freshness is manager-wide; API version applies only to API panels. Counters retain writer identity through rate/increase calculations. Missing observations are Unknown.",
+      "links": [
+        {"title": "ETOS overview", "url": "/d/etos-executive-overview?var-cluster=${cluster:percentencode}", "type": "link", "keepTime": true},
+        {"title": "Single TestRun (exact ID)", "url": "/d/etos-single-testrun?var-cluster=${cluster:percentencode}", "type": "link", "keepTime": true}
+      ],
+      "tags": [
+        "etos",
+        "testrun",
+        "p0"
+      ],
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "templating": {
+        "list": [
+          {
+            "name": "cluster",
+            "label": "ETOS cluster",
+            "description": "Namespace/Cluster CR name observed in fresh inventory during the selected time range. Historical choices can remain after telemetry becomes stale; current panels then show Unknown.",
+            "type": "query",
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "query": "label_values(etos_inventory_current_resources{scope=\"cluster\",etos_cluster=~\".+/.+\"},etos_cluster)",
+            "refresh": 1,
+            "sort": 1,
+            "multi": false,
+            "includeAll": false,
+            "options": [],
+            "current": {"text": "", "value": ""}
+          },
+          {
+            "name": "api_version",
+            "type": "custom",
+            "query": "v1beta1,v1alpha",
+            "current": {
+              "text": "v1beta1",
+              "value": "v1beta1"
+            }
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "API request rate by operation",
+          "description": "Admission activity by explicit API version. Individual run identifiers are intentionally not metric dimensions.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum by (operation) (rate(etos_api_requests_total{api_version=\"$api_version\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m]))",
+              "legendFormat": "{{operation}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "reqps", "noValue": "Unknown"}
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "API p95 latency",
+          "description": "Request latency in seconds. Insufficient samples are not rendered as zero.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le,operation) (rate(etos_api_request_duration_seconds_bucket{api_version=\"$api_version\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[5m])))",
+              "legendFormat": "{{operation}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "s", "noValue": "Unknown"}
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          }
+        },
+        {
+          "id": 3,
+          "type": "table",
+          "title": "Inventory freshness · manager-wide",
+          "description": "Readiness requires exactly one fresh OTLP inventory writer and no controller metric overflow. Last-success age uses wall-clock time, not a cached snapshot-age value. Multiple fresh leaders, missing samples or age above 30s mean Unknown.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "instant": true,
+              "range": false,
+              "expr": "etos_inventory_leader_ready",
+              "format": "table"
+            },
+            {"instant": true, "range": false, "expr": "time() - etos_inventory_snapshot_last_success_timestamp_seconds{job=\"etos/etos-controller-manager\",instance!=\"\",scope=\"manager\"}", "format": "table", "legendFormat": "{{instance}} / last-success age"}
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "short", "noValue": "Unknown"}
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 8
+          }
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Suite admission operations",
+          "description": "Suite download and validation rates by API version and bounded outcome. URLs and suite identifiers are excluded.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum by (api_version, operation, outcome) (rate(etos_api_suite_operations_total{api_version=\"$api_version\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval]))",
+              "legendFormat": "{{api_version}} / {{operation}} / {{outcome}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "reqps", "noValue": "Unknown"}
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 15
+          }
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Current TestRun lifecycle phase",
+          "description": "Current absolute phase counts reconstructed from persisted manager state. This is not a historical transition rate; show Unknown when the inventory snapshot is not ready.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum by (phase) (max by (phase, scope) (etos_inventory_current_testrun_phase{scope=\"cluster\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"})) and on() (min(etos_inventory_leader_ready) == 1)",
+              "legendFormat": "{{phase}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "short", "noValue": "Unknown"}
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 23
+          }
+        },
+        {
+          "id": 6,
+          "type": "table",
+          "title": "Current TestRun status",
+          "description": "Absolute current-state verdict and operational conclusion counts. These are bounded categories, not historical totals; show Unknown when the inventory snapshot is not ready.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "instant": true,
+              "range": false,
+              "expr": "sum by (verdict) (max by (verdict, scope) (etos_inventory_current_testrun_verdict{scope=\"cluster\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"})) and on() (min(etos_inventory_leader_ready) == 1)",
+              "format": "table",
+              "legendFormat": "verdict: {{verdict}}"
+            },
+            {
+              "instant": true,
+              "range": false,
+              "expr": "sum by (operational_conclusion) (max by (operational_conclusion, scope) (etos_inventory_current_testrun_operational_conclusion{scope=\"cluster\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"})) and on() (min(etos_inventory_leader_ready) == 1)",
+              "format": "table",
+              "legendFormat": "conclusion: {{operational_conclusion}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "short", "noValue": "Unknown"}
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 31
+          }
+        },
+        {
+          "id": 7,
+          "type": "text",
+          "title": "Version comparison and data boundaries",
+          "description": "Backend-neutral interpretation rules for operators.",
+          "options": {
+            "mode": "markdown",
+            "content": "### Selected ETOS cluster / API version\nThe cluster selector filters every domain metric before aggregation, including histogram buckets and counts. The API-version selector filters API panels only. Inventory readiness, controller OTLP freshness and shared pipeline health remain manager-wide, not cluster certification. Missing canonical cluster labels mean Unknown; no old cross-cluster fallback is used. Created counts remain retained-resource gauges and can be lower bounds when objects have been deleted. Finished counts and duration quantiles are controller observations, not durable/backfilled event ledgers. Histogram quantiles are approximate; scrape gaps and restarts can lose observations. TestRun IDs belong in traces/logs, never metric labels."
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 39,
+            "w": 24,
+            "h": 7
+          }
+        },
+        {
+          "id": 8,
+          "type": "table",
+          "title": "Created vs finished · rolling windows",
+          "description": "Created counts are retained-resource gauges for 1h and 24h and remain lower bounds when the matching window completeness gauge is 0; stale inventory is UNKNOWN. They are not event-time gauges, are not backfilled before instrumentation, and the initial observation window is partial. TestRun operational outcomes are distinct from test verdicts. Controller rates/increases retain writer identity until after calculation. A first export without a previous sample cannot establish an increase; missing durations remain Unknown.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "label_replace((max by (window) (etos_inventory_current_testrun_created{scope=\"cluster\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}) and on() (min(etos_inventory_leader_ready) == 1)), \"operational_conclusion\", \"created\", \"\", \"\") or label_replace(label_replace((sum by (outcome) (increase(etos_testrun_finished_total{job=\"etos/etos-controller-manager\",instance!=\"\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h])) and on() (min(etos_inventory_leader_ready) == 1)), \"operational_conclusion\", \"$1\", \"outcome\", \"(.*)\"), \"window\", \"24h\", \"\", \"\")",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": "{{window}} · {{operational_conclusion}}",
+              "format": "table"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#1F77B4"
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 0,
+            "y": 46,
+            "w": 12,
+            "h": 7
+          },
+          "transformations": [
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "window",
+                    "operational_conclusion",
+                    "Value"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "renameByName": {
+                  "window": "Window",
+                  "operational_conclusion": "Created / finish outcome",
+                  "Value": "Count / observations"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "type": "table",
+          "title": "TestRun duration quantiles · 1h / 24h",
+          "description": "Approximate p50 and p95 creation-to-terminal-status durations from controller-recorded histogram observations. Buckets are summed across manager streams before quantile calculation; they are not averages of per-manager quantiles. The outcome dimension is a bounded operational classification, distinct from test verdict. Controller rates/increases retain writer identity until after calculation. A first export without a previous sample cannot establish an increase; missing durations remain Unknown.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "(label_replace(label_replace((histogram_quantile(0.50, sum by (le, outcome) (increase(etos_testrun_duration_seconds_bucket{job=\"etos/etos-controller-manager\",instance!=\"\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[1h]))) and on (outcome) (sum by (outcome) (increase(etos_testrun_duration_seconds_count{job=\"etos/etos-controller-manager\",instance!=\"\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[1h])) > 0)), \"window\", \"1h\", \"\", \"\"), \"quantile\", \"0.5\", \"\", \"\") or label_replace(label_replace((histogram_quantile(0.95, sum by (le, outcome) (increase(etos_testrun_duration_seconds_bucket{job=\"etos/etos-controller-manager\",instance!=\"\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[1h]))) and on (outcome) (sum by (outcome) (increase(etos_testrun_duration_seconds_count{job=\"etos/etos-controller-manager\",instance!=\"\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[1h])) > 0)), \"window\", \"1h\", \"\", \"\"), \"quantile\", \"0.95\", \"\", \"\") or label_replace(label_replace((histogram_quantile(0.50, sum by (le, outcome) (increase(etos_testrun_duration_seconds_bucket{job=\"etos/etos-controller-manager\",instance!=\"\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h]))) and on (outcome) (sum by (outcome) (increase(etos_testrun_duration_seconds_count{job=\"etos/etos-controller-manager\",instance!=\"\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h])) > 0)), \"window\", \"24h\", \"\", \"\"), \"quantile\", \"0.5\", \"\", \"\") or label_replace(label_replace((histogram_quantile(0.95, sum by (le, outcome) (increase(etos_testrun_duration_seconds_bucket{job=\"etos/etos-controller-manager\",instance!=\"\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h]))) and on (outcome) (sum by (outcome) (increase(etos_testrun_duration_seconds_count{job=\"etos/etos-controller-manager\",instance!=\"\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[24h])) > 0)), \"window\", \"24h\", \"\", \"\"), \"quantile\", \"0.95\", \"\", \"\")) and on() (min(etos_inventory_leader_ready) == 1)",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": "{{window}} · q{{quantile}}",
+              "format": "table"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 0,
+              "noValue": "? UNKNOWN · no observations or telemetry",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#1F77B4"
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 12,
+            "y": 46,
+            "w": 8,
+            "h": 7
+          },
+          "transformations": [
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "window",
+                    "quantile",
+                    "outcome",
+                    "Value"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "renameByName": {
+                  "window": "Window",
+                  "quantile": "Quantile",
+                  "outcome": "Outcome",
+                  "Value": "Duration"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "type": "stat",
+          "title": "Created-count coverage · 1h / 24h",
+          "description": "Applies only to retained-resource TestRun creation counts. 1 = retained resources appear to cover the requested window; this is not a completeness guarantee. 0 = known lower bound because older resources may have been deleted. This does not measure controller telemetry coverage and is not an event ledger. Stale/absent inventory is UNKNOWN.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "expr": "max by (window) (etos_inventory_current_testrun_window_complete{scope=\"cluster\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}) and on() (min(etos_inventory_leader_ready) == 1)",
+              "refId": "A",
+              "instant": true,
+              "range": false,
+              "legendFormat": "{{window}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "noValue": "? UNKNOWN",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#1F77B4"
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "? UNKNOWN",
+                      "color": "#5A6270"
+                    }
+                  }
+                },
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "≥ Lower bound",
+                      "color": "#1F77B4"
+                    },
+                    "1": {
+                      "text": "Appears covered",
+                      "color": "#1F77B4"
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "vertical",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "text": {
+              "titleSize": 20,
+              "valueSize": 28
+            }
+          },
+          "links": [
+            {
+              "title": "TestRun detail",
+              "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            },
+            {
+              "title": "Provider and delivery detail",
+              "url": "/d/etos-provider-delivery?var-cluster=${cluster:percentencode}",
+              "targetBlank": false
+            }
+          ],
+          "gridPos": {
+            "x": 20,
+            "y": 46,
+            "w": 4,
+            "h": 7
+          }
+        }
+      ]
+    }
+  single-testrun.json: |
+    {
+      "schemaVersion": 39,
+      "title": "ETOS Single TestRun",
+      "uid": "etos-single-testrun",
+      "tags": ["etos", "testrun", "logs", "traces"],
+      "description": "Inspect one exact ETOS ID (API tercc / TestRun spec.id). Cluster selection is navigation context only: old logs/traces lack canonical cluster attribution and are not cluster-filtered. All evidence is correlated by the exact ID; reported suite results are not live Kubernetes status.",
+      "time": {"from": "now-24h", "to": "now"},
+      "refresh": "30s",
+      "templating": {"list": [
+        {"name": "cluster", "label": "ETOS cluster (navigation only)", "description": "Namespace/Cluster CR name observed in fresh inventory during the selected time range. Historical choices can remain after telemetry becomes stale; current panels then show Unknown.", "type": "query", "datasource": {"type": "prometheus", "uid": "prometheus"}, "query": "label_values(etos_inventory_current_resources{scope=\"cluster\",etos_cluster=~\".+/.+\"},etos_cluster)", "refresh": 1, "sort": 1, "multi": false, "includeAll": false, "options": [], "current": {"text": "", "value": ""}},
+        {
+          "name": "testrun_id",
+          "label": "TestRun ID (tercc)",
+          "description": "Select an ID observed in recent Tempo traces, or paste an API tercc / TestRun spec.id. Tempo's native variable lookup is not scoped to the dashboard time range and may omit older retained runs. This is not the Kubernetes resource name.",
+          "type": "query",
+          "datasource": {"type": "tempo", "uid": "tempo"},
+          "query": {"type": 1, "label": "etos.id", "refId": "TempoDatasourceVariableQueryEditor-VariableQuery"},
+          "definition": "Label values: etos.id",
+          "refresh": 1,
+          "sort": 1,
+          "regex": "/.+/",
+          "multi": false,
+          "includeAll": false,
+          "options": [],
+          "current": {"text": "", "value": ""},
+          "hide": 0
+        }
+      ]},
+      "links": [
+        {"title": "ETOS overview", "url": "/d/etos-executive-overview?var-cluster=${cluster:percentencode}", "type": "link", "keepTime": true},
+        {"title": "Aggregate TestRun health", "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}", "type": "link", "keepTime": true}
+      ],
+      "panels": [
+        {
+          "id": 1, "type": "text", "title": "Selected run and evidence",
+          "description": "Cluster is navigation context only, not a filter or ownership assertion for these exact-ID logs/traces. The Tempo dropdown/manual ID workflow is unchanged.",
+          "gridPos": {"x": 0, "y": 0, "w": 24, "h": 4},
+          "options": {"mode": "markdown", "content": "**TestRun ID:** `${testrun_id}` · **Cluster:** `${cluster}` (navigation only; does not filter old logs/traces or assert this ID's cluster)\n\nSelect a recently observed ID above, or paste an API `tercc` / Kubernetes `spec.id` into the dropdown search and press Enter. Reload the dashboard to refresh the choices. Tempo's native ID lookup is not scoped to cluster or dashboard time range and can omit older retained runs. Choose a time range covering the selected run. Click a trace's Span ID to open the full trace waterfall in Explore.\n\n**Unknown / No data is not success.** Results below are suite-runner reports in the selected window, not live Kubernetes status. Logs and traces may be incomplete or expired. Provisioning/release success is not a test verdict."}
+        },
+        {
+          "id": 2, "type": "stat", "title": "Reported test verdict",
+          "description": "Latest ESR result logged by the suite runner in the selected time range. Unknown until a result arrives, or if telemetry is unavailable. This does not certify current Kubernetes state.",
+          "gridPos": {"x": 0, "y": 4, "w": 6, "h": 5},
+          "datasource": {"type": "loki", "uid": "loki"},
+          "targets": [{
+            "refId": "A", "queryType": "range", "direction": "backward", "maxLines": 1000,
+            "expr": "{service_name=\"etos-suite-runner\"} | json run=\"attributes.identifier\" | run=${testrun_id:doublequote} | run!=\"\" |= \"ESR result:\" | regexp \"verdict='(?P<verdict>[^']+)'\" | verdict!=\"\" | __error__=\"\" | line_format \"{{.verdict}}\""
+          }],
+          "transformations": [
+            {"id": "sortBy", "options": {"sort": [{"field": "Time", "desc": false}]}},
+            {"id": "filterFieldsByName", "options": {"include": {"names": ["Line"]}}},
+            {"id": "reduce", "options": {"reducers": ["lastNotNull"]}}
+          ],
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "/.*/", "values": false}, "textMode": "value", "colorMode": "background", "graphMode": "none"},
+          "fieldConfig": {"defaults": {
+            "noValue": "Unknown",
+            "color": {"mode": "fixed", "fixedColor": "text"},
+            "mappings": [
+              {"type": "value", "options": {
+                "Passed": {"text": "PASSED", "color": "green"},
+                "Failed": {"text": "FAILED", "color": "red"},
+                "Inconclusive": {"text": "INCONCLUSIVE", "color": "orange"},
+                "None": {"text": "UNKNOWN", "color": "text"}
+              }}
+            ]
+          }, "overrides": []}
+        },
+        {
+          "id": 3, "type": "stat", "title": "Reported operational conclusion",
+          "description": "Latest ESR operational conclusion, separate from the test verdict. A successfully executed test can still fail its assertions.",
+          "gridPos": {"x": 6, "y": 4, "w": 6, "h": 5},
+          "datasource": {"type": "loki", "uid": "loki"},
+          "targets": [{
+            "refId": "A", "queryType": "range", "direction": "backward", "maxLines": 1000,
+            "expr": "{service_name=\"etos-suite-runner\"} | json run=\"attributes.identifier\" | run=${testrun_id:doublequote} | run!=\"\" |= \"ESR result:\" | regexp \"conclusion='(?P<conclusion>[^']+)'\" | conclusion!=\"\" | __error__=\"\" | line_format \"{{.conclusion}}\""
+          }],
+          "transformations": [
+            {"id": "sortBy", "options": {"sort": [{"field": "Time", "desc": false}]}},
+            {"id": "filterFieldsByName", "options": {"include": {"names": ["Line"]}}},
+            {"id": "reduce", "options": {"reducers": ["lastNotNull"]}}
+          ],
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "/.*/", "values": false}, "textMode": "value", "colorMode": "background", "graphMode": "none"},
+          "fieldConfig": {"defaults": {
+            "noValue": "Unknown",
+            "color": {"mode": "fixed", "fixedColor": "text"},
+            "mappings": [{"type": "value", "options": {
+              "Successful": {"text": "SUCCESSFUL", "color": "green"},
+              "Failed": {"text": "FAILED", "color": "red"},
+              "TimedOut": {"text": "TIMED OUT", "color": "orange"},
+              "Aborted": {"text": "ABORTED", "color": "orange"},
+              "Inconclusive": {"text": "INCONCLUSIVE", "color": "orange"}
+            }}]
+          }, "overrides": []}
+        },
+        {
+          "id": 4, "type": "stat", "title": "Last reported suite-runner activity",
+          "description": "Latest correlated suite-runner log message in the selected window, not a current-state or liveness check.",
+          "gridPos": {"x": 12, "y": 4, "w": 12, "h": 5},
+          "datasource": {"type": "loki", "uid": "loki"},
+          "targets": [{
+            "refId": "A", "queryType": "range", "direction": "backward", "maxLines": 1000,
+            "expr": "{service_name=\"etos-suite-runner\"} | json run=\"attributes.identifier\", log_body=\"body\" | run=${testrun_id:doublequote} | run!=\"\" | __error__=\"\" !~ \"(?i)(token|authorization|password|secret)\" | line_format \"{{ $entry := fromJson .log_body }}{{ if $entry }}{{ $entry.message }}{{ else }}{{ .log_body }}{{ end }}\""
+          }],
+          "transformations": [
+            {"id": "sortBy", "options": {"sort": [{"field": "Time", "desc": false}]}},
+            {"id": "filterFieldsByName", "options": {"include": {"names": ["Line"]}}},
+            {"id": "reduce", "options": {"reducers": ["lastNotNull"]}}
+          ],
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "/.*/", "values": false}, "textMode": "value", "colorMode": "none", "graphMode": "none"},
+          "fieldConfig": {"defaults": {"noValue": "Unknown"}, "overrides": []}
+        },
+        {
+          "id": 5, "type": "table", "title": "Run information and traces",
+          "description": "Matching start spans expose API version, artifact and suite source. Click Span ID for the full trace. Start-span duration measures submission, not end-to-end execution. Tempo search summaries may lag; the opened trace is the detailed view.",
+          "gridPos": {"x": 0, "y": 9, "w": 24, "h": 8},
+          "datasource": {"type": "tempo", "uid": "tempo"},
+          "targets": [{
+            "refId": "A", "queryType": "traceql", "tableType": "spans", "limit": 20, "spss": 20,
+            "query": "{span.\"etos.id\"=${testrun_id:doublequote} && span.\"etos.id\"!=\"\"} | select(span.\"etos.version\", span.\"etos.artifact.id\", span.\"etos.artifact.identity\", span.\"etos.test_suite.uri\")"
+          }],
+          "options": {"showHeader": true, "cellHeight": "sm"},
+          "fieldConfig": {"defaults": {"noValue": "Unknown"}, "overrides": []}
+        },
+        {
+          "id": 6, "type": "logs", "title": "Provider provisioning and release",
+          "description": "Correlated provider activity, including provisioning and release. These are observed messages, not proof that every resource was cleaned up. Use the full trace waterfall for span timings; Tempo search can return only a subset of an asynchronous trace.",
+          "gridPos": {"x": 0, "y": 17, "w": 24, "h": 9},
+          "datasource": {"type": "loki", "uid": "loki"},
+          "targets": [{
+            "refId": "A", "queryType": "range", "direction": "forward", "maxLines": 1000,
+            "expr": "{service_name=~\"(Environment|Iut|LogArea|ExecutionSpace)/.+\"} | json run=\"attributes.identifier\", log_body=\"body\" | run=${testrun_id:doublequote} | run!=\"\" | __error__=\"\" !~ \"(?i)(token|authorization|password|secret)\" | log_body!=\"Request Body\" | log_body!=\"Response Body\" | line_format \"{{.log_body}}\""
+          }],
+          "options": {"showTime": true, "showLabels": true, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "sortOrder": "Ascending", "dedupStrategy": "none"},
+          "fieldConfig": {"defaults": {}, "overrides": []}
+        },
+        {
+          "id": 7, "type": "logs", "title": "Reported results and lifecycle",
+          "description": "Suite-runner milestones and result descriptions for this ID. No logs does not mean the run passed or is still running.",
+          "gridPos": {"x": 0, "y": 26, "w": 24, "h": 10},
+          "datasource": {"type": "loki", "uid": "loki"},
+          "targets": [{
+            "refId": "A", "queryType": "range", "direction": "forward", "maxLines": 1000,
+            "expr": "{service_name=\"etos-suite-runner\"} | json run=\"attributes.identifier\", log_body=\"body\" | run=${testrun_id:doublequote} | run!=\"\" | __error__=\"\" !~ \"(?i)(token|authorization|password|secret)\" | line_format \"{{ $entry := fromJson .log_body }}{{ if $entry }}{{ $entry.message }}{{ else }}{{ .log_body }}{{ end }}\""
+          }],
+          "options": {"showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "sortOrder": "Ascending", "dedupStrategy": "none"},
+          "fieldConfig": {"defaults": {}, "overrides": []}
+        },
+        {
+          "id": 8, "type": "logs", "title": "Correlated logs - all available services",
+          "description": "Exact match on attributes.identifier, shared by the API, suite runner and providers. Messages are normalized; credential-related lines and request/response payload dumps are omitted. This is not a security boundary or a complete audit log. Up to 2000 latest entries in the selected window. Test-runner/controller logs without this identifier are not included.",
+          "gridPos": {"x": 0, "y": 36, "w": 24, "h": 16},
+          "datasource": {"type": "loki", "uid": "loki"},
+          "targets": [{
+            "refId": "A", "queryType": "range", "direction": "backward", "maxLines": 2000,
+            "expr": "{service_name=~\".+\"} | json run=\"attributes.identifier\", log_body=\"body\" | run=${testrun_id:doublequote} | run!=\"\" | __error__=\"\" !~ \"(?i)(token|authorization|password|secret)\" | log_body!=\"Request Body\" | log_body!=\"Response Body\" | line_format \"{{ $entry := fromJson .log_body }}{{ if $entry }}{{ $entry.message }}{{ else }}{{ .log_body }}{{ end }}\""
+          }],
+          "options": {"showTime": true, "showLabels": true, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "sortOrder": "Ascending", "dedupStrategy": "none"},
+          "fieldConfig": {"defaults": {}, "overrides": []}
+        }
+      ]
+    }
+  provider-delivery.json: |
+    {
+      "schemaVersion": 39,
+      "title": "ETOS Provider and Delivery",
+      "uid": "etos-provider-delivery",
+      "description": "Selected-cluster provider and delivery observations. Collector and controller-runtime checks are shared infrastructure. Missing attribution or source samples is Unknown. No controller/API/SSE scrape endpoint is required.",
+      "links": [
+        {"title": "ETOS overview", "url": "/d/etos-executive-overview?var-cluster=${cluster:percentencode}", "type": "link", "keepTime": true},
+        {"title": "TestRun detail", "url": "/d/etos-testrun-detail?var-cluster=${cluster:percentencode}", "type": "link", "keepTime": true},
+        {"title": "Single TestRun (exact ID)", "url": "/d/etos-single-testrun?var-cluster=${cluster:percentencode}", "type": "link", "keepTime": true}
+      ],
+      "tags": ["etos", "delivery", "p1"],
+      "time": {"from": "now-6h", "to": "now"},
+      "templating": {"list": [
+        {"name": "api_version", "type": "custom", "query": "v1beta1,v1alpha", "current": {"text": "v1beta1", "value": "v1beta1"}},
+        {"name": "cluster", "label": "ETOS cluster", "description": "Namespace/Cluster CR name observed in fresh inventory during the selected time range. Historical choices can remain after telemetry becomes stale; current panels then show Unknown.", "type": "query", "datasource": {"type": "prometheus", "uid": "prometheus"}, "query": "label_values(etos_inventory_current_resources{scope=\"cluster\",etos_cluster=~\".+/.+\"},etos_cluster)", "refresh": 1, "sort": 1, "multi": false, "includeAll": false, "options": [], "current": {"text": "", "value": ""}}
+      ]},
+      "panels": [
+        {"id": 1, "type": "stat", "title": "Telemetry integrity · shared pipeline", "description": "Shared collector scrape freshness, not ETOS-cluster scoped or proof of selected-cluster signal completeness.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"instant": true, "range": false, "expr": "etos_collector_ready", "legendFormat": "collector"}], "fieldConfig": {"defaults": {"unit": "short", "noValue": "Unknown"}}, "gridPos": {"h": 5, "w": 8, "x": 0, "y": 0}},
+        {"id": 2, "type": "timeseries", "title": "Controller reconciliation errors · manager-wide", "description": "Manager-wide controller-runtime errors. These have no ETOS cluster dimension and cannot identify which selected cluster is affected.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (controller) (rate(controller_runtime_reconcile_errors_total{job=\"etos/etos-controller-manager\",instance!=\"\"}[5m]))", "legendFormat": "{{controller}}"}], "fieldConfig": {"defaults": {"unit": "errors/sec", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 16, "x": 0, "y": 5}},
+        {"id": 3, "type": "table", "title": "Resource cleanup signals", "description": "Selected ETOS cluster's deleting and failed resource states from fresh manager-wide inventory. Unobserved combinations remain absent; stale inventory or absent cluster attribution is Unknown.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"instant": true, "range": false, "expr": "sum by (resource_type,state) (etos_inventory_current_resources{scope=\"cluster\",state=~\"deleting|failed\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}) and on() (min(etos_inventory_leader_ready) == 1)", "format": "table"}], "fieldConfig": {"defaults": {"unit": "short", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 5}},
+        {"id": 4, "type": "timeseries", "title": "Provider completions observed · 24h", "gridPos": {"h": 8, "w": 16, "x": 0, "y": 13}, "description": "Observed provisioning completion records by provider type/outcome, not launches or guaranteed total attempts. Updated provider images are required; crashes/startup failures may leave no completion record. Missing logs remain Unknown.", "datasource": {"type": "loki", "uid": "loki"}, "targets": [{"refId": "A", "queryType": "range", "expr": "sum by (provider_type, outcome) (count_over_time({service_name=~\"(Environment|Iut|LogArea|ExecutionSpace)/.+\"} | json event=\"attributes.event\", operation=\"attributes.operation\", outcome=\"attributes.outcome\", provider_type=\"attributes.providerType\", etos_cluster=\"attributes.etos_cluster\" | etos_cluster=${cluster:doublequote} | etos_cluster!=\"\" | event=\"etos.provider.completed\" | operation=\"provision\" | __error__=\"\" [24h]))", "legendFormat": "{{provider_type}} / {{outcome}}"}], "fieldConfig": {"defaults": {"unit": "short", "noValue": "Unknown"}}},
+        {"id": 5, "type": "timeseries", "title": "Provider provisioning p95 · 24h", "description": "Selected ETOS cluster's 24h p95 provider-invocation duration from Loki completion log attributes, by provider type and outcome. Exact canonical cluster attribution is required; old unqualified/unlabeled logs are excluded, not a cross-cluster fallback. Does not include preceding queue time or the entire EnvironmentRequest. Retries count as attempts. Empty is Unknown; crashes/startup failures may emit no observation. Samples depend on log delivery and backend retention.", "datasource": {"type": "loki", "uid": "loki"}, "targets": [{"refId": "A", "queryType": "range", "expr": "quantile_over_time(0.95, {service_name=~\"(Environment|Iut|LogArea|ExecutionSpace)/.+\"} | json event=\"attributes.event\", operation=\"attributes.operation\", outcome=\"attributes.outcome\", provider_type=\"attributes.providerType\", duration_seconds=\"attributes.duration_seconds\", etos_cluster=\"attributes.etos_cluster\" | etos_cluster=${cluster:doublequote} | etos_cluster!=\"\" | event=\"etos.provider.completed\" | operation=\"provision\" | unwrap duration_seconds | __error__=\"\" [24h]) by (provider_type, outcome)", "legendFormat": "{{provider_type}} / {{outcome}}"}], "fieldConfig": {"defaults": {"unit": "s", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 13}},
+        {"id": 6, "type": "timeseries", "title": "Message publish rate by outcome", "description": "Selected cluster's bounded RabbitMQ publish lifecycle outcomes. Missing cluster attribution is Unknown. Event type, stream, message, TestRun, and error text are not metric dimensions.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (outcome) (rate(etos_message_publish_attempts_total{operation=\"publish\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval]))", "legendFormat": "{{outcome}}"}], "fieldConfig": {"defaults": {"unit": "reqps", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 16, "x": 0, "y": 21}},
+        {"id": 7, "type": "timeseries", "title": "Message publish p95", "description": "Selected-cluster lifecycle durations, computed per writer before aggregation. Queued/confirmed/unconfirmed observations are callback-local, not queue residence or acknowledgement latency. Missing or first-export-only histograms remain Unknown.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(etos_message_publish_duration_seconds_bucket{operation=\"publish\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval])))", "legendFormat": "{{outcome}}"}], "fieldConfig": {"defaults": {"unit": "s", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 21}},
+        {"id": 8, "type": "timeseries", "title": "SSE request rate", "description": "Selected cluster's bounded HTTP request rate from the SSE service. Missing canonical cluster attribution is Unknown. Route labels are templates and contain no identifiers.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (route, outcome) (rate(etos_sse_service_requests_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval]))", "legendFormat": "{{route}} / {{outcome}}"}], "fieldConfig": {"defaults": {"unit": "reqps", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 16, "x": 0, "y": 29}},
+        {"id": 9, "type": "stat", "title": "Active SSE connections", "description": "Selected-cluster open connections from recent OTLP gauge samples and request telemetry. No SSE scrape is required. Absent or stale evidence is Unknown, not zero.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"instant": true, "range": false, "expr": "sum(etos_sse_connections_active{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} and (time() - timestamp(etos_sse_connections_active{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}) <= 120)) and on() (etos_sse_telemetry_fresh{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} == 1)", "legendFormat": "connections"}], "fieldConfig": {"defaults": {"unit": "short", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 29}},
+        {"id": 10, "type": "timeseries", "title": "SSE event delivery", "description": "Selected cluster's bounded event classes delivered to clients. Missing cluster attribution is Unknown.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (event_class) (rate(etos_sse_events_delivered_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval]))", "legendFormat": "{{event_class}}"}], "fieldConfig": {"defaults": {"unit": "reqps", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 16, "x": 0, "y": 37}},
+        {"id": 20, "type": "timeseries", "title": "SSE disconnects and errors", "description": "Selected cluster's stream closure reasons and bounded errors. Missing cluster attribution is Unknown. This does not certify client receipt or replay completeness.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (reason) (rate(etos_sse_disconnects_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval]))", "legendFormat": "disconnect / {{reason}}"}, {"expr": "sum by (category) (rate(etos_sse_errors_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval]))", "legendFormat": "error / {{category}}"}], "fieldConfig": {"defaults": {"unit": "reqps", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 16, "x": 0, "y": 77}},
+        {"id": 21, "type": "timeseries", "title": "SSE reconnect intent", "description": "Selected cluster's requests carrying Last-Event-ID. Missing cluster attribution is Unknown. This is a reconnect signal, not proof that replay succeeded.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(etos_sse_reconnects_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval]))", "legendFormat": "reconnect requests"}], "fieldConfig": {"defaults": {"unit": "reqps", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 77}},
+        {"id": 13, "type": "timeseries", "title": "Suite-runner milestone rate", "description": "Selected cluster's short-lived suite-runner milestone rate by bounded phase/outcome. Unknown when labeled samples or shared collector telemetry are absent; too few counter observations means insufficient data. Absence is not zero.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (phase, outcome) (rate(etos_suite_runner_milestones_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval]))", "legendFormat": "{{phase}} / {{outcome}}"}], "fieldConfig": {"defaults": {"unit": "reqps", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 16, "x": 0, "y": 53}},
+        {"id": 14, "type": "timeseries", "title": "Suite-runner milestone p95", "description": "Selected cluster's suite-runner milestone duration in milliseconds by bounded phase/outcome. Missing labeled histogram samples means Unknown; too few observations means insufficient data. Empty is not zero.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le, phase, outcome) (rate(etos_suite_runner_milestone_duration_milliseconds_bucket{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval])))", "legendFormat": "{{phase}} / {{outcome}}"}], "fieldConfig": {"defaults": {"unit": "ms", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 53}},
+        {"id": 15, "type": "timeseries", "title": "Test-runner milestone rate", "description": "Selected cluster's short-lived test-runner milestone rate by bounded phase/outcome. Unknown when labeled samples or shared collector telemetry are absent; too few counter observations means insufficient data. Absence is not zero.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (phase, outcome) (rate(etos_runner_milestones_total{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval]))", "legendFormat": "{{phase}} / {{outcome}}"}], "fieldConfig": {"defaults": {"unit": "reqps", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 16, "x": 0, "y": 61}},
+        {"id": 16, "type": "timeseries", "title": "Test-runner phase p95", "description": "Selected cluster's test-runner phase duration in seconds by bounded phase/outcome. Missing labeled histogram samples means Unknown; too few observations means insufficient data. Empty is not zero.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le, phase, outcome) (rate(etos_runner_phase_duration_seconds_bucket{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}[$__rate_interval])))", "legendFormat": "{{phase}} / {{outcome}}"}], "fieldConfig": {"defaults": {"unit": "s", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 61}},
+        {"id": 17, "type": "stat", "title": "Collector self-metrics scrape · shared pipeline", "description": "Shared collector endpoint, not ETOS-cluster scoped. Unknown means accepted/exported point integrity cannot be evaluated.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"instant": true, "range": false, "expr": "min(up{job=\"otel-collector\",endpoint=\"int-metrics\"})", "legendFormat": "collector"}], "fieldConfig": {"defaults": {"unit": "short", "noValue": "Unknown"}}, "gridPos": {"h": 5, "w": 8, "x": 0, "y": 69}},
+        {"id": 18, "type": "timeseries", "title": "Collector accepted spans · shared pipeline", "description": "Spans accepted across the shared OTLP pipeline, not ETOS-cluster scoped. Unknown when collector self-metrics are unavailable.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(otelcol_receiver_accepted_spans_total[5m]))", "legendFormat": "accepted spans"}], "fieldConfig": {"defaults": {"unit": "short", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 8, "x": 8, "y": 69}},
+        {"id": 19, "type": "timeseries", "title": "Collector span export failures · shared pipeline", "description": "Shared pipeline failed span exports, not ETOS-cluster scoped. Any positive increase invalidates downstream zero interpretations until investigated.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(increase(otelcol_exporter_send_failed_spans_total[5m]))", "legendFormat": "failed spans"}], "fieldConfig": {"defaults": {"unit": "short", "noValue": "Unknown"}}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 69}},
+        {"id": 22, "type": "table", "title": "Subsystem telemetry freshness", "description": "Collector readiness is shared. API/SSE rows require recent source samples for the selected cluster; absence is Unknown, not proof of service failure or successful client delivery.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"instant": true, "range": false, "expr": "etos_collector_ready", "format": "table", "legendFormat": "Shared Collector"}, {"instant": true, "range": false, "expr": "etos_api_telemetry_fresh{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}", "format": "table", "legendFormat": "API source freshness"}, {"instant": true, "range": false, "expr": "etos_sse_telemetry_fresh{etos_cluster=${cluster:doublequote},etos_cluster!=\"\"}", "format": "table", "legendFormat": "SSE source freshness"}], "fieldConfig": {"defaults": {"unit": "short", "noValue": "Unknown"}}, "gridPos": {"x": 0, "y": 85, "w": 24, "h": 8}},
+        {"id": 23, "type": "table", "title": "Top operational alerts", "description": "Selected-cluster ETOS alerts plus unlabeled manager/shared-pipeline ETOS alerts. Shared alerts can affect every cluster; absent alert results are not proof of healthy or complete telemetry. The table retains etos_cluster for attribution.", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"instant": true, "range": false, "expr": "ALERTS{alertstate=\"firing\",alertname=~\"ETOS.*\",etos_cluster=${cluster:doublequote},etos_cluster!=\"\"} or ALERTS{alertstate=\"firing\",alertname=~\"ETOS.*\",etos_cluster=\"\"}", "format": "table", "legendFormat": "{{alertname}}"}], "fieldConfig": {"defaults": {"unit": "short", "noValue": "Unknown"}}, "gridPos": {"x": 0, "y": 93, "w": 24, "h": 8}}
+      ]
+    }

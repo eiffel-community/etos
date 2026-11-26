@@ -24,7 +24,7 @@ from typing import Optional
 from uuid import uuid4
 
 from etos_lib.lib.http import Http
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, ReadTimeout
 from urllib3.util import Retry
 
 from etos_lib.messaging.types import Conclusion, Result, Verdict
@@ -47,6 +47,11 @@ HTTP_RETRY_PARAMETERS = Retry(
     backoff_factor=0.5,
     raise_on_redirect=True,  # Raise an exception if too many redirects
 )
+
+# (connect, read) timeouts in seconds for the start request. The API downloads and validates
+# the test suite, looks up the artifact and creates the testrun before it responds, which
+# depends on external services and can take well over 10 seconds.
+START_REQUEST_TIMEOUT = (10, 120)
 
 
 class Etos:
@@ -102,9 +107,17 @@ class Etos:
         self.logger.info("Triggering ETOS using %r", url)
 
         response_json = {}
-        http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=10)
+        http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=START_REQUEST_TIMEOUT)
         headers = self.headers
-        response = http.post(url, json=request.model_dump(), headers=headers)
+        try:
+            response = http.post(url, json=request.model_dump(), headers=headers)
+        except ReadTimeout:
+            self.logger.error("Timed out waiting for ETOS to respond to the start request.")
+            return None, (
+                "Timed out waiting for ETOS to respond to the start request. The testrun may "
+                "still have been created, please contact ETOS support with correlation ID "
+                f"{self.correlation_id}"
+            )
         try:
             response.raise_for_status()
             response_json = response.json()

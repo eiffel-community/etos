@@ -88,6 +88,12 @@ type OpenTelemetry struct {
 	// +kubebuilder:default="true"
 	// +optional
 	Insecure string `json:"insecure,omitempty"`
+
+	// MetricsTemporalityPreference sets OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE.
+	// When omitted, exporters use their SDK defaults.
+	// +optional
+	// +kubebuilder:validation:Enum=DELTA;CUMULATIVE;LOWMEMORY
+	MetricsTemporalityPreference string `json:"metricsTemporalityPreference,omitempty"`
 }
 
 // MessageBus describes the deployment of messagesbuses for ETOS.

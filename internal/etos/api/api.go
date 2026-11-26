@@ -403,8 +403,10 @@ func (r *ETOSApiDeployment) rolebinding(name types.NamespacedName, clusterName s
 
 // deployment creates a deployment resource definition for the ETOS API.
 func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName, clusterName string) *appsv1.Deployment {
+	meta := r.meta(name, clusterName)
+	config.SetVersionLabel(&meta, config.ImageOrDefault(r.cfg.API, r.Image))
 	return &appsv1.Deployment{
-		ObjectMeta: r.meta(name, clusterName),
+		ObjectMeta: meta,
 		Spec: appsv1.DeploymentSpec{
 			Replicas: r.Replicas,
 			Selector: &metav1.LabelSelector{
@@ -415,7 +417,7 @@ func (r *ETOSApiDeployment) deployment(name types.NamespacedName, secretName, cl
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name, clusterName),
+				ObjectMeta: *meta.DeepCopy(),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
 					Containers:         []corev1.Container{r.container(name, secretName)},

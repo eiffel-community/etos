@@ -17,9 +17,12 @@
 package e2e
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 
+	"github.com/eiffel-community/etos/api/v1alpha1"
 	"github.com/eiffel-community/etos/test/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,11 +32,21 @@ import (
 func DeployVerifyCluster() {
 	Context("Cluster", func() {
 		It("should be possible to deploy an ETOS cluster", func() {
-			By("deploying the sample Cluster")
-			cmd := exec.Command("kubectl", "apply",
-				"-f", clusterSample,
-				"-n", clusterNamespace)
-			_, err := utils.Run(cmd)
+			By("preparing the sample Cluster with telemetry enabled before creation")
+			cmd := exec.Command("kubectl", "create", "--dry-run=client", "-o", "json",
+				"-f", clusterSample, "-n", clusterNamespace)
+			manifest, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
+			var cluster v1alpha1.Cluster
+			Expect(json.Unmarshal([]byte(manifest), &cluster)).To(Succeed())
+			cluster.Spec.OpenTelemetry = v1alpha1.OpenTelemetry{
+				Enabled: true, Endpoint: collectorEndpoint, Insecure: "true",
+			}
+			configured, err := json.Marshal(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			cmd = exec.Command("kubectl", "apply", "-f", "-", "-n", clusterNamespace)
+			cmd.Stdin = bytes.NewReader(configured)
+			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred())
 		})
 		It("should set cluster ready status true", func() {

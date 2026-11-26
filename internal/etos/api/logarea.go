@@ -160,8 +160,10 @@ func (r *ETOSLogAreaDeployment) serviceaccount(name types.NamespacedName, cluste
 
 // deployment creates a deployment resource definition for the ETOS logarea.
 func (r *ETOSLogAreaDeployment) deployment(name types.NamespacedName, cluster *etosv1alpha1.Cluster) *appsv1.Deployment {
+	meta := r.meta(name, cluster.GetName())
+	config.SetVersionLabel(&meta, config.ImageOrDefault(r.cfg.LogArea, r.Image))
 	return &appsv1.Deployment{
-		ObjectMeta: r.meta(name, cluster.GetName()),
+		ObjectMeta: meta,
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -171,7 +173,7 @@ func (r *ETOSLogAreaDeployment) deployment(name types.NamespacedName, cluster *e
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: r.meta(name, cluster.GetName()),
+				ObjectMeta: *meta.DeepCopy(),
 				Spec: corev1.PodSpec{
 					ServiceAccountName: name.Name,
 					Containers:         []corev1.Container{r.container(name, cluster)},

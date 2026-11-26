@@ -64,6 +64,9 @@ spec:
           - --health-probe-bind-address=:8081
         image: controller:latest
         name: manager
+        env:
+        - name: GOMEMLIMIT
+          value: "750MiB"
         ports: []
         securityContext:
           readOnlyRootFilesystem: true
@@ -95,4 +98,5 @@ spec:
         volumeMounts: []
       volumes: []
       serviceAccountName: controller-manager
-      terminationGracePeriodSeconds: 10
+      # Shutdown budget: 30s application drain + 15s telemetry flush, with margin.
+      terminationGracePeriodSeconds: 60

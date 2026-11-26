@@ -6,6 +6,10 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: cluster-sample  # This is used by e2e test, don't change
 spec:
+  openTelemetry:
+    enabled: true
+    endpoint: http://otel-collector.monitoring.svc.cluster.local:4317
+    insecure: "true"
   etos:
     config:
       encryptionKey:

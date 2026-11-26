@@ -1,0 +1,37 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: etos
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: etos-observability
+spec:
+  serviceAccountName: prometheus-etos
+  replicas: 1
+  retention: 1d
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  serviceMonitorNamespaceSelector: {}
+  serviceMonitorSelector:
+    matchLabels:
+      etos-observability: "true"
+  ruleSelector:
+    matchLabels:
+      etos-observability: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: etos-prometheus
+spec:
+  selector:
+    prometheus: etos
+  ports:
+    - name: web
+      port: 9090
+      targetPort: web

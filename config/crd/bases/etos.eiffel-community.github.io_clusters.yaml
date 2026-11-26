@@ -882,6 +882,15 @@ spec:
                     description: Sets the OTEL_EXPORTER_OTLP_INSECURE environment
                       variable
                     type: string
+                  metricsTemporalityPreference:
+                    description: |-
+                      MetricsTemporalityPreference sets OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE.
+                      When omitted, exporters use their SDK defaults.
+                    enum:
+                    - DELTA
+                    - CUMULATIVE
+                    - LOWMEMORY
+                    type: string
                 type: object
             required:
             - etos

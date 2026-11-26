@@ -17,12 +17,50 @@ package config
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/eiffel-community/etos"
 	etosv1alpha1 "github.com/eiffel-community/etos/api/v1alpha1"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// VersionLabel is the recommended kubernetes label for the version of an application.
+const VersionLabel = "app.kubernetes.io/version"
+
+var labelValue = regexp.MustCompile(`^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$`)
+
+// VersionFromImage returns the tag of a container image reference.
+// An empty string is returned if the image has no tag or if the tag is not a valid label value.
+// A digest is ignored, so "repo:1.0@sha256:abc" results in "1.0".
+func VersionFromImage(image string) string {
+	image, _, _ = strings.Cut(image, "@")
+	// A colon before the last slash is a registry port, not a tag.
+	idx := strings.LastIndex(image, ":")
+	if idx < 0 || idx < strings.LastIndex(image, "/") {
+		return ""
+	}
+	tag := image[idx+1:]
+	if len(tag) > 63 || !labelValue.MatchString(tag) {
+		return ""
+	}
+	return tag
+}
+
+// SetVersionLabel sets the app.kubernetes.io/version label on meta from the tag of image.
+// The label is left untouched if no version can be determined.
+func SetVersionLabel(meta *metav1.ObjectMeta, image string) {
+	version := VersionFromImage(image)
+	if version == "" {
+		return
+	}
+	if meta.Labels == nil {
+		meta.Labels = map[string]string{}
+	}
+	meta.Labels[VersionLabel] = version
+}
 
 // Service holds the configuration for a single ETOS service.
 type Service struct {

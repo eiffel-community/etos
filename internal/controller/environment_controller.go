@@ -44,10 +44,11 @@ import (
 
 const environmentKind = "Environment"
 
-// EnvironmentReconciler reconciles a Environment object
+// EnvironmentReconciler reconciles Environment objects.
 type EnvironmentReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	apiReader client.Reader
+	Scheme    *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=etos.eiffel-community.github.io,resources=environments,verbs=get;list;watch;create;update;patch;delete
@@ -78,9 +79,11 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	logger := logf.FromContext(ctx)
 	logger = logger.WithValues("namespace", req.Namespace, "name", req.Name)
 	environment := &etosv1alpha1.Environment{}
-	err := r.Get(ctx, req.NamespacedName, environment)
-	if err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+	if err := fullObjectReader(r.apiReader, r.Client).Get(ctx, req.NamespacedName, environment); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, fmt.Errorf("get Environment %s: %w", req.NamespacedName, err)
 	}
 
 	// If the environment is considered 'Completed', it has been released. Check that the object is
@@ -449,6 +452,12 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 			Name:  "OTEL_EXPORTER_OTLP_INSECURE",
 			Value: cluster.Spec.OpenTelemetry.Insecure,
 		})
+		if cluster.Spec.OpenTelemetry.MetricsTemporalityPreference != "" {
+			envList = append(envList, corev1.EnvVar{
+				Name:  "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE",
+				Value: cluster.Spec.OpenTelemetry.MetricsTemporalityPreference,
+			})
+		}
 	}
 
 	// Add OTEL variables to all releaser containers
@@ -457,7 +466,8 @@ func (r EnvironmentReconciler) releaseJob(ctx context.Context, obj client.Object
 	executionSpaceProvider.Spec.Env = append(executionSpaceProvider.Spec.Env, envList...)
 
 	ttl := int32(300)
-	grace := int64(30)
+	// Releasers use the same publisher/telemetry lifecycle as providers.
+	grace := int64(60)
 	backoff := int32(0)
 
 	executionSpaceRelease, err := release.ExecutionSpaceReleaserContainer(
@@ -606,8 +616,9 @@ func (r *EnvironmentReconciler) registerOwnerIndexForExecutionSpace(mgr ctrl.Man
 	return nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager registers the controller and configures uncached reads for its primary objects.
 func (r *EnvironmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.apiReader = mgr.GetAPIReader()
 	// Register indexes for faster lookups
 	if err := r.registerOwnerIndexForJob(mgr); err != nil {
 		return err
