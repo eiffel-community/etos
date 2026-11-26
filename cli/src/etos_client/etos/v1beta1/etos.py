@@ -100,26 +100,16 @@ class Etos:
         return self.__wait(response)
 
     def __start(self) -> tuple[Optional[ResponseSchema], Optional[str]]:
-        """Trigger ETOS, retrying HTTP 502 with the same idempotency key."""
+        """Trigger ETOS, retrying with the same idempotency key on non-client errors."""
         request = self.start_request.from_args(self.args)
         self.baggage.add("parent_activity", request.parent_activity)
         url = f"{self.cluster}/api/{self.version}/testrun"
         self.logger.info("Triggering ETOS using %r", url)
 
         response_json = {}
+        http = Http(retry=HTTP_RETRY_PARAMETERS, timeout=START_REQUEST_TIMEOUT)
         headers = self.headers
         headers["Idempotency-Key"] = str(uuid4())
-        retry = HTTP_RETRY_PARAMETERS.new(
-            total=2,
-            connect=0,
-            read=False,
-            other=0,
-            allowed_methods={"POST"},
-            status_forcelist=[502],
-            raise_on_status=False,
-            respect_retry_after_header=False,
-        )
-        http = Http(retry=retry, timeout=START_REQUEST_TIMEOUT)
         try:
             response = http.post(url, json=request.model_dump(), headers=headers)
         except ReadTimeout:
