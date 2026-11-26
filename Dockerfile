@@ -3,6 +3,7 @@ FROM golang:1.25 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG DEFAULTS_PATH="defaults"
+ARG BUILD_REVISION
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -25,7 +26,8 @@ COPY ${DEFAULTS_PATH} defaults
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
 # the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager cmd/main.go
+RUN test -n "$BUILD_REVISION" || (echo "BUILD_REVISION must be supplied" >&2; exit 1)
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -buildvcs=false -ldflags "-X github.com/eiffel-community/etos/pkg/opentelemetry.buildRevision=$BUILD_REVISION" -a -o manager cmd/main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
