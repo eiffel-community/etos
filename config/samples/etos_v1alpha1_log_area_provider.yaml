@@ -9,8 +9,8 @@ spec:
   type: log-area
   image: example.com/logareaprovider:v0.0.1
   logAreaProviderConfig:
-    livelogs: http://cluster-sample-etos-logarea/logarea/v1alpha/$context
+    livelogs: http://cluster-sample-etos-sse/sse/v2alpha/events/$testrunid
     upload:
       as_json: false
       method: POST
-      url: http://cluster-sample-etos-logarea/logarea/v1alpha/upload
+      url: http://cluster-sample-etos-logarea/logarea/upload?path={context}/{folder}/{name}
