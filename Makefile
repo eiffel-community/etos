@@ -69,6 +69,7 @@ test: manifests generate fmt vet setup-envtest ## Run tests.
 # CertManager is installed by default; skip with:
 # - CERT_MANAGER_INSTALL_SKIP=true
 KIND_CLUSTER ?= etos-test-e2e
+E2E_DEFAULTS ?= $(if $(filter true,$(GITHUB_ACTIONS)),true,false)
 
 .PHONY: setup-test-e2e
 setup-test-e2e: ## Set up a Kind cluster for e2e tests if it does not exist
@@ -85,8 +86,9 @@ setup-test-e2e: ## Set up a Kind cluster for e2e tests if it does not exist
 	esac
 
 .PHONY: test-e2e
-test-e2e: setup-test-e2e manifests generate fmt vet ## Run the e2e tests. Expected an isolated environment using Kind.
-	E2E_REUSE=$(E2E_REUSE) KIND=$(KIND) KIND_CLUSTER=$(KIND_CLUSTER) go test -tags=e2e ./test/e2e/ -v -ginkgo.v -ginkgo.timeout=60m -timeout 0
+test-e2e: setup-test-e2e manifests generate fmt vet ## Run the e2e tests in Kind (E2E_DEFAULTS=true to include cluster defaults locally).
+	E2E_REUSE=$(E2E_REUSE) KIND=$(KIND) KIND_CLUSTER=$(KIND_CLUSTER) go test -tags=e2e ./test/e2e/ \
+		-v -ginkgo.v -ginkgo.timeout=60m -timeout 0 $(if $(filter true,$(E2E_DEFAULTS)),,-ginkgo.label-filter='!cluster-defaults')
 	@if [ "$(E2E_REUSE)" != "true" ]; then \
 		$(MAKE) cleanup-test-e2e; \
 	else \

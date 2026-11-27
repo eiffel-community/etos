@@ -28,8 +28,6 @@ spec:
         checkout:
         - git clone https://github.com/eiffel-community/etos
         command: exit 0
-        preExecution:
-        - sleep 30
       environment:
         environmentVariables: {}
         testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
@@ -41,8 +39,6 @@ spec:
         checkout:
         - git clone https://github.com/eiffel-community/etos
         command: exit 0
-        preExecution:
-        - sleep 40
       environment:
         environmentVariables: {}
         testRunner: ghcr.io/eiffel-community/etos-base-test-runner:debian-bookworm

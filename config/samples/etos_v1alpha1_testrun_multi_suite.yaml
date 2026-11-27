@@ -24,8 +24,6 @@ spec:
         - git clone https://github.com/eiffel-community/etos
         command: exit 0
         environment: {}
-        execute:
-        - sleep 30
         parameters: {}
         testRunner: ghcr.io/eiffel-community/etos-base-test-runner:ubuntu-noble
       id: c2c93da1-53c7-42f2-881c-60a579e57630
@@ -42,8 +40,6 @@ spec:
         - git clone https://github.com/eiffel-community/etos
         command: exit 0
         environment: {}
-        execute:
-        - sleep 40
         parameters: {}
         testRunner: ghcr.io/eiffel-community/etos-base-test-runner:debian-bookworm
       id: c2c93da1-53c7-42f2-881c-60a579e57630
