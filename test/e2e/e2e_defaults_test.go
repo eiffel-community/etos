@@ -74,13 +74,6 @@ func VerifyClusterDefaults() {
 			Eventually(verifyControllerUp).Should(Succeed())
 		})
 
-		// Since we update the defaults file within the tests when building the environmnent provider,
-		// the defaults that were there when we started the tests are used to verify the defaults in the
-		// tests. To avoid that, we override the image and the version in the configuration so tha
-		// the verifications below will work.
-		defaults.EnvironmentProvider.Image = environmentProviderImage
-		defaults.EnvironmentProvider.Version = environmentProviderVersion
-
 		services :=
 			[]struct {
 				name           string
@@ -193,20 +186,14 @@ func VerifyClusterDefaults() {
 				)
 				deleteVerify(service.path)
 				By(fmt.Sprintf("checking if the default image values are set to the %s", service.name))
+				image := service.serviceDefault.Image + ":" + service.serviceDefault.Version
+				if service.secretKey == "ENVIRONMENT_PROVIDER_IMAGE" {
+					image = environmentProviderImage + ":" + runTag
+				}
 				if service.verifySecret {
-					waitVerifySecretValue(service.secretKey,
-						fmt.Sprintf("%s:%s",
-							service.serviceDefault.Image, service.serviceDefault.Version,
-						),
-						defaultPullPolicy,
-					)
+					waitVerifySecretValue(service.secretKey, image, defaultPullPolicy)
 				} else {
-					waitVerifyImageValues(service.deploymentName, service.containerName,
-						fmt.Sprintf("%s:%s",
-							service.serviceDefault.Image, service.serviceDefault.Version,
-						),
-						defaultPullPolicy,
-					)
+					waitVerifyImageValues(service.deploymentName, service.containerName, image, defaultPullPolicy)
 				}
 			}
 			By("removing the optional version value from the cluster spec for the ETOS TestRunner")
@@ -229,7 +216,7 @@ func VerifyClusterDefaults() {
 			Eventually(verifySecretValue).Should(Succeed())
 		})
 		It("shall update images controller is updated with new defaults", func() {
-			image := "example.com/etos-defaults:v1.0.0"
+			image := "example.com/etos-defaults:" + runTag
 			By("building the manager(Operator) image")
 			cmd := exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", image),
 				"EXTRA_DOCKER_ARGS=--build-arg=DEFAULTS_PATH=testdata/defaults")
